@@ -10,15 +10,14 @@
 #### 主要内容
 1. 数据处理：
 
-   暂时没有采取读写excel方式，原因可以参考：
+   采用txt格式作为首选，适合nc格式的地方也尝试使用nc数据格式，比如有经纬度的时间序列数据——雷达测雨数据等。原因可以参考：
 [Python programming guide for Earth Scientists](http://python.hydrology-amsterdam.nl/manuals/hydro_python_manual.pdf)。
-简而言之，就是我们很少有正版excel，即便有或者用wps等，excel也存在序列数据太长导致不得不分sheet等不方便的情况，
-使得数据的获取inefficient，而使用python处理水文相关数据很好，再考虑以后类似项目数据的获取便利及尽可能地标准一些，
-本项目尝试使用nc数据格式。nc格式数据python接口官方资料：[netcdf4-python](https://github.com/Unidata/netcdf4-python)，还有一些其他资料如下：
-[Generating NetCDF files with Python](http://www.ceda.ac.uk/static/media/uploads/ncas-reading-2015/11_create_netcdf_python.pdf)；
+nc格式数据python接口官方资料：[netcdf4-python](https://github.com/Unidata/netcdf4-python)，
+补充一些资料如下：[Generating NetCDF files with Python](http://www.ceda.ac.uk/static/media/uploads/ncas-reading-2015/11_create_netcdf_python.pdf)；
 [Python-NetCDF reading and writing example with plotting](http://schubert.atmos.colostate.edu/~cslocum/netcdf_example.html)。
 
 2. 新安江模型核心算法
+- 在进行产流计算之前，首先需要计算前期土壤蓄水容量。利用前期降雨蒸发数据，调用流域蒸发计算模型计算。
 
 3. 模型参数率定
 

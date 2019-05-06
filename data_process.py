@@ -14,7 +14,7 @@ def init_parameters():
     config = pd.Series({'flood_ids': [19980531], 'time_interval/h': 1})
     # 初始化一部分模型所需的参数初值，包括流域上层、下层、深层张力水蓄量初值（三层蒸发模型计算使用的参数），
     #                               分水源计算的产流面积初值、自由水蓄量初值
-    model_initial_params = pd.Series([0, 1, 20, 0.001, 0.00], index=['WUM', 'WLM', 'WDM', 'Fr0', 'S0'])  # 如何取值？
+    initial_conditions = pd.Series([0, 1, 20, 0.001, 0.00], index=['WU', 'WL', 'WD', 'Fr0', 'S0'])  # 如何取值？
     # 然后读取场次洪水数据和每场次洪水数据前若干日的日降雨和蒸发数据（计算前期影响雨量作为初始土壤含水量依据）
     day_rain_evapor = pd.read_csv('data/example_day_rain_evapor.txt', sep='\t')
     flood_data = pd.read_csv("data/example_flood.txt", sep='\t')
@@ -40,7 +40,7 @@ def init_parameters():
                             1.791, 1.001, .029],
                            index=['K', 'IMP', 'WM', 'B', 'WUM', 'WLM', 'C', 'SM', 'EX', 'KSS', 'KG', 'KKSS', 'KKG',
                                   'UH', 'KE', 'XE'])
-    return property, config, model_initial_params, day_rain_evapor, flood_data, xaj_params
+    return property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params
 
 
 def txt2nc():

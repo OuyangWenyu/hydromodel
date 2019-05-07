@@ -20,9 +20,8 @@ def initial_soil_moisture(xaj_params, w0_initial, day_precip, day_evapor):
 
     w0 = w0_initial
     for i in len(day_evapor):
-        eu, el, ed, wu, wl, wd = evapor_single_period(xaj_params, w0, day_precip[i], day_precip[i])
+        eu, el, ed, wu, wl, wd = evapor_single_period(xaj_params, w0, day_precip[i], day_evapor[i])
         w0 = pd.Series([wu, wl, wd], index=['WU', 'WL', 'WD'])
-
     return w0
 
 
@@ -128,24 +127,33 @@ def evapor_single_period(evapor_params, initial_conditions, precip, evapor):
     return eu, el, ed, wu, wl, wd
 
 
-def runoff_generation(gene_params, precip, evapor):
+def runoff_generation(gene_params, w0_first, precips, evapors):
     """产流计算模型
 
     Parameters
     ----------
     gene_params: 新安江模型产流参数
-    precip: 流域各时段面平均降雨量
-    evapor: 流域各时段蒸散发
+    w0_first: 流域三层初始土壤含水量
+    precips: 流域各时段面平均降雨量
+    evapors: 流域各时段蒸散发
 
     Returns
     -------
     out : array
         runoff:流域各时段产流量
+        runoff_imp:流域各时段不透水面积上的产流量
     """
-
     # 时段循环计算
-
-    return
+    w0 = w0_first
+    runoff = pd.Series()
+    runoff_imp = pd.Series()
+    for i in len(evapors):
+        eu, el, ed, wu, wl, wd = evapor_single_period(gene_params, w0, precips[i], evapors[i])
+        r, r_imp = runoff_generation_single_period(gene_params, w0, precips[i], evapors[i])
+        w0 = pd.Series([wu, wl, wd], index=['WU', 'WL', 'WD'])
+        runoff.append(r)
+        runoff_imp.append(r_imp)
+    return runoff, runoff_imp
 
 
 def runoff_generation_single_period(gene_params, initial_params, precip, evapor):
@@ -190,9 +198,11 @@ def runoff_generation_single_period(gene_params, initial_params, precip, evapor)
             r = p - e - (wm - w0) + (wm * (1 - (a + p - e) / wmm) ** (1 + b))
         else:
             r = p - e - (wm - w0)
+        r_imp = (p - e) * imp
     else:
         r = 0
-    return r
+        r_imp = 0
+    return r, r_imp
 
 
 def different_sources():

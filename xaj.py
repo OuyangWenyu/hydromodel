@@ -1,5 +1,5 @@
 """总程序入口"""
-from core import initial_soil_moisture, runoff_generation
+from core import initial_soil_moisture, runoff_generation, different_sources
 
 
 def xaj(property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params):
@@ -14,5 +14,5 @@ def xaj(property, config, initial_conditions, day_rain_evapor, flood_data, xaj_p
     evapors = flood_data[:, 'FloodEvapor']
     runoff, runoff_imp = runoff_generation(xaj_params, w0, precips, evapors)
     # 水源划分计算
-
+    rs, rss, rg = different_sources()
     return

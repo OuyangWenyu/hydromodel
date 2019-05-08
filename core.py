@@ -156,13 +156,13 @@ def runoff_generation(gene_params, w0_first, precips, evapors):
     return runoff, runoff_imp
 
 
-def runoff_generation_single_period(gene_params, initial_params, precip, evapor):
+def runoff_generation_single_period(gene_params, initial_conditions, precip, evapor):
     """单时段流域产流计算模型——蓄满产流
 
     Parameters
     ----------
     gene_params: 新安江模型产流参数
-    initial_params: 时段初计算条件
+    initial_conditions: 时段初计算条件
     precip: 该时段面平均降雨量
     evapor: 流域该时段蒸散发
 
@@ -183,9 +183,9 @@ def runoff_generation_single_period(gene_params, initial_params, precip, evapor)
     b = gene_params['B']
     wm = gene_params['WM']
 
-    wu0 = initial_params['WU']
-    wl0 = initial_params['WL']
-    wd0 = initial_params['WD']
+    wu0 = initial_conditions['WU']
+    wl0 = initial_conditions['WL']
+    wd0 = initial_conditions['WD']
     p = precip
     e = k * evapor
 
@@ -205,9 +205,94 @@ def runoff_generation_single_period(gene_params, initial_params, precip, evapor)
     return r, r_imp
 
 
-def different_sources():
-    """分水源计算"""
-    return
+def different_sources(diff_source_params, initial_conditions, precips, evapors, runoffs):
+    """分水源计算
+
+    Parameters
+    ------------
+    diff_source_params:分水源计算所需参数
+    initial_conditions:计算所需初始条件
+    precips:各时段降雨
+    evapors:各时段蒸发
+    runoffs:各时段产流
+
+    Return
+    ------------
+    rs_s,rss_s,rg_s: array
+        除不透水面积以外的面积上划分水源得到的地表径流，壤中流和地下径流，注意水深值对应的是除不透水面积之外的流域面积
+
+    """
+    # 取参数值
+    k = diff_source_params['K']
+    sm = diff_source_params['SM']
+    ex = diff_source_params['EX']
+    kss = diff_source_params['KSS']
+    kg = diff_source_params['KG']
+
+    # 取初始值
+    s0 = initial_conditions['S0']
+
+    # 由于Ki、Kg、Ci、Cg都是以24小时为时段长定义的，需根据时段长转换
+    delta_t = precips['date'][1] - precips['date'][0]  # Timedelta对象
+    # 转换为小时
+    time_interval_hours = (delta_t.microseconds + (delta_t.seconds + delta_t.days * 24 * 3600) * 10 ** 6) / (
+            10 ** 6) / 3600
+    hours_per_day = 24
+    # TODO：如果不能整除呢？
+    period_num_1d = int(hours_per_day / time_interval_hours)
+    kss_period = (1 - (1 - (kss + kg)) ** (1 / period_num_1d)) / (1 + kg / kss)
+    kg_period = kss_period * kg / kss
+
+    # 流域最大点自由水蓄水容量深
+    smm = sm / (1 + ex)
+
+    s = s0
+    rs_s, rss_s, rg_s = [], [], []
+    for i in range(len(precips)):
+        p = precips[i]
+        e = k * evapors[i]
+        if p - e <= 0:
+            # 如果没有净雨，地表径流为0，壤中流和地下径流由地下自由水蓄水水库泄流给出
+            # TODO:没有净雨，地下自由水蓄水水库是否还下泄？
+            rs = rss = rg = 0
+        else:
+            fr = runoffs[i] / (p - e)
+            if fr < 0:
+                raise ArithmeticError("检查runoff值是否有负数！")
+            if fr > 1:
+                fr = 1
+            # 净雨分5mm一段进行计算，因为计算时在FS/FR ~ SMF'关系图上开展，即计算在产流面积上开展，所以用PE做净雨
+            # 这里为了差分计算更精确，所以才分段，不必每段5mm，小于即可。所以时段数加多少都行。
+            # TODO：净雨分段单位段长取很小的数呢？
+            n = int((p - e) / 5) + 1
+            pe = (p - e) / n
+            kss_d = (1 - (1 - (kss_period + kg_period)) ** (1 / n)) / (1 + kg_period / kss_period)
+            kg_d = kss_d * kg_period / kss_period
+
+            smmf = smm * (1 - (1 - fr) ** (1 / ex))
+            smf = smmf / (1 + ex)
+            rs = rss = rg = 0
+            for j in range(n):
+                au = smmf * (1 - (1 - s / smf) ** (1 / (1 + ex)))
+                if pe + au >= smmf:
+                    rs_j = (pe + s - smf) * fr
+                    rss_j = smf * kss_d * fr
+                    rg_j = smf * kg_d * fr
+                    s = smf - (rss_j + rg_j) / fr
+                elif 0 < pe + au < smmf:
+                    rs_j = (pe - smf + s + smf * (1 - (pe + au) / smf) ** (ex + 1)) * fr
+                    rss_j = (pe - rs_j / fr + s) * kss_d * fr
+                    rg_j = (pe - rs_j / fr + s) * kg_d * fr
+                    s = s + pe - (rs_j + rss_j + rg_j) / fr
+                else:
+                    rs_j = rss_j = rg_j = s = 0
+                rs = rs + rs_j
+                rss = rss + rss_j
+                rg = rg + rg_j
+        rs_s.append(rs)
+        rss_s.append(rss)
+        rg_s.append(rg)
+    return rs_s, rss_s, rg_s
 
 
 def land_route():

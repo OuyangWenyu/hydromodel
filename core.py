@@ -189,6 +189,8 @@ def runoff_generation_single_period(gene_params, initial_conditions, precip, eva
     p = precip
     e = k * evapor
 
+    # 这里的imp是不是流域不透水面积/总面积的意思？个人认为应该不是，这里应该只是把wmm做了一个处理，
+    # 后面计算的时候实际上只是在透水面积上做的计算，并没有真的把不透水面积比例考虑进产流模型中
     wmm = wm * (1 + b) / (1 - imp)
     w0 = wu0 + wl0 + wd0
     a = wmm * (1 - (1 - w0 / wmm) ** (1 / (1 + b)))
@@ -231,7 +233,7 @@ def different_sources(diff_source_params, initial_conditions, precips, evapors, 
 
     # 取初始值
     s0 = initial_conditions['S0']
-
+    fr0 = initial_conditions['FR0']
     # 由于Ki、Kg、Ci、Cg都是以24小时为时段长定义的，需根据时段长转换
     delta_t = precips['date'][1] - precips['date'][0]  # Timedelta对象
     # 转换为小时
@@ -274,16 +276,18 @@ def different_sources(diff_source_params, initial_conditions, precips, evapors, 
             rs = rss = rg = 0
             for j in range(n):
                 au = smmf * (1 - (1 - s / smf) ** (1 / (1 + ex)))
+                # 这里是不是直接把前面产流计算也弄成分5mm净雨一算的比较好？但是处理起来估计比较复杂
+                fr_d = 1 - (1 - fr) ** (1 / n)  # 按《水文预报》书上公式计算
                 if pe + au >= smmf:
-                    rs_j = (pe + s - smf) * fr
-                    rss_j = smf * kss_d * fr
-                    rg_j = smf * kg_d * fr
-                    s = smf - (rss_j + rg_j) / fr
+                    rs_j = (pe + s - smf) * fr_d
+                    rss_j = smf * kss_d * fr_d
+                    rg_j = smf * kg_d * fr_d
+                    s = smf - (rss_j + rg_j) / fr_d
                 elif 0 < pe + au < smmf:
-                    rs_j = (pe - smf + s + smf * (1 - (pe + au) / smf) ** (ex + 1)) * fr
-                    rss_j = (pe - rs_j / fr + s) * kss_d * fr
-                    rg_j = (pe - rs_j / fr + s) * kg_d * fr
-                    s = s + pe - (rs_j + rss_j + rg_j) / fr
+                    rs_j = (pe - smf + s + smf * (1 - (pe + au) / smf) ** (ex + 1)) * fr_d
+                    rss_j = (pe - rs_j / fr_d + s) * kss_d * fr_d
+                    rg_j = (pe - rs_j / fr_d + s) * kg_d * fr_d
+                    s = s + pe - (rs_j + rss_j + rg_j) / fr_d
                 else:
                     rs_j = rss_j = rg_j = s = 0
                 rs = rs + rs_j
@@ -295,8 +299,20 @@ def different_sources(diff_source_params, initial_conditions, precips, evapors, 
     return rs_s, rss_s, rg_s
 
 
-def land_route():
-    """坡面汇流计算"""
+def nash_uh(runoffs, flood_data):
+    """计算Nash单位线
+     Parameters
+    ------------
+    rs:各时段净雨（地表）
+    flood_data:出口断面流量过程线
+
+    Return
+    ------------
+    n,k:float
+        nash单位线两参数
+
+
+    """
     return
 
 

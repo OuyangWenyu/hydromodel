@@ -1,5 +1,5 @@
 """总程序入口"""
-from core import initial_soil_moisture, runoff_generation, different_sources
+from core import initial_soil_moisture, runoff_generation, different_sources, nash_uh
 
 
 def xaj(property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params):
@@ -14,5 +14,7 @@ def xaj(property, config, initial_conditions, day_rain_evapor, flood_data, xaj_p
     evapors = flood_data[:, 'FloodEvapor']
     runoff, runoff_imp = runoff_generation(xaj_params, w0, precips, evapors)
     # 水源划分计算
-    rs, rss, rg = different_sources()
+    rs, rss, rg = different_sources(xaj_params, initial_conditions, precips, evapors, runoff)
+    # 汇流计算，首先是地表径流汇流，采用nash单位线进行计算，首先计算单位线
+    n, k = nash_uh(rs, flood_data)
     return

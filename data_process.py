@@ -14,7 +14,7 @@ def init_parameters():
     config = pd.Series({'flood_ids': [19980531], 'time_interval/h': 1})
     # 初始化一部分模型所需的参数初值，包括流域上层、下层、深层张力水蓄量初值（三层蒸发模型计算使用的参数），
     #                               分水源计算的产流面积初值、自由水蓄量初值
-    initial_conditions = pd.Series([0, 1, 20, 0.00], index=['WU', 'WL', 'WD', 'S0'])  # 如何取值？
+    initial_conditions = pd.Series([0, 1, 20, 0.001, 0.00], index=['WU', 'WL', 'WD', 'FR0', 'S0'])  # 如何取值？
     # 然后读取场次洪水数据和每场次洪水数据前若干日的日降雨和蒸发数据（计算前期影响雨量作为初始土壤含水量依据）
     day_rain_evapor = pd.read_csv('data/example_day_rain_evapor.txt', sep='\t')
     flood_data = pd.read_csv("data/example_flood.txt", sep='\t')

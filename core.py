@@ -299,30 +299,104 @@ def different_sources(diff_source_params, initial_conditions, precips, evapors, 
     return rs_s, rss_s, rg_s
 
 
-def nash_uh(runoffs, flood_data):
-    """计算Nash单位线
-     Parameters
+def iuh_recognise(runoffs, flood_data, linear_reservoir=None, linear_canal=None, isochrone=None):
+    """瞬时单位线的识别，目前以计算Nash单位线为主
+    Parameters
     ------------
-    rs:各时段净雨（地表）
-    flood_data:出口断面流量过程线
+    runoffs:多组各时段净雨（地表），矩阵表示
+    flood_data:多组出口断面流量过程线，矩阵表示
+    linear_reservoir:
+    linear_canal:线性渠个数
+    isochrone:等流时线个数
 
     Return
     ------------
     n,k:float
         nash单位线两参数
+    """
+    # TODO: 这个函数没想好怎么写，能很好地把串并联结构和三个基础模型搭配在一起，目前以n个线性水库串联为主
+
+    return
 
 
+def iuh_forecast(runoffs, flood_data, parameters):
+    """运用瞬时单位线进行汇流计算
+    Parameters
+    ------------
+    runoffs:场次洪水对应的各时段净雨，数组
+    flood_data:出口断面流量过程线，数组
+    parameters:瞬时单位线的参数
+
+    Return
+    ------------
+    q:array
+        汇流计算结果——流量过程线
     """
     return
 
 
-
-
-def network_route():
-    """河网汇流计算"""
+def uh_recognise(runoffs, flood_data, parameters):
+    """时段单位线的识别，先以最小二乘法为主"""
     return
 
 
-def river_route():
-    """河道汇流计算"""
+def uh_forecast(runoffs, flood_data, uh):
+    """运用时段单位线进行汇流计算
+    Parameters
+    ------------
+    runoffs:场次洪水对应的各时段净雨，数组
+    flood_data:出口断面流量过程线，数组
+    uh:单位线各个时段数值
+
+    Return
+    ------------
+    q:array
+        汇流计算结果——流量过程线
+    """
     return
+
+
+def network_route(runoffs, route_params):
+    """河网汇流计算，新安江模型里一般采用线性水库或滞后演算法。这里使用滞后演算法
+     Parameters
+    ------------
+    runoffs:坡面汇流计算结果，数组
+    route_params:模型参数
+
+    Return
+    ------------
+    q:array
+        汇流计算结果——流量过程线
+    """
+    # TODO:滞后演算法和线性渠是一样的么？如果是，可以与瞬时单位线的计算合并
+    return
+
+
+def river_route(runoffs, route_params):
+    """河道汇流计算，新安江模型一般采用马斯京根法
+     Parameters
+    ------------
+    runoffs:河网汇流计算结果，数组
+    route_params:模型参数
+
+    Return
+    ------------
+    q:array
+        汇流计算结果——流量过程线
+    """
+    ke = route_params['KE']
+    xe = route_params['XE']
+    delta_t = runoffs['date'][1] - runoffs['date'][0]  # Timedelta对象
+    # 转换为小时
+    time_interval_hours = (delta_t.microseconds + (delta_t.seconds + delta_t.days * 24 * 3600) * 10 ** 6) / (
+            10 ** 6) / 3600
+
+    c0 = (0.5 * time_interval_hours - ke * xe) / (0.5 * time_interval_hours + ke - ke * xe)
+    c1 = (0.5 * time_interval_hours + ke * xe) / (0.5 * time_interval_hours + ke - ke * xe)
+    c2 = 1 - c0 - c1
+
+    if c0 >= 0 and c2 >= 0:
+        q = c0 * runoffs[1:] + c1 * runoffs[:-1] + c2 * runoffs[:-1]
+    else:
+        q = runoffs
+    return q

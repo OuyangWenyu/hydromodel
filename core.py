@@ -368,8 +368,27 @@ def network_route(runoffs, route_params):
     q:array
         汇流计算结果——流量过程线
     """
-    # TODO:滞后演算法和线性渠是一样的么？如果是，可以与瞬时单位线的计算合并
-    return
+    # TODO:滞后演算法是一个线性渠和一个线性水库的串联，先写在这里，后面再考虑重构，和单位线合并
+    t = route_params['']
+    cs = route_params['']
+    qr = runoffs
+    qf = runoffs
+    if t <= 0:
+        t = 0
+        for i in len(runoffs):
+            if i == 0:
+                qf[0] = (1 - cs) * qr[0]
+            else:
+                qf[i] = cs * qf[i - 1] + (1 - cs) * qr[i]
+    else:
+        for i in len(runoffs):
+            if i == 0:
+                qf[0] = 0
+            elif i < t:
+                qf[i] = cs * qf[i - 1]
+            else:
+                qf[i] = cs * qf[i - 1] + (1 - cs) * qr[i - t]
+    return qf
 
 
 def river_route(runoffs, route_params):

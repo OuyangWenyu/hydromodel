@@ -1,5 +1,7 @@
 """新安江模型核心计算程序"""
+import numpy as np
 import pandas as pd
+from scipy.signal import convolve
 
 
 def initial_soil_moisture(xaj_params, w0_initial, day_precip, day_evapor):
@@ -319,33 +321,81 @@ def iuh_recognise(runoffs, flood_data, linear_reservoir=None, linear_canal=None,
     return
 
 
-def iuh_forecast(runoffs, flood_data, parameters):
+def route_linear_reservoir(route_params, property, config, rss_s, rg_s):
     """运用瞬时单位线进行汇流计算
     Parameters
     ------------
-    runoffs:场次洪水对应的各时段净雨，数组
-    flood_data:出口断面流量过程线，数组
-    parameters:瞬时单位线的参数
+    route_params:汇流参数
+    initial_conditions:初始条件
+    rss_s: 壤中流净雨
+    rg_s:地下径流净雨
 
     Return
     ------------
-    q:array
+    qrss,qrg:array
         汇流计算结果——流量过程线
     """
-    return
+    area = property['basin_area']
+    time_in = config['time_interval']
+    u = area / (3.6 * time_in);
+
+    kkss = route_params['KKSS']
+    kkg = route_params['KKG']
+
+    qrss = []
+    qrg = []
+
+    qrss[0] = rss_s[0] * (1 - kkss) * u
+    qrg[0] = rg_s[0] * (1 - kkg) * u
+
+    for i in range(1, len(rss_s)):
+        qrss[i] = rss_s[i] * (1 - kkss) * u + qrss[i - 1] * kkss
+        qrg[i] = rg_s[i] * (1 - kkss) * u + qrg[i - 1] * kkg
+
+    return qrss, qrg
 
 
-def uh_recognise(runoffs, flood_data, parameters):
-    """时段单位线的识别，先以最小二乘法为主"""
-    return
+def uh_recognise(runoffs, flood_data):
+    """时段单位线的识别，先以最小二乘法为主。
+    Parameters
+    ------------
+    runoffs:各场次洪水对应的各时段净雨，矩阵
+    flood_data:各出口断面流量过程线，矩阵
+
+    Return
+    ------------
+    uh:array
+        时段单位线
+    """
+    # 最小二乘法计算针对每场次洪水得到一条单位线，多场次洪水，按照书上的意思，可以取平均。如果曲线之间差异较大，需要进行分类，目前先求平均。
+    qs = []
+    q_sum = []
+    for i in range(len(runoffs)):
+        h = []
+        Q = flood_data[i]
+        l = len(flood_data[i])
+        m = len(runoffs[i])
+        n = l - m + 1
+        for j in range(n):
+            h_column = np.zeros(l)
+            for k in range(j, j + m):
+                h_column[k] = runoffs[i][j - k]
+            h.append(h_column)
+        ht = np.transpose(h)
+        hth = np.dot(ht, h)
+        htQ = np.dot(ht, Q)
+        q_temp = qs.append(np.linalg.solve(hth, htQ))
+        qs.append(q_temp)
+        q_sum = q_sum + q_temp
+    q = q_sum / len(runoffs)
+    return q
 
 
-def uh_forecast(runoffs, flood_data, uh):
+def uh_forecast(runoffs, uh):
     """运用时段单位线进行汇流计算
     Parameters
     ------------
     runoffs:场次洪水对应的各时段净雨，数组
-    flood_data:出口断面流量过程线，数组
     uh:单位线各个时段数值
 
     Return
@@ -353,7 +403,8 @@ def uh_forecast(runoffs, flood_data, uh):
     q:array
         汇流计算结果——流量过程线
     """
-    return
+    q = convolve(runoffs, uh)
+    return q
 
 
 def network_route(runoffs, route_params):

@@ -6,7 +6,7 @@ import os
 import logging
 
 
-def init_parameters():
+def init_parameters(params):
     """输入数据，初始化参数"""
     # 流域属性值的读取，包括流域面积
     property = pd.Series({'basin_area/km^2': 343})
@@ -36,10 +36,16 @@ def init_parameters():
     # UH: 单元流域上地面径流单位线
     # KE: 单元河段马斯京根模型参数K值
     # XE: 单元河段马斯京根模型参数X值
-    xaj_params = pd.Series([.998, .040, 182.515, .400, 27.764, 84.393, .200, 51.634, 1.002, .379, .986, .284, .766,
-                            1.791, 1.001, .029],
-                           index=['K', 'IMP', 'WM', 'B', 'WUM', 'WLM', 'C', 'SM', 'EX', 'KSS', 'KG', 'KKSS', 'KKG',
-                                  'UH', 'KE', 'XE'])
+    if params is None:
+        xaj_params = pd.Series([.998, .040, 182.515, .400, 27.764, 84.393, .200, 51.634, 1.002, .379, .986, .284, .766,
+                                1.791, 1.001, .029],
+                               index=['K', 'IMP', 'WM', 'B', 'WUM', 'WLM', 'C', 'SM', 'EX', 'KSS', 'KG', 'KKSS', 'KKG',
+                                      'UH', 'KE', 'XE'])
+    else:
+        params.append(config['time_interval'])
+        xaj_params = pd.Series(params,
+                               index=['K', 'WUM', 'WLM', 'C', 'WM', 'B', 'IMP', 'SM', 'EX', 'KG', 'KSS', 'KKSS', 'KKG',
+                                      'KKS', 'L', 'XE', 'KE'])
     return property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params
 
 

@@ -16,12 +16,12 @@ def initial_soil_moisture(xaj_params, w0_initial, day_precip, day_evapor):
 
     Returns
     -------
-    out : array
+    out : pandas.Series
         w0:模型计算使用的流域前期土壤含水量
     """
 
     w0 = w0_initial
-    for i in len(day_evapor):
+    for i in range(day_evapor.size):
         eu, el, ed, wu, wl, wd = evapor_single_period(xaj_params, w0, day_precip[i], day_evapor[i])
         w0 = pd.Series([wu, wl, wd], index=['WU', 'WL', 'WD'])
     return w0
@@ -39,7 +39,7 @@ def evapor_single_period(evapor_params, initial_conditions, precip, evapor):
 
     Returns
     -------
-    out : float,float,float
+    out : float
         eu,el,ed:流域时段三层蒸散发
         wu,wl,wd:流域时段三层含水量
     """
@@ -69,8 +69,8 @@ def evapor_single_period(evapor_params, initial_conditions, precip, evapor):
     wdm = wm - wum - wlm
 
     if p - e > 0:
-        # 当pe>0时，说明流域蓄水量增加，首先补充上层土壤水，然后补充下层，最后补充深层
-        r = runoff_generation_single_period(evapor_params, initial_conditions, precip, evapor)
+        # 当pe>0时，说明流域蓄水量增加，首先补充上层土壤水，然后补充下层，最后补充深层，不透水层产生的径流不补充张力水，因此直接不参与接下来计算
+        r, r_imp = runoff_generation_single_period(evapor_params, initial_conditions, precip, evapor)
         eu = e
         el = 0
         ed = 0
@@ -114,6 +114,7 @@ def evapor_single_period(evapor_params, initial_conditions, precip, evapor):
                     ed = c * (e - p - eu) - wl0
                     wl = 0
                     wd = wd0 - ed
+    # 可能有计算误差使得数据略超出合理范围，应该规避掉，如果明显超出范围，则可能计算有误，应仔细检查计算过程
     if wu < 0:
         wu = 0
     if wl < 0:
@@ -141,15 +142,15 @@ def runoff_generation(gene_params, w0_first, precips, evapors):
 
     Returns
     -------
-    out : array
+    out : list 数组
         runoff:流域各时段产流量
         runoff_imp:流域各时段不透水面积上的产流量
     """
     # 时段循环计算
     w0 = w0_first
-    runoff = pd.Series()
-    runoff_imp = pd.Series()
-    for i in len(evapors):
+    runoff = []
+    runoff_imp = []
+    for i in range(evapors.size):
         eu, el, ed, wu, wl, wd = evapor_single_period(gene_params, w0, precips[i], evapors[i])
         r, r_imp = runoff_generation_single_period(gene_params, w0, precips[i], evapors[i])
         w0 = pd.Series([wu, wl, wd], index=['WU', 'WL', 'WD'])
@@ -195,11 +196,11 @@ def runoff_generation_single_period(gene_params, initial_conditions, precip, eva
     # 后面计算的时候实际上只是在透水面积上做的计算，并没有真的把不透水面积比例考虑进产流模型中
     wmm = wm * (1 + b) / (1 - imp)
     w0 = wu0 + wl0 + wd0
-    a = wmm * (1 - (1 - w0 / wmm) ** (1 / (1 + b)))
+    a = wmm * (1 - (1 - w0 / wm) ** (1 / (1 + b)))
 
     if p - e >= 0:
         if p - e + a < wmm:
-            r = p - e - (wm - w0) + (wm * (1 - (a + p - e) / wmm) ** (1 + b))
+            r = p - e - (wm - w0) + wm * (1 - (a + p - e) / wmm) ** (1 + b)
         else:
             r = p - e - (wm - w0)
         r_imp = (p - e) * imp
@@ -209,12 +210,13 @@ def runoff_generation_single_period(gene_params, initial_conditions, precip, eva
     return r, r_imp
 
 
-def different_sources(diff_source_params, initial_conditions, precips, evapors, runoffs):
+def different_sources(diff_source_params, config, initial_conditions, precips, evapors, runoffs):
     """分水源计算
 
     Parameters
     ------------
     diff_source_params:分水源计算所需参数
+    config: 计算配置条件
     initial_conditions:计算所需初始条件
     precips:各时段降雨
     evapors:各时段蒸发
@@ -222,7 +224,7 @@ def different_sources(diff_source_params, initial_conditions, precips, evapors, 
 
     Return
     ------------
-    rs_s,rss_s,rg_s: array
+    rs_s,rss_s,rg_s: list 数组
         除不透水面积以外的面积上划分水源得到的地表径流，壤中流和地下径流，注意水深值对应的是除不透水面积之外的流域面积
 
     """
@@ -233,68 +235,107 @@ def different_sources(diff_source_params, initial_conditions, precips, evapors, 
     kss = diff_source_params['KSS']
     kg = diff_source_params['KG']
 
+    # 为便于后面计算，这里以数组形式给出s和fr
+    s_s = []
+    fr_s = []
     # 取初始值
     s0 = initial_conditions['S0']
     fr0 = initial_conditions['FR0']
+    s_s.append(s0)
+    fr_s.append(fr0)
+
     # 由于Ki、Kg、Ci、Cg都是以24小时为时段长定义的，需根据时段长转换
-    delta_t = precips['date'][1] - precips['date'][0]  # Timedelta对象
-    # 转换为小时
-    time_interval_hours = (delta_t.microseconds + (delta_t.seconds + delta_t.days * 24 * 3600) * 10 ** 6) / (
-            10 ** 6) / 3600
+    time_interval_hours = config['time_interval/h']
     hours_per_day = 24
-    # TODO：如果不能整除呢？
-    period_num_1d = int(hours_per_day / time_interval_hours)
+    # 非整除情况，时段+1
+    residue_temp = hours_per_day % time_interval_hours
+    if residue_temp != 0:
+        residue_temp = 1
+    period_num_1d = int(hours_per_day / time_interval_hours) + residue_temp
     kss_period = (1 - (1 - (kss + kg)) ** (1 / period_num_1d)) / (1 + kg / kss)
     kg_period = kss_period * kg / kss
 
     # 流域最大点自由水蓄水容量深
-    smm = sm / (1 + ex)
+    smm = sm * (1 + ex)
 
-    s = s0
     rs_s, rss_s, rg_s = [], [], []
-    for i in range(len(precips)):
+    for i in range(precips.size):
+        fr0 = fr_s[i]
         p = precips[i]
         e = k * evapors[i]
         if p - e <= 0:
-            # 如果没有净雨，地表径流为0，壤中流和地下径流由地下自由水蓄水水库泄流给出
-            # TODO:没有净雨，地下自由水蓄水水库是否还下泄？
+            # 如果没有净雨，没有产流，应该是均为0
             rs = rss = rg = 0
+            # 没有产流也要往s_s和fr_s数组里放置数字，否则计算无法继续
+            fr = fr0
+            fr_s.append(fr)
+            if i == 0:
+                s = s0
+            else:
+                s = s_s[i - 1]
+            s_s.append(s)
         else:
+            # 首先要给定时段出的fr0，以根据fr0*s0=fr*s计算时段计算中所需的s值
+            # 计算当前时段的fr，后面分5mm之后，每个时段还要单独算，但是fr必须得先算出来，后面才能算fr_d，所以这里不能少fr
             fr = runoffs[i] / (p - e)
             if fr < 0:
                 raise ArithmeticError("检查runoff值是否有负数！")
             if fr > 1:
                 fr = 1
-            # 净雨分5mm一段进行计算，因为计算时在FS/FR ~ SMF'关系图上开展，即计算在产流面积上开展，所以用PE做净雨
-            # 这里为了差分计算更精确，所以才分段，不必每段5mm，小于即可。所以时段数加多少都行。
-            # TODO：净雨分段单位段长取很小的数呢？
-            n = int((p - e) / 5) + 1
+
+            # 计算当前时段计算中的s值，后面分5mm段之后，s还要重新计算，所以这里算不算都行
+            s = s0 * fr0 / fr
+
+            # 净雨分5mm一段进行计算，因为计算时在FS/FR ~ SMF'关系图上开展，即计算在产流面积上开展，所以用PE做净雨.分段为了差分计算更精确。
+            residue_temp = (p - e) % 5
+            if residue_temp != 0:
+                residue_temp = 1
+            n = int((p - e) / 5) + residue_temp
+            # 整除了就是5mm，不整除就少一些，差分每段小了也挺好
             pe = (p - e) / n
             kss_d = (1 - (1 - (kss_period + kg_period)) ** (1 / n)) / (1 + kg_period / kss_period)
             kg_d = kss_d * kg_period / kss_period
 
-            smmf = smm * (1 - (1 - fr) ** (1 / ex))
-            smf = smmf / (1 + ex)
             rs = rss = rg = 0
+
+            s_ds = []
+            fr_ds = []
+            s_ds.append(s0)
+            fr_ds.append(fr0)
+
             for j in range(n):
-                au = smmf * (1 - (1 - s / smf) ** (1 / (1 + ex)))
-                # 这里是不是直接把前面产流计算也弄成分5mm净雨一算的比较好？但是处理起来估计比较复杂
+                # 因为产流面积随着自由水蓄水容量的变化而变化，每5mm净雨对应的产流面积肯定是不同的，因此fr是变化的
+                fr0_d = fr_ds[j]
+                s0_d = s_ds[j]
                 fr_d = 1 - (1 - fr) ** (1 / n)  # 按《水文预报》书上公式计算
+                s_d = fr0_d * s0_d / fr_d
+
+                smmf = smm * (1 - (1 - fr_d) ** (1 / ex))
+                smf = smmf / (1 + ex)
+                au = smmf * (1 - (1 - s_d / smf) ** (1 / (1 + ex)))
+
                 if pe + au >= smmf:
-                    rs_j = (pe + s - smf) * fr_d
+                    rs_j = (pe + s_d - smf) * fr_d
                     rss_j = smf * kss_d * fr_d
                     rg_j = smf * kg_d * fr_d
-                    s = smf - (rss_j + rg_j) / fr_d
+                    s_d = smf - (rss_j + rg_j) / fr_d
                 elif 0 < pe + au < smmf:
-                    rs_j = (pe - smf + s + smf * (1 - (pe + au) / smf) ** (ex + 1)) * fr_d
-                    rss_j = (pe - rs_j / fr_d + s) * kss_d * fr_d
-                    rg_j = (pe - rs_j / fr_d + s) * kg_d * fr_d
-                    s = s + pe - (rs_j + rss_j + rg_j) / fr_d
+                    rs_j = (pe - smf + s_d + smf * (1 - (pe + au) / smf) ** (ex + 1)) * fr_d
+                    rss_j = (pe - rs_j / fr_d + s_d) * kss_d * fr_d
+                    rg_j = (pe - rs_j / fr_d + s_d) * kg_d * fr_d
+                    s_d = s_d + pe - (rs_j + rss_j + rg_j) / fr_d
                 else:
-                    rs_j = rss_j = rg_j = s = 0
+                    rs_j = rss_j = rg_j = s_d = 0
                 rs = rs + rs_j
                 rss = rss + rss_j
                 rg = rg + rg_j
+                # 赋值s_d和fr_d到数组中，以给下一段做初值
+                s_ds.append(s_d)
+                fr_ds.append(fr_d)
+                if j == n - 1:
+                    # 最后一个净雨段，把fr_d和s_d值赋给s0和fr0作为下一个时段计算初值
+                    fr_s.append(fr_d)
+                    s_s.append(s_d)
         rs_s.append(rs)
         rss_s.append(rss)
         rg_s.append(rg)
@@ -321,12 +362,12 @@ def iuh_recognise(runoffs, flood_data, linear_reservoir=None, linear_canal=None,
     return
 
 
-def route_linear_reservoir(route_params, property, config, rss_s, rg_s):
+def route_linear_reservoir(route_params, basin_property, config, rss_s, rg_s):
     """运用瞬时单位线进行汇流计算
     Parameters
     ------------
     route_params:汇流参数
-    property: 流域属性条件
+    basin_property: 流域属性条件
     config: 配置条件
     rss_s: 壤中流净雨
     rg_s:地下径流净雨
@@ -336,9 +377,9 @@ def route_linear_reservoir(route_params, property, config, rss_s, rg_s):
     qrss,qrg:array
         汇流计算结果——流量过程线
     """
-    area = property['basin_area']
-    time_in = config['time_interval']
-    u = area / (3.6 * time_in);
+    area = basin_property['basin_area']
+    time_in = config['time_interval/h']
+    u = area / (3.6 * time_in)
 
     kkss = route_params['KKSS']
     kkg = route_params['KKG']
@@ -427,13 +468,13 @@ def network_route(runoffs, route_params):
     qf = runoffs
     if t <= 0:
         t = 0
-        for i in len(runoffs):
+        for i in range(len(runoffs)):
             if i == 0:
                 qf[0] = (1 - cs) * qr[0]
             else:
                 qf[i] = cs * qf[i - 1] + (1 - cs) * qr[i]
     else:
-        for i in len(runoffs):
+        for i in range(len(runoffs)):
             if i == 0:
                 qf[0] = 0
             elif i < t:
@@ -443,7 +484,7 @@ def network_route(runoffs, route_params):
     return qf
 
 
-def river_route(runoffs, route_params):
+def river_route(config, route_params, runoffs):
     """河道汇流计算，新安江模型一般采用马斯京根法
      Parameters
     ------------
@@ -457,10 +498,7 @@ def river_route(runoffs, route_params):
     """
     ke = route_params['KE']
     xe = route_params['XE']
-    delta_t = runoffs['date'][1] - runoffs['date'][0]  # Timedelta对象
-    # 转换为小时
-    time_interval_hours = (delta_t.microseconds + (delta_t.seconds + delta_t.days * 24 * 3600) * 10 ** 6) / (
-            10 ** 6) / 3600
+    time_interval_hours = config['time_interval/h']
 
     c0 = (0.5 * time_interval_hours - ke * xe) / (0.5 * time_interval_hours + ke - ke * xe)
     c1 = (0.5 * time_interval_hours + ke * xe) / (0.5 * time_interval_hours + ke - ke * xe)

@@ -44,9 +44,9 @@ def cal_mare(simulated_flow, flood_data):
 def cal_fitness(xaj_params):
     """统计预报误差等，计算模型fitness，也便于后面进行参数率定"""
     # 构造输入数据
-    property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params = init_parameters(xaj_params)
+    basin_property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params = init_parameters(xaj_params)
     # 调用模型计算，得到输出
-    simulated_flow = xaj(property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params)
+    simulated_flow = xaj(basin_property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params)
     # 计算适应度，先只以
     return [cal_mare(simulated_flow, flood_data), cal_nse(simulated_flow, flood_data)]
 

@@ -326,7 +326,8 @@ def route_linear_reservoir(route_params, property, config, rss_s, rg_s):
     Parameters
     ------------
     route_params:汇流参数
-    initial_conditions:初始条件
+    property: 流域属性条件
+    config: 配置条件
     rss_s: 壤中流净雨
     rg_s:地下径流净雨
 

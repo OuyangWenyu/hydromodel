@@ -15,6 +15,7 @@ class TestXaj(unittest.TestCase):
         property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params = init_parameters()
         # 调用模型计算，得到输出
         simulated_flow = xaj(property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params)
+        print(simulated_flow)
 
     def test_key(self):
         starttime = datetime.datetime.now()

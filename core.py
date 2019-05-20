@@ -320,7 +320,7 @@ def different_sources(diff_source_params, config, initial_conditions, precips, e
                     rg_j = smf * kg_d * fr_d
                     s_d = smf - (rss_j + rg_j) / fr_d
                 elif 0 < pe + au < smmf:
-                    rs_j = (pe - smf + s_d + smf * (1 - (pe + au) / smf) ** (ex + 1)) * fr_d
+                    rs_j = (pe - smf + s_d + smf * (1 - (pe + au) / smmf) ** (ex + 1)) * fr_d
                     rss_j = (pe - rs_j / fr_d + s_d) * kss_d * fr_d
                     rg_j = (pe - rs_j / fr_d + s_d) * kg_d * fr_d
                     s_d = s_d + pe - (rs_j + rss_j + rg_j) / fr_d

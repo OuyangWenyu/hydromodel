@@ -2,7 +2,7 @@
 from hydroeval import *
 from platypus import Problem, Real, NSGAII, GAOperator, SBX, PM
 from data_process import init_parameters
-from xaj import xaj
+from xaj import xaj_runoff_generation
 
 import matplotlib.pyplot as plt
 
@@ -17,7 +17,7 @@ class XajCalibrate(Problem):
         # 第一层：K/WUM/WLM/C
         # 第二层：WM/B/IMP
         # 第三层：SM/EX/KG/KSS
-        # 第四层：KKSS/KKG/KKS/L/XE  KE直接取时段数，就不优化了
+        # 第四层：KKSS/KKG/CR/L/XE  KE直接取时段数，就不优化了
         self.types[:] = [Real(0, 1.5), Real(10, 20), Real(60, 90), Real(0.10, 0.20), Real(120, 200), Real(0.1, 0.4),
                          Real(0.01, 0.04), Real(0, 100), Real(1.0, 1.5), Real(0, 1), Real(0, 1), Real(0, 1),
                          Real(0, 1), Real(0, 4), Real(0, 0.5)]
@@ -46,7 +46,7 @@ def cal_fitness(xaj_params):
     # 构造输入数据
     basin_property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params = init_parameters(xaj_params)
     # 调用模型计算，得到输出
-    simulated_flow = xaj(basin_property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params)
+    simulated_flow = xaj_runoff_generation(basin_property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params)
     # 计算适应度，先只以
     return [cal_mare(simulated_flow, flood_data), cal_nse(simulated_flow, flood_data)]
 

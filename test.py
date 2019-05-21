@@ -14,9 +14,9 @@ class TestXaj(unittest.TestCase):
     def test_xaj(self):
         """每个测试用例都必须以test开头"""
         # 构造输入数据
-        property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params = init_parameters()
+        property, config, initial_conditions, days_rain_evapor, floods_data, xaj_params = init_parameters()
         # 调用模型计算，得到输出
-        simulated_flow = xaj(property, config, initial_conditions, day_rain_evapor, flood_data, xaj_params)
+        simulated_flow = xaj(property, config, initial_conditions, days_rain_evapor, floods_data, xaj_params)
         print(simulated_flow)
 
     def test_xaj_calibrate(self):

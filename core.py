@@ -1,7 +1,6 @@
 """新安江模型核心计算程序"""
 import numpy as np
 import pandas as pd
-from scipy.signal import convolve
 
 
 def initial_soil_moisture(xaj_params, w0_initial, day_precip, day_evapor):
@@ -224,8 +223,8 @@ def different_sources(diff_source_params, config, initial_conditions, precips, e
 
     Return
     ------------
-    rs_s,rss_s,rg_s: list 数组
-        除不透水面积以外的面积上划分水源得到的地表径流，壤中流和地下径流，注意水深值对应的是除不透水面积之外的流域面积
+    rs_s,rss_s,rg_s: np.array 数组
+        除不透水面积以外的面积上划分水源得到的地表径流，壤中流和地下径流，最后将水深值从不透水面积折算到流域面积
 
     """
     # 取参数值
@@ -234,6 +233,7 @@ def different_sources(diff_source_params, config, initial_conditions, precips, e
     ex = diff_source_params['EX']
     kss = diff_source_params['KSS']
     kg = diff_source_params['KG']
+    imp = diff_source_params['IMP']
 
     # 为便于后面计算，这里以数组形式给出s和fr
     s_s = []
@@ -243,6 +243,10 @@ def different_sources(diff_source_params, config, initial_conditions, precips, e
     fr0 = initial_conditions['FR0']
     s_s.append(s0)
     fr_s.append(fr0)
+
+    # 计算前因为产流结果是整个流域上的，而接下来的公式推导都是在透水面积上的，因此需要先把产流值折算到透水面积上
+    runoffs = np.array(runoffs)
+    runoffs = runoffs / (1 - imp)
 
     # 由于Ki、Kg、Ci、Cg都是以24小时为时段长定义的，需根据时段长转换
     time_interval_hours = config['time_interval/h']
@@ -264,15 +268,32 @@ def different_sources(diff_source_params, config, initial_conditions, precips, e
         p = precips[i]
         e = k * evapors[i]
         if p - e <= 0:
-            # 如果没有净雨，没有产流，应该是均为0
-            rs = rss = rg = 0
-            # 没有产流也要往s_s和fr_s数组里放置数字，否则计算无法继续
-            fr = fr0
-            fr_s.append(fr)
+            # 如果没有净雨，没有产流，地表径流应该为0
+            rs = 0
+            # 没有产流也要往s_s和fr_s数组里放置数字，否则计算无法继续，依据是产流面积不增加，水量平衡原则，计算时段初的S应该与上时段末一致。
             if i == 0:
                 s = s0
             else:
                 s = s_s[i - 1]
+            # 那么根据S×FR=S0×FR0，有FR=FR0
+            fr = fr0
+            if fr < 0:
+                raise ArithmeticError("检查runoff值是否有负数！")
+            # 如果出现fr=0的情况，需要稍作修正，因为可能导致后续计算出现分母为0的情况
+            if fr == 0:
+                fr = 0.001
+            if fr > 1:
+                fr = 1
+            fr_s.append(fr)
+            # 地下水库线性泄流
+            rss = kss_period * s * fr
+            rg = kg_period * s * fr
+            # 计算时段末自由水蓄水量
+            s = s - (kss_period + kg_period) / fr
+            if s < 0:
+                s = 0
+            if s > sm:
+                s = sm
             s_s.append(s)
         else:
             # 首先要给定时段出的fr0，以根据fr0*s0=fr*s计算时段计算中所需的s值
@@ -280,10 +301,14 @@ def different_sources(diff_source_params, config, initial_conditions, precips, e
             fr = runoffs[i] / (p - e)
             if fr < 0:
                 raise ArithmeticError("检查runoff值是否有负数！")
+            # 如果出现fr=0的情况，需要稍作修正，因为可能导致后续计算出现分母为0的情况
+            if fr == 0:
+                fr = 0.001
             if fr > 1:
                 fr = 1
 
             # 计算当前时段计算中的s值，后面分5mm段之后，s还要重新计算，所以这里算不算都行
+            s0 = s_s[i]
             s = s0 * fr0 / fr
 
             # 净雨分5mm一段进行计算，因为计算时在FS/FR ~ SMF'关系图上开展，即计算在产流面积上开展，所以用PE做净雨.分段为了差分计算更精确。
@@ -312,6 +337,10 @@ def different_sources(diff_source_params, config, initial_conditions, precips, e
 
                 smmf = smm * (1 - (1 - fr_d) ** (1 / ex))
                 smf = smmf / (1 + ex)
+                # 如果出现s_d>smf的情况，说明s_d = fr0_d * s0_d / fr_d导致的计算误差不合理，需要进行修正。
+                if s_d > smf:
+                    s_d = smf
+
                 au = smmf * (1 - (1 - s_d / smf) ** (1 / (1 + ex)))
 
                 if pe + au >= smmf:
@@ -339,7 +368,63 @@ def different_sources(diff_source_params, config, initial_conditions, precips, e
         rs_s.append(rs)
         rss_s.append(rss)
         rg_s.append(rg)
+    # 从透水面积折算到流域面积上，为了方便，利用numpy的广播进行计算
+    rs_s = np.array(rs_s)
+    rss_s = np.array(rss_s)
+    rg_s = np.array(rg_s)
+    rs_s = rs_s * (1 - imp)
+    rss_s = rss_s * (1 - imp)
+    rg_s = rg_s * (1 - imp)
     return rs_s, rss_s, rg_s
+
+
+def split_flow(floods_data, auto=None):
+    """分割流量过程，有时候，会手动进行分割，所以可能不需要调用次函数
+    Parameters
+    ------------
+    floods_data:多组观测的出口断面流量过程线，np.array组成的list
+    auto: 是程序自动计算退水曲线还是已经手动计算好了
+
+    Return
+    ------------
+    floods: np.array组成的list
+            去掉前期洪水尚未退完的部分水量和非本次降雨补给的流量过程线
+
+    """
+    # TODO: 求退水曲线
+    # 首先取出各个洪水过程退水段
+    floods = []
+    for flood_data in floods_data:
+        temp = flood_data.loc[:, "flood_quant"]
+        floods.append(np.array(temp))
+    # 然后取出退水段各点，组成向量
+
+    # 最小二乘法计算
+
+    # 利用计算好的退水曲线分割观测的流量过程线
+
+    if auto is None:
+        return floods
+    return floods
+
+
+def divide_source(floods, auto=None):
+    """从观测的场次洪水径流中分割地表地下径流
+    Parameters
+    ------------
+    floods:多组观测的已经去掉前期洪水尚未退完的部分水量和非本次降雨补给的出口断面流量过程线，np.array组成的list
+    auto: 是程序自动计算分割流量还是已经手动计算好了
+
+    Return
+    ------------
+    rs_s,rg_s: np.array组成的list
+            地表径流流量过程线和地下径流过程线
+
+    """
+    # TODO: 分割径流
+    if auto is None:
+        return floods
+    return floods
 
 
 def iuh_recognise(runoffs, flood_data, linear_reservoir=None, linear_canal=None, isochrone=None):
@@ -362,75 +447,93 @@ def iuh_recognise(runoffs, flood_data, linear_reservoir=None, linear_canal=None,
     return
 
 
-def route_linear_reservoir(route_params, basin_property, config, rss_s, rg_s):
+def route_linear_reservoir(route_params, basin_property, config, rss, rg):
     """运用瞬时单位线进行汇流计算
     Parameters
     ------------
     route_params:汇流参数
     basin_property: 流域属性条件
     config: 配置条件
-    rss_s: 壤中流净雨
-    rg_s:地下径流净雨
+    rss: 壤中流净雨
+    rg:地下径流净雨
 
     Return
     ------------
-    qrss,qrg:array
+    q_rss,q_rg: np.array
         汇流计算结果——流量过程线
     """
-    area = basin_property['basin_area']
+    area = basin_property['basin_area/km^2']
     time_in = config['time_interval/h']
     u = area / (3.6 * time_in)
 
     kkss = route_params['KKSS']
     kkg = route_params['KKG']
 
-    qrss = []
-    qrg = []
+    q_rss = np.zeros(rss.size)
+    q_rg = np.zeros(rg.size)
 
-    qrss[0] = rss_s[0] * (1 - kkss) * u
-    qrg[0] = rg_s[0] * (1 - kkg) * u
+    q_rss[0] = rss[0] * (1 - kkss) * u
+    q_rg[0] = rg[0] * (1 - kkg) * u
 
-    for i in range(1, len(rss_s)):
-        qrss[i] = rss_s[i] * (1 - kkss) * u + qrss[i - 1] * kkss
-        qrg[i] = rg_s[i] * (1 - kkss) * u + qrg[i - 1] * kkg
+    for i in range(1, rss.size):
+        q_rss[i] = rss[i] * (1 - kkss) * u + q_rss[i - 1] * kkss
+        q_rg[i] = rg[i] * (1 - kkg) * u + q_rg[i - 1] * kkg
 
-    return qrss, qrg
+    return q_rss, q_rg
 
 
 def uh_recognise(runoffs, flood_data):
     """时段单位线的识别，先以最小二乘法为主。
     Parameters
     ------------
-    runoffs:各场次洪水对应的各时段净雨，矩阵
-    flood_data:各出口断面流量过程线，矩阵
+    runoffs:各场次洪水对应的各时段净雨，np.array组成的list
+    flood_data:多组出口断面流量过程线，np.array组成的list
 
     Return
     ------------
     uh:array
-        时段单位线
+        时段单位线，每个数据的单位为m^3/s
     """
     # 最小二乘法计算针对每场次洪水得到一条单位线，多场次洪水，按照书上的意思，可以取平均。如果曲线之间差异较大，需要进行分类，目前先求平均。
-    qs = []
-    q_sum = []
+    uh_s = []
+    uh_sum = np.array([])
     for i in range(len(runoffs)):
-        h = []
-        Q = flood_data[i]
+        ht = []
+        # q表示实际径流
+        q = flood_data[i]
         l = len(flood_data[i])
         m = len(runoffs[i])
         n = l - m + 1
         for j in range(n):
-            h_column = np.zeros(l)
+            # numpy默认为行向量
+            h_row = np.zeros(l)
             for k in range(j, j + m):
-                h_column[k] = runoffs[i][j - k]
-            h.append(h_column)
-        ht = np.transpose(h)
-        hth = np.dot(ht, h)
-        htQ = np.dot(ht, Q)
-        q_temp = qs.append(np.linalg.solve(hth, htQ))
-        qs.append(q_temp)
-        q_sum = q_sum + q_temp
-    q = q_sum / len(runoffs)
-    return q
+                h_row[k] = runoffs[i][k - j]
+            ht.append(h_row)
+        h = np.transpose(ht)
+        ht_h = np.dot(ht, h)
+        ht_q = np.dot(ht, q)
+        # 求得一条单位线
+        uh_temp = np.linalg.solve(ht_h, ht_q)
+        print(type(uh_temp))
+        # 每场次洪水均有一条单位线
+        uh_s.append(uh_temp)
+        # 求和，因为单位线长度可能不一致，所以需要进行补0对齐
+        if i == 0:
+            uh_sum = uh_temp
+        else:
+            # 当维度不同的向量要对齐时，需在不足处补0
+            length_zero = max(uh_sum.size, uh_temp.size) - min(uh_sum.size, uh_temp.size)
+            zeros_need = np.zeros(length_zero)
+            if uh_sum.size > uh_temp.size:
+                arr_new = np.hstack([uh_temp, zeros_need])
+                uh_sum = uh_sum + arr_new
+            else:
+                arr_new = np.hstack([uh_sum, zeros_need])
+                uh_sum = uh_temp + arr_new
+    # 广播运算
+    uh = uh_sum / len(runoffs)
+    return uh
 
 
 def uh_forecast(runoffs, uh):
@@ -445,7 +548,7 @@ def uh_forecast(runoffs, uh):
     q:array
         汇流计算结果——流量过程线
     """
-    q = convolve(runoffs, uh)
+    q = np.convolve(runoffs, uh)
     return q
 
 
@@ -461,51 +564,57 @@ def network_route(runoffs, route_params):
     q:array
         汇流计算结果——流量过程线
     """
-    # TODO:滞后演算法是一个线性渠和一个线性水库的串联，先写在这里，后面再考虑重构，和单位线合并
-    t = route_params['']
-    cs = route_params['']
+    # 取整后面才能计算
+    t = int(route_params['L'])
+    cr = route_params['CR']
+    # 初始化
     qr = runoffs
-    qf = runoffs
+    q = np.zeros(runoffs.size)
     if t <= 0:
-        t = 0
-        for i in range(len(runoffs)):
+        for i in range(runoffs.size):
             if i == 0:
-                qf[0] = (1 - cs) * qr[0]
+                q[0] = (1 - cr) * qr[0]
             else:
-                qf[i] = cs * qf[i - 1] + (1 - cs) * qr[i]
+                q[i] = cr * q[i - 1] + (1 - cr) * qr[i]
     else:
-        for i in range(len(runoffs)):
+        for i in range(runoffs.size):
             if i == 0:
-                qf[0] = 0
+                q[0] = 0
             elif i < t:
-                qf[i] = cs * qf[i - 1]
+                q[i] = cr * q[i - 1]
             else:
-                qf[i] = cs * qf[i - 1] + (1 - cs) * qr[i - t]
-    return qf
+                q[i] = cr * q[i - 1] + (1 - cr) * qr[i - t]
+    return q
 
 
-def river_route(config, route_params, runoffs):
+def river_route(config, route_params, qf):
     """河道汇流计算，新安江模型一般采用马斯京根法
      Parameters
     ------------
-    runoffs:河网汇流计算结果，数组
+    config:计算设置条件
     route_params:模型参数
+    qf:河网汇流计算结果，数组
 
     Return
     ------------
-    q:array
+    q: np.array
         汇流计算结果——流量过程线
     """
     ke = route_params['KE']
     xe = route_params['XE']
-    time_interval_hours = config['time_interval/h']
+    time_interval = config['time_interval/h']
 
-    c0 = (0.5 * time_interval_hours - ke * xe) / (0.5 * time_interval_hours + ke - ke * xe)
-    c1 = (0.5 * time_interval_hours + ke * xe) / (0.5 * time_interval_hours + ke - ke * xe)
+    q = np.zeros(qf.size)
+
+    c0 = (0.5 * time_interval - ke * xe) / (0.5 * time_interval + ke - ke * xe)
+    c1 = (0.5 * time_interval + ke * xe) / (0.5 * time_interval + ke - ke * xe)
     c2 = 1 - c0 - c1
 
+    q[0] = qf[0]
     if c0 >= 0 and c2 >= 0:
-        q = c0 * runoffs[1:] + c1 * runoffs[:-1] + c2 * runoffs[:-1]
+        for i in range(1, q.size):
+            q[i] = c0 * qf[i] + c1 * qf[i - 1] + c2 * q[i - 1]
     else:
-        q = runoffs
+        # 当马斯京根不适用时，暂未处理
+        q = qf
     return q

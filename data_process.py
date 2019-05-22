@@ -13,12 +13,12 @@ def init_parameters(params=None):
 
     Returns
     -------
-    basin_property: 流域属性条件 Series
-    config: 配置条件 Series
-    initial_conditions:计算初始条件  Series
-    days_rain_evapor:各场次洪水前期降雨蒸发 由dataframe分组得来，各个组的dataframe组成的list
-    floods_data:各场次洪水 由dataframe分组得来，各个组的dataframe组成的list
-    xaj_params:新安江模型参数 Series
+    basin_property: Series 流域属性条件
+    config: Series 配置条件
+    initial_conditions:Series 计算初始条件
+    days_rain_evapor:由DataFrame分组得来，各组的DataFrame组成的list  各场次洪水前期降雨蒸发
+    floods_data:由DataFrame分组得来，各组的DataFrame组成的list  各场次洪水
+    xaj_params:Series 新安江模型参数
     """
     # 流域属性值的读取，包括流域面积
     basin_property = pd.Series({'basin_area/km^2': 343})
@@ -48,14 +48,14 @@ def init_parameters(params=None):
     # KE: 单元河段马斯京根模型参数K值
     if params is None:
         xaj_params = pd.Series(
-            [.998, 27.764, 84.393, .200, 182.515, .400, .040, 51.634, 1.002, 0.321, .379, .986, .284, .766, 1.791, .029,
+            [.998, 27.764, 84.393, .200, 182.515, .400, .040, 51.634, 1.002, .379, .986, .284, .766, 1.791, .029,
              1.001],
-            index=['K', 'WUM', 'WLM', 'C', 'WM', 'B', 'IMP', 'SM', 'EX', 'KG', 'KSS', 'KKSS', 'KKG', 'CR', 'L', 'XE',
+            index=['K', 'WUM', 'WLM', 'C', 'WM', 'B', 'IMP', 'SM', 'EX', 'KSS', 'KKSS', 'KKG', 'CR', 'L', 'XE',
                    'KE'])
     else:
-        params.append(config['time_interval'])
+        params.append(config['time_interval/h'])
         xaj_params = pd.Series(params,
-                               index=['K', 'WUM', 'WLM', 'C', 'WM', 'B', 'IMP', 'SM', 'EX', 'KG', 'KSS', 'KKSS', 'KKG',
+                               index=['K', 'WUM', 'WLM', 'C', 'WM', 'B', 'IMP', 'SM', 'EX', 'KSS', 'KKSS', 'KKG',
                                       'CR', 'L', 'XE', 'KE'])
 
     # 然后读取场次洪水数据和每场次洪水数据前若干日的日降雨和蒸发数据（计算前期影响雨量作为初始土壤含水量依据）,降雨和蒸发数据均为观测数据

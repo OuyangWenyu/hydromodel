@@ -21,15 +21,18 @@ class TestXaj(unittest.TestCase):
 
     def test_xaj_calibrate(self):
         starttime = datetime.datetime.now()
-        calibrate()
+        run_counts = 100
+        optimal_params = calibrate(run_counts)
+        print("本次优化的计算结果，即优选参数集为：")
+        print(optimal_params)
         endtime = datetime.datetime.now()
-        print("率定完毕，耗费时间为 " + (endtime - starttime).seconds + " s")
+        print("率定完毕，耗费时间为 " + str((endtime - starttime).seconds) + " s")
 
 
 if __name__ == '__main__':
     # 测试流程：写好TestCase（类TestXaj），加载TestCase到TestSuite，由TextTestRunner运行TestSuite，运行结果保存在TextTestResult中
     suite = unittest.TestSuite()
-    tests = [TestXaj('test_xaj'), TestXaj('test_xaj_calibrate'), ]
+    tests = [TestXaj('test_xaj_calibrate')]
     suite.addTests(tests)
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)

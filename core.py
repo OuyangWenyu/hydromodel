@@ -190,11 +190,19 @@ def runoff_generation_single_period(gene_params, initial_conditions, precip, eva
     wd0 = initial_conditions['WD']
     p = precip
     e = k * evapor
+    # 为了防止后续计算出现不符合物理意义的情况，这里要对p和e的取值进行范围限制
+    if e < 0:
+        e = 0
+    if p < 0:
+        p = 0
 
     # 这里的imp是不是流域不透水面积/总面积的意思？个人认为应该不是，这里应该只是把wmm做了一个处理，
     # 后面计算的时候实际上只是在透水面积上做的计算，并没有真的把不透水面积比例考虑进产流模型中
     wmm = wm * (1 + b) / (1 - imp)
     w0 = wu0 + wl0 + wd0
+    # 注意计算a时，开方运算，偶数方次时，根号下不能为负数，所以需要限制w0的取值，这也是物理意义上的要求
+    if w0 > wm:
+        w0 = wm
     a = wmm * (1 - (1 - w0 / wm) ** (1 / (1 + b)))
 
     if p - e >= 0:
@@ -232,7 +240,8 @@ def different_sources(diff_source_params, config, initial_conditions, precips, e
     sm = diff_source_params['SM']
     ex = diff_source_params['EX']
     kss = diff_source_params['KSS']
-    kg = diff_source_params['KG']
+    # kg由结构性约束获取，KG+KSS=0.7
+    kg = 0.7 - kss
     imp = diff_source_params['IMP']
 
     # 为便于后面计算，这里以数组形式给出s和fr
@@ -256,6 +265,8 @@ def different_sources(diff_source_params, config, initial_conditions, precips, e
     if residue_temp != 0:
         residue_temp = 1
     period_num_1d = int(hours_per_day / time_interval_hours) + residue_temp
+    # 当kss+kg>1时，根式为偶数运算时，kss_period会成为复数，这里会报错；另外注意分母可能为0，kss不可取0
+    # 对kss+kg的取值进行限制，也是符合物理意义的，地下水出流不能超过自身的蓄水。
     kss_period = (1 - (1 - (kss + kg)) ** (1 / period_num_1d)) / (1 + kg / kss)
     kg_period = kss_period * kg / kss
 
@@ -515,7 +526,6 @@ def uh_recognise(runoffs, flood_data):
         ht_q = np.dot(ht, q)
         # 求得一条单位线
         uh_temp = np.linalg.solve(ht_h, ht_q)
-        print(type(uh_temp))
         # 每场次洪水均有一条单位线
         uh_s.append(uh_temp)
         # 求和，因为单位线长度可能不一致，所以需要进行补0对齐

@@ -8,9 +8,8 @@ def xaj_runoff_generation(config, initial_conditions, day_rain_evapor, flood_dat
     """场次洪水新安江模型产流部分调用入口
     Parameters
     ------------
-    basin_property: 流域属性条件
     config: 配置条件
-    initial_conditions: 场次洪水流域初始计算条件
+    initial_conditions: pd.DataFrame 场次洪水流域初始计算条件
     day_rain_evapor:该场次洪水前期降雨蒸发数据
     xaj_params:新安江模型参数
 

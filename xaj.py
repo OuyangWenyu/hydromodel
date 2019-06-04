@@ -51,6 +51,7 @@ def xaj_routing(basin_property, config, xaj_params, uh, rs, rss, rg):
     q: np.array
         汇流计算结果
     """
+    # TODO: 因为目前只是一个单元的运算的代码，所以不涉及河网汇流，但是为了显示完整步骤，这里先给出了马斯京根计算，这部分还需完善
     qs = uh_forecast(rs, uh)
     qi, qg = route_linear_reservoir(xaj_params, basin_property, config, rss, rg)
     q = qs + qi + qg

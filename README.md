@@ -13,7 +13,7 @@
 运行test.py中的测试函数即可。
 目前测试函数包括直接调用模型的测试函数，以及率定的测试函数，简单修改程序即可测试任意一个。测试使用的数据较少，并不符合实际预报规范，目前项目只是为了梳理新安江模型原理及其运算过程，实际应用还在本项目代码基础上进一步开发。
 
-wiki文档使用markdown编写，浏览器上显示格式不完全，建议使用vscode编辑器+相应插件（在vscode的插件库中直接搜索markdown，选择下载量最大的那一个即可）浏览。
+wiki文档使用markdown编写，浏览器上显示格式不完全，建议使用vscode编辑器+相应插件（在vscode的插件库中直接搜索markdown，选择markdown preview enhanced插件即可）浏览。
 
 如果觉得项目中文字和代码对原理的理解有误，或者出现代码运行错误，请在[issues](https://github.com/OuyangWenyu/hydro-model-xaj/issues)中留言。
 

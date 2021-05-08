@@ -1,0 +1,6 @@
+jax
+jaxlib
+platypus-opt
+pandas
+seaborn
+hydroeval

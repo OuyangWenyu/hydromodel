@@ -4,3 +4,12 @@ platypus-opt
 pandas
 seaborn
 hydroeval
+shapely
+pyproj
+rtree
+fiona
+geopandas
+requests
+tqdm
+netCDF4
+xarray

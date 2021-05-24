@@ -2,11 +2,10 @@
 
 ## 项目介绍
 
-根据中国水利水电出版社出版的，由武汉大学叶守泽老师和河海大学詹道江老师等合编的《工程水文学》第三版教材中新安江模型的原理，结合河海大学芮孝芳老师《水文学原理》中的相关知识，并重点参考了河海大学包为民老师的《水文预报》第4版，编写的**三水源新安江模型**的 python 版本。**非官方版本**，仅供学习参考。
+根据中国水利水电出版社出版的，由武汉大学叶守泽老师和河海大学詹道江老师等合编的《工程水文学》第三版教材中新安江模型的原理，结合河海大学芮孝芳老师《水文学原理》中的相关知识，并重点参考了河海大学包为民老师的《水文预报》第5版， 编写的**
+三水源新安江模型**的 python 版本。**非官方版本，仅供学习参考**。
 
 本项目还尝试了基于梯度下降的模型参数率定方法，研究水文建模新技术，以探索水文模型和深度学习融合新方式。
-
-详细说明请移至[doc部分](https://github.com/OuyangWenyu/hydro-model-xaj/tree/master/doc)。
 
 ## 环境配置
 
@@ -30,6 +29,8 @@ cd Code
 git clone <本项目在你的github中的地址>
 # 进入本项目
 cd hydro-model-xaj
+# we'll use geopandas for shpfile, so at first we need to install libgdal-dev as it is a dependency of geopandas
+sudo apt-get install libgdal-dev
 # 用pip安装virtualenv（前提是按照前面的说明安装好了python）
 pip install virtualenv
 # virtualenv创建一个独立的Python运行环境，环境命名为venv，如下所示：
@@ -39,6 +40,8 @@ source venv/bin/activate
 # 安装本项目程序依赖包
 pip install --upgrade pip
 pip install -r requirements.txt
+# GPU-version (you must first install CUDA and CuDNN)
+# pip install --upgrade jax jaxlib==0.1.65+cuda110 -f https://storage.googleapis.com/jax-releases/jax_releases.html
 # 打开vscode:
 code
 ```
@@ -51,13 +54,11 @@ code
 
 目前测试函数包括直接调用模型的测试函数，以及率定的测试函数，简单修改程序即可测试任意一个。测试使用的数据较少，并不符合实际预报规范，目前项目只是为了梳理新安江模型原理及其运算过程，实际应用还在本项目代码基础上进一步开发。
 
-wiki文档使用markdown编写，浏览器上显示格式不完全，建议使用vscode编辑器+相应插件（在vscode的插件库中直接搜索markdown，选择markdown preview enhanced插件即可）浏览。
-
 如果觉得项目中文字和代码对原理的理解有误，或者出现代码运行错误，请在[issues](https://github.com/OuyangWenyu/hydro-model-xaj/issues)中留言。
 
-## 参与贡献
+## Acknowledgement
 
-1. Fork 本项目
-2. 新建 Feat_xxx 分支
-3. 提交代码
-4. 新建 Pull Request
+Thanks to the following repos besides with the [JAX document](https://jax.readthedocs.io/en/latest/):
+
+- [ckrapu/gr4j_theano](https://github.com/ckrapu/gr4j_theano)
+- [RobertTLange/code-and-blog](https://github.com/RobertTLange/code-and-blog)

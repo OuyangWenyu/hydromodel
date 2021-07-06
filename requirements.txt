@@ -3,6 +3,7 @@ jaxlib
 platypus-opt
 pandas
 seaborn
+scikit-learn
 hydroeval
 shapely
 pyproj

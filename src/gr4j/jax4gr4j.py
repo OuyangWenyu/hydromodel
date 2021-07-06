@@ -32,25 +32,23 @@ def hydrograms(x4_limit, x4):
     loop executes.
     Parameters
     ----------
-    x4_limit : scalar Theano tensor
+    x4_limit : scalar tensor
         An upper limit on the value of x4, which is real-valued
-    x4 : scalar Theano tensor
+    x4 : scalar tensor
         A parameter controlling the rapidity of transmission of stream inputs
         into streamflow.
     Returns
     -------
-    UH1 : 1D Theano tensor
+    UH1 : 1D tensor
         Partition vector for the portion of streamflow which is routed with a
         routing store.
-    UH2 : 1D Theano tensor
+    UH2 : 1D tensor
         Partition vector for the portion of streamflow which is NOT routed with
         the routing store.
     """
     timesteps = jnp.arange(2 * x4_limit)
     SH1 = jnp.where(timesteps <= x4, (timesteps / x4) ** 2.5, 1.0)
     SH2A = jnp.where(timesteps <= x4, 0.5 * (timesteps / x4) ** 2.5, 0)
-    SH2B = jnp.where((x4 < timesteps) & (timesteps <= 2 * x4),
-                     1 - 0.5 * (2 - timesteps / x4) ** 2.5, 0)
 
     # The next step requires taking a fractional power and
     # an error will be thrown if SH2B_term is negative.
@@ -86,12 +84,12 @@ def streamflow_step(params, state_variables, forcings):
             Partition vector routing daily stream inputs into multiday streamflow
             for the fraction of water which does not interact with the routing reservoir.
     state_variables :
-        S: scalar Theano tensor
+        S: scalar tensor
             Beginning value of storage in the storage reservoir;
-        runoff_history : 1D Theano tensor
+        runoff_history : 1D tensor
             Previous days' levels of streamflow input. Needed for routing streamflow;
             over multiple days.
-        R : scalar Theano tensor
+        R : scalar tensor
             Beginning value of storage in the routing reservoir.
     forcings :
         P : scalar tensor

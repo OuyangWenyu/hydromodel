@@ -161,3 +161,4 @@ fabric.properties
 
 .idea
 *.xlsx
+.vscode

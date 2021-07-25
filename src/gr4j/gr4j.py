@@ -55,7 +55,7 @@ def gr4j(precip, potential_evap, params, states=None, return_state=False):
 
     nUH1 = int(math.ceil(X4))
     nUH2 = int(math.ceil(2.0 * X4))
-
+    # the sum of uh_ordinates is 1, so it means relocating the flow into many parts
     uh1_ordinates = [0] * nUH1
     uh2_ordinates = [0] * nUH2
 
@@ -103,7 +103,8 @@ def gr4j(precip, potential_evap, params, states=None, return_state=False):
 
         routing_pattern = routing_pattern + (production_store - percolation)
         production_store = percolation
-
+        # the distributed flow of last step will be moved to this step and added with this step
+        # basically, this is an one-step operation in convolution-operation
         for i in range(0, len(UH1) - 1):
             UH1[i] = UH1[i + 1] + uh1_ordinates[i] * routing_pattern
         UH1[-1] = uh1_ordinates[-1] * routing_pattern

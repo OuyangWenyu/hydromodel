@@ -1,0 +1,12 @@
+name: xaj
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python
+  - jupyterlab
+  - numpy
+  - pandas
+  - deap
+  - searborn
+  - tqdm

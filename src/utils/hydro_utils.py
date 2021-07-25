@@ -4,7 +4,6 @@ import re
 import zipfile
 import datetime as dt, datetime
 from typing import List
-import geopandas as gpd
 import pickle
 import smtplib
 import ssl
@@ -257,11 +256,6 @@ def unserialize_numpy(my_file):
 
 def serialize_geopandas(gpd_df, my_file, the_driver="GeoJSON"):
     gpd_df.to_file(my_file, driver=the_driver)
-
-
-def unserialize_geopandas(my_file):
-    gpd_df = gpd.read_file(my_file)
-    return gpd_df
 
 
 # -------------------------------------------------time & date tools--------------------------------------------------

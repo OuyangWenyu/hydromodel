@@ -211,7 +211,7 @@ def sources5mm(pe, runoff,
                s0=None, fr0=None,
                time_interval_hours=24,
                book="ShuiWenYuBao"):
-    """分水源计算 according to books -- <<ShuiWenYuBao>> 4th edition and <<GongChengShuiWenXue>> 3rd edition
+    """分水源计算 according to books -- <<ShuiWenYuBao>> 5th edition and <<GongChengShuiWenXue>> 3rd edition
     Although I don't think the methods provided in books are good (very tedious and the explanation is not clear),
     they are still provided here.
 
@@ -222,7 +222,7 @@ def sources5mm(pe, runoff,
     sm, ex, ki, kg: 分水源计算所需参数
     s0, fr0: 计算所需初始条件
     time_interval_hours: 由于Ki、Kg、Ci、Cg都是以24小时为时段长定义的，需根据时段长转换
-    book: the methods in <<ShuiWenYuBao>> 4th edition and <<GongChengShuiWenXue>> 3rd edition are different,
+    book: the methods in <<ShuiWenYuBao>> 5th edition and <<GongChengShuiWenXue>> 3rd edition are different,
           hence, both are provided, and the default is the former.
 
     Return
@@ -331,7 +331,7 @@ def xaj(p_and_e, params, states=None, uh: Union[list, int, float] = None, source
     states: the initial states
     uh: unit hydrograph, when it is None, we use linear reservoir model to represent the route module of surface runoff
     source_type: when using "sources5mm", we will divide the runoff to some <5mm pieces according to the books
-    source_book: books include <<ShuiWenYuBao>> 4th edition and <<GongChengShuiWenXue>> 3rd edition,
+    source_book: books include <<ShuiWenYuBao>> 5th edition and <<GongChengShuiWenXue>> 3rd edition,
                 however, the methods in these two books are different,
                 hence, both are provided, and the default is the former.
 

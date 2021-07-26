@@ -8,5 +8,5 @@ dependencies:
   - numpy
   - pandas
   - deap
-  - searborn
+  - seaborn
   - tqdm

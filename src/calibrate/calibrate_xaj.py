@@ -1,10 +1,7 @@
-"""率定参数，using DEAP"""
-import os
+"""使用 DEAP 率定参数，关于DEAP，可以参考:
+https://github.com/waterDLut/hydrus/blob/master/4-optimization-example/1-deap-intro.ipynb"""
 from collections import OrderedDict
 
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 from deap import base, creator
 import random
 from deap import tools

@@ -2,16 +2,15 @@ import os
 import unittest
 
 import numpy as np
-from numpy.testing import assert_array_almost_equal
 import pandas as pd
 
 import definitions
 from src.calibrate.calibrate_xaj import calibrate_xaj
-from src.calibrate.stat import statNse
 from src.xaj.xaj import xaj
 
 
 class XajTestCase(unittest.TestCase):
+    # TODO: 用实际数据来测试
 
     def setUp(self):
         root_dir = definitions.ROOT_DIR

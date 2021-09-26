@@ -56,6 +56,10 @@ def statNse(target, pred):
     return NSe
 
 
+def statRmse(target, pred):
+    return np.sqrt(np.nanmean((pred - target) ** 2, axis=1))
+
+
 def statError(target, pred):
     ngrid, nt = pred.shape
     # Bias

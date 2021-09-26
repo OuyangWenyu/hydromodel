@@ -8,5 +8,6 @@ dependencies:
   - numpy
   - pandas
   - deap
+  - spotpy
   - seaborn
   - tqdm

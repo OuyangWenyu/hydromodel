@@ -162,4 +162,4 @@ fabric.properties
 .idea
 *.xlsx
 .vscode
-/test/SCEUA_xaj.csv
+/test/SCEUA_*.csv

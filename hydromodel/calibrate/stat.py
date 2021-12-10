@@ -1,21 +1,24 @@
 import numpy as np
 import scipy.stats
 
-from src.utils.hydro_utils import hydro_logger
+from hydromodel.utils.hydro_utils import hydro_logger
 
 
-def KGE(xs, xo):
+def KGE(xs, xo) -> float:
     """
     Kling Gupta Efficiency (Gupta et al., 2009, http://dx.doi.org/10.1016/j.jhydrol.2009.08.003)
 
     Parameters
     ----------
-    xs: simulated
-    xo: observed
+    xs
+        simulated
+    xo
+        observed
 
     Returns
     -------
-    KGE: Kling Gupta Efficiency
+    float
+        KGE: Kling Gupta Efficiency
     """
     r = np.corrcoef(xo, xs)[0, 1]
     alpha = np.std(xs) / np.std(xo)
@@ -24,16 +27,21 @@ def KGE(xs, xo):
     return kge
 
 
-def NSE(xs, xo):
+def NSE(xs, xo) -> float:
     """
+    Calculate NSE
+
     Parameters
     ----------
-    xs: simulated
-        xo: observed
+    xs
+        simulated
+    xo
+        observed
 
     Returns
     -------
-    NSE: Nash-Sutcliffe model efficiency coefficient
+    float
+        NSE: Nash-Sutcliffe model efficiency coefficient
     """
     x_mean = xo.mean()
     SST = np.sum((xo - x_mean) ** 2)
@@ -43,6 +51,21 @@ def NSE(xs, xo):
 
 
 def statNse(target, pred):
+    """
+    Calculate NSE for two dimensional array
+
+    Parameters
+    ----------
+    target
+        observation
+    pred
+        prediction
+
+    Returns
+    -------
+    np.array
+        one NSE for one element in the 1-dim result
+    """
     ngrid, nt = pred.shape
     NSe = np.full(ngrid, np.nan)
     for k in range(0, ngrid):
@@ -56,11 +79,43 @@ def statNse(target, pred):
     return NSe
 
 
-def statRmse(target, pred):
-    return np.sqrt(np.nanmean((pred - target) ** 2, axis=1))
+def statRmse(target, pred, axis=0):
+    """
+    Calculate RMSE for multi-dim arrays
+
+    Parameters
+    ----------
+    target
+        observation
+    pred
+        prediction
+    axis
+        calculate through which axis
+
+    Returns
+    -------
+    np.array
+        RMSE
+    """
+    return np.sqrt(np.nanmean((pred - target) ** 2, axis=axis))
 
 
 def statError(target, pred):
+    """
+    Calculate multiple statistics indicators:
+
+    Parameters
+    ----------
+    target
+        observation
+    pred
+        prediction
+
+    Returns
+    -------
+    dict
+        (Bias=Bias, RMSE=RMSE, ubRMSE=ubRMSE, Corr=Corr, R2=R2, NSE=NSE, KGE=KGe, FHV=PBiashigh, FLV=PBiaslow)
+    """
     ngrid, nt = pred.shape
     # Bias
     Bias = np.nanmean(pred - target, axis=1)

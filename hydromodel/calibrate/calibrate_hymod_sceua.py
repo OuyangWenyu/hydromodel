@@ -5,7 +5,7 @@ import spotpy
 from spotpy.parameter import Uniform, ParameterSet
 from spotpy.objectivefunctions import rmse
 
-from src.hymod.hymod import hymod
+from hydromodel.models.hymod import hymod
 
 
 class Spot4HymodSetup(object):
@@ -16,36 +16,51 @@ class Spot4HymodSetup(object):
     Kq = Uniform(low=0.1, high=0.99, optguess=0.5592)
 
     def __init__(self, p_and_e, qobs, basin_area, obj_func=None):
+        """
+        Set up for Spotpy
+
+        Parameters
+        ----------
+        p_and_e
+            inputs of model
+        qobs
+            observation data
+        basin_area
+            area of basin used to convert unit
+        obj_func
+            objective function, typically RMSE
+        """
         # Just a way to keep this example flexible and applicable to various examples
         self.obj_func = obj_func
         # Transform [mm/day] into [l s-1]
         self.Factor = basin_area * 1000 * 1000 / (60 * 60 * 24)
         # Load Observation data from file
-        self.Precip = p_and_e[0, :, 0]
-        self.PET = p_and_e[0, :, 1]
-        self.trueObs = qobs[0, :, 0]
+        self.Precip = p_and_e[:, :, 0:1]
+        self.PET = p_and_e[:, :, 1:2]
+        self.trueObs = qobs
 
     def simulation(self, x: ParameterSet) -> Union[list, np.array]:
         """
-        run xaj model
+        run hymod model
 
         Parameters
         ----------
         x:
-            the parameters of xaj. This function only has this one parameter.
+            the parameters of hymod which we set in class Spot4HymodSetup.
+            This function only has this one parameter.
 
         Returns
         -------
         list
-                simulated result from xaj
+            simulated result from xaj
         """
-        # Here the model is actualy startet with one paramter combination
-        data = hymod(self.Precip, self.PET, x[0], x[1], x[2], x[3], x[4])
-        sim = []
-        for val in data:
-            sim.append(val * self.Factor)
+        # TODO: We only support one basin's calibration for hymod
+        # Here the model is started with one paramter combination
+        data = hymod(self.Precip, self.PET, np.array([x[0]]), np.array([x[1]]), np.array([x[2]]), np.array([x[3]]),
+                     np.array([x[4]]))
+        sim = data * self.Factor
         # The first year of simulation data is ignored (warm-up)
-        return sim[365:]
+        return sim[365:, 0, 0]
 
     def evaluation(self) -> Union[list, np.array]:
         """
@@ -56,7 +71,8 @@ class Spot4HymodSetup(object):
         Union[list, np.array]
             observation
         """
-        return self.trueObs[365:]
+        # TODO: We only support one basin's calibration for hymod
+        return self.trueObs[365:, 0, 0]
 
     def objectivefunction(self,
                           simulation: Union[list, np.array],
@@ -91,7 +107,24 @@ class Spot4HymodSetup(object):
 
 
 def calibrate_hymod_sceua(p_and_e, qobs, basin_area, random_state=2000):
-    parallel = 'seq'  # Runs everthing in sequential mode
+    """
+    Function for calibrating hymod
+
+    Parameters
+    ----------
+    p_and_e
+        inputs of model
+    qobs
+        observation data
+    basin_area
+        area of basin used to convert unit
+    random_state
+        random seed
+
+    Returns
+    -------
+    None
+    """
     np.random.seed(random_state)  # Makes the results reproduceable
 
     # Initialize the xaj example

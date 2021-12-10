@@ -1,61 +1,52 @@
-"""率定参数，using DEAP"""
-from collections import OrderedDict
-
+"""Calibrate XAJ model using DEAP"""
 from deap import base, creator
 import random
 from deap import tools
+import numpy as np
+from hydromodel.calibrate.stat import statRmse
+from hydromodel.models.xaj import xaj
 
-from src.calibrate.stat import statNse, statRmse
-from src.xaj.xaj import xaj
 
+def evaluate(individual, x_input, y_true, warmup_length):
+    """
+    Calculate fitness for optimization
 
-def cal_fitness(p_and_e, qobs, xaj_params, init_states):
-    """统计预报误差等，计算模型fitness，也便于后面进行参数率定"""
-    print("----------------------------------------一次径流模拟开始-------------------------------------------------")
-    # 调用模型计算，得到输出
-    simulated_flow = xaj(p_and_e, xaj_params, states=init_states)
-    # 计算适应度，先以RMSE为例
-    # chose one year as warm-up period
-    rmses = statRmse(qobs.reshape(qobs.shape[0], qobs.shape[1])[:, 365:],
-                     simulated_flow.reshape(simulated_flow.shape[0], simulated_flow.shape[1])[:, 365:])
-    rmse = rmses.mean()
+    Parameters
+    ----------
+    individual
+        individual is the params of XAJ (see details in xaj.py); we initialize all parameters in range [0,1]
+    x_input
+        input of XAJ
+    y_true
+        observation data; we use the part after warmup period
+    warmup_length
+        the length of warmup period
+
+    Returns
+    -------
+    float
+        fitness
+    """
+    print("Calculate fitness:")
+    # TODO: Now spotpy only support one list, and we only support one basin's calibration now
+    params = np.array(individual).reshape(-1, 1)
+    simulated_flow = xaj(x_input, params, warmup_length=warmup_length)
+    rmses = statRmse(y_true[warmup_length:, :, :], simulated_flow)
+    rmse = rmses.mean(axis=0)
     print("-----------------RMSE：" + str(rmse) + "------------------------")
-    print("----------------------------------------一次径流模拟结束！-------------------------------------------------")
-    print(" ")
     return rmse
-
-
-def evaluate(individual, x_input, y_true, init_states):
-    # individual is the params of XAJ
-    # we initialize the parameters in range [0,1] so here we denormalize the data to feasible range
-    param_ranges = OrderedDict({
-        "B": [0.1, 0.4],
-        "IM": [0.01, 0.04],
-        "UM": [10, 20],
-        "LM": [60, 90],
-        "DM": [50, 90],
-        "C": [0.1, 0.2],
-        "SM": [5, 60],
-        "EX": [1.0, 1.5],
-        "KI": [0, 0.7],
-        "KG": [0, 0.7],
-        "CS": [0, 1],
-        "CI": [0, 0.9],
-        "CG": [0.95, 0.998],
-    })
-    de_norm = [(value[1] - value[0]) * individual[i] + value[0] for i, (key, value) in enumerate(param_ranges.items())]
-    print(de_norm)
-    xaj_params = dict(zip(list(param_ranges.keys()), de_norm))
-    return cal_fitness(x_input, y_true, xaj_params, init_states),  # this comma must exist
 
 
 def checkBounds(min, max):
     """
     A decorator to set bounds for individuals in a population
+
     Parameters
     ----------
-    min: the lower bound of individuals
-    max: the upper bound of individuals
+    min
+        the lower bound of individuals
+    max
+        the upper bound of individuals
 
     Returns
     -------
@@ -83,24 +74,34 @@ MIN = 0
 MAX = 1
 
 
-def calibrate_xaj_ga(xaj_input, observed_output, init_states=None, param_num: int = 13,
+def calibrate_xaj_ga(xaj_input, observed_output, warmup_length=30, param_num: int = 14,
                      run_counts: int = 40, pop_num: int = 50):
-    """调用优化计算模型进行参数优选
+    """
+    Use GA algorithm to find optimal parameters for XAJ
+
     Parameters
     ----------
-    xaj_input: the input data for XAJ
-    observed_output: the "true" values, i.e. observations
-    init_states: the initial states
-    param_num: the number of parameters
-    run_counts:  运行次数
-    pop_num: the number of individuals in the population
+    xaj_input
+        the input data for XAJ
+    observed_output
+        the "true" values, i.e. observations
+    warmup_length
+        the length of warmup period
+    param_num
+        the number of parameters is 14 for our XAJ implementation
+    run_counts
+        running counts
+    pop_num
+        the number of individuals in the population
+
     Returns
-    ---------
-    optimal_params
+    -------
+    toolbox.population
+        optimal_params
     """
     IND_SIZE = param_num
-    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
-    creator.create("Individual", list, fitness=creator.FitnessMax)
+    creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+    creator.create("Individual", list, fitness=creator.FitnessMin)
     toolbox = base.Toolbox()
     toolbox.register("attribute", random.random)
     toolbox.register("individual", tools.initRepeat, creator.Individual,
@@ -110,7 +111,7 @@ def calibrate_xaj_ga(xaj_input, observed_output, init_states=None, param_num: in
     toolbox.register("mate", tools.cxTwoPoint)
     toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=1, indpb=0.1)
     toolbox.register("select", tools.selTournament, tournsize=3)
-    toolbox.register("evaluate", evaluate, x_input=xaj_input, y_true=observed_output, init_states=init_states)
+    toolbox.register("evaluate", evaluate, x_input=xaj_input, y_true=observed_output, warmup_length=warmup_length)
 
     toolbox.decorate("mate", checkBounds(MIN, MAX))
     toolbox.decorate("mutate", checkBounds(MIN, MAX))

@@ -5,8 +5,6 @@ import zipfile
 import datetime as dt, datetime
 from typing import List
 import pickle
-import smtplib
-import ssl
 from collections import OrderedDict
 import numpy as np
 import urllib
@@ -40,17 +38,27 @@ hydro_logger = get_hydro_logger(log_level)
 
 # ------------------------------------------------progress bar----------------------------------------------------
 def provide_progress_bar(function, estimated_time, tstep=0.2, tqdm_kwargs={}, args=[], kwargs={}):
-    """Tqdm wrapper for a long-running function
+    """
+    Tqdm wrapper for a long-running function
 
-    args:
-        function - function to run
-        estimated_time - how long you expect the function to take
-        tstep - time delta (seconds) for progress bar updates
-        tqdm_kwargs - kwargs to construct the progress bar
-        args - args to pass to the function
-        kwargs - keyword args to pass to the function
-    ret:
-        function(*args, **kwargs)
+    Parameters
+    ----------
+    function
+        function to run
+    estimated_time
+        how long you expect the function to take
+    tstep
+        time delta (seconds) for progress bar updates
+    tqdm_kwargs
+        kwargs to construct the progress bar
+    args
+        args to pass to the function
+    kwargs
+        keyword args to pass to the function
+
+    Returns
+    -------
+    function
     """
     ret = [None]  # Mutable var so the function can store its return value
 
@@ -99,17 +107,6 @@ def setup_log(tag='VOC_TOPICS'):
     # logger.handlers = []
     logger.addHandler(ch)
     return logger
-
-
-# -------------------------------------------------- notification tools--------------------------------------------
-def send_email(subject, text, receiver='hust2014owen@gmail.com'):
-    sender = 'hydro.wyouyang@gmail.com'
-    password = 'D4VEFya3UQxGR3z'
-    context = ssl.create_default_context()
-    msg = 'Subject: {}\n\n{}'.format(subject, text)
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-        server.login(sender, password)
-        server.sendmail(from_addr=sender, to_addrs=receiver, msg=msg)
 
 
 # -------------------------------------------------plot utils-------------------------------------------------------

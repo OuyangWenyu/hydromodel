@@ -162,3 +162,5 @@ fabric.properties
 .idea
 *.xlsx
 .vscode
+/test/SCEUA_*.csv
+/hydromodel/app/*.csv

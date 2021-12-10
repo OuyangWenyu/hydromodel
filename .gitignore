@@ -163,3 +163,4 @@ fabric.properties
 *.xlsx
 .vscode
 /test/SCEUA_*.csv
+/hydromodel/app/*.csv

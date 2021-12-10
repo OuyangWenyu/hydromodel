@@ -44,7 +44,8 @@ conda activate xaj
 Then you can run the following code to try hydro-model-xaj:
 
 ```Shell
-python 
+cd hydromodel/app
+python calibrate_xaj.py
 ```
 
 To unify data interface, here is the convention:
@@ -52,6 +53,10 @@ To unify data interface, here is the convention:
 - All input data for models are three-dimensional numpy array: [time, basin, variable], which means "time" series data
   for "variables" in "basins"
 - Data files should be .csv or .txt files. The directory of files is defined in definitions.py.
+
+You can see test code in the "test" directory for more details.
+
+*We will provide a flexible version for configuring your own dataset soon*.
 
 ## Why does hydro-model-xaj exists
 

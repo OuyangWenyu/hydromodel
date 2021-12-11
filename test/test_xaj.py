@@ -17,8 +17,6 @@ from hydromodel.models.xaj import xaj, uh_gamma, uh_conv
 def basin_area():
     # the area of basin 01013500, unit km2
     # basin_area = 2252.7
-    # the areas of basins 01013500, 02430680 are 2252.7, 342.2 respectively; unit km2
-    # basin_area = 342.2
     return 1.783
 
 
@@ -31,25 +29,20 @@ def warmup_length():
 def test_data():
     root_dir = definitions.ROOT_DIR
     # test_data = pd.read_csv(os.path.join(root_dir, "hydromodel", "example", '01013500_lump_p_pe_q.txt'))
-    # test_data = pd.read_csv(os.path.join(root_dir, "hydromodel", "example", 'USGS_02430680_combined.csv'), skiprows=1)
     return pd.read_csv(os.path.join(root_dir, "hydromodel", "example", 'hymod_input.csv'), sep=";")
 
 
 @pytest.fixture()
 def p_and_e(test_data):
     # p_and_e_df = test_data[['prcp(mm/day)', 'petfao56(mm/day)']]
-    # three dims: batch (basin), sequence (time), feature (variable)
-    # p_and_e = np.expand_dims(p_and_e_df.values, axis=0)
-    # p_and_e_df = test_data[['P', 'PE']]
-    # p_and_e = np.expand_dims(p_and_e_df.values, axis=0)
-    p_and_e_df = test_data[['rainfall[mm]', 'TURC [mm d-1]']]
     # three dims: sequence (time), batch (basin), feature (variable)
+    # p_and_e = np.expand_dims(p_and_e_df.values, axis=1)
+    p_and_e_df = test_data[['rainfall[mm]', 'TURC [mm d-1]']]
     return np.expand_dims(p_and_e_df.values, axis=1)
 
 
 @pytest.fixture()
 def qobs(basin_area, test_data):
-    # qobs = np.expand_dims(test_data[['Q']].values, axis=0)
     # 1 ft3 = 0.02831685 m3
     ft3tom3 = 2.831685e-2
     # 1 km2 = 10^6 m2
@@ -60,7 +53,7 @@ def qobs(basin_area, test_data):
     daytos = 24 * 3600
     # qobs_ = np.expand_dims(test_data[['streamflow(ft3/s)']].values, axis=1)
     # trans ft3/s to mm/day
-    # return qobs * ft3tom3 / (basin_area * km2tom2) * mtomm * daytos
+    # return qobs_ * ft3tom3 / (basin_area * km2tom2) * mtomm * daytos
 
     qobs_ = np.expand_dims(test_data[['Discharge[ls-1]']].values, axis=1)
     # trans l/s to mm/day

@@ -1,37 +1,23 @@
 import argparse
 import os
 import sys
-import numpy as np
-import pandas as pd
-
-import definitions
-from hydromodel.calibrate.calibrate_xaj_sceua import calibrate_xaj_sceua
 
 sys.path.append("../..")
+from hydromodel.calibrate.calibrate_xaj_sceua import calibrate_xaj_sceua
+from hydromodel.utils import hydro_utils
 
 
-def main():
-    """
-    Main function which is called from the command line. Entrypoint for training all ML models.
-    """
-    root_dir = definitions.ROOT_DIR
-    data = pd.read_csv(os.path.join(root_dir, "hydromodel", "example", 'hymod_input.csv'), sep=";")
-    p_and_e_df = data[['rainfall[mm]', 'TURC [mm d-1]']]
-    p_and_e = np.expand_dims(p_and_e_df.values, axis=1)
-    km2tom2 = 1e6
-    # 1 m = 1000 mm
-    mtomm = 1000
-    # 1 day = 24 * 3600 s
-    daytos = 24 * 3600
-    qobs_ = np.expand_dims(data[['Discharge[ls-1]']].values, axis=1)
-    basin_area = 1.783
-    # trans l/s to mm/day
-    qobs = qobs_ * 1e-3 / (basin_area * km2tom2) * mtomm * daytos
-    calibrate_xaj_sceua(p_and_e, qobs, warmup_length=30)
+def main(args):
+    data = hydro_utils.unserialize_numpy(os.path.join(args.data_dir, "basins_lump_p_pe_q.npy"))
+    calibrate_xaj_sceua(data[:, :, 0:2], data[:, :, -1:], warmup_length=args.warmup_length)
 
 
-# python script_args.py --year_range 1990 2011
+# python calibrate_xaj.py --data_dir "D:\\code\\hydro-model-xaj\\hydromodel\\example" --warmup_length 60
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Calibrate XAJ model by SCE-UA.')
+    parser.add_argument('--data_dir', dest='data_dir', help='the data directory for XAJ model', default="../example",
+                        type=str)
+    parser.add_argument('--warmup_length', dest='warmup_length', help='the length of warmup period for XAJ model',
+                        default=30, type=int)
     the_args = parser.parse_args()
-    main()
+    main(the_args)

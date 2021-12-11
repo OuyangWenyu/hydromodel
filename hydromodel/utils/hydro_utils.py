@@ -251,10 +251,6 @@ def unserialize_numpy(my_file):
     return y
 
 
-def serialize_geopandas(gpd_df, my_file, the_driver="GeoJSON"):
-    gpd_df.to_file(my_file, driver=the_driver)
-
-
 # -------------------------------------------------time & date tools--------------------------------------------------
 def t2dt(t, hr=False):
     t_out = None

@@ -18,13 +18,13 @@ Please [install miniconda or anaconda](https://github.com/waterDLut/WaterResourc
 
 Since you see hydro-model-xaj in GitHub, I think you have known a little about git and GitHub at least. If not, you can
 see [this](https://github.com/waterDLut/WaterResources/blob/master/tools/git%26github.md#1-git%E7%9A%84%E5%AE%89%E8%A3%85)
-to install git and register your own github account.
+to install git and register your own GitHub account.
 
 Then, fork hydro-model-xaj to your GitHub, and clone it to your local computer (Linux or Windows).
 
 If you have forked it before, please
 see [this tutorial](https://github.com/waterDLut/WaterResources/blob/doc/tools/git%26github.md#55-fork%E5%90%8E%E5%90%8C%E6%AD%A5%E6%BA%90%E7%9A%84%E6%96%B0%E6%9B%B4%E6%96%B0%E5%86%85%E5%AE%B9)
-to update it from [upstream](https://github.com/OuyangWenyu/hydro-model-xaj).
+to update it from [upstream](https://github.com/OuyangWenyu/hydro-model-xaj) as our previous version has some errors.
 
 Open you terminal, then input：
 
@@ -34,7 +34,7 @@ git clone <address of hydro-model-xaj in your github>
 # move to it
 cd hydro-model-xaj
 # if updating from upstream, pull the new version to local
-# git pull
+git pull
 # create python environment
 conda env create -f environment.yml
 # activate it
@@ -48,15 +48,19 @@ cd hydromodel/app
 python calibrate_xaj.py
 ```
 
-To unify data interface, here is the convention:
+To use your own data to run the model, we set a data interface, here is the convention:
 
 - All input data for models are three-dimensional numpy array: [time, basin, variable], which means "time" series data
   for "variables" in "basins"
-- Data files should be .csv or .txt files. The directory of files is defined in definitions.py.
+- Data files should be .npy files with a json file which show the information of the data. We provide sample code in
+  "test/test_data.py" to show how to process your .csv/.txt file to the required format and load your reformatted data
+- The name of .npy file and .json file must be "basins_lump_p_pe_q.npy" and "data_info.json". An example could be seen
+  in the "example" directory
+- You can set your own dataset when using scripts in the "app" directory like the following code:
 
-You can see test code in the "test" directory for more details.
-
-*We will provide a flexible version for configuring your own dataset soon*.
+```Shell
+python calibrate_xaj.py --data_dir D:/code/hydro-model-xaj/hydromodel/example
+```
 
 ## Why does hydro-model-xaj exists
 

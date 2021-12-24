@@ -131,14 +131,17 @@ def calibrate_xaj_sceua(p_and_e, qobs, warmup_length=30, random_state=2000):
     None
     """
     np.random.seed(random_state)  # Makes the results reproduceable
-
     # Initialize the xaj example
     # In this case, we tell the setup which algorithm we want to use, so
     # we can use this exmaple for different algorithms
     spot_setup = SpotSetup(p_and_e, qobs, warmup_length=warmup_length, obj_func=spotpy.objectivefunctions.rmse)
     # Select number of maximum allowed repetitions
     sampler = spotpy.algorithms.sceua(spot_setup, dbname='SCEUA_xaj', dbformat='csv', random_state=random_state)
-    rep = 5000
+    rep = 3000
     # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
-    sampler.sample(rep, ngs=7, kstop=3, peps=0.1, pcento=0.1)
+    ngs = 10
+    kstop =2
+    peps = 0.1
+    pcento = 0.1
+    sampler.sample(rep, ngs, kstop, peps, pcento)
     print("Calibrate Finished!")

@@ -5,27 +5,13 @@ import spotpy
 from spotpy.parameter import Uniform, ParameterSet
 from spotpy.objectivefunctions import rmse
 
+from hydromodel.models.gr4j import gr4j
+from hydromodel.models.hymod import hymod
 from hydromodel.models.xaj import xaj
 
 
 class SpotSetup(object):
-    # All parameters' range are [0,1], we will transform them to normal range in the model
-    B = Uniform(low=0.0, high=1.0)
-    IM = Uniform(low=0.0, high=1.0)
-    UM = Uniform(low=0.0, high=1.0)
-    LM = Uniform(low=0.0, high=1.0)
-    DM = Uniform(low=0.0, high=1.0)
-    C = Uniform(low=0.0, high=1.0)
-    SM = Uniform(low=0.0, high=1.0)
-    EX = Uniform(low=0.0, high=1.0)
-    KI = Uniform(low=0.0, high=1.0)
-    KG = Uniform(low=0.0, high=1.0)
-    A = Uniform(low=0.0, high=1.0)
-    THETA = Uniform(low=0.0, high=1.0)
-    CI = Uniform(low=0.0, high=1.0)
-    CG = Uniform(low=0.0, high=1.0)
-
-    def __init__(self, p_and_e, qobs, warmup_length=30, obj_func=None):
+    def __init__(self, p_and_e, qobs, warmup_length=30, model="xaj", obj_func=None):
         """
         Set up for Spotpy
 
@@ -36,16 +22,35 @@ class SpotSetup(object):
         qobs
             observation data
         warmup_length
-            XAJ model need warmup period
+            GR4J model need warmup period
+        model
+            we support "gr4j", "hymod", and "xaj"
         obj_func
             objective function, typically RMSE
         """
+        if model == "xaj":
+            self.parameter_names = ["B", "IM", "UM", "LM", "DM", "C", "SM", "EX", "KI", "KG", "A", "THETA", "CI", "CG"]
+        elif model == "gr4j":
+            self.parameter_names = ["x1", "x2", "x3", "x4"]
+        elif model == "hymod":
+            self.parameter_names = ["cmax", "bexp", "alpha", "ks", "kq"]
+        else:
+            raise NotImplementedError("We don't provide this model now")
+        self.model = model
+        self.params = []
+        for par_name in self.parameter_names:
+            # All parameters' range are [0,1], we will transform them to normal range in the model
+            self.params.append(Uniform(par_name, low=0.0, high=1.0))
         # Just a way to keep this example flexible and applicable to various examples
         self.obj_func = obj_func
         # Load Observation data from file
         self.p_and_e = p_and_e
         # chose observation data after warmup period
         self.true_obs = qobs[warmup_length:, :, :]
+        self.warmup_length = warmup_length
+
+    def parameters(self):
+        return spotpy.parameter.generate(self.params)
 
     def simulation(self, x: ParameterSet) -> Union[list, np.array]:
         """
@@ -63,8 +68,16 @@ class SpotSetup(object):
         """
         # Here the model is started with one parameter combination
         # TODO: Now ParameterSet only support one list, and we only support one basin's calibration now
-        params = np.array(x).reshape(-1, 1)
-        sim = xaj(self.p_and_e, params)
+        # parameter, 2-dim variable: [basin=1, parameter]
+        params = np.array(x).reshape(1, -1)
+        if self.model == "xaj":
+            sim = xaj(self.p_and_e, params, warmup_length=self.warmup_length)
+        elif self.model == "gr4j":
+            sim = gr4j(self.p_and_e, params, warmup_length=self.warmup_length)
+        elif self.model == "hymod":
+            sim = hymod(self.p_and_e, params, warmup_length=self.warmup_length)
+        else:
+            raise NotImplementedError("We don't provide this model now")
         return sim[:, 0, 0]
 
     def evaluation(self) -> Union[list, np.array]:
@@ -111,7 +124,7 @@ class SpotSetup(object):
         return like
 
 
-def calibrate_xaj_sceua(p_and_e, qobs, warmup_length=30, random_state=2000):
+def calibrate_by_sceua(p_and_e, qobs, warmup_length=30, model="xaj", random_state=2000):
     """
     Function for calibrating hymod
 
@@ -123,6 +136,8 @@ def calibrate_xaj_sceua(p_and_e, qobs, warmup_length=30, random_state=2000):
         observation data
     warmup_length
         the length of warmup period
+    model
+        we support "gr4j", "hymod", and "xaj"
     random_state
         random seed
 
@@ -135,9 +150,10 @@ def calibrate_xaj_sceua(p_and_e, qobs, warmup_length=30, random_state=2000):
     # Initialize the xaj example
     # In this case, we tell the setup which algorithm we want to use, so
     # we can use this exmaple for different algorithms
-    spot_setup = SpotSetup(p_and_e, qobs, warmup_length=warmup_length, obj_func=spotpy.objectivefunctions.rmse)
+    spot_setup = SpotSetup(p_and_e, qobs, warmup_length=warmup_length, model=model,
+                           obj_func=spotpy.objectivefunctions.rmse)
     # Select number of maximum allowed repetitions
-    sampler = spotpy.algorithms.sceua(spot_setup, dbname='SCEUA_xaj', dbformat='csv', random_state=random_state)
+    sampler = spotpy.algorithms.sceua(spot_setup, dbname='SCEUA_' + model, dbformat='csv', random_state=random_state)
     rep = 5000
     # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
     sampler.sample(rep, ngs=7, kstop=3, peps=0.1, pcento=0.1)

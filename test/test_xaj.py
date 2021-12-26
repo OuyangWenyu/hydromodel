@@ -7,8 +7,8 @@ import pytest
 import spotpy
 
 import definitions
+from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua, SpotSetup
 from hydromodel.calibrate.calibrate_xaj_ga import calibrate_xaj_ga
-from hydromodel.calibrate.calibrate_xaj_sceua import calibrate_xaj_sceua, SpotSetup
 from hydromodel.visual.pyspot_plots import show_calibrate_result
 from hydromodel.models.xaj import xaj, uh_gamma, uh_conv
 
@@ -26,23 +26,23 @@ def warmup_length():
 
 
 @pytest.fixture()
-def test_data():
+def the_data():
     root_dir = definitions.ROOT_DIR
     # test_data = pd.read_csv(os.path.join(root_dir, "hydromodel", "example", '01013500_lump_p_pe_q.txt'))
     return pd.read_csv(os.path.join(root_dir, "hydromodel", "example", 'hymod_input.csv'), sep=";")
 
 
 @pytest.fixture()
-def p_and_e(test_data):
+def p_and_e(the_data):
     # p_and_e_df = test_data[['prcp(mm/day)', 'petfao56(mm/day)']]
     # three dims: sequence (time), batch (basin), feature (variable)
     # p_and_e = np.expand_dims(p_and_e_df.values, axis=1)
-    p_and_e_df = test_data[['rainfall[mm]', 'TURC [mm d-1]']]
+    p_and_e_df = the_data[['rainfall[mm]', 'TURC [mm d-1]']]
     return np.expand_dims(p_and_e_df.values, axis=1)
 
 
 @pytest.fixture()
-def qobs(basin_area, test_data):
+def qobs(basin_area, the_data):
     # 1 ft3 = 0.02831685 m3
     ft3tom3 = 2.831685e-2
     # 1 km2 = 10^6 m2
@@ -55,7 +55,7 @@ def qobs(basin_area, test_data):
     # trans ft3/s to mm/day
     # return qobs_ * ft3tom3 / (basin_area * km2tom2) * mtomm * daytos
 
-    qobs_ = np.expand_dims(test_data[['Discharge[ls-1]']].values, axis=1)
+    qobs_ = np.expand_dims(the_data[['Discharge[ls-1]']].values, axis=1)
     # trans l/s to mm/day
     return qobs_ * 1e-3 / (basin_area * km2tom2) * mtomm * daytos
 
@@ -63,7 +63,7 @@ def qobs(basin_area, test_data):
 @pytest.fixture()
 def params():
     # all parameters are in range [0,1]
-    return np.tile([0.5], (14, 1))
+    return np.tile([0.5], (1, 14))
 
 
 def test_uh_gamma():
@@ -98,7 +98,7 @@ def test_xaj(p_and_e, params, warmup_length):
 
 
 def test_calibrate_xaj_sceua(p_and_e, qobs, warmup_length):
-    calibrate_xaj_sceua(p_and_e, qobs, warmup_length)
+    calibrate_by_sceua(p_and_e, qobs, warmup_length)
 
 
 def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length):

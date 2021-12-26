@@ -23,7 +23,7 @@ to install git and register your own GitHub account.
 Then, fork hydro-model-xaj to your GitHub, and clone it to your local computer (Linux or Windows).
 
 If you have forked it before, please
-see [this tutorial](https://github.com/waterDLut/WaterResources/blob/doc/tools/git%26github.md#55-fork%E5%90%8E%E5%90%8C%E6%AD%A5%E6%BA%90%E7%9A%84%E6%96%B0%E6%9B%B4%E6%96%B0%E5%86%85%E5%AE%B9)
+see [this](https://github.com/waterDLut/WaterResources/blob/doc/tools/git%26github.md#55-fork%E5%90%8E%E5%90%8C%E6%AD%A5%E6%BA%90%E7%9A%84%E6%96%B0%E6%9B%B4%E6%96%B0%E5%86%85%E5%AE%B9)
 to update it from [upstream](https://github.com/OuyangWenyu/hydro-model-xaj) as our previous version has some errors.
 
 Open you terminal, then input：
@@ -104,7 +104,8 @@ parameters in a uniform way.
 We provide two common calibration methods to optimize XAJ's parameters:
 
 - [SCE-UA](https://doi.org/10.1029/91WR02985) from [spotpy](https://github.com/thouska/spotpy)
-- [GA](https://en.wikipedia.org/wiki/Genetic_algorithm) from [DEAP](https://github.com/DEAP/deap)
+- [GA](https://en.wikipedia.org/wiki/Genetic_algorithm) from [DEAP](https://github.com/DEAP/deap): now only the method
+  is used, but no completed case is provided yet. We will provide one soon.
 
 Now the model is only for **one computing element** (typically, a headwater catchment). Soon we will provide calibration
 for multiple headwater catchments. To get better simulation for large basins, a (semi-)distributed version may be
@@ -115,8 +116,9 @@ needed, and it is not implemented yet. The following links may be useful:
 
 Other implementations for XAJ:
 
-- https://github.com/wknoben/MARRMoT/blob/master/MARRMoT/Models/Model%20files/m_28_xinanjiang_12p_4s.m
-- https://github.com/Sibada/XAJ
+- Matlab: https://github.com/wknoben/MARRMoT/blob/master/MARRMoT/Models/Model%20files/m_28_xinanjiang_12p_4s.m
+- Java: https://github.com/wfxr/xaj-hydrological-model
+- R, C++: https://github.com/Sibada/XAJ
 
 ## How to contribute
 

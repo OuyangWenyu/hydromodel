@@ -12,10 +12,11 @@ def main(args):
     calibrate_by_sceua(data[:, :, 0:2], data[:, :, -1:], warmup_length=args.warmup_length)
 
 
+
 # python calibrate_xaj.py --data_dir "D:\\code\\hydro-model-xaj\\hydromodel\\example" --warmup_length 60
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Calibrate XAJ model by SCE-UA.')
-    parser.add_argument('--data_dir', dest='data_dir', help='the data directory for XAJ model', default="../example",
+    parser.add_argument('--data_dir', dest='data_dir', help='the data directory for XAJ model', default="..\\data\\61019",
                         type=str)
     parser.add_argument('--warmup_length', dest='warmup_length', help='the length of warmup period for XAJ model',
                         default=30, type=int)

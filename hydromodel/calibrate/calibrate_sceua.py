@@ -154,11 +154,11 @@ def calibrate_by_sceua(p_and_e, qobs, warmup_length=30, model="xaj", random_stat
     # Select number of maximum allowed repetitions
 
     sampler = spotpy.algorithms.sceua(spot_setup, dbname='SCEUA_' + model, dbformat='csv', random_state=random_state)
-    rep = 5000
+    rep = 4000
     # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
-    ngs = 20
-    kstop =20
-    peps = 0.1
+    ngs = 10
+    kstop =2
+    peps = 0.15
     pcento = 0.1
     sampler.sample(rep, ngs, kstop, peps, pcento)
     print("Calibrate Finished!")

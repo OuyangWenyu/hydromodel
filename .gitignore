@@ -166,4 +166,4 @@ fabric.properties
 /hydromodel/app/*.csv
 
 camels_mr/
-hydromodel/data/
+/hydromodel/data/

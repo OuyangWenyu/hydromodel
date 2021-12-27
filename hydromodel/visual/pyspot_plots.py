@@ -29,7 +29,7 @@ def show_calibrate_result(spot_setup, warmup_length,result_file_name, flow_unit=
     plt.plot(results['like1'])
     plt.ylabel('RMSE')
     plt.xlabel('Iteration')
-    plt.savefig('..\hydromodel\\result\\01013500\\result.png', bbox_inches='tight')
+    plt.savefig('..\\hydromodel\\result\\01013500\\result.png', bbox_inches='tight')
     # Plot the best model run
     # Find the run_id with the minimal objective function value
     bestindex, bestobjf = spotpy.analyser.get_minlikeindex(results)
@@ -39,7 +39,7 @@ def show_calibrate_result(spot_setup, warmup_length,result_file_name, flow_unit=
     fields = [word for word in best_model_run.dtype.names if word.startswith('sim')]
     best_simulation =list(best_model_run[fields])
     #Add date column for simulation and evaluation result
-    test_data_con=pd.read_csv(os.path.join(definitions.ROOT_DIR, "hydromodel", "result", '01013500','01013500_lump_p_pe_q.txt'))
+    test_data_con=pd.read_csv(os.path.join(definitions.ROOT_DIR, "hydromodel", "example", '01013500_lump_p_pe_q.txt'))
     test_data_con['year']=pd.to_datetime(test_data_con['date']).dt.year
     year_unique=test_data_con['year'][warmup_length:].unique()
     for i in year_unique:
@@ -54,6 +54,6 @@ def show_calibrate_result(spot_setup, warmup_length,result_file_name, flow_unit=
         plt.legend(loc='upper right')
         plt.title(i)
         plt.tight_layout()
-        plt.savefig('..\hydromodel\\result\\01013500\\' + str(i) + '.png',bbox_inches='tight')
+        plt.savefig('..\\hydromodel\\result\\01013500\\' + str(i) + '.png',bbox_inches='tight')
 
 

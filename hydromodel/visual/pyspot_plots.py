@@ -29,7 +29,7 @@ def show_calibrate_result(spot_setup, warmup_length,result_file_name, flow_unit=
     plt.plot(results['like1'])
     plt.ylabel('RMSE')
     plt.xlabel('Iteration')
-    plt.savefig('D:\Codes\hydro-model-xaj\hydromodel\data\\61019\\result.png', bbox_inches='tight')
+    plt.savefig('..\hydromodel\\result\\01013500\\result.png', bbox_inches='tight')
     # Plot the best model run
     # Find the run_id with the minimal objective function value
     bestindex, bestobjf = spotpy.analyser.get_minlikeindex(results)
@@ -39,14 +39,14 @@ def show_calibrate_result(spot_setup, warmup_length,result_file_name, flow_unit=
     fields = [word for word in best_model_run.dtype.names if word.startswith('sim')]
     best_simulation =list(best_model_run[fields])
     #Add date column for simulation and evaluation result
-    test_data_con=pd.read_csv( os.path.join(definitions.ROOT_DIR, "hydromodel", "data", '61019','61019_lump_p_pe_q.txt'))
+    test_data_con=pd.read_csv(os.path.join(definitions.ROOT_DIR, "hydromodel", "result", '01013500','01013500_lump_p_pe_q.txt'))
     test_data_con['year']=pd.to_datetime(test_data_con['date']).dt.year
     year_unique=test_data_con['year'][warmup_length:].unique()
     for i in year_unique:
         year_index=np.where(test_data_con['year'][warmup_length:]== i)
         fig = plt.figure(figsize=(9, 6))
         ax = plt.subplot(1, 1, 1)
-        # TODO: now we just plot one year's data
+        # TODO: now we just plot all year's data
         ax.plot(best_simulation[year_index[0][0]:year_index[0][-1]], color='black', linestyle='solid', label='Best objf.=' + str(bestobjf))
         ax.plot(spot_setup.evaluation()[year_index[0][0]:year_index[0][-1]], 'r.', markersize=3, label='Observation data')
         plt.xlabel('Number of Observation Points')
@@ -54,6 +54,6 @@ def show_calibrate_result(spot_setup, warmup_length,result_file_name, flow_unit=
         plt.legend(loc='upper right')
         plt.title(i)
         plt.tight_layout()
-        plt.savefig('D:\Codes\hydro-model-xaj\hydromodel\data\\61019\\' + str(i) + '.png',bbox_inches='tight')
+        plt.savefig('..\hydromodel\\result\\01013500\\' + str(i) + '.png',bbox_inches='tight')
 
 

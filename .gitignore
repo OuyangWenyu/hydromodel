@@ -164,3 +164,5 @@ fabric.properties
 .vscode
 /test/SCEUA_*.csv
 /hydromodel/app/*.csv
+
+camels_mr/

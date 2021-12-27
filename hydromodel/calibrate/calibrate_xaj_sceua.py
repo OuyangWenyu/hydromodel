@@ -139,8 +139,8 @@ def calibrate_xaj_sceua(p_and_e, qobs, warmup_length=30, random_state=2000):
     sampler = spotpy.algorithms.sceua(spot_setup, dbname='SCEUA_xaj', dbformat='csv', random_state=random_state)
     rep = 3000
     # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
-    ngs = 10
-    kstop =2
+    ngs = 20
+    kstop =20
     peps = 0.1
     pcento = 0.1
     sampler.sample(rep, ngs, kstop, peps, pcento)

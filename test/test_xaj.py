@@ -7,8 +7,8 @@ import pytest
 import spotpy
 
 import definitions
+from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua, SpotSetup
 from hydromodel.calibrate.calibrate_xaj_ga import calibrate_xaj_ga
-from hydromodel.calibrate.calibrate_xaj_sceua import calibrate_xaj_sceua, SpotSetup
 from hydromodel.visual.pyspot_plots import show_calibrate_result
 from hydromodel.models.xaj import xaj, uh_gamma, uh_conv
 from hydromodel.utils import hydro_utils
@@ -67,10 +67,11 @@ def qobs(npy_file):
 #     return qobs_ * 1e-3 / (basin_area * km2tom2) * mtomm * daytos
 
 
+
 @pytest.fixture()
 def params():
     # all parameters are in range [0,1]
-    return np.tile([0.5], (14, 1))
+    return np.tile([0.5], (1, 14))
 
 
 def test_uh_gamma():
@@ -105,7 +106,7 @@ def test_xaj(p_and_e, params, warmup_length):
 
 
 def test_calibrate_xaj_sceua(p_and_e, qobs, warmup_length):
-    calibrate_xaj_sceua(p_and_e, qobs, warmup_length)
+    calibrate_by_sceua(p_and_e, qobs, warmup_length)
 
 
 def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length):

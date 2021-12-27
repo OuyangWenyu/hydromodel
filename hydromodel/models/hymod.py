@@ -1,117 +1,121 @@
 # -*- coding: utf-8 -*-
-"""
-Copyright (c) 2015 by Tobias Houska
-This file comes from Statistical Parameter Estimation Tool (SPOTPY).
-We use it as a tutorial for using SCE-UA.
-:author: Tobias Houska and Benjamin Manns
-:paper: Houska, T., Kraft, P., Chamorro-Chavez, A. and Breuer, L.:
-SPOTting Model Parameters Using a Ready-Made Python Package,
-PLoS ONE, 10(12), e0145180, doi:10.1371/journal.pone.0145180, 2015.
-"""
 import numpy as np
 from numba import jit
 
 
-def hymod(Precip, PET, cmax, bexp, alpha, Rs, Rq):
+def hymod(p_and_e, parameters, warmup_length=30, return_state=False):
     """
-    See https://www.proc-iahs.net/368/180/2015/piahs-368-180-2015.pdf for a scientific paper:
+    Run Hymod model
 
+    See https://www.proc-iahs.net/368/180/2015/piahs-368-180-2015.pdf for a scientific paper:
     Quan, Z.; Teng, J.; Sun, W.; Cheng, T. & Zhang, J. (2015): Evaluation of the HYMOD model
     for rainfall–runoff simulation using the GLUE method. Remote Sensing and GIS for Hydrology
     and Water Resources, 180 - 185, IAHS Publ. 368. DOI: 10.5194/piahs-368-180-2015.
 
     Parameters
     ----------
-    Precip
-        precipitation, 3-dim variable: [time, basin, feature=1]
-    PET
-        potential evapotranspiration, 3-dim variable: [time, basin, feature=1]
-    cmax
-        parameter, 2-dim variable: [parameter=1, basin]
-    bexp
-        parameter, 2-dim variable: [parameter=1, basin]
-    alpha
-        parameter, 2-dim variable: [parameter=1, basin]
-    Rs
-        parameter, 2-dim variable: [parameter=1, basin]
-    Rq
-        parameter, 2-dim variable: [parameter=1, basin]
+    p_and_e
+        precipitation and potential evapotranspiration, 3-dim variable: [time, basin, feature=1]
+    parameters
+         five parameters: cmax, bexp, alpha, ks, kq
+    warmup_length
+        the length of warmup period
+    return_state
+        if True, return x_slow, x_quick, x_loss, else only return streamflow
 
     Returns
     -------
-    list
-        Dataset of water in hymod (has to be calculated in litres)
+    Union[list, np.array]
+        streamflow, x_slow, x_quick, x_loss or streamflow
     """
-
-    # HYMOD PROGRAM IS SIMPLE RAINFALL RUNOFF MODEL
-    x_loss = 0.0
-    # Initialize slow tank state
-    # x_slow = 2.3503 / (Rs * 22.5)
-    x_slow = 0  # --> works ok if calibration data starts with low discharge
-    # Initialize state(s) of quick tank(s)
-    x_quick = [0, 0, 0]
+    # parameter, 2-dim variable: [parameter=1, basin]
+    cmax_scale = [1.0, 500.]
+    bexp_sacle = [0.1, 2.0]
+    alpha_scale = [0.1, 0.99]
+    ks_scale = [0.001, 0.10]
+    kq_scale = [0.1, 0.99]
+    cmax = cmax_scale[0] + parameters[:, 0] * (cmax_scale[1] - cmax_scale[0])
+    bexp = bexp_sacle[0] + parameters[:, 1] * (bexp_sacle[1] - bexp_sacle[0])
+    alpha = alpha_scale[0] + parameters[:, 2] * (alpha_scale[1] - alpha_scale[0])
+    ks = ks_scale[0] + parameters[:, 3] * (ks_scale[1] - ks_scale[0])
+    kq = kq_scale[0] + parameters[:, 4] * (kq_scale[1] - kq_scale[0])
+    if warmup_length > 0:
+        # set no_grad for warmup periods
+        p_and_e_warmup = p_and_e[0:warmup_length, :, :]
+        _, x_slow, x_quick, x_loss = hymod(p_and_e_warmup, parameters, warmup_length=0, return_state=True)
+    else:
+        # Initialize slow tank state
+        # x_slow = 2.3503 / (ks * 22.5)
+        x_slow = np.full((p_and_e.shape[1], 1), 0.)  # --> works ok if calibration data starts with low discharge
+        # Initialize state(s) of quick tank(s)
+        x_quick = np.full((p_and_e.shape[1], 3), 0.)
+        # HYMOD PROGRAM IS SIMPLE RAINFALL RUNOFF MODEL
+        x_loss = np.full((p_and_e.shape[1], 1), 0.)
+    precip = p_and_e[warmup_length:, :, 0]
+    pet = p_and_e[warmup_length:, :, 1]
     t = 0
-    output = np.full(Precip.shape, 0.0)
+    output = np.full(precip.shape, 0.0)
     # START PROGRAMMING LOOP WITH DETERMINING RAINFALL - RUNOFF AMOUNTS
-
-    while t <= Precip.shape[0] - 1:
-        Pval = Precip[t, :, :]
-        PETval = PET[t, :, :]
+    while t <= precip.shape[0] - 1:
+        pval = precip[t, :]
+        pet_val = pet[t, :]
         # Compute excess precipitation and evaporation
-        ER1, ER2, x_loss = excess(x_loss, cmax, bexp, Pval, PETval)
+        er1, er2, x_loss = excess(x_loss, cmax, bexp, pval, pet_val)
         # Calculate total effective rainfall
-        ET = ER1 + ER2
+        et = er1 + er2
         #  Now partition ER between quick and slow flow reservoirs
-        UQ = alpha * ET
-        US = (1 - alpha) * ET
+        uq = alpha * et
+        us = (1 - alpha) * et
         # Route slow flow component with single linear reservoir
-        x_slow, QS = linres(x_slow, US, Rs)
+        x_slow, qs = linres(x_slow, us, ks)
         # Route quick flow component with linear reservoirs
-        inflow = UQ
+        inflow = uq
 
         for i in range(3):
             # Linear reservoir
-            x_quick[i], outflow = linres(x_quick[i], inflow, Rq)
+            x_quick[:, i], outflow = linres(x_quick[:, i], inflow, kq)
             inflow = outflow
 
         # Compute total flow for timestep
-        output[t, :, :] = QS + outflow
+        output[t, :] = qs + outflow
         t = t + 1
-
-    return output
-
-
-@jit
-def power(X, Y):
-    X = np.abs(X)  # Needed to capture invalid overflow with negative values
-    return X ** Y
+    streamflow = np.expand_dims(output, axis=2)
+    if return_state:
+        return streamflow, x_slow, x_quick, x_loss
+    return streamflow
 
 
 @jit
-def linres(x_slow, inflow, Rs):
+def power(x, y):
+    x = np.abs(x)  # Needed to capture invalid overflow with negative values
+    return x ** y
+
+
+@jit
+def linres(x_slow, inflow, rs):
     # Linear reservoir
-    x_slow = (1 - Rs) * x_slow + (1 - Rs) * inflow
-    outflow = (Rs / (1 - Rs)) * x_slow
+    x_slow = (1 - rs) * x_slow + (1 - rs) * inflow
+    outflow = (rs / (1 - rs)) * x_slow
     return x_slow, outflow
 
 
 @jit
-def excess(x_loss, cmax, bexp, Pval, PETval):
+def excess(x_loss, cmax, bexp, pval, pet_val):
     # this function calculates excess precipitation and evaporation
     xn_prev = x_loss
     ct_prev = cmax * (1 - power((1 - ((bexp + 1) * (xn_prev) / cmax)), (1 / (bexp + 1))))
     # Calculate Effective rainfall 1
-    ER1 = np.maximum((Pval - cmax + ct_prev), 0.0)
-    Pval = Pval - ER1
-    dummy = np.minimum(((ct_prev + Pval) / cmax), 1)
+    er1 = np.maximum((pval - cmax + ct_prev), 0.0)
+    pval = pval - er1
+    dummy = np.minimum(((ct_prev + pval) / cmax), 1)
     xn = (cmax / (bexp + 1)) * (1 - power((1 - dummy), (bexp + 1)))
 
     # Calculate Effective rainfall 2
-    ER2 = np.maximum(Pval - (xn - xn_prev), 0)
+    er2 = np.maximum(pval - (xn - xn_prev), 0)
 
     # Alternative approach
     evap = (1 - (((cmax / (bexp + 1)) - xn) / (
-            cmax / (bexp + 1)))) * PETval  # actual ET is linearly related to the soil moisture state
+            cmax / (bexp + 1)))) * pet_val  # actual ET is linearly related to the soil moisture state
     xn = np.maximum(xn - evap, 0)  # update state
 
-    return ER1, ER2, xn
+    return er1, er2, xn

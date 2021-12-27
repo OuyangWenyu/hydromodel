@@ -29,7 +29,7 @@ def evaluate(individual, x_input, y_true, warmup_length):
     """
     print("Calculate fitness:")
     # TODO: Now spotpy only support one list, and we only support one basin's calibration now
-    params = np.array(individual).reshape(-1, 1)
+    params = np.array(individual).reshape(1, -1)
     simulated_flow = xaj(x_input, params, warmup_length=warmup_length)
     rmses = statRmse(y_true[warmup_length:, :, :], simulated_flow)
     rmse = rmses.mean(axis=0)

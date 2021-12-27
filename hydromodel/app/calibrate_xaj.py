@@ -2,14 +2,15 @@ import argparse
 import os
 import sys
 
-sys.path.append("..\\..")
-from hydromodel.calibrate.calibrate_xaj_sceua import calibrate_xaj_sceua
+sys.path.append("../..")
+from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua
 from hydromodel.utils import hydro_utils
 
 
 def main(args):
-    data = hydro_utils.unserialize_numpy(os.path.join(args.data_dir, 'basins_lump_p_pe_q.npy'))
-    calibrate_xaj_sceua(data[:, :, 0:2], data[:, :, -1:], warmup_length=args.warmup_length)
+    data = hydro_utils.unserialize_numpy(os.path.join(args.data_dir, "basins_lump_p_pe_q.npy"))
+    calibrate_by_sceua(data[:, :, 0:2], data[:, :, -1:], warmup_length=args.warmup_length)
+
 
 
 # python calibrate_xaj.py --data_dir "D:\\code\\hydro-model-xaj\\hydromodel\\example" --warmup_length 60

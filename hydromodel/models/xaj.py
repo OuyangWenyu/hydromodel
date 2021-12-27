@@ -5,9 +5,11 @@ import logging
 from typing import Union
 from collections import OrderedDict
 import numpy as np
+from numba import jit
 from scipy.special import gamma
 
 
+@jit
 def calculate_evap(lm, c,
                    wu0, wl0,
                    prcp, pet) -> tuple[np.array, np.array, np.array]:
@@ -47,6 +49,7 @@ def calculate_evap(lm, c,
     return eu, el, ed
 
 
+@jit
 def calculate_prcp_runoff(b, im, wm,
                           w0,
                           pe) -> tuple[np.array, np.array]:
@@ -442,6 +445,7 @@ def sources5mm(pe, runoff,
     return (rs, rss, rg), (fr_ds[-1], s_ds[-1])
 
 
+@jit
 def linear_reservoir(x, weight, last_y=None) -> np.array:
     """
     Linear reservoir's release function
@@ -547,7 +551,7 @@ def xaj(p_and_e,
         prcp and pet; sequence-first (time is the first dim) 3-d np array: [time, basin, feature=2]
     params
         parameters of XAJ model for basin(s);
-        2-dim variable -- [parameter, basin]:
+        2-dim variable -- [basin, parameter]:
         the parameters are B IM UM LM DM C SM EX KI KG A THETA CI CG (notice the sequence)
     return_state
         if True, return state values, mainly for warmup periods
@@ -585,7 +589,8 @@ def xaj(p_and_e,
         "CI": [0.0, 0.9],
         "CG": [0.95, 0.998],
     })
-    xaj_params = [(value[1] - value[0]) * params[i] + value[0] for i, (key, value) in enumerate(param_ranges.items())]
+    xaj_params = [(value[1] - value[0]) * params[:, i] + value[0] for i, (key, value) in
+                  enumerate(param_ranges.items())]
     b = xaj_params[0]
     im = xaj_params[1]
     um = xaj_params[2]

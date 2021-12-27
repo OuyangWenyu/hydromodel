@@ -165,5 +165,4 @@ fabric.properties
 /test/SCEUA_*.csv
 /hydromodel/app/*.csv
 
-camels_mr/
-/hydromodel/data/
+

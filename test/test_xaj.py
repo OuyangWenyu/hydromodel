@@ -103,7 +103,7 @@ def test_calibrate_xaj_sceua(p_and_e, qobs, warmup_length):
 
 def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length):
     spot_setup = SpotSetup(p_and_e, qobs, warmup_length, obj_func=spotpy.objectivefunctions.rmse)
-    show_calibrate_result(spot_setup, "SCEUA_xaj")
+    show_calibrate_result(spot_setup, "SCEUA_xaj",warmup_length)
     plt.show()
 
 

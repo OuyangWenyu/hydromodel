@@ -7,7 +7,7 @@ import numpy as np
 
 def show_calibrate_result(spot_setup, result_file_name, warmup_length,flow_unit="mm day-1"):
     """
-    Plot one year result to see the effect of optimized parameters
+    Plot all year result to see the effect of optimized parameters
 
     Parameters
     ----------

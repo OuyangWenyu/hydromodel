@@ -10,26 +10,30 @@ from hydromodel.models.xaj import uh_conv
 @jit
 def calculate_precip_store(s, precip_net, x1):
     """Calculates the amount of rainfall which enters the storage reservoir."""
-    n = x1 * (1. - (s / x1) ** 2) * np.tanh(precip_net / x1)
-    d = 1. + (s / x1) * np.tanh(precip_net / x1)
+    n = x1 * (1.0 - (s / x1) ** 2) * np.tanh(precip_net / x1)
+    d = 1.0 + (s / x1) * np.tanh(precip_net / x1)
     return n / d
 
 
 @jit
 def calculate_evap_store(s, evap_net, x1):
     """Determines the evaporation loss from the production store"""
-    n = s * (2. - s / x1) * np.tanh(evap_net / x1)
-    d = 1. + (1. - s / x1) * np.tanh(evap_net / x1)
+    n = s * (2.0 - s / x1) * np.tanh(evap_net / x1)
+    d = 1.0 + (1.0 - s / x1) * np.tanh(evap_net / x1)
     return n / d
 
 
 @jit
 def calculate_perc(current_store, x1):
     """Determines how much water percolates out of the production store to streamflow"""
-    return current_store * (1. - (1. + (4.0 / 9.0 * current_store / x1) ** 4) ** -0.25)
+    return current_store * (
+        1.0 - (1.0 + (4.0 / 9.0 * current_store / x1) ** 4) ** -0.25
+    )
 
 
-def production(p_and_e: np.array, x1: np.array, s_level: Optional[np.array] = None) -> Tuple[np.array, np.array]:
+def production(
+    p_and_e: np.array, x1: np.array, s_level: Optional[np.array] = None
+) -> Tuple[np.array, np.array]:
     """
     an one-step calculation for production store in GR4J
     the dimension of the cell: [batch, feature]
@@ -84,7 +88,7 @@ def production(p_and_e: np.array, x1: np.array, s_level: Optional[np.array] = No
 @jit
 def s_curves1(t, x4):
     """
-        Unit hydrograph ordinates for UH1 derived from S-curves.
+    Unit hydrograph ordinates for UH1 derived from S-curves.
     """
 
     if t <= 0:
@@ -98,7 +102,7 @@ def s_curves1(t, x4):
 @jit
 def s_curves2(t, x4):
     """
-        Unit hydrograph ordinates for UH2 derived from S-curves.
+    Unit hydrograph ordinates for UH2 derived from S-curves.
     """
 
     if t <= 0:
@@ -161,14 +165,14 @@ def routing(q9: np.array, q1: np.array, x2, x3, r_level: Optional[np.array] = No
     if r_level is None:
         r_level = 0.7 * x3
     # r_level should not be larger than self.x3
-    r_level = np.clip(r_level, a_min=np.full(r_level.shape, 0.), a_max=x3)
+    r_level = np.clip(r_level, a_min=np.full(r_level.shape, 0.0), a_max=x3)
     groundwater_ex = x2 * (r_level / x3) ** 3.5
-    r_updated = np.maximum(np.full(r_level.shape, 0.), r_level + q9 + groundwater_ex)
+    r_updated = np.maximum(np.full(r_level.shape, 0.0), r_level + q9 + groundwater_ex)
 
-    qr = r_updated * (1. - (1. + (r_updated / x3) ** 4) ** -0.25)
+    qr = r_updated * (1.0 - (1.0 + (r_updated / x3) ** 4) ** -0.25)
     r_updated = r_updated - qr
 
-    qd = np.maximum(np.full(groundwater_ex.shape, 0.), q1 + groundwater_ex)
+    qd = np.maximum(np.full(groundwater_ex.shape, 0.0), q1 + groundwater_ex)
     q = qr + qd
     return q, r_updated
 
@@ -194,8 +198,8 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False):
     Union[np.array, tuple]
         streamflow or (streamflow, states)
     """
-    x1_scale = [100., 1200.]
-    x2_sacle = [-5., 3.]
+    x1_scale = [100.0, 1200.0]
+    x2_sacle = [-5.0, 3.0]
     x3_scale = [20.0, 300.0]
     x4_scale = [1.1, 2.9]
     x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
@@ -224,8 +228,12 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False):
     q9 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
     q1 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
     for j in range(inputs.shape[1]):
-        q9[:, j:j + 1, :] = uh_conv(prs_x[:, j:j + 1, :], conv_q9[j].reshape(-1, 1, 1))
-        q1[:, j:j + 1, :] = uh_conv(prs_x[:, j:j + 1, :], conv_q1[j].reshape(-1, 1, 1))
+        q9[:, j : j + 1, :] = uh_conv(
+            prs_x[:, j : j + 1, :], conv_q9[j].reshape(-1, 1, 1)
+        )
+        q1[:, j : j + 1, :] = uh_conv(
+            prs_x[:, j : j + 1, :], conv_q1[j].reshape(-1, 1, 1)
+        )
     for i in range(inputs.shape[0]):
         if i == 0:
             q, r = routing(q9[i, :, 0], q1[i, :, 0], x2, x3, r0)

@@ -27,7 +27,9 @@ def warmup_length():
 def the_data():
     root_dir = definitions.ROOT_DIR
     # test_data = pd.read_csv(os.path.join(root_dir, "hydromodel", "example", '01013500_lump_p_pe_q.txt'))
-    return pd.read_csv(os.path.join(root_dir, "hydromodel", "example", 'hymod_input.csv'), sep=";")
+    return pd.read_csv(
+        os.path.join(root_dir, "hydromodel", "example", "hymod_input.csv"), sep=";"
+    )
 
 
 @pytest.fixture()
@@ -35,7 +37,7 @@ def p_and_e(the_data):
     # p_and_e_df = test_data[['prcp(mm/day)', 'petfao56(mm/day)']]
     # three dims: sequence (time), batch (basin), feature (variable)
     # p_and_e = np.expand_dims(p_and_e_df.values, axis=1)
-    p_and_e_df = the_data[['rainfall[mm]', 'TURC [mm d-1]']]
+    p_and_e_df = the_data[["rainfall[mm]", "TURC [mm d-1]"]]
     return np.expand_dims(p_and_e_df.values, axis=1)
 
 
@@ -53,7 +55,7 @@ def qobs(basin_area, the_data):
     # trans ft3/s to mm/day
     # return qobs_ * ft3tom3 / (basin_area * km2tom2) * mtomm * daytos
 
-    qobs_ = np.expand_dims(the_data[['Discharge[ls-1]']].values, axis=1)
+    qobs_ = np.expand_dims(the_data[["Discharge[ls-1]"]].values, axis=1)
     # trans l/s to mm/day
     return qobs_ * 1e-3 / (basin_area * km2tom2) * mtomm * daytos
 
@@ -70,10 +72,27 @@ def test_gr4j(p_and_e, params):
 
 
 def test_calibrate_gr4j_sceua(p_and_e, qobs, warmup_length):
-    calibrate_by_sceua(p_and_e, qobs, warmup_length, model="gr4j")
+    calibrate_by_sceua(
+        p_and_e,
+        qobs,
+        warmup_length,
+        model="gr4j",
+        random_seed=2000,
+        rep=5000,
+        ngs=7,
+        kstop=3,
+        peps=0.1,
+        pcento=0.1,
+    )
 
 
 def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length):
-    spot_setup = SpotSetup(p_and_e, qobs, warmup_length, model="gr4j", obj_func=spotpy.objectivefunctions.rmse)
+    spot_setup = SpotSetup(
+        p_and_e,
+        qobs,
+        warmup_length,
+        model="gr4j",
+        obj_func=spotpy.objectivefunctions.rmse,
+    )
     show_calibrate_result(spot_setup, "SCEUA_gr4j")
     plt.show()

@@ -22,7 +22,9 @@ def basin_area():
 @pytest.fixture()
 def the_data():
     root_dir = definitions.ROOT_DIR
-    return pd.read_csv(os.path.join(root_dir, "hydromodel", "example", 'hymod_input.csv'), sep=";")
+    return pd.read_csv(
+        os.path.join(root_dir, "hydromodel", "example", "hymod_input.csv"), sep=";"
+    )
     # return pd.read_csv(os.path.join(root_dir, "hydromodel","example", '01013500_lump_p_pe_q.txt'))
 
 
@@ -40,14 +42,14 @@ def qobs(the_data, basin_area):
     # trans ft3/s to mm/day
     # return qobs_ * ft3tom3 / (basin_area * km2tom2) * mtomm * daytos
 
-    qobs_ = np.expand_dims(the_data[['Discharge[ls-1]']].values, axis=1)
+    qobs_ = np.expand_dims(the_data[["Discharge[ls-1]"]].values, axis=1)
     # trans l/s to mm/day
     return qobs_ * 1e-3 / (basin_area * km2tom2) * mtomm * daytos
 
 
 @pytest.fixture()
 def p_and_e(the_data):
-    p_and_e_df = the_data[['rainfall[mm]', 'TURC [mm d-1]']]
+    p_and_e_df = the_data[["rainfall[mm]", "TURC [mm d-1]"]]
     # p_and_e_df = test_data[['prcp(mm/day)', 'petfao56(mm/day)']]
     # three dims: batch (basin), sequence (time), feature (variable)
     return np.expand_dims(p_and_e_df.values, axis=1)
@@ -60,14 +62,32 @@ def params():
 
 def test_hymod(p_and_e, params):
     qsim = hymod(p_and_e, params, warmup_length=10)
-    np.testing.assert_almost_equal(qsim[:5, 0, 0], [0.0003, 0.0003, 0.0002, 0.0002, 0.0002], decimal=4)
+    np.testing.assert_almost_equal(
+        qsim[:5, 0, 0], [0.0003, 0.0003, 0.0002, 0.0002, 0.0002], decimal=4
+    )
 
 
 def test_calibrate_hymod_sceua(p_and_e, qobs, basin_area):
-    calibrate_by_sceua(p_and_e, qobs, model="hymod")
+    calibrate_by_sceua(
+        p_and_e,
+        qobs,
+        model="hymod",
+        random_seed=2000,
+        rep=5000,
+        ngs=7,
+        kstop=3,
+        peps=0.1,
+        pcento=0.1,
+    )
 
 
 def test_show_hymod_calibrate_sceua_result(p_and_e, qobs, basin_area):
-    spot_setup = SpotSetup(p_and_e, qobs, warmup_length=10, model="hymod", obj_func=spotpy.objectivefunctions.rmse)
+    spot_setup = SpotSetup(
+        p_and_e,
+        qobs,
+        warmup_length=10,
+        model="hymod",
+        obj_func=spotpy.objectivefunctions.rmse,
+    )
     show_calibrate_result(spot_setup, "SCEUA_hymod", "l s-1")
     plt.show()

@@ -31,16 +31,16 @@ def show_calibrate_result(spot_setup, result_file_name, warmup_length,basin_id,s
     results = spotpy.analyser.load_csv_results(result_file_name)
     # Plot how the objective function was minimized during sampling
     fig = plt.figure(1, figsize=(9, 6))
-    plt.plot(results['like1'])
-    plt.ylabel('RMSE')
-    plt.xlabel('Iteration')
+    plt.plot(results["like1"])
+    plt.ylabel("RMSE")
+    plt.xlabel("Iteration")
     # Plot the best model run
     # Find the run_id with the minimal objective function value
     bestindex, bestobjf = spotpy.analyser.get_minlikeindex(results)
     # Select best model run
     best_model_run = results[bestindex]
     # Filter results for simulation results
-    fields = [word for word in best_model_run.dtype.names if word.startswith('sim')]
+    fields = [word for word in best_model_run.dtype.names if word.startswith("sim")]
     best_simulation = list(best_model_run[fields])
     # calculation train‘s rmse、nashsutcliffe and bias
     RMSE = rmse(spot_setup.evaluation(), best_simulation)

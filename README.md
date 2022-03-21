@@ -80,26 +80,23 @@ and develop it. I think hydro-model-xaj is a good start.
 We basically implement the formula in the book -- ["*Watershed hydrologic
 simulation*"/《流域水文模拟》](https://xueshu.baidu.com/usercenter/paper/show?paperid=ad9c545a7baa43321db97f5f16d393bf&site=xueshu_se)
 
-Other reference books：
-
-- ["*Principles of
-  Hydrology*"/《水文学原理》](https://xueshu.baidu.com/usercenter/paper/show?paperid=5b2d0a40e2d2804f47346ae6ccf2d142&site=xueshu_se)
-- ["*Hydrologic
-  Forecasting*"/《水文预报》](https://xueshu.baidu.com/usercenter/paper/show?paperid=852a9a90a7d26c5fae749169f87b61e0&site=xueshu_se)
-- ["*Engineering
-  Hydrology*"/《工程水文学》](https://xueshu.baidu.com/usercenter/paper/show?paperid=6e2d38726c8e3c0b9f3a14bafb156481&site=xueshu_se)
-
 The model mainly include three parts:
 
 ![](docs/source/img/xaj.jpg)
+
+For the first part, we use an evaporation coefficient K (ratio of potential evapotranspiration to reference crop
+evaporation generally from Allen, 1998) rather than Kc (the ratio of potential evapotranspiration to pan evaporation)
+because we often use potential evapotranspiration data from system like GLDAS, NLDAS, etc. But it doesn't matter, when
+you use pan evaporation, just treat K as Kc.
 
 For the second part, we provide multiple implementations, because for this module, formula in different books are a
 little different. One simplest version is chosen as default setting. More details could be seen in the document which
 will be provided soon (You can see details in the source code directly now).
 
-For the third part -- routing module, we use a model from [mizuRoute](http://www.geosci-model-dev.net/9/2223/2016/) to
-generate unit hydrograph for surface runoff (Rs -> Qs), as its parameters are easier to set, and we can optimize all
-parameters in a uniform way.
+For the third part -- routing module, we provide different ways: the default is a common way with recession constant (
+CS) and lag time (L) shown in the figure; second (You can set model's name as "xaj_mz" to use it) is a model
+from [mizuRoute](http://www.geosci-model-dev.net/9/2223/2016/) to generate unit hydrograph for surface runoff (Rs -> Qs)
+, as its parameters are easier to set, and we can optimize all parameters in a uniform way.
 
 We provide two common calibration methods to optimize XAJ's parameters:
 
@@ -127,3 +124,16 @@ git branch for your feature and send me a pull request.
 
 If you find any problems in hydro-model-xaj, please post your questions
 on [issues](https://github.com/OuyangWenyu/hydro-model-xaj/issues).
+
+## Reference
+
+- ["*Watershed hydrologic
+simulation*"/《流域水文模拟》](https://xueshu.baidu.com/usercenter/paper/show?paperid=ad9c545a7baa43321db97f5f16d393bf&site=xueshu_se)
+- ["*Principles of
+  Hydrology*"/《水文学原理》](https://xueshu.baidu.com/usercenter/paper/show?paperid=5b2d0a40e2d2804f47346ae6ccf2d142&site=xueshu_se)
+- ["*Hydrologic
+  Forecasting*"/《水文预报》](https://xueshu.baidu.com/usercenter/paper/show?paperid=852a9a90a7d26c5fae749169f87b61e0&site=xueshu_se)
+- ["*Engineering
+  Hydrology*"/《工程水文学》](https://xueshu.baidu.com/usercenter/paper/show?paperid=6e2d38726c8e3c0b9f3a14bafb156481&site=xueshu_se)
+- Allen, R.G., L. Pereira, D. Raes, and M. Smith, 1998. Crop Evapotranspiration, Food and Agriculture Organization of
+  the United Nations, Rome, Italy. FAO publication 56. ISBN 92-5-104219-5. 290p.

@@ -81,3 +81,22 @@ def statError(evaluation, simulation):
     return outDict
 
 
+def statRmse(target, pred, axis=0):
+    """
+    Calculate RMSE for multi-dim arrays
+
+    Parameters
+    ----------
+    target
+        observation
+    pred
+        prediction
+    axis
+        calculate through which axis
+
+    Returns
+    -------
+    np.array
+        RMSE
+    """
+    return np.sqrt(np.nanmean((pred - target) ** 2, axis=axis))

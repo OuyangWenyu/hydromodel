@@ -156,5 +156,5 @@ def calibrate_by_sceua(p_and_e, qobs, warmup_length=30, model="xaj", random_stat
     sampler = spotpy.algorithms.sceua(spot_setup, dbname='SCEUA_' + model, dbformat='csv', random_state=random_state)
     rep = 5000
     # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
-    sampler.sample(rep, ngs=7, kstop=3, peps=0.1, pcento=0.1)
+    sampler.sample(rep, ngs=7, kstop=10, peps=0.5, pcento=0.7)
     print("Calibrate Finished!")

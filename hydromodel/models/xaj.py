@@ -76,7 +76,7 @@ def calculate_prcp_runoff(b, im, wm,
     tuple[np.array,np.array]
         r -- runoff; r_im -- runoff of impervious part
     """
-    wmm = wm * (1.0 + b) / (1.0 - im)
+    wmm = wm * (1.0 + b)
     a = wmm * (1.0 - (1.0 - w0 / wm) ** (1.0 / (1.0 + b)))
     if np.isnan(a).any():
         raise ArithmeticError("Please check if w0>wm or b is a negative value!")
@@ -575,20 +575,36 @@ def xaj(p_and_e,
     # params
     param_ranges = OrderedDict({
         "B": [0.1, 0.4],
-        "IM": [0.01, 0.04],
-        "UM": [10.0, 20.0],
+        "IM": [0.01, 0.1],
+        "UM": [0, 20.0],
         "LM": [60.0, 90.0],
-        "DM": [50.0, 90.0],
-        "C": [0.09, 0.2],
-        "SM": [5.0, 60.0],
+        "DM": [60.0, 120.0],
+        "C": [0.0, 0.2],
+        "SM": [0.0, 100.0],
         "EX": [1.0, 1.5],
         "KI": [0.0, 0.7],
         "KG": [0.0, 0.7],
-        "A": [0.0, 1.0],
-        "THETA": [0.0, 1.0],
+        "A": [0.0, 2.9],
+        "THETA": [0.0, 6.5],
         "CI": [0.0, 0.9],
-        "CG": [0.95, 0.998],
+        "CG": [0.98, 0.998],
     })
+    # param_ranges = OrderedDict({
+    #     "B": [0.1, 0.4],
+    #     "IM": [0.01, 0.04],
+    #     "UM": [10.0, 20.0],
+    #     "LM": [60.0, 90.0],
+    #     "DM": [50.0, 90.0],
+    #     "C": [0.09, 0.2],
+    #     "SM": [5.0, 60.0],
+    #     "EX": [1.0, 1.5],
+    #     "KI": [0.0, 0.7],
+    #     "KG": [0.0, 0.7],
+    #     "A": [0.0, 2.9],
+    #     "THETA": [0.0, 6.5],
+    #     "CI": [0.0, 0.9],
+    #     "CG": [0.95, 0.998],
+    # })
     xaj_params = [(value[1] - value[0]) * params[:, i] + value[0] for i, (key, value) in
                   enumerate(param_ranges.items())]
     b = xaj_params[0]
@@ -648,9 +664,9 @@ def xaj(p_and_e,
             else:
                 raise NotImplementedError("No such divide-sources method")
         runoff_ims_[i, :] = rim
-        rss_[i, :] = rs
-        ris_[i, :] = ri
-        rgs_[i, :] = rg
+        rss_[i, :] = rs*(1-im)
+        ris_[i, :] = ri*(1-im)
+        rgs_[i, :] = rg*(1-im)
     # seq, batch, feature
     runoff_im = np.expand_dims(runoff_ims_, axis=2)
     rss = np.expand_dims(rss_, axis=2)

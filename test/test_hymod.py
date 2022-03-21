@@ -68,7 +68,17 @@ def test_hymod(p_and_e, params):
 
 
 def test_calibrate_hymod_sceua(p_and_e, qobs, basin_area):
-    calibrate_by_sceua(p_and_e, qobs, model="hymod")
+    calibrate_by_sceua(
+        p_and_e,
+        qobs,
+        model="hymod",
+        random_seed=2000,
+        rep=5000,
+        ngs=7,
+        kstop=3,
+        peps=0.1,
+        pcento=0.1,
+    )
 
 
 def test_show_hymod_calibrate_sceua_result(p_and_e, qobs, basin_area):

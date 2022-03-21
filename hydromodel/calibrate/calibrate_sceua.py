@@ -174,7 +174,7 @@ class SpotSetup(object):
         return like
 
 
-def calibrate_by_sceua(p_and_e, qobs, warmup_length=30, model="xaj", random_state=2000):
+def calibrate_by_sceua(p_and_e, qobs, warmup_length=30, model="xaj", **sce_ua_param):
     """
     Function for calibrating hymod
 
@@ -188,14 +188,20 @@ def calibrate_by_sceua(p_and_e, qobs, warmup_length=30, model="xaj", random_stat
         the length of warmup period
     model
         we support "gr4j", "hymod", and "xaj"
-    random_state
-        random seed
+    sce_ua_param
+        parameters for sce_ua: random seed=2000, rep=5000, ngs=7, kstop=3, peps=0.1, pcento=0.1 (default values)
 
     Returns
     -------
     None
     """
-    np.random.seed(random_state)  # Makes the results reproduceable
+    random_seed = sce_ua_param["random_seed"]
+    rep = sce_ua_param["rep"]
+    ngs = sce_ua_param["ngs"]
+    kstop = sce_ua_param["kstop"]
+    peps = sce_ua_param["peps"]
+    pcento = sce_ua_param["pcento"]
+    np.random.seed(random_seed)  # Makes the results reproduceable
 
     # Initialize the xaj example
     # In this case, we tell the setup which algorithm we want to use, so
@@ -209,9 +215,8 @@ def calibrate_by_sceua(p_and_e, qobs, warmup_length=30, model="xaj", random_stat
     )
     # Select number of maximum allowed repetitions
     sampler = spotpy.algorithms.sceua(
-        spot_setup, dbname="SCEUA_" + model, dbformat="csv", random_state=random_state
+        spot_setup, dbname="SCEUA_" + model, dbformat="csv", random_state=random_seed
     )
-    rep = 5000
     # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
-    sampler.sample(rep, ngs=7, kstop=3, peps=0.1, pcento=0.1)
+    sampler.sample(rep, ngs=ngs, kstop=kstop, peps=peps, pcento=pcento)
     print("Calibrate Finished!")

@@ -9,14 +9,12 @@ from hydromodel.models.hymod import hymod
 from hydromodel.models.xaj import xaj
 
 
-def evaluate(model, individual, x_input, y_true, warmup_length):
+def evaluate(individual, x_input, y_true, warmup_length, model):
     """
     Calculate fitness for optimization
 
     Parameters
     ----------
-    model
-        model's name: "xaj", "xaj_mz", "gr4j", or "hymod"
     individual
         individual is the params of XAJ (see details in xaj.py); we initialize all parameters in range [0,1]
     x_input
@@ -25,6 +23,8 @@ def evaluate(model, individual, x_input, y_true, warmup_length):
         observation data; we use the part after warmup period
     warmup_length
         the length of warmup period
+    model
+        model's name: "xaj", "xaj_mz", "gr4j", or "hymod"
 
     Returns
     -------
@@ -88,40 +88,34 @@ MAX = 1
 
 
 def calibrate_by_ga(
-    xaj_input,
-    observed_output,
-    warmup_length=30,
-    model_name="xaj",
-    param_num: int = 15,
-    run_counts: int = 40,
-    pop_num: int = 50,
+    input_data, observed_output, warmup_length=30, model="xaj", param_num=15, **ga_param
 ):
     """
     Use GA algorithm to find optimal parameters for hydrologic models
 
     Parameters
     ----------
-    model_name
+    model
         model's name: "xaj", "xaj_mz", "gr4j", or "hymod"
-    xaj_input
-        the input data for XAJ
+    input_data
+        the input data for model
     observed_output
         the "true" values, i.e. observations
     warmup_length
         the length of warmup period
     param_num
-        the number of parameters is 15 for our XAJ implementation
-    run_counts
-        running counts
-    pop_num
-        the number of individuals in the population
+        the number of parameters for model
+    ga_param
+        run_counts: int = 40, running counts
+        pop_num: int = 50, the number of individuals in the population
+        cross_prob: float = 0.5, the probability with which two individuals are crossed
+        mut_prob: float=0.5, the probability for mutating an individual
 
     Returns
     -------
     toolbox.population
         optimal_params
     """
-    IND_SIZE = param_num
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMin)
     toolbox = base.Toolbox()
@@ -131,7 +125,7 @@ def calibrate_by_ga(
         tools.initRepeat,
         creator.Individual,
         toolbox.attribute,
-        n=IND_SIZE,
+        n=param_num,
     )
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
@@ -141,26 +135,26 @@ def calibrate_by_ga(
     toolbox.register(
         "evaluate",
         evaluate,
-        model=model_name,
-        x_input=xaj_input,
+        x_input=input_data,
         y_true=observed_output,
         warmup_length=warmup_length,
+        model=model,
     )
 
     toolbox.decorate("mate", checkBounds(MIN, MAX))
     toolbox.decorate("mutate", checkBounds(MIN, MAX))
 
-    pop = toolbox.population(n=pop_num)
-    # CXPB  is the probability with which two individuals are crossed
-    # MUTPB is the probability for mutating an individual
-    CXPB, MUTPB = 0.5, 0.5
+    pop = toolbox.population(n=ga_param["pop_num"])
+    # cxpb  is the probability with which two individuals are crossed
+    # mutpb is the probability for mutating an individual
+    cxpb, mutpb = ga_param["cross_prob"], ga_param["mut_prob"]
 
     # Evaluate the entire population
     fitnesses = map(toolbox.evaluate, pop)
     for ind, fit in zip(pop, fitnesses):
         ind.fitness.values = fit
 
-    for g in range(run_counts):
+    for g in range(ga_param["run_counts"]):
         # Select the next generation individuals
         offspring = toolbox.select(pop, len(pop))
         # Clone the selected individuals
@@ -168,13 +162,13 @@ def calibrate_by_ga(
 
         # Apply crossover and mutation on the offspring
         for child1, child2 in zip(offspring[::2], offspring[1::2]):
-            if random.random() < CXPB:
+            if random.random() < cxpb:
                 toolbox.mate(child1, child2)
                 del child1.fitness.values
                 del child2.fitness.values
 
         for mutant in offspring:
-            if random.random() < MUTPB:
+            if random.random() < mutpb:
                 toolbox.mutate(mutant)
                 del mutant.fitness.values
 

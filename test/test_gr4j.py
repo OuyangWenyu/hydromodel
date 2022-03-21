@@ -72,7 +72,18 @@ def test_gr4j(p_and_e, params):
 
 
 def test_calibrate_gr4j_sceua(p_and_e, qobs, warmup_length):
-    calibrate_by_sceua(p_and_e, qobs, warmup_length, model="gr4j")
+    calibrate_by_sceua(
+        p_and_e,
+        qobs,
+        warmup_length,
+        model="gr4j",
+        random_seed=2000,
+        rep=5000,
+        ngs=7,
+        kstop=3,
+        peps=0.1,
+        pcento=0.1,
+    )
 
 
 def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length):

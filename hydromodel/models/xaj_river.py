@@ -19,8 +19,8 @@ def network_route(runoffs, route_params):
         汇流计算结果——流量过程线
     """
     # 取整后面才能计算
-    t = int(route_params['L'])
-    cr = route_params['CR']
+    t = int(route_params["L"])
+    cr = route_params["CR"]
     # 初始化
     qr = runoffs
     q = np.zeros(runoffs.size)
@@ -59,9 +59,9 @@ def river_route(config, route_params, qf):
     np.array
         汇流计算结果——流量过程线
     """
-    ke = route_params['KE']
-    xe = route_params['XE']
-    time_interval = config['time_interval/h']
+    ke = route_params["KE"]
+    xe = route_params["XE"]
+    time_interval = config["time_interval/h"]
 
     q = np.zeros(qf.size)
 
@@ -124,7 +124,9 @@ def uh_recognise(runoffs, flood_data):
             uh_sum = uh_temp
         else:
             # 当维度不同的向量要对齐时，需在不足处补0
-            length_zero = max(uh_sum.size, uh_temp.size) - min(uh_sum.size, uh_temp.size)
+            length_zero = max(uh_sum.size, uh_temp.size) - min(
+                uh_sum.size, uh_temp.size
+            )
             zeros_need = np.zeros(length_zero)
             if uh_sum.size > uh_temp.size:
                 arr_new = np.hstack([uh_temp, zeros_need])
@@ -192,7 +194,9 @@ def divide_source(floods, auto=None):
     return floods
 
 
-def iuh_recognise(runoffs, flood_data, linear_reservoir=None, linear_canal=None, isochrone=None):
+def iuh_recognise(
+    runoffs, flood_data, linear_reservoir=None, linear_canal=None, isochrone=None
+):
     """
     瞬时单位线的识别，目前以计算Nash单位线为主
 

@@ -7,6 +7,7 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
+   hydromodel.app
    hydromodel.calibrate
    hydromodel.models
    hydromodel.utils

@@ -29,7 +29,7 @@ def hymod(p_and_e, parameters, warmup_length=30, return_state=False):
         streamflow, x_slow, x_quick, x_loss or streamflow
     """
     # parameter, 2-dim variable: [parameter=1, basin]
-    cmax_scale = [1.0, 500.]
+    cmax_scale = [1.0, 500.0]
     bexp_sacle = [0.1, 2.0]
     alpha_scale = [0.1, 0.99]
     ks_scale = [0.001, 0.10]
@@ -42,15 +42,19 @@ def hymod(p_and_e, parameters, warmup_length=30, return_state=False):
     if warmup_length > 0:
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
-        _, x_slow, x_quick, x_loss = hymod(p_and_e_warmup, parameters, warmup_length=0, return_state=True)
+        _, x_slow, x_quick, x_loss = hymod(
+            p_and_e_warmup, parameters, warmup_length=0, return_state=True
+        )
     else:
         # Initialize slow tank state
         # x_slow = 2.3503 / (ks * 22.5)
-        x_slow = np.full((p_and_e.shape[1], 1), 0.)  # --> works ok if calibration data starts with low discharge
+        x_slow = np.full(
+            (p_and_e.shape[1], 1), 0.0
+        )  # --> works ok if calibration data starts with low discharge
         # Initialize state(s) of quick tank(s)
-        x_quick = np.full((p_and_e.shape[1], 3), 0.)
+        x_quick = np.full((p_and_e.shape[1], 3), 0.0)
         # HYMOD PROGRAM IS SIMPLE RAINFALL RUNOFF MODEL
-        x_loss = np.full((p_and_e.shape[1], 1), 0.)
+        x_loss = np.full((p_and_e.shape[1], 1), 0.0)
     precip = p_and_e[warmup_length:, :, 0]
     pet = p_and_e[warmup_length:, :, 1]
     t = 0
@@ -88,7 +92,7 @@ def hymod(p_and_e, parameters, warmup_length=30, return_state=False):
 @jit
 def power(x, y):
     x = np.abs(x)  # Needed to capture invalid overflow with negative values
-    return x ** y
+    return x**y
 
 
 @jit
@@ -103,7 +107,9 @@ def linres(x_slow, inflow, rs):
 def excess(x_loss, cmax, bexp, pval, pet_val):
     # this function calculates excess precipitation and evaporation
     xn_prev = x_loss
-    ct_prev = cmax * (1 - power((1 - ((bexp + 1) * (xn_prev) / cmax)), (1 / (bexp + 1))))
+    ct_prev = cmax * (
+        1 - power((1 - ((bexp + 1) * (xn_prev) / cmax)), (1 / (bexp + 1)))
+    )
     # Calculate Effective rainfall 1
     er1 = np.maximum((pval - cmax + ct_prev), 0.0)
     pval = pval - er1
@@ -114,8 +120,9 @@ def excess(x_loss, cmax, bexp, pval, pet_val):
     er2 = np.maximum(pval - (xn - xn_prev), 0)
 
     # Alternative approach
-    evap = (1 - (((cmax / (bexp + 1)) - xn) / (
-            cmax / (bexp + 1)))) * pet_val  # actual ET is linearly related to the soil moisture state
+    evap = (
+        1 - (((cmax / (bexp + 1)) - xn) / (cmax / (bexp + 1)))
+    ) * pet_val  # actual ET is linearly related to the soil moisture state
     xn = np.maximum(xn - evap, 0)  # update state
 
     return er1, er2, xn

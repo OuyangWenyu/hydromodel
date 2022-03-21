@@ -4,15 +4,19 @@ import random
 from deap import tools
 import numpy as np
 from hydromodel.calibrate.stat import statRmse
+from hydromodel.models.gr4j import gr4j
+from hydromodel.models.hymod import hymod
 from hydromodel.models.xaj import xaj
 
 
-def evaluate(individual, x_input, y_true, warmup_length):
+def evaluate(model, individual, x_input, y_true, warmup_length):
     """
     Calculate fitness for optimization
 
     Parameters
     ----------
+    model
+        model's name: "xaj", "xaj_mz", "gr4j", or "hymod"
     individual
         individual is the params of XAJ (see details in xaj.py); we initialize all parameters in range [0,1]
     x_input
@@ -30,8 +34,17 @@ def evaluate(individual, x_input, y_true, warmup_length):
     print("Calculate fitness:")
     # TODO: Now spotpy only support one list, and we only support one basin's calibration now
     params = np.array(individual).reshape(1, -1)
-    simulated_flow = xaj(x_input, params, warmup_length=warmup_length)
-    rmses = statRmse(y_true[warmup_length:, :, :], simulated_flow)
+    if model == "xaj":
+        sim = xaj(x_input, params, warmup_length=warmup_length)
+    elif model == "xaj_mz":
+        sim = xaj(x_input, params, warmup_length=warmup_length, route_method="MZ")
+    elif model == "gr4j":
+        sim = gr4j(x_input, params, warmup_length=warmup_length)
+    elif model == "hymod":
+        sim = hymod(x_input, params, warmup_length=warmup_length)
+    else:
+        raise NotImplementedError("We don't provide this model now")
+    rmses = statRmse(y_true[warmup_length:, :, :], sim)
     rmse = rmses.mean(axis=0)
     print("-----------------RMSE：" + str(rmse) + "------------------------")
     return rmse
@@ -74,13 +87,22 @@ MIN = 0
 MAX = 1
 
 
-def calibrate_xaj_ga(xaj_input, observed_output, warmup_length=30, param_num: int = 14,
-                     run_counts: int = 40, pop_num: int = 50):
+def calibrate_by_ga(
+    xaj_input,
+    observed_output,
+    warmup_length=30,
+    model_name="xaj",
+    param_num: int = 15,
+    run_counts: int = 40,
+    pop_num: int = 50,
+):
     """
-    Use GA algorithm to find optimal parameters for XAJ
+    Use GA algorithm to find optimal parameters for hydrologic models
 
     Parameters
     ----------
+    model_name
+        model's name: "xaj", "xaj_mz", "gr4j", or "hymod"
     xaj_input
         the input data for XAJ
     observed_output
@@ -88,7 +110,7 @@ def calibrate_xaj_ga(xaj_input, observed_output, warmup_length=30, param_num: in
     warmup_length
         the length of warmup period
     param_num
-        the number of parameters is 14 for our XAJ implementation
+        the number of parameters is 15 for our XAJ implementation
     run_counts
         running counts
     pop_num
@@ -104,14 +126,26 @@ def calibrate_xaj_ga(xaj_input, observed_output, warmup_length=30, param_num: in
     creator.create("Individual", list, fitness=creator.FitnessMin)
     toolbox = base.Toolbox()
     toolbox.register("attribute", random.random)
-    toolbox.register("individual", tools.initRepeat, creator.Individual,
-                     toolbox.attribute, n=IND_SIZE)
+    toolbox.register(
+        "individual",
+        tools.initRepeat,
+        creator.Individual,
+        toolbox.attribute,
+        n=IND_SIZE,
+    )
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
     toolbox.register("mate", tools.cxTwoPoint)
     toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=1, indpb=0.1)
     toolbox.register("select", tools.selTournament, tournsize=3)
-    toolbox.register("evaluate", evaluate, x_input=xaj_input, y_true=observed_output, warmup_length=warmup_length)
+    toolbox.register(
+        "evaluate",
+        evaluate,
+        model=model_name,
+        x_input=xaj_input,
+        y_true=observed_output,
+        warmup_length=warmup_length,
+    )
 
     toolbox.decorate("mate", checkBounds(MIN, MAX))
     toolbox.decorate("mutate", checkBounds(MIN, MAX))

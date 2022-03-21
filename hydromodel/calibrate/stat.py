@@ -169,9 +169,21 @@ def statError(target, pred):
                 num_lowtarget_zero = num_lowtarget_zero + 1
             PBiaslow[k] = np.sum(lowpred - lowtarget) / np.sum(lowtarget) * 100
             PBiashigh[k] = np.sum(highpred - hightarget) / np.sum(hightarget) * 100
-            outDict = dict(Bias=Bias, RMSE=RMSE, ubRMSE=ubRMSE, Corr=Corr, R2=R2, NSE=NSE, KGE=KGe,
-                           FHV=PBiashigh, FLV=PBiaslow)
-    hydro_logger.debug("The CDF of BFLV will not reach 1.0 because some basins have all zero flow observations for the "
-                       "30% low flow interval, the percent bias can be infinite\n" + "The number of these cases is "
-                       + str(num_lowtarget_zero))
+            outDict = dict(
+                Bias=Bias,
+                RMSE=RMSE,
+                ubRMSE=ubRMSE,
+                Corr=Corr,
+                R2=R2,
+                NSE=NSE,
+                KGE=KGe,
+                FHV=PBiashigh,
+                FLV=PBiaslow,
+            )
+    hydro_logger.debug(
+        "The CDF of BFLV will not reach 1.0 because some basins have all zero flow observations for the "
+        "30% low flow interval, the percent bias can be infinite\n"
+        + "The number of these cases is "
+        + str(num_lowtarget_zero)
+    )
     return outDict

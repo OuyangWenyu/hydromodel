@@ -4,6 +4,14 @@ hydromodel.models package
 Submodules
 ----------
 
+hydromodel.models.gr4j module
+-----------------------------
+
+.. automodule:: hydromodel.models.gr4j
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 hydromodel.models.hymod module
 ------------------------------
 

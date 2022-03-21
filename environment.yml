@@ -12,3 +12,4 @@ dependencies:
   - tqdm
   - sphinx
   - pytest
+  - black

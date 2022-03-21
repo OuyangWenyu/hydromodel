@@ -4,26 +4,18 @@ hydromodel.calibrate package
 Submodules
 ----------
 
-hydromodel.calibrate.calibrate\_hymod\_sceua module
----------------------------------------------------
+hydromodel.calibrate.calibrate\_ga module
+-----------------------------------------
 
-.. automodule:: hydromodel.calibrate.calibrate_hymod_sceua
+.. automodule:: hydromodel.calibrate.calibrate_ga
    :members:
    :undoc-members:
    :show-inheritance:
 
-hydromodel.calibrate.calibrate\_xaj\_ga module
-----------------------------------------------
+hydromodel.calibrate.calibrate\_sceua module
+--------------------------------------------
 
-.. automodule:: hydromodel.calibrate.calibrate_xaj_ga
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-hydromodel.calibrate.calibrate\_xaj\_sceua module
--------------------------------------------------
-
-.. automodule:: hydromodel.calibrate.calibrate_xaj_sceua
+.. automodule:: hydromodel.calibrate.calibrate_sceua
    :members:
    :undoc-members:
    :show-inheritance:

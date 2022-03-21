@@ -29,7 +29,48 @@ class SpotSetup(object):
             objective function, typically RMSE
         """
         if model == "xaj":
-            self.parameter_names = ["B", "IM", "UM", "LM", "DM", "C", "SM", "EX", "KI", "KG", "A", "THETA", "CI", "CG"]
+            self.parameter_names = [
+                # Allen, R.G., L. Pereira, D. Raes, and M. Smith, 1998.
+                # Crop Evapotranspiration, Food and Agriculture Organization of the United Nations,
+                # Rome, Italy. FAO publication 56. ISBN 92-5-104219-5. 290p.
+                "K",  # ratio of potential evapotranspiration to reference crop evaporation generally from Allen, 1998
+                "B",  # The exponent of the tension water capacity curve
+                "IM",  # The ratio of the impervious to the total area of the basin
+                "UM",  # Tension water capacity in the upper layer
+                "LM",  # Tension water capacity in the lower layer
+                "DM",  # Tension water capacity in the deepest layer
+                "C",  # The coefficient of deep evapotranspiration
+                "SM",  # The areal mean of the free water capacity of surface soil layer
+                "EX",  # The exponent of the free water capacity curve
+                "KI",  # Outflow coefficients of interflow
+                "KG",  # Outflow coefficients of groundwater
+                "CS",  # The recession constant of channel system
+                "L",  # Lag time
+                "CI",  # The recession constant of the lower interflow
+                "CG",  # The recession constant of groundwater storage
+            ]
+        elif model == "xaj_mz":
+            # use mizuRoute for xaj's surface routing module
+            self.parameter_names = [
+                # Allen, R.G., L. Pereira, D. Raes, and M. Smith, 1998.
+                # Crop Evapotranspiration, Food and Agriculture Organization of the United Nations,
+                # Rome, Italy. FAO publication 56. ISBN 92-5-104219-5. 290p.
+                "K",  # ratio of potential evapotranspiration to reference crop evaporation generally from Allen, 1998
+                "B",  # The exponent of the tension water capacity curve
+                "IM",  # The ratio of the impervious to the total area of the basin
+                "UM",  # Tension water capacity in the upper layer
+                "LM",  # Tension water capacity in the lower layer
+                "DM",  # Tension water capacity in the deepest layer
+                "C",  # The coefficient of deep evapotranspiration
+                "SM",  # The areal mean of the free water capacity of surface soil layer
+                "EX",  # The exponent of the free water capacity curve
+                "KI",  # Outflow coefficients of interflow
+                "KG",  # Outflow coefficients of groundwater
+                "A",  # parameter of mizuRoute
+                "THETA",  # parameter of mizuRoute
+                "CI",  # The recession constant of the lower interflow
+                "CG",  # The recession constant of groundwater storage
+            ]
         elif model == "gr4j":
             self.parameter_names = ["x1", "x2", "x3", "x4"]
         elif model == "hymod":
@@ -72,6 +113,13 @@ class SpotSetup(object):
         params = np.array(x).reshape(1, -1)
         if self.model == "xaj":
             sim = xaj(self.p_and_e, params, warmup_length=self.warmup_length)
+        elif self.model == "xaj_mz":
+            sim = xaj(
+                self.p_and_e,
+                params,
+                warmup_length=self.warmup_length,
+                route_method="MZ",
+            )
         elif self.model == "gr4j":
             sim = gr4j(self.p_and_e, params, warmup_length=self.warmup_length)
         elif self.model == "hymod":
@@ -92,10 +140,12 @@ class SpotSetup(object):
         # TODO: we only support one basin's calibration now
         return self.true_obs[:, 0, 0]
 
-    def objectivefunction(self,
-                          simulation: Union[list, np.array],
-                          evaluation: Union[list, np.array],
-                          params=None) -> float:
+    def objectivefunction(
+        self,
+        simulation: Union[list, np.array],
+        evaluation: Union[list, np.array],
+        params=None,
+    ) -> float:
         """
         A user defined objective function to calculate fitness.
 
@@ -150,10 +200,17 @@ def calibrate_by_sceua(p_and_e, qobs, warmup_length=30, model="xaj", random_stat
     # Initialize the xaj example
     # In this case, we tell the setup which algorithm we want to use, so
     # we can use this exmaple for different algorithms
-    spot_setup = SpotSetup(p_and_e, qobs, warmup_length=warmup_length, model=model,
-                           obj_func=spotpy.objectivefunctions.rmse)
+    spot_setup = SpotSetup(
+        p_and_e,
+        qobs,
+        warmup_length=warmup_length,
+        model=model,
+        obj_func=spotpy.objectivefunctions.rmse,
+    )
     # Select number of maximum allowed repetitions
-    sampler = spotpy.algorithms.sceua(spot_setup, dbname='SCEUA_' + model, dbformat='csv', random_state=random_state)
+    sampler = spotpy.algorithms.sceua(
+        spot_setup, dbname="SCEUA_" + model, dbformat="csv", random_state=random_state
+    )
     rep = 5000
     # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
     sampler.sample(rep, ngs=7, kstop=3, peps=0.1, pcento=0.1)

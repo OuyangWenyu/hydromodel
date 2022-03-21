@@ -8,7 +8,7 @@ import spotpy
 
 import definitions
 from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua, SpotSetup
-from hydromodel.calibrate.calibrate_xaj_ga import calibrate_xaj_ga
+from hydromodel.calibrate.calibrate_ga import calibrate_by_ga
 from hydromodel.visual.pyspot_plots import show_calibrate_result
 from hydromodel.models.xaj import xaj, uh_gamma, uh_conv
 
@@ -29,7 +29,9 @@ def warmup_length():
 def the_data():
     root_dir = definitions.ROOT_DIR
     # test_data = pd.read_csv(os.path.join(root_dir, "hydromodel", "example", '01013500_lump_p_pe_q.txt'))
-    return pd.read_csv(os.path.join(root_dir, "hydromodel", "example", 'hymod_input.csv'), sep=";")
+    return pd.read_csv(
+        os.path.join(root_dir, "hydromodel", "example", "hymod_input.csv"), sep=";"
+    )
 
 
 @pytest.fixture()
@@ -37,7 +39,7 @@ def p_and_e(the_data):
     # p_and_e_df = test_data[['prcp(mm/day)', 'petfao56(mm/day)']]
     # three dims: sequence (time), batch (basin), feature (variable)
     # p_and_e = np.expand_dims(p_and_e_df.values, axis=1)
-    p_and_e_df = the_data[['rainfall[mm]', 'TURC [mm d-1]']]
+    p_and_e_df = the_data[["rainfall[mm]", "TURC [mm d-1]"]]
     return np.expand_dims(p_and_e_df.values, axis=1)
 
 
@@ -55,7 +57,7 @@ def qobs(basin_area, the_data):
     # trans ft3/s to mm/day
     # return qobs_ * ft3tom3 / (basin_area * km2tom2) * mtomm * daytos
 
-    qobs_ = np.expand_dims(the_data[['Discharge[ls-1]']].values, axis=1)
+    qobs_ = np.expand_dims(the_data[["Discharge[ls-1]"]].values, axis=1)
     # trans l/s to mm/day
     return qobs_ * 1e-3 / (basin_area * km2tom2) * mtomm * daytos
 
@@ -63,7 +65,7 @@ def qobs(basin_area, the_data):
 @pytest.fixture()
 def params():
     # all parameters are in range [0,1]
-    return np.tile([0.5], (1, 14))
+    return np.tile([0.5], (1, 15))
 
 
 def test_uh_gamma():
@@ -71,29 +73,62 @@ def test_uh_gamma():
     routa = np.tile(2.5, (20, 10, 1))
     routb = np.tile(3.5, (20, 10, 1))
     uh = uh_gamma(routa, routb, len_uh=15)
-    np.testing.assert_almost_equal(uh[:, 0, :], np.array(
-        [[0.0069], [0.0314], [0.0553], [0.0738], [0.0860], [0.0923], [0.0939], [0.0919], [0.0875], [0.0814],
-         [0.0744], [0.0670], [0.0597], [0.0525], [0.0459]]), decimal=3)
+    np.testing.assert_almost_equal(
+        uh[:, 0, :],
+        np.array(
+            [
+                [0.0069],
+                [0.0314],
+                [0.0553],
+                [0.0738],
+                [0.0860],
+                [0.0923],
+                [0.0939],
+                [0.0919],
+                [0.0875],
+                [0.0814],
+                [0.0744],
+                [0.0670],
+                [0.0597],
+                [0.0525],
+                [0.0459],
+            ]
+        ),
+        decimal=3,
+    )
 
 
 def test_uh():
     uh_from_gamma = np.tile(1, (5, 3, 1))
     rf = np.arange(30).reshape(10, 3, 1) / 100
     qs = uh_conv(rf, uh_from_gamma)
-    np.testing.assert_almost_equal(np.array([[0.0000, 0.0100, 0.0200],
-                                             [0.0300, 0.0500, 0.0700],
-                                             [0.0900, 0.1200, 0.1500],
-                                             [0.1800, 0.2200, 0.2600],
-                                             [0.3000, 0.3500, 0.4000],
-                                             [0.4500, 0.5000, 0.5500],
-                                             [0.6000, 0.6500, 0.7000],
-                                             [0.7500, 0.8000, 0.8500],
-                                             [0.9000, 0.9500, 1.0000],
-                                             [1.0500, 1.1000, 1.1500]]), qs[:, :, 0], decimal=3)
+    np.testing.assert_almost_equal(
+        np.array(
+            [
+                [0.0000, 0.0100, 0.0200],
+                [0.0300, 0.0500, 0.0700],
+                [0.0900, 0.1200, 0.1500],
+                [0.1800, 0.2200, 0.2600],
+                [0.3000, 0.3500, 0.4000],
+                [0.4500, 0.5000, 0.5500],
+                [0.6000, 0.6500, 0.7000],
+                [0.7500, 0.8000, 0.8500],
+                [0.9000, 0.9500, 1.0000],
+                [1.0500, 1.1000, 1.1500],
+            ]
+        ),
+        qs[:, :, 0],
+        decimal=3,
+    )
 
 
 def test_xaj(p_and_e, params, warmup_length):
     qsim = xaj(p_and_e, params, warmup_length=warmup_length)
+    np.testing.assert_array_equal(qsim.shape[0], p_and_e.shape[0] - warmup_length)
+
+
+def test_xaj_mz(p_and_e, params, warmup_length):
+    qsim = xaj(p_and_e, params, warmup_length=warmup_length, route_method="MZ")
     np.testing.assert_array_equal(qsim.shape[0], p_and_e.shape[0] - warmup_length)
 
 
@@ -102,10 +137,12 @@ def test_calibrate_xaj_sceua(p_and_e, qobs, warmup_length):
 
 
 def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length):
-    spot_setup = SpotSetup(p_and_e, qobs, warmup_length, obj_func=spotpy.objectivefunctions.rmse)
+    spot_setup = SpotSetup(
+        p_and_e, qobs, warmup_length, obj_func=spotpy.objectivefunctions.rmse
+    )
     show_calibrate_result(spot_setup, "SCEUA_xaj")
     plt.show()
 
 
 def test_calibrate_xaj_ga(p_and_e, qobs, warmup_length):
-    calibrate_xaj_ga(p_and_e, qobs, warmup_length, run_counts=5, pop_num=50)
+    calibrate_by_ga(p_and_e, qobs, warmup_length, run_counts=5, pop_num=50)

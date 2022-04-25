@@ -5,12 +5,13 @@
 Hydro-model-xaj is a python implementation for XinAnJiang (XAJ) model, which is one of the most famous conceptual
 hydrological model, especially in Southern China.
 
-**Not official version, just for learning**
+**Not official version, just for learning** (Because objective condition of authors engineering level and urgent time,
+errors may exist)
 
 ## How to run
 
-Hydro-model-xaj is a Python console program (no graphic interface now). It is still developing, and we have not provided
-a pip or conda package for hydro-model-xaj yet, so please set up python environment for the code.
+Hydro-model-xaj is a Python console program (no graphic interface now). It is **still developing**, and we have not
+provided a pip or conda package for hydro-model-xaj yet, so please set up python environment for the code.
 
 If you are new to python,
 Please [install miniconda or anaconda](https://github.com/waterDLut/WaterResources/blob/master/tools/jupyterlab&markdown.md#12-jupyterlab%E5%90%AF%E5%8A%A8)
@@ -77,8 +78,19 @@ and develop it. I think hydro-model-xaj is a good start.
 
 ## What are the main features
 
-We basically implement the formula in the book -- ["*Watershed hydrologic
-simulation*"/《流域水文模拟》](https://xueshu.baidu.com/usercenter/paper/show?paperid=ad9c545a7baa43321db97f5f16d393bf&site=xueshu_se)
+We basically implement the formula in this book
+-- [《流域水文模拟》](https://xueshu.baidu.com/usercenter/paper/show?paperid=ad9c545a7baa43321db97f5f16d393bf&site=xueshu_se)
+
+Other reference Chinese books：
+
+- ["*Principles of
+  Hydrology*"/《水文学原理》](https://xueshu.baidu.com/usercenter/paper/show?paperid=5b2d0a40e2d2804f47346ae6ccf2d142&site=xueshu_se)
+- ["*Hydrologic
+  Forecasting*"/《水文预报》](https://xueshu.baidu.com/usercenter/paper/show?paperid=852a9a90a7d26c5fae749169f87b61e0&site=xueshu_se)
+- ["*Engineering
+  Hydrology*"/《工程水文学》](https://xueshu.baidu.com/usercenter/paper/show?paperid=6e2d38726c8e3c0b9f3a14bafb156481&site=xueshu_se)
+
+More English references could be seen in the end of this README file.
 
 The model mainly include three parts:
 
@@ -125,15 +137,21 @@ git branch for your feature and send me a pull request.
 If you find any problems in hydro-model-xaj, please post your questions
 on [issues](https://github.com/OuyangWenyu/hydro-model-xaj/issues).
 
-## Reference
+## References
 
-- ["*Watershed hydrologic
-simulation*"/《流域水文模拟》](https://xueshu.baidu.com/usercenter/paper/show?paperid=ad9c545a7baa43321db97f5f16d393bf&site=xueshu_se)
-- ["*Principles of
-  Hydrology*"/《水文学原理》](https://xueshu.baidu.com/usercenter/paper/show?paperid=5b2d0a40e2d2804f47346ae6ccf2d142&site=xueshu_se)
-- ["*Hydrologic
-  Forecasting*"/《水文预报》](https://xueshu.baidu.com/usercenter/paper/show?paperid=852a9a90a7d26c5fae749169f87b61e0&site=xueshu_se)
-- ["*Engineering
-  Hydrology*"/《工程水文学》](https://xueshu.baidu.com/usercenter/paper/show?paperid=6e2d38726c8e3c0b9f3a14bafb156481&site=xueshu_se)
 - Allen, R.G., L. Pereira, D. Raes, and M. Smith, 1998. Crop Evapotranspiration, Food and Agriculture Organization of
   the United Nations, Rome, Italy. FAO publication 56. ISBN 92-5-104219-5. 290p.
+- Duan, Q., Sorooshian, S., and Gupta, V. (1992), Effective and efficient global optimization for conceptual
+  rainfall-runoff models, Water Resour. Res., 28( 4), 1015– 1031, doi:10.1029/91WR02985.
+- François-Michel De Rainville, Félix-Antoine Fortin, Marc-André Gardner, Marc Parizeau, and Christian Gagné. 2012.
+  DEAP: a python framework for evolutionary algorithms. In Proceedings of the 14th annual conference companion on
+  Genetic and evolutionary computation (GECCO '12). Association for Computing Machinery, New York, NY, USA, 85–92.
+  DOI:https://doi.org/10.1145/2330784.2330799
+- Houska T, Kraft P, Chamorro-Chavez A, Breuer L (2015) SPOTting Model Parameters Using a Ready-Made Python Package.
+  PLoS ONE 10(12): e0145180. https://doi.org/10.1371/journal.pone.0145180
+- Mizukami, N., Clark, M. P., Sampson, K., Nijssen, B., Mao, Y., McMillan, H., Viger, R. J., Markstrom, S. L., Hay, L.
+  E., Woods, R., Arnold, J. R., and Brekke, L. D.: mizuRoute version 1: a river network routing tool for a continental
+  domain water resources applications, Geosci. Model Dev., 9, 2223–2238, https://doi.org/10.5194/gmd-9-2223-2016, 2016.
+- Zhao, R.J., Zhuang, Y. L., Fang, L. R., Liu, X. R., Zhang, Q. S. (ed) (1980) The Xinanjiang model, Hydrological
+  Forecasting Proc., Oxford Symp., IAHS Publication, Wallingford, U.K.
+- Zhao, R.J., 1992. The xinanjiang model applied in China. J Hydrol 135 (1–4), 371–381.

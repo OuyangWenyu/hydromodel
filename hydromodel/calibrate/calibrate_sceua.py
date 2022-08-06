@@ -112,9 +112,11 @@ class SpotSetup(object):
         # parameter, 2-dim variable: [basin=1, parameter]
         params = np.array(x).reshape(1, -1)
         if self.model == "xaj":
-            sim = xaj(self.p_and_e, params, warmup_length=self.warmup_length)
+            # xaj model's output include streamflow and evaporation now,
+            # but now we only calibrate the model with streamflow
+            sim, _ = xaj(self.p_and_e, params, warmup_length=self.warmup_length)
         elif self.model == "xaj_mz":
-            sim = xaj(
+            sim, _ = xaj(
                 self.p_and_e,
                 params,
                 warmup_length=self.warmup_length,

@@ -123,22 +123,23 @@ def test_uh():
 
 
 def test_xaj(p_and_e, params, warmup_length):
-    qsim = xaj(p_and_e, params, warmup_length=warmup_length)
+    qsim, e = xaj(p_and_e, params, warmup_length=warmup_length)
     np.testing.assert_array_equal(qsim.shape[0], p_and_e.shape[0] - warmup_length)
 
 
 def test_xaj_mz(p_and_e, params, warmup_length):
-    qsim = xaj(p_and_e, params, warmup_length=warmup_length, route_method="MZ")
+    qsim, e = xaj(p_and_e, params, warmup_length=warmup_length, route_method="MZ")
     np.testing.assert_array_equal(qsim.shape[0], p_and_e.shape[0] - warmup_length)
 
 
 def test_calibrate_xaj_sceua(p_and_e, qobs, warmup_length):
+    # just for testing, so the hyper-param is chosen for quick running
     calibrate_by_sceua(
         p_and_e,
         qobs,
         warmup_length,
         random_seed=2000,
-        rep=5000,
+        rep=50,
         ngs=7,
         kstop=3,
         peps=0.1,

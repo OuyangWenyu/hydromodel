@@ -697,7 +697,7 @@ def xaj(
     # initialize state values
     if warmup_length > 0:
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
-        _, *w0, s0, fr0, qi0, qg0 = xaj(
+        _q, _e, *w0, s0, fr0, qi0, qg0 = xaj(
             p_and_e_warmup,
             params,
             return_state=True,
@@ -717,6 +717,7 @@ def xaj(
     rss_ = np.full(inputs.shape[:2], 0.0)
     ris_ = np.full(inputs.shape[:2], 0.0)
     rgs_ = np.full(inputs.shape[:2], 0.0)
+    es_ = np.full(inputs.shape[:2], 0.0)
     for i in range(inputs.shape[0]):
         if i == 0:
             (r, rim, e, pe), w = generation(
@@ -748,9 +749,11 @@ def xaj(
         rss_[i, :] = rs * (1 - im)
         ris_[i, :] = ri * (1 - im)
         rgs_[i, :] = rg * (1 - im)
+        es_[i, :] = e
     # seq, batch, feature
     runoff_im = np.expand_dims(runoff_ims_, axis=2)
     rss = np.expand_dims(rss_, axis=2)
+    es = np.expand_dims(es_, axis=2)
 
     qs = np.full(inputs.shape[:2], 0.0)
     if route_method == "CSL":
@@ -791,5 +794,5 @@ def xaj(
     # seq, batch, feature
     q_sim = np.expand_dims(qs, axis=2)
     if return_state:
-        return q_sim, *w, s, fr, qi, qg
-    return q_sim
+        return q_sim, es, *w, s, fr, qi, qg
+    return q_sim, es

@@ -320,8 +320,6 @@ def save_streamflow_to_npy_file(path):
     all_basins_files = [file for file in path.iterdir() if file.is_dir()]
     streamflow = []
     for i in all_basins_files:
-        basin_id = ["60650", "60668", "61239", "61277", "61561", "61716", "62618", "63002",
-                    "63007", "63486", "63490", "90813", "92353", "92354", "94470", "94560", "94850", "95350"]
         basin_files = os.listdir(os.path.join("example", i))
         # print(basin_files)
         streamflow_txt = pd.read_csv(os.path.join("example", i, basin_files[9]))

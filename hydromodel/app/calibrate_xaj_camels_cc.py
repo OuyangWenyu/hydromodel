@@ -2,8 +2,9 @@ import argparse
 import json
 import os
 import sys
-import pandas as pd
 
+import datetime as dt
+import pandas as pd
 
 sys.path.append("../..")
 import spotpy
@@ -33,11 +34,11 @@ def main(args):
     data = hydro_utils.unserialize_numpy(
         os.path.join(args.data_dir, basin_id, "basins_lump_p_pe_q.npy")
     )
-    txt_file = pd.read_csv(
-        os.path.join(args.data_dir, basin_id, basin_id + "_lump_p_pe_q.txt")
-    )
-    data_train = chose_data_by_period(txt_file, train_period)
-    data_test = chose_data_by_period(txt_file, test_period)
+    json_file = os.path.join(args.data_dir, basin_id, "data_info.json")
+    all_period = hydro_utils.unserialize_json(json_file)["time"]
+    all_periods = [dt.datetime.strptime(a_date, "%Y-%m-%d") for a_date in all_period]
+    data_train = chose_data_by_period(data, all_period, train_period)
+    data_test = chose_data_by_period(data, all_period, test_period)
     if algo == "SCE_UA":
 
         calibrate_by_sceua(

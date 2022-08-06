@@ -101,7 +101,7 @@ def test_uh_gamma():
 def test_uh():
     uh_from_gamma = np.tile(1, (5, 3, 1))
     rf = np.arange(30).reshape(10, 3, 1) / 100
-    qs = uh_conv(rf, uh_from_gamma)
+    qs = uh_conv(rf,uh_from_gamma)
     np.testing.assert_almost_equal(
         np.array(
             [
@@ -148,7 +148,7 @@ def test_calibrate_xaj_sceua(p_and_e, qobs, warmup_length):
 
 def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length):
     spot_setup = SpotSetup(
-        p_and_e, qobs, warmup_length, obj_func=spotpy.objectivefunctions.rmse
+        p_and_e,qobs, warmup_length,obj_func=spotpy.objectivefunctions.rmse
     )
     show_calibrate_result(spot_setup, "SCEUA_xaj")
     plt.show()

@@ -291,7 +291,7 @@ def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None) -> tuple:
     # especially when r=0 then fr0=0, the free water cannot disappear immediately, so we have to use s = s0, fr=fr0
     # fr's formula could be found in Eq. 9 in "Analysis of parameters of the XinAnJiang model",
     # Here our r doesn't include rim, so there is no need to remove rim from r; this is also the method in 《水文预报》（HF）
-    fr = np.where(r > 0.0, r / pe, fr0)
+    fr = np.where(r>0.0, r / pe, fr0)
     if np.isnan(fr).any():
         raise ArithmeticError("Please check pe's data! there may be 0.0")
     ss = np.minimum(fr0 * s0 / fr, sm - precision)
@@ -579,7 +579,7 @@ def xaj(
     p_and_e,
     params: Union[np.array, list],
     return_state=False,
-    kernel_size=15,
+    kernel_size=3,
     warmup_length=30,
     route_method="CSL",
     source_type="sources",

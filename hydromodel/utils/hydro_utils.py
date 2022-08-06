@@ -261,7 +261,7 @@ def serialize_numpy(my_array, my_file):
 
 
 def unserialize_numpy(my_file):
-    y = np.load(my_file)
+    y = np.load(my_file,allow_pickle=True)
     return y
 
 

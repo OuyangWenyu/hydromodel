@@ -1,5 +1,5 @@
 from typing import Union
-
+import time
 import numpy as np
 import spotpy
 from spotpy.parameter import Uniform, ParameterSet
@@ -11,7 +11,7 @@ from hydromodel.models.xaj import xaj
 
 
 class SpotSetup(object):
-    def __init__(self, p_and_e, qobs, warmup_length=30, model="xaj", obj_func=None):
+    def __init__(self, p_and_e, qobs, warmup_length=30, model="xaj",obj_func=None):
         """
         Set up for Spotpy
 
@@ -94,6 +94,7 @@ class SpotSetup(object):
         return spotpy.parameter.generate(self.params)
 
     def simulation(self, x: ParameterSet) -> Union[list, np.array]:
+
         """
         run xaj model
 
@@ -110,6 +111,7 @@ class SpotSetup(object):
         # Here the model is started with one parameter combination
         # TODO: Now ParameterSet only support one list, and we only support one basin's calibration now
         # parameter, 2-dim variable: [basin=1, parameter]
+        # start = time.time()
         params = np.array(x).reshape(1, -1)
         if self.model == "xaj":
             sim = xaj(self.p_and_e, params, warmup_length=self.warmup_length)
@@ -126,6 +128,12 @@ class SpotSetup(object):
             sim = hymod(self.p_and_e, params, warmup_length=self.warmup_length)
         else:
             raise NotImplementedError("We don't provide this model now")
+        # end = time.time()
+        # Dur_time=end - start
+        # print('Running time: %s Seconds' % (end - start))
+        # FilePath = "..\\example\\"+ str(60650)+ "\\" + str(60650)+"_time.csv"
+        # with open(FilePath, "a+") as filewrite:  # ”a"代表着每次运行都追加txt的内容
+        #         filewrite.write(str(Dur_time) + " "+"\n")
         return sim[:, 0, 0]
 
     def evaluation(self) -> Union[list, np.array]:
@@ -138,6 +146,7 @@ class SpotSetup(object):
             observation
         """
         # TODO: we only support one basin's calibration now
+
         return self.true_obs[:, 0, 0]
 
     def objectivefunction(
@@ -163,14 +172,17 @@ class SpotSetup(object):
         float
             likelihood
         """
+
         # SPOTPY expects to get one or multiple values back,
         # that define the performance of the model run
         if not self.obj_func:
             # This is used if not overwritten by user
             like = rmse(evaluation, simulation)
+            print(like)
         else:
             # Way to ensure flexible spot setup class
             like = self.obj_func(evaluation, simulation)
+            print(like)
         return like
 
 
@@ -202,7 +214,6 @@ def calibrate_by_sceua(p_and_e, qobs, warmup_length=30, model="xaj", **sce_ua_pa
     peps = sce_ua_param["peps"]
     pcento = sce_ua_param["pcento"]
     np.random.seed(random_seed)  # Makes the results reproduceable
-
     # Initialize the xaj example
     # In this case, we tell the setup which algorithm we want to use, so
     # we can use this exmaple for different algorithms

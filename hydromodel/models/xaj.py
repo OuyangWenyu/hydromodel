@@ -579,7 +579,7 @@ def xaj(
     p_and_e,
     params: Union[np.array, list],
     return_state=False,
-    kernel_size=15,
+    kernel_size=3,
     warmup_length=30,
     route_method="CSL",
     source_type="sources",

@@ -1,5 +1,4 @@
 from typing import Union
-
 import numpy as np
 import spotpy
 from spotpy.parameter import Uniform, ParameterSet

@@ -3,8 +3,6 @@ import numpy as np
 import spotpy
 from spotpy.parameter import Uniform, ParameterSet
 from spotpy.objectivefunctions import rmse
-import os
-import definitions
 from hydromodel.models.gr4j import gr4j
 from hydromodel.models.hymod import hymod
 from hydromodel.models.xaj import xaj

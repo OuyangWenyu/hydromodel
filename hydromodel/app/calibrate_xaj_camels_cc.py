@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
-from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua, SpotSetup
+from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua
 from hydromodel.utils import hydro_utils
 from hydromodel.data.data_postprocess import (
     mm_per_day_to_m3_per_sec,
@@ -23,7 +23,8 @@ def main(args):
     route_method = args.route_method
     model = args.model_name
     data_dir = args.data_dir
-    algo_param_file = os.path.join(data_dir, "hyperparam_" + algo + ".json")
+    hyperparam_file = args.hyperparam_file
+    algo_param_file = os.path.join(data_dir, hyperparam_file)
     algo_param = hydro_utils.unserialize_json_ordered(algo_param_file)
     train_data_info_file = os.path.join(data_dir, "data_info_train.json")
     train_data_file = os.path.join(data_dir, "basins_lump_p_pe_q_train.npy")
@@ -43,8 +44,13 @@ def main(args):
                     assert value[i] == basin_id
                     continue
                 hyper_param[key] = value[i]
+            # one directory for one model + one hyperparam setting and one basin
             spotpy_db_dir = os.path.join(
-                definitions.ROOT_DIR, "hydromodel", "example", basin_id
+                definitions.ROOT_DIR,
+                "hydromodel",
+                "example",
+                model + "_" + hyperparam_file[:-5],
+                basin_id,
             )
             if not os.path.exists(spotpy_db_dir):
                 os.makedirs(spotpy_db_dir)
@@ -154,6 +160,13 @@ if __name__ == "__main__":
         dest="algorithm",
         help="calibrate algorithm: SCE_UA (default) or GA",
         default="SCE_UA",
+        type=str,
+    )
+    parser.add_argument(
+        "--hyperparam_file",
+        dest="hyperparam_file",
+        help="hyperparam_file used for calibrating algorithm. its parent dir is data_dir",
+        default="hyperparam_SCE_UA_rep1000_ngs1000.json",
         type=str,
     )
     the_args = parser.parse_args()

@@ -579,7 +579,6 @@ def xaj(
     p_and_e,
     params: Union[np.array, list],
     return_state=False,
-    kernel_size=3,
     warmup_length=30,
     route_method="CSL",
     source_type="sources",
@@ -598,8 +597,6 @@ def xaj(
         the parameters are B IM UM LM DM C SM EX KI KG A THETA CI CG (notice the sequence)
     return_state
         if True, return state values, mainly for warmup periods
-    kernel_size
-        the length of unit hydrograph
     warmup_length
         hydro models need a warm-up period to get good initial state values
     route_method
@@ -648,7 +645,7 @@ def xaj(
                 "LM": [60.0, 90.0],
                 "DM": [60.0, 120.0],
                 "C": [0.0, 0.2],
-                "SM": [1, 100.0],
+                "SM": [0.0, 100.0],
                 "EX": [1.0, 1.5],
                 "KI": [0.0, 0.7],
                 "KG": [0.0, 0.7],
@@ -656,6 +653,7 @@ def xaj(
                 "THETA": [0.0, 6.5],
                 "CI": [0.0, 0.9],
                 "CG": [0.98, 0.998],
+                "KERNEL": [1, 15]
             }
         )
     else:
@@ -687,6 +685,8 @@ def xaj(
         # we will use routing method from mizuRoute -- http://www.geosci-model-dev.net/9/2223/2016/
         a = xaj_params[11]
         theta = xaj_params[12]
+        # make it as a parameter
+        kernel_size = int(xaj_params[15])
     else:
         raise NotImplementedError(
             "We don't provide this route method now! Please use 'CS' or 'MZ'!"
@@ -701,7 +701,6 @@ def xaj(
             p_and_e_warmup,
             params,
             return_state=True,
-            kernel_size=kernel_size,
             warmup_length=0,
         )
     else:

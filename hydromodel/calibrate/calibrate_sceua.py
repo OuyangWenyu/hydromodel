@@ -3,7 +3,8 @@ import numpy as np
 import spotpy
 from spotpy.parameter import Uniform, ParameterSet
 from spotpy.objectivefunctions import rmse
-
+import os
+import definitions
 from hydromodel.models.gr4j import gr4j
 from hydromodel.models.hymod import hymod
 from hydromodel.models.xaj import xaj
@@ -13,6 +14,8 @@ class SpotSetup(object):
     def __init__(self, p_and_e, qobs, warmup_length=30, model="xaj", obj_func=None):
         """
         Set up for Spotpy
+
+        NOTE: Don't change the order of parameters
 
         Parameters
         ----------
@@ -69,6 +72,7 @@ class SpotSetup(object):
                 "THETA",  # parameter of mizuRoute
                 "CI",  # The recession constant of the lower interflow
                 "CG",  # The recession constant of groundwater storage
+                "KERNEL",  # kernel size of mizuRoute unit hydrograph when using convolution method
             ]
         elif model == "gr4j":
             self.parameter_names = ["x1", "x2", "x3", "x4"]
@@ -175,9 +179,13 @@ class SpotSetup(object):
         return like
 
 
-def calibrate_by_sceua(p_and_e, qobs, warmup_length=30, model="xaj", **sce_ua_param):
+def calibrate_by_sceua(
+    p_and_e, qobs, dbname, warmup_length=30, model="xaj", **sce_ua_param
+):
     """
-    Function for calibrating hymod
+    Function for calibrating model by SCE-UA
+
+    Now we only support one basin's calibration in one sampler
 
     Parameters
     ----------
@@ -185,6 +193,8 @@ def calibrate_by_sceua(p_and_e, qobs, warmup_length=30, model="xaj", **sce_ua_pa
         inputs of model
     qobs
         observation data
+    dbname
+        where save the result file of sampler
     warmup_length
         the length of warmup period
     model
@@ -215,9 +225,14 @@ def calibrate_by_sceua(p_and_e, qobs, warmup_length=30, model="xaj", **sce_ua_pa
         obj_func=spotpy.objectivefunctions.rmse,
     )
     # Select number of maximum allowed repetitions
+    
     sampler = spotpy.algorithms.sceua(
-        spot_setup, dbname="SCEUA_" + model, dbformat="csv", random_state=random_seed
+        spot_setup,
+        dbname=dbname,
+        dbformat="csv",
+        random_state=random_seed,
     )
     # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
     sampler.sample(rep, ngs=ngs, kstop=kstop, peps=peps, pcento=pcento)
     print("Calibrate Finished!")
+    return sampler

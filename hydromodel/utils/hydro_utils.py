@@ -225,6 +225,18 @@ def download_a_file_from_google_drive(drive, dir_id, download_dir):
             print("Downloading file finished")
 
 
+class NumpyArrayEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+
+
+def serialize_json_np(my_dict, my_file):
+    with open(my_file, "w") as FP:
+        json.dump(my_dict, FP, cls=NumpyArrayEncoder)
+
+
 def serialize_json(my_dict, my_file):
     with open(my_file, "w") as FP:
         json.dump(my_dict, FP, indent=4)
@@ -261,7 +273,7 @@ def serialize_numpy(my_array, my_file):
 
 
 def unserialize_numpy(my_file):
-    y = np.load(my_file,allow_pickle=True)
+    y = np.load(my_file, allow_pickle=True)
     return y
 
 

@@ -1,9 +1,16 @@
+"""
+Author: Wenyu Ouyang
+Date: 2022-10-25 21:16:22
+LastEditTime: 2022-11-17 10:39:58
+LastEditors: Wenyu Ouyang
+Description: Plots for calibration and testing results
+FilePath: \hydro-model-xaj\hydromodel\visual\pyspot_plots.py
+Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
+"""
 import spotpy
 from matplotlib import pyplot as plt
 import pandas as pd
-import definitions
 import os
-import pathlib
 import numpy as np
 from hydromodel.utils import stat
 from hydromodel.utils import hydro_utils
@@ -13,9 +20,9 @@ def show_calibrate_result(
     spot_setup,
     sceua_calibrated_file,
     warmup_length,
+    save_dir,
     basin_id,
     train_period,
-    flow_unit="mm day-1",
 ):
     """
     Plot all year result to see the effect of optimized parameters
@@ -26,8 +33,8 @@ def show_calibrate_result(
         Spotpy's setup class instance
     sceua_calibrated_file
         the result file saved after optimizing
-    flow_unit
-        unit of streamflow
+    basin_id
+        id of the basin
 
     Returns
     -------
@@ -36,11 +43,9 @@ def show_calibrate_result(
     # Load the results gained with the sceua sampler, stored in SCEUA_xaj.csv
     results = spotpy.analyser.load_csv_results(sceua_calibrated_file)
     # Plot how the objective function was minimized during sampling
-    fig = plt.figure(1, figsize=(9, 6))
-    plt.plot(results["like1"])
-    plt.ylabel("RMSE")
-    plt.xlabel("Iteration")
-    plt.savefig("..\\example\\" + basin_id + "\\" + "RMSE.png", bbox_inches="tight")
+    plot_train_iteration(
+        results["like1"], os.path.join(save_dir, "train_iteration.png")
+    )
     # Plot the best model run
     # Find the run_id with the minimal objective function value
     bestindex, bestobjf = spotpy.analyser.get_minlikeindex(results)
@@ -49,118 +54,68 @@ def show_calibrate_result(
     # Filter results for simulation results
     fields = [word for word in best_model_run.dtype.names if word.startswith("sim")]
     best_simulation = list(best_model_run[fields])
-    # calculation train‘s rmse、nashsutcliffe and bias
-    StatError = stat.statError(
+    # calculation rmse、nashsutcliffe and bias for training period
+    stat_error = stat.statError(
         np.array(spot_setup.evaluation()).reshape(1, -1),
         np.array(best_simulation).reshape(1, -1),
     )
-    print(StatError)
-    test_data = pd.read_csv(
-        os.path.join(
-            definitions.ROOT_DIR,
-            "hydromodel",
-            "example",
-            basin_id,
-            basin_id + "_lump_p_pe_q.txt",
-        )
+    print("Training Metrics:", basin_id, stat_error)
+    hydro_utils.serialize_json_np(
+        stat_error, os.path.join(save_dir, "train_metrics.json")
     )
-    date_year = pd.to_datetime(test_data["date"]).dt.year
-    date = pd.to_datetime(test_data["date"]).values.astype("datetime64[D]")
-    t_range_train = hydro_utils.t_range_days(train_period)
-    [C, ind1, ind2] = np.intersect1d(date, t_range_train, return_indices=True)
-    year_unique = date_year[warmup_length : ind1[-1]].unique()
-    for i in year_unique:
-        year_index = np.where(date_year[warmup_length : ind1[-1]] == i)
-        fig = plt.figure(figsize=(9, 6))
-        ax = plt.subplot(1, 1, 1)
-        ax.plot(
-            best_simulation[year_index[0][0] : year_index[0][-1]],
-            color="black",
-            linestyle="solid",
-            label="Best objf.=" + str(bestobjf),
-        )
-        ax.plot(
-            spot_setup.evaluation()[year_index[0][0] : year_index[0][-1]],
-            "r.",
-            markersize=3,
-            label="Observation data",
-        )
-        plt.xlabel("Number of Observation Points")
-        plt.ylabel("Discharge [" + flow_unit + "]")
-        plt.legend(loc="upper right")
-        plt.title(i)
-        plt.tight_layout()
-        plt.savefig(
-            "..\\example\\" + basin_id + "\\" + str(i) + ".png", bbox_inches="tight"
-        )
-    plt.show()
+    t_range_train = pd.to_datetime(train_period[warmup_length:]).values.astype(
+        "datetime64[D]"
+    )
+    save_fig = os.path.join(save_dir, "train_results.png")
+    plot_sim_and_obs(t_range_train, best_simulation, spot_setup.evaluation(), save_fig)
 
 
-def show_test_result(qsim, obs, warmup_length, basin_id):
-    eva = obs[warmup_length:, :, :]
-    pd.DataFrame(eva.reshape(-1, 1)).to_csv(
-        "..\\example\\" + str(basin_id) + "\\" + str(basin_id) + "_eva.txt",
-        sep=",",
-        index=False,
-        header=True,
+def show_test_result(basin_id, test_date, qsim, obs, save_dir):
+    stat_error = stat.statError(obs.reshape(1, -1), qsim.reshape(1, -1))
+    print("Test Metrics:", basin_id, stat_error)
+    hydro_utils.serialize_json_np(
+        stat_error, os.path.join(save_dir, "test_metrics.json")
     )
-    stat_error = stat.statError(eva.reshape(1, -1), qsim.reshape(1, -1))
-    print(stat_error)
-    f = open(r"..\\example\\" + basin_id + "\\" + basin_id + "_zhibiao.txt", "w")
-    print(stat_error, file=f)
-    f.close()
-    fig = plt.figure(1, figsize=(9, 6))
-    ax = plt.subplot(1, 1, 1)
-    ax.plot(qsim.flatten(), color="black", linestyle="solid", label="simulation data")
-    ax.plot(eva.flatten(), "r.", markersize=3, label="Observation data")
+    save_fig = os.path.join(save_dir, "test_results.png")
+    plot_sim_and_obs(
+        test_date,
+        qsim.flatten(),
+        obs.flatten(),
+        save_fig,
+        ylabel="Streamflow ($m^3/s$)",
+    )
+
+
+def plot_train_iteration(likelihood, save_fig):
+    fig = plt.figure(figsize=(9, 6))
+    ax = fig.subplots()
+    ax.plot(likelihood)
+    ax.set_ylabel("RMSE")
+    ax.set_xlabel("Iteration")
+    plt.savefig(save_fig, bbox_inches="tight")
+
+
+def plot_sim_and_obs(
+    date, sim, obs, save_fig, xlabel="Date", ylabel="Streamflow(mm/day)"
+):
+    fig = plt.figure(figsize=(9, 6))
+    ax = fig.subplots()
+    ax.plot(
+        date,
+        sim,
+        color="black",
+        linestyle="solid",
+        label="Simulation",
+    )
+    ax.plot(
+        date,
+        obs,
+        "r.",
+        markersize=3,
+        label="Observation",
+    )
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
     plt.legend(loc="upper right")
-    plt.savefig("..\\example\\" + basin_id + "\\test.png", bbox_inches="tight")
-    plt.show()
-
-
-def show_sceua_rmse_iteration(path):
-    path = pathlib.Path(path)
-    all_basins_files = [file for file in path.iterdir() if file.is_dir()]
-    for i in all_basins_files:
-        basin_files = os.listdir(i)
-        basin_id = basin_files[10][0:5]
-        results = pd.read_csv(os.path.join(i, basin_files[10]))
-        fig = plt.figure(1, figsize=(9, 6))
-        plt.plot(results["like1"])
-        plt.ylabel("RMSE")
-        plt.xlabel("Iteration")
-        plt.savefig(
-            "E:\\owen\\code\\hydro-model-xaj\\result\\"
-            + "CSL"
-            + "\\"
-            + "RMSE_Iteration"
-            + "\\"
-            + basin_id
-            + "_RMSE_Iteration.png",
-            bbox_inches="tight",
-        )
-        plt.show()
-
-
-# path=os.path.join(definitions.ROOT_DIR, "hydromodel", "example","CSL")
-# show_sceua_rmse_iteration(path)
-
-
-def show_sceua_rmse_time(path):
-    path = pathlib.Path(path)
-    all_basins_files = [file for file in path.iterdir() if file.is_dir()]
-    for i in all_basins_files:
-        basin_files = os.listdir(i)
-        basin_id = basin_files[10][0:5]
-        results = pd.read_csv(os.path.join(i, basin_files[10]))
-        time = pd.read_csv(os.path.join(i, basin_files[11]), header=None)
-        time["rmse"] = results["like1"]
-        time.columns = ["time", "rmse"]
-        fig = plt.figure(1, figsize=(9, 6))
-        # plt.plot(results["like1"])
-        # plt.ylabel("RMSE")
-        # plt.xlabel("Iteration")
-        # plt.savefig(
-        #     "E:\\owen\\code\\hydro-model-xaj\\result\\" + "CSL" + "\\" + "RMSE_Iteration" + "\\" + basin_id + "_RMSE_Iteration.png",
-        #     bbox_inches='tight')
-        # plt.show()
+    plt.tight_layout()
+    plt.savefig(save_fig, bbox_inches="tight")

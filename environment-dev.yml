@@ -1,15 +1,18 @@
-name: xaj
+name: xaj10
 channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.9.7
+  - python=3.10
   - numpy
   - pandas
-  - deap=1.3.1
-  - spotpy=1.5.14
+  - deap
+  - spotpy
   - seaborn
   - tqdm
   - sphinx
   - pytest
   - black
+  - pip
+  - pip:
+    - hydrodataset

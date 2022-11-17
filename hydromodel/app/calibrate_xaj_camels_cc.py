@@ -1,17 +1,13 @@
 import argparse
-import json
 import os
 import sys
 import pandas as pd
+from pathlib import Path
 
-
-sys.path.append("../..")
-import spotpy
+sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
+import definitions
 from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua, SpotSetup
 from hydromodel.utils import hydro_utils
-
-# from hydromodel.data.data_preprocess import split_train_data,split_test_data,Unit_Conversion
-from hydromodel.data.data_preprocess import chose_data_by_period
 from hydromodel.data.data_postprocess import (
     mm_per_day_to_m3_per_sec,
     save_sceua_calibrated_params,
@@ -23,80 +19,105 @@ from hydromodel.calibrate.calibrate_ga import calibrate_by_ga
 
 def main(args):
     algo = args.algorithm
-    basin_id = args.basin_id
-    train_period = args.train_period
-    test_period = args.test_period
     warmup = args.warmup_length
     route_method = args.route_method
     model = args.model_name
-    algo_param = args.algorithm_param
-    data = hydro_utils.unserialize_numpy(
-        os.path.join(args.data_dir, basin_id, "basins_lump_p_pe_q.npy")
-    )
-    txt_file = pd.read_csv(
-        os.path.join(args.data_dir, basin_id, basin_id + "_lump_p_pe_q.txt")
-    )
-    data_train = chose_data_by_period(txt_file, train_period)
-    data_test = chose_data_by_period(txt_file, test_period)
+    data_dir = args.data_dir
+    algo_param_file = os.path.join(data_dir, "hyperparam_" + algo + ".json")
+    algo_param = hydro_utils.unserialize_json_ordered(algo_param_file)
+    train_data_info_file = os.path.join(data_dir, "data_info_train.json")
+    train_data_file = os.path.join(data_dir, "basins_lump_p_pe_q_train.npy")
+    test_data_info_file = os.path.join(data_dir, "data_info_test.json")
+    test_data_file = os.path.join(data_dir, "basins_lump_p_pe_q_test.npy")
+    data_train = hydro_utils.unserialize_numpy(train_data_file)
+    data_test = hydro_utils.unserialize_numpy(test_data_file)
+    data_info_train = hydro_utils.unserialize_json_ordered(train_data_info_file)
+    data_info_test = hydro_utils.unserialize_json_ordered(test_data_info_file)
     if algo == "SCE_UA":
+        for i in range(len(data_info_train["basin"])):
+            basin_id = data_info_train["basin"][i]
+            basin_area = data_info_train["area"][i]
+            hyper_param = {}
+            for key, value in algo_param.items():
+                if key == "basin":
+                    assert value[i] == basin_id
+                    continue
+                hyper_param[key] = value[i]
+            spotpy_db_dir = os.path.join(
+                definitions.ROOT_DIR, "hydromodel", "example", basin_id
+            )
+            if not os.path.exists(spotpy_db_dir):
+                os.makedirs(spotpy_db_dir)
+            db_name = os.path.join(spotpy_db_dir, "SCEUA_" + model)
+            sampler = calibrate_by_sceua(
+                data_train[:, i : i + 1, 0:2],
+                data_train[:, i : i + 1, -1:],
+                db_name,
+                warmup_length=warmup,
+                model=model,
+                **hyper_param
+            )
 
-        calibrate_by_sceua(
-            data_train[:, :, 0:2],
-            data_train[:, :, -1:],
-            warmup_length=warmup,
-            model=model,
-            **algo_param
-        )
+            show_calibrate_result(
+                sampler.setup,
+                db_name,
+                warmup_length=warmup,
+                save_dir=spotpy_db_dir,
+                basin_id=basin_id,
+                train_period=data_info_train["time"],
+            )
 
-        spot_setup = SpotSetup(
-            data_train[:, :, 0:2],
-            data_train[:, :, -1:],
-            warmup_length=warmup,
-            obj_func=spotpy.objectivefunctions.rmse,
-        )
+            params = save_sceua_calibrated_params(basin_id, spotpy_db_dir, db_name)
+            # _ is et which we didn't use here
+            qsim, _ = xaj(
+                data_test[:, i : i + 1, 0:2],
+                params,
+                warmup_length=warmup,
+                route_method=route_method,
+            )
 
-        show_calibrate_result(
-            spot_setup,
-            "SCEUA_xaj_mz",
-            warmup_length=warmup,
-            basin_id=basin_id,
-            train_period=train_period,
-        )
-
-        params = save_sceua_calibrated_params(basin_id, "SCEUA_xaj_mz")
-
-        qsim = xaj(
-            data_test[:, :, 0:2],
-            params,
-            warmup_length=warmup,
-            route_method=route_method,
-        )
-
-        qsim = mm_per_day_to_m3_per_sec(basin_id, qsim)
-        qobs = mm_per_day_to_m3_per_sec(basin_id, data_test[:, :, -1:])
-        pd.DataFrame(qsim.reshape(-1, 1)).to_csv(
-            "..\\example\\" + str(basin_id) + "\\" + str(basin_id) + "_qsim.txt",
-            sep=",",
-            index=False,
-            header=True,
-        )
-
-        show_test_result(qsim, qobs, warmup_length=warmup, basin_id=basin_id)
+            qsim = mm_per_day_to_m3_per_sec(basin_area, qsim)
+            qobs = mm_per_day_to_m3_per_sec(
+                basin_area, data_test[warmup:, i : i + 1, -1:]
+            )
+            test_result_file = os.path.join(
+                spotpy_db_dir, "test_qsim_" + model + "_" + str(basin_id) + ".csv"
+            )
+            pd.DataFrame(qsim.reshape(-1, 1)).to_csv(
+                test_result_file,
+                sep=",",
+                index=False,
+                header=False,
+            )
+            test_date = data_info_test["time"][warmup:]
+            show_test_result(basin_id, test_date, qsim, qobs, save_dir=spotpy_db_dir)
 
     elif algo == "GA":
-        calibrate_by_ga(
-            data[:, :, 0:2],
-            data[:, :, -1:],
-            warmup_length=warmup,
-            model=model,
-            **algo_param
-        )
+        # TODO: not finished
+        for i in range(len(data_info_train["basin"])):
+            basin_id = data_info_train["basin"][i]
+            hyper_param = {}
+            for key, value in algo_param.items():
+                if key == "basin":
+                    assert value[i] == basin_id
+                    continue
+                hyper_param[key] = value[i]
+            calibrate_by_ga(
+                data_train[:, i : i + 1, 0:2],
+                data_train[:, i : i + 1, -1:],
+                warmup_length=warmup,
+                model=model,
+                **hyper_param
+            )
     else:
         raise NotImplementedError(
             "We don't provide this calibrate method! Choose from 'SCE_UA' or 'GA'!"
         )
 
 
+# before run this command, you should run data_preprocess.py file to save your data as hydro-model-xaj data format
+# you also need to write a hyperparam file for algorithm: SCE_UA -- hyperparam_SCE_UA.json or GA -- hyperparam_GA.json
+# TODO: an example file could be found in example directory
 # python calibrate_xaj.py --data_dir "D:\\code\\hydro-model-xaj\\hydromodel\\example" --warmup_length 60
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calibrate XAJ model by SCE-UA.")
@@ -104,31 +125,8 @@ if __name__ == "__main__":
         "--data_dir",
         dest="data_dir",
         help="the data directory for XAJ model",
-        default="../example",
+        default="C:\\Users\\wenyu\\.hydrodataset\\cache",
         type=str,
-    )
-    parser.add_argument(
-        "--basin_id",
-        dest="basin_id",
-        help="the basin for XAJ model",
-        default="92354",
-        type=str,
-    )
-    parser.add_argument(
-        "--train_period",
-        dest="train_period",
-        help="the train period for XAJ model",
-        default=["2014-10-01", "2020-10-01"],
-        type=str,
-        nargs="+",
-    )
-    parser.add_argument(
-        "--test_period",
-        dest="test_period",
-        help="the test period for XAJ model",
-        default=["2019-10-01", "2021-10-01"],
-        type=str,
-        nargs="+",
     )
     parser.add_argument(
         "--warmup_length",
@@ -157,20 +155,6 @@ if __name__ == "__main__":
         help="calibrate algorithm: SCE_UA (default) or GA",
         default="SCE_UA",
         type=str,
-    )
-    parser.add_argument(
-        "--algorithm_param",
-        dest="algorithm_param",
-        help="parameters set for calibrate algorithm",
-        default={
-            "random_seed": 1234,
-            "rep": 20,
-            "ngs": 5000,
-            "kstop": 10000,
-            "peps": 0.01,
-            "pcento": 0.01,
-        },
-        type=json.loads,
     )
     the_args = parser.parse_args()
     main(the_args)

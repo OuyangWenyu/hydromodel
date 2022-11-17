@@ -18,12 +18,13 @@ from hydromodel.calibrate.calibrate_ga import calibrate_by_ga
 
 
 def main(args):
+    exp = args.exp
     algo = args.algorithm
     warmup = args.warmup_length
     route_method = args.route_method
     model = args.model_name
-    data_dir = args.data_dir
     hyperparam_file = args.hyperparam_file
+    data_dir = os.path.join(definitions.ROOT_DIR, "hydromodel", "example", exp)
     algo_param_file = os.path.join(data_dir, hyperparam_file)
     algo_param = hydro_utils.unserialize_json_ordered(algo_param_file)
     train_data_info_file = os.path.join(data_dir, "data_info_train.json")
@@ -46,9 +47,7 @@ def main(args):
                 hyper_param[key] = value[i]
             # one directory for one model + one hyperparam setting and one basin
             spotpy_db_dir = os.path.join(
-                definitions.ROOT_DIR,
-                "hydromodel",
-                "example",
+                data_dir,
                 model + "_" + hyperparam_file[:-5],
                 basin_id,
             )
@@ -124,14 +123,14 @@ def main(args):
 # before run this command, you should run data_preprocess.py file to save your data as hydro-model-xaj data format
 # you also need to write a hyperparam file for algorithm: SCE_UA -- hyperparam_SCE_UA.json or GA -- hyperparam_GA.json
 # TODO: an example file could be found in example directory
-# python calibrate_xaj.py --data_dir "D:\\code\\hydro-model-xaj\\hydromodel\\example" --warmup_length 60
+# python calibrate_xaj_camels_cc.py --data_dir "D:\\code\\hydro-model-xaj\\hydromodel\\example" --warmup_length 60
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calibrate XAJ model by SCE-UA.")
     parser.add_argument(
-        "--data_dir",
-        dest="data_dir",
-        help="the data directory for XAJ model",
-        default="C:\\Users\\wenyu\\.hydrodataset\\cache",
+        "--exp",
+        dest="exp",
+        help="An exp is corresponding to a data plan from data_preprocess.py",
+        default="exp001",
         type=str,
     )
     parser.add_argument(
@@ -166,7 +165,7 @@ if __name__ == "__main__":
         "--hyperparam_file",
         dest="hyperparam_file",
         help="hyperparam_file used for calibrating algorithm. its parent dir is data_dir",
-        default="hyperparam_SCE_UA_rep1000_ngs1000.json",
+        default="hyperparam_SCE_UA_rep2000_ngs1000.json",
         type=str,
     )
     the_args = parser.parse_args()

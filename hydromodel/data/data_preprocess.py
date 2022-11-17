@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-11-17 08:55:11
+LastEditTime: 2022-11-17 15:49:01
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\data\data_preprocess.py
@@ -15,6 +15,7 @@ from pathlib import Path
 from collections import OrderedDict
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
+import definitions
 from hydromodel.utils import hydro_utils
 from hydromodel.data import camels_format_data
 
@@ -47,7 +48,7 @@ def trans_camels_format_to_xaj_format(
         gage_id_lst=basin_ids, t_range=t_range, target_cols=["Q"]
     )
     # generally streamflow's unit is m3/s, we transform it to mm/day
-    # basin areas also should be saved, 
+    # basin areas also should be saved,
     # we will use it to transform streamflow's unit to m3/s after we finished predicting
     basin_area = camels.read_basin_area(basin_ids)
     # 1 km2 = 10^6 m2
@@ -134,8 +135,12 @@ if __name__ == "__main__":
     import hydrodataset
 
     camels_data_dir = hydrodataset.ROOT_DIR
-    json_file = hydrodataset.CACHE_DIR.joinpath("data_info.json")
-    npy_file = hydrodataset.CACHE_DIR.joinpath("basins_lump_p_pe_q.npy")
+    # where_save_cache = hydrodataset.CACHE_DIR
+    where_save_cache = Path(
+        os.path.join(definitions.ROOT_DIR, "hydromodel", "example", "exp001")
+    )
+    json_file = where_save_cache.joinpath("data_info.json")
+    npy_file = where_save_cache.joinpath("basins_lump_p_pe_q.npy")
     train_period = ["2014-10-01", "2020-10-01"]
     test_period = ["2019-10-01", "2021-10-01"]
     trans_camels_format_to_xaj_format(

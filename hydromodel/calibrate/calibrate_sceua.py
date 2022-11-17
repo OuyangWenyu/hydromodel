@@ -3,6 +3,7 @@ import numpy as np
 import spotpy
 from spotpy.parameter import Uniform, ParameterSet
 from spotpy.objectivefunctions import rmse
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.gr4j import gr4j
 from hydromodel.models.hymod import hymod
 from hydromodel.models.xaj import xaj
@@ -28,56 +29,7 @@ class SpotSetup(object):
         obj_func
             objective function, typically RMSE
         """
-        if model == "xaj":
-            self.parameter_names = [
-                # Allen, R.G., L. Pereira, D. Raes, and M. Smith, 1998.
-                # Crop Evapotranspiration, Food and Agriculture Organization of the United Nations,
-                # Rome, Italy. FAO publication 56. ISBN 92-5-104219-5. 290p.
-                "K",  # ratio of potential evapotranspiration to reference crop evaporation generally from Allen, 1998
-                "B",  # The exponent of the tension water capacity curve
-                "IM",  # The ratio of the impervious to the total area of the basin
-                "UM",  # Tension water capacity in the upper layer
-                "LM",  # Tension water capacity in the lower layer
-                "DM",  # Tension water capacity in the deepest layer
-                "C",  # The coefficient of deep evapotranspiration
-                "SM",  # The areal mean of the free water capacity of surface soil layer
-                "EX",  # The exponent of the free water capacity curve
-                "KI",  # Outflow coefficients of interflow
-                "KG",  # Outflow coefficients of groundwater
-                "CS",  # The recession constant of channel system
-                "L",  # Lag time
-                "CI",  # The recession constant of the lower interflow
-                "CG",  # The recession constant of groundwater storage
-            ]
-        elif model == "xaj_mz":
-            # use mizuRoute for xaj's surface routing module
-            self.parameter_names = [
-                # Allen, R.G., L. Pereira, D. Raes, and M. Smith, 1998.
-                # Crop Evapotranspiration, Food and Agriculture Organization of the United Nations,
-                # Rome, Italy. FAO publication 56. ISBN 92-5-104219-5. 290p.
-                "K",  # ratio of potential evapotranspiration to reference crop evaporation generally from Allen, 1998
-                "B",  # The exponent of the tension water capacity curve
-                "IM",  # The ratio of the impervious to the total area of the basin
-                "UM",  # Tension water capacity in the upper layer
-                "LM",  # Tension water capacity in the lower layer
-                "DM",  # Tension water capacity in the deepest layer
-                "C",  # The coefficient of deep evapotranspiration
-                "SM",  # The areal mean of the free water capacity of surface soil layer
-                "EX",  # The exponent of the free water capacity curve
-                "KI",  # Outflow coefficients of interflow
-                "KG",  # Outflow coefficients of groundwater
-                "A",  # parameter of mizuRoute
-                "THETA",  # parameter of mizuRoute
-                "CI",  # The recession constant of the lower interflow
-                "CG",  # The recession constant of groundwater storage
-                "KERNEL",  # kernel size of mizuRoute unit hydrograph when using convolution method
-            ]
-        elif model == "gr4j":
-            self.parameter_names = ["x1", "x2", "x3", "x4"]
-        elif model == "hymod":
-            self.parameter_names = ["cmax", "bexp", "alpha", "ks", "kq"]
-        else:
-            raise NotImplementedError("We don't provide this model now")
+        self.parameter_names = MODEL_PARAM_DICT[model]["param_name"]
         self.model = model
         self.params = []
         for par_name in self.parameter_names:

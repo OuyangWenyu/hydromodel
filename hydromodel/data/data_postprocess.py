@@ -1,13 +1,15 @@
 import os
-import re
-from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import pathlib
 import spotpy
+from pathlib import Path
+import sys
 
+sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
 from hydromodel.utils import hydro_utils
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 
 
 def mm_per_day_to_m3_per_sec(basin_area, q):
@@ -59,284 +61,152 @@ def save_sceua_calibrated_params(basin_id, save_dir, sceua_calibrated_file_name)
     fields = [word for word in best_model_run.dtype.names if word.startswith("par")]
     best_calibrate_params = pd.DataFrame(list(best_model_run[fields]))
     save_file = os.path.join(save_dir, basin_id + "_calibrate_params.txt")
-    best_calibrate_params.to_csv(save_file, sep=',', index=False, header=True)
+    best_calibrate_params.to_csv(save_file, sep=",", index=False, header=True)
     return np.array(best_calibrate_params).reshape(1, -1)
 
 
-def summarize_parameters(path):
+def summarize_parameters(result_dir, model_name):
     """
     output parameters of all basins to one file
 
     Parameters
     ----------
-    path
+    result_dir
+        the directory where we save results
+    model_name
+        the name of the model
 
     Returns
     -------
 
     """
-    path = pathlib.Path(path)
-    all_basins_files = [file for file in path.iterdir() if file.is_dir()]
+    path = pathlib.Path(result_dir)
+    all_basins_dirs = [file for file in path.iterdir() if file.is_dir()]
     params = []
-    for i in all_basins_files:
-        columns = ["k", "B", "IM", "UM", "LM", "DM", "C", "SM", "EX", "KI", "KG", "A", "THETA", "CI", "CG"]
-        basin_id = ["60650", "60668", "61239", "61277", "61561", "61716", "62618", "63002",
-                    "63007", "63486", "63490", "90813", "92353", "92354", "94470", "94560", "94850", "95350"]
-        basin_area = ['14818.483', '4481.933', '3385.442', '1771.092', '8750.786', '14645.912', '11874.102', '7917.104',
-                      '3190.371', '1250.674', '1458.503', '2610.43',
-                      '12931.5138', '2395.8437', '9413.55', '4366.523', '4874.683', '10954.025']
-        basin_files = os.listdir(os.path.join("example", i))
-        # print(basin_files)
-        params_txt = pd.read_csv(os.path.join("example", i, basin_files[6]))
+    basin_ids = []
+    for basin_dir in all_basins_dirs:
+        basin_id = basin_dir.stem
+        columns = MODEL_PARAM_DICT[model_name]["param_name"]
+        params_txt = pd.read_csv(
+            os.path.join(basin_dir, basin_id + "_calibrate_params.txt")
+        )
         params_df = pd.DataFrame(params_txt.values.T, columns=columns)
         params.append(params_df)
+        basin_ids.append(basin_id)
     params_dfs = pd.concat(params, axis=0)
-    params_dfs.index = basin_id
-    # params_dfs["basin"] =  basin_id
-    # params_dfs["basin_area"]=basin_area
+    params_dfs.index = basin_ids
     print(params_dfs)
     params_dfs_ = params_dfs.transpose()
-    params_npy_file = os.path.join(
-        definitions.ROOT_DIR, "result", "MZ", "basins_params.npy"
-    )
+    params_npy_file = os.path.join(result_dir, "basins_params.npy")
     hydro_utils.serialize_numpy(params_dfs_, params_npy_file)
     data = hydro_utils.unserialize_numpy(params_npy_file)
     np.testing.assert_array_equal(data, params_dfs_)
 
 
-def renormalization_params_CSL(path):
-    path = pathlib.Path(path)
+def renormalize_params(result_dir, model_name):
+    path = pathlib.Path(result_dir)
     all_basins_files = [file for file in path.iterdir() if file.is_dir()]
     renormalization_params = []
-    for i in all_basins_files:
-        basin_files = os.listdir(os.path.join("example", i))
-        # print(basin_files)
-        params = np.loadtxt(os.path.join("example", i, basin_files[6]))[1:].reshape(1, 15)
-        param_ranges = OrderedDict(
-            {
-                "K": [0.5, 2.0],
-                "B": [0.1, 0.4],
-                "IM": [0.01, 0.1],
-                "UM": [0.0, 20.0],
-                "LM": [60.0, 90.0],
-                "DM": [60.0, 120.0],
-                "C": [0.0, 0.2],
-                "SM": [1, 100.0],
-                "EX": [1.0, 1.5],
-                "KI": [0.0, 0.7],
-                "KG": [0.0, 0.7],
-                "CS": [0.0, 1.0],
-                "L": [1.0, 10.0],  # unit is day
-                "CI": [0.0, 0.9],
-                "CG": [0.98, 0.998],
-            }
-        )
+    for basin_dir in all_basins_files:
+        basin_id = basin_dir.stem
+        params = np.loadtxt(
+            os.path.join(basin_dir, basin_id + "_calibrate_params.txt")
+        )[1:].reshape(1, -1)
+        param_ranges = MODEL_PARAM_DICT[model_name]["param_range"]
         xaj_params = [
             (value[1] - value[0]) * params[:, i] + value[0]
             for i, (key, value) in enumerate(param_ranges.items())
         ]
-        k = xaj_params[0]
-        b = xaj_params[1]
-        im = xaj_params[2]
-        um = xaj_params[3]
-        lm = xaj_params[4]
-        dm = xaj_params[5]
-        c = xaj_params[6]
-        sm = xaj_params[7]
-        ex = xaj_params[8]
-        ki = xaj_params[9]
-        kg = xaj_params[10]
-        # ki+kg should be smaller than 1; if not, we scale them
-        ki = np.where(ki + kg < 1.0, ki, 1 / (ki + kg) * ki)
-        kg = np.where(ki + kg < 1.0, kg, 1 / (ki + kg) * kg)
-        cs = xaj_params[11]
-        l = xaj_params[12]
-        ci = xaj_params[13]
-        cg = xaj_params[14]
-        xaj_params_dict = {
-            "K": k,
-            "B": b,
-            "IM": im,
-            "UM": um,
-            "LM": lm,
-            "DM": dm,
-            "C": c,
-            "SM": sm,
-            "EX": ex,
-            "KI": ki,
-            "KG": kg,
-            "CS": cs,
-            "L": l,  # unit is day
-            "CI": ci,
-            "CG": cg,
-        }
-        xaj_params_array = [value
-                            for i, (key, value) in enumerate(xaj_params_dict.items())
-                            ]
-        xaj_params_ = np.array([x for j in xaj_params_array for x in j])
+        xaj_params_ = np.array([x for j in xaj_params for x in j])
         params_df = pd.DataFrame(xaj_params_.T)
         renormalization_params.append(params_df)
     renormalization_params_dfs = pd.concat(renormalization_params, axis=1)
     print(renormalization_params_dfs)
-    # params_dfs_ =renormalization_params_dfs.transpose()
-    params_npy_file = os.path.join(
-        definitions.ROOT_DIR, "result", "CSL", "basins_renormalization_params.npy"
-    )
+    params_npy_file = os.path.join(result_dir, "basins_renormalization_params.npy")
     hydro_utils.serialize_numpy(renormalization_params_dfs, params_npy_file)
     data = hydro_utils.unserialize_numpy(params_npy_file)
     np.testing.assert_array_equal(data, renormalization_params_dfs)
 
 
-def renormalization_params_MZ(path):
-    path = pathlib.Path(path)
-    all_basins_files = [file for file in path.iterdir() if file.is_dir()]
-    renormalization_params = []
-    for i in all_basins_files:
-        basin_files = os.listdir(os.path.join("example", i))
-        # print(basin_files)
-        params = np.loadtxt(os.path.join("example", i, basin_files[6]))[1:].reshape(1, 15)
-        param_ranges = OrderedDict(
-            {
-                "K": [0.5, 2.0],
-                "B": [0.1, 0.4],
-                "IM": [0.01, 0.1],
-                "UM": [0.0, 20.0],
-                "LM": [60.0, 90.0],
-                "DM": [60.0, 120.0],
-                "C": [0.0, 0.2],
-                "SM": [1, 100.0],
-                "EX": [1.0, 1.5],
-                "KI": [0.0, 0.7],
-                "KG": [0.0, 0.7],
-                "A": [0.0, 2.9],
-                "THETA": [0.0, 6.5],
-                "CI": [0.0, 0.9],
-                "CG": [0.98, 0.998],
-            }
-        )
-        xaj_params = [
-            (value[1] - value[0]) * params[:, i] + value[0]
-            for i, (key, value) in enumerate(param_ranges.items())
-        ]
-        k = xaj_params[0]
-        b = xaj_params[1]
-        im = xaj_params[2]
-        um = xaj_params[3]
-        lm = xaj_params[4]
-        dm = xaj_params[5]
-        c = xaj_params[6]
-        sm = xaj_params[7]
-        ex = xaj_params[8]
-        ki = xaj_params[9]
-        kg = xaj_params[10]
-        # ki+kg should be smaller than 1; if not, we scale them
-        ki = np.where(ki + kg < 1.0, ki, 1 / (ki + kg) * ki)
-        kg = np.where(ki + kg < 1.0, kg, 1 / (ki + kg) * kg)
-        a = xaj_params[11]
-        theta = xaj_params[12]
-        ci = xaj_params[13]
-        cg = xaj_params[14]
-        xaj_params_dict = {
-            "K": k,
-            "B": b,
-            "IM": im,
-            "UM": um,
-            "LM": lm,
-            "DM": dm,
-            "C": c,
-            "SM": sm,
-            "EX": ex,
-            "KI": ki,
-            "KG": kg,
-            "A": a,
-            "THETA": theta,
-            "CI": ci,
-            "CG": cg,
-        }
-        xaj_params_array = [value
-                            for i, (key, value) in enumerate(xaj_params_dict.items())
-                            ]
-        xaj_params_ = np.array([x for j in xaj_params_array for x in j])
-        params_df = pd.DataFrame(xaj_params_.T)
-        renormalization_params.append(params_df)
-    renormalization_params_dfs = pd.concat(renormalization_params, axis=1)
-    print(renormalization_params_dfs)
-    params_npy_file = os.path.join(
-        definitions.ROOT_DIR, "result", "MZ", "basins_renormalization_params.npy"
-    )
-    hydro_utils.serialize_numpy(renormalization_params_dfs, params_npy_file)
-    data = hydro_utils.unserialize_numpy(params_npy_file)
-    np.testing.assert_array_equal(data, renormalization_params_dfs)
-
-
-def summarize_metrics(path):
+def summarize_metrics(result_dir):
     """
     output all results' metrics of all basins to one file
 
     Parameters
     ----------
-    path
+    result_dir
+        the directory where we save results
 
     Returns
     -------
 
     """
-    path = pathlib.Path(path)
-    # all_basins_files = os.listdir(path)
+    path = pathlib.Path(result_dir)
     all_basins_files = [file for file in path.iterdir() if file.is_dir()]
-    zhibiaos = []
-    for i in all_basins_files:
-        basin_files = os.listdir(os.path.join("example", i))
-        zhibiao_txt = pd.read_csv(os.path.join("example", i, basin_files[9]), sep=",", header=None)
-        zhibiao = []
-        for j in range(zhibiao_txt.shape[1]):
-            basin_zhibiao = float(re.findall(r'[[](.*?)[]]', zhibiao_txt[j][0])[0])
-            zhibiao.append(basin_zhibiao)
-        zhibiaos.append(zhibiao)
-    basin_id = ["60650", "60668", "61239", "61277", "61561", "61716", "62618", "63002",
-                "63007", "63486", "63490", "90813", "92353", "92354", "94470", "94560", "94850", "95350"]
-    basin_area = ['14818.483', '4481.933', '3385.442', '1771.092', '8750.786', '14645.912', '11874.102', '7917.104',
-                  '3190.371', '1250.674', '1458.503', '2610.43',
-                  '12931.5138', '2395.8437', '9413.55', '4366.523', '4874.683', '10954.025']
-    columns = ["Bias", "RMSE", "ubRMSE", "Corr", "R2", "NSE", "KGE", "FHV", "FLV"]
-    zhibiao_dfs = pd.DataFrame(zhibiaos, columns=columns, index=basin_id)
-    zhibiao_dfs["basin"] = basin_id
-    zhibiao_dfs["basin_area"] = basin_area
-    # print(zhibiao_dfs)
-    zhibiao_dfs_ = zhibiao_dfs[zhibiao_dfs["NSE"] > 0]
-    print(zhibiao_dfs_)
-    print(zhibiao_dfs_["NSE"].median())
-    print(zhibiao_dfs_["NSE"].mean())
-    # zhibiao_dfs_=zhibiao_dfs.transpose()
-    # index_npy_file=os.path.join(
-    #     definitions.ROOT_DIR, "result", "MZ", "basins_index.npy"
-    # )
-    # hydro_utils.serialize_numpy(zhibiao_dfs_, index_npy_file)
-    # data = hydro_utils.unserialize_numpy(index_npy_file)
-    # np.testing.assert_array_equal(data, zhibiao_dfs_)
+    train_metrics = {}
+    test_metrics = {}
+    count = 0
+    basin_ids = []
+    for basin_dir in all_basins_files:
+        basin_id = basin_dir.stem
+        basin_ids.append(basin_id)
+        train_metric_file = os.path.join(basin_dir, "train_metrics.json")
+        test_metric_file = os.path.join(basin_dir, "test_metrics.json")
+        train_metric = hydro_utils.unserialize_json(train_metric_file)
+        test_metric = hydro_utils.unserialize_json(test_metric_file)
+
+        for key, value in train_metric.items():
+            if count == 0:
+                train_metrics[key] = value
+            else:
+                train_metrics[key] = train_metrics[key] + value
+        for key, value in test_metric.items():
+            if count == 0:
+                test_metrics[key] = value
+            else:
+                test_metrics[key] = test_metrics[key] + value
+        count = count + 1
+    metric_dfs = pd.DataFrame(train_metrics, index=basin_ids)
+    metric_dfs_ = metric_dfs.transpose()
+    index_npy_file = os.path.join(result_dir, "basins_metrics.npy")
+    hydro_utils.serialize_numpy(metric_dfs_, index_npy_file)
+    data = hydro_utils.unserialize_numpy(index_npy_file)
+    np.testing.assert_array_equal(data, metric_dfs_)
 
 
-def save_streamflow_to_npy_file(path):
-    path = pathlib.Path(path)
+def save_streamflow_to_npy_file(result_dir, model_name):
+    path = pathlib.Path(result_dir)
     all_basins_files = [file for file in path.iterdir() if file.is_dir()]
     streamflow = []
-    for i in all_basins_files:
-        basin_id = ["60650", "60668", "61239", "61277", "61561", "61716", "62618", "63002",
-                    "63007", "63486", "63490", "90813", "92353", "92354", "94470", "94560", "94850", "95350"]
-        basin_files = os.listdir(os.path.join("example", i))
-        # print(basin_files)
-        streamflow_txt = pd.read_csv(os.path.join("example", i, basin_files[9]))
-        streamflow_df = pd.DataFrame(streamflow_txt.values)
+    basin_ids = []
+    for basin_dir in all_basins_files:
+        basin_id = basin_dir.stem
+        basin_ids.append(basin_id)
+        streamflow_df = pd.read_csv(
+            os.path.join(
+                basin_dir, "test_qsim_" + model_name + "_" + basin_id + ".csv"
+            ),
+            header=None,
+        )
         streamflow.append(streamflow_df)
     streamflow_dfs = pd.concat(streamflow, axis=1)[1:]
-    # params_dfs.index=basin_id
-    # # params_dfs["basin"] =  basin_id
-    # # params_dfs["basin_area"]=basin_area
+    streamflow_dfs.columns = basin_ids
     print(streamflow_dfs)
-    # params_dfs_ = params_dfs.transpose()
-    eva_npy_file = os.path.join(
-        definitions.ROOT_DIR, "result", "MZ", "basin_qsim.npy"
-    )
+    eva_npy_file = os.path.join(result_dir, "basin_qsim.npy")
     hydro_utils.serialize_numpy(streamflow_dfs, eva_npy_file)
     data = hydro_utils.unserialize_numpy(eva_npy_file)
     np.testing.assert_array_equal(data, streamflow_dfs)
+
+
+if __name__ == "__main__":
+    one_model_one_hyperparam_setting_dir = os.path.join(
+        definitions.ROOT_DIR,
+        "hydromodel",
+        "example",
+        "exp001",
+        "xaj_mz_hyperparam_SCE_UA_rep1000_ngs1000",
+    )
+    # summarize_parameters(one_model_one_hyperparam_setting_dir, "xaj_mz")
+    # renormalize_params(one_model_one_hyperparam_setting_dir, "xaj_mz")
+    # summarize_metrics(one_model_one_hyperparam_setting_dir)
+    save_streamflow_to_npy_file(one_model_one_hyperparam_setting_dir, "xaj_mz")

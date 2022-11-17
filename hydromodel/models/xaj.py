@@ -3,10 +3,11 @@ Core code for XinAnJiang model
 """
 import logging
 from typing import Union
-from collections import OrderedDict
 import numpy as np
 from numba import jit
 from scipy.special import gamma
+
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 
 
 @jit
@@ -616,46 +617,9 @@ def xaj(
     """
     # params
     if route_method == "CSL":
-        param_ranges = OrderedDict(
-            {
-                "K": [0.5, 2.0],
-                "B": [0.1, 0.4],
-                "IM": [0.01, 0.1],
-                "UM": [0.0, 20.0],
-                "LM": [60.0, 90.0],
-                "DM": [60.0, 120.0],
-                "C": [0.0, 0.2],
-                "SM": [1, 100.0],
-                "EX": [1.0, 1.5],
-                "KI": [0.0, 0.7],
-                "KG": [0.0, 0.7],
-                "CS": [0.0, 1.0],
-                "L": [1.0, 10.0],  # unit is day
-                "CI": [0.0, 0.9],
-                "CG": [0.98, 0.998],
-            }
-        )
+        param_ranges = MODEL_PARAM_DICT["xaj"]["param_range"]
     elif route_method == "MZ":
-        param_ranges = OrderedDict(
-            {
-                "K": [0.5, 2.0],
-                "B": [0.1, 0.4],
-                "IM": [0.01, 0.1],
-                "UM": [0.0, 20.0],
-                "LM": [60.0, 90.0],
-                "DM": [60.0, 120.0],
-                "C": [0.0, 0.2],
-                "SM": [0.0, 100.0],
-                "EX": [1.0, 1.5],
-                "KI": [0.0, 0.7],
-                "KG": [0.0, 0.7],
-                "A": [0.0, 2.9],
-                "THETA": [0.0, 6.5],
-                "CI": [0.0, 0.9],
-                "CG": [0.98, 0.998],
-                "KERNEL": [1, 15]
-            }
-        )
+        param_ranges = MODEL_PARAM_DICT["xaj_mz"]["param_range"]
     else:
         raise NotImplementedError(
             "We don't provide this route method now! Please use 'CS' or 'MZ'!"

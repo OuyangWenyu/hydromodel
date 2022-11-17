@@ -10,7 +10,11 @@ from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua
 from hydromodel.utils import hydro_utils
 from hydromodel.data.data_postprocess import (
     mm_per_day_to_m3_per_sec,
+    renormalize_params,
     save_sceua_calibrated_params,
+    save_streamflow,
+    summarize_metrics,
+    summarize_parameters,
 )
 from hydromodel.visual.pyspot_plots import show_calibrate_result, show_test_result
 from hydromodel.models.xaj import xaj
@@ -36,6 +40,10 @@ def main(args):
     data_info_train = hydro_utils.unserialize_json_ordered(train_data_info_file)
     data_info_test = hydro_utils.unserialize_json_ordered(test_data_info_file)
     if algo == "SCE_UA":
+        one_model_one_hyperparam_setting_dir = os.path.join(
+            data_dir,
+            model + "_" + hyperparam_file[:-5],
+        )
         for i in range(len(data_info_train["basin"])):
             basin_id = data_info_train["basin"][i]
             basin_area = data_info_train["area"][i]
@@ -47,8 +55,7 @@ def main(args):
                 hyper_param[key] = value[i]
             # one directory for one model + one hyperparam setting and one basin
             spotpy_db_dir = os.path.join(
-                data_dir,
-                model + "_" + hyperparam_file[:-5],
+                one_model_one_hyperparam_setting_dir,
                 basin_id,
             )
             if not os.path.exists(spotpy_db_dir):
@@ -96,6 +103,10 @@ def main(args):
             )
             test_date = data_info_test["time"][warmup:]
             show_test_result(basin_id, test_date, qsim, qobs, save_dir=spotpy_db_dir)
+        summarize_parameters(one_model_one_hyperparam_setting_dir, model)
+        renormalize_params(one_model_one_hyperparam_setting_dir, model)
+        summarize_metrics(one_model_one_hyperparam_setting_dir)
+        save_streamflow(one_model_one_hyperparam_setting_dir, model)
 
     elif algo == "GA":
         # TODO: not finished
@@ -143,7 +154,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--route_method",
         dest="route_method",
-        help="ethod from mizuRoute for XAJ model",
+        help="Method from mizuRoute for XAJ model",
         default="MZ",
         type=str,
     )
@@ -165,7 +176,7 @@ if __name__ == "__main__":
         "--hyperparam_file",
         dest="hyperparam_file",
         help="hyperparam_file used for calibrating algorithm. its parent dir is data_dir",
-        default="hyperparam_SCE_UA_rep2000_ngs1000.json",
+        default="hyperparam_SCE_UA_rep2000_ngs2000.json",
         type=str,
     )
     the_args = parser.parse_args()

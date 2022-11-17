@@ -97,18 +97,18 @@ def summarize_parameters(result_dir, model_name):
     params_dfs.index = basin_ids
     print(params_dfs)
     params_dfs_ = params_dfs.transpose()
-    params_npy_file = os.path.join(result_dir, "basins_params.npy")
-    hydro_utils.serialize_numpy(params_dfs_, params_npy_file)
-    data = hydro_utils.unserialize_numpy(params_npy_file)
-    np.testing.assert_array_equal(data, params_dfs_)
+    params_csv_file = os.path.join(result_dir, "basins_params.csv")
+    params_dfs_.to_csv(params_csv_file, sep=",", index=True, header=True)
 
 
 def renormalize_params(result_dir, model_name):
     path = pathlib.Path(result_dir)
     all_basins_files = [file for file in path.iterdir() if file.is_dir()]
     renormalization_params = []
+    basin_ids = []
     for basin_dir in all_basins_files:
         basin_id = basin_dir.stem
+        basin_ids.append(basin_id)
         params = np.loadtxt(
             os.path.join(basin_dir, basin_id + "_calibrate_params.txt")
         )[1:].reshape(1, -1)
@@ -121,11 +121,11 @@ def renormalize_params(result_dir, model_name):
         params_df = pd.DataFrame(xaj_params_.T)
         renormalization_params.append(params_df)
     renormalization_params_dfs = pd.concat(renormalization_params, axis=1)
+    renormalization_params_dfs.index = MODEL_PARAM_DICT[model_name]["param_name"]
+    renormalization_params_dfs.columns = basin_ids
     print(renormalization_params_dfs)
-    params_npy_file = os.path.join(result_dir, "basins_renormalization_params.npy")
-    hydro_utils.serialize_numpy(renormalization_params_dfs, params_npy_file)
-    data = hydro_utils.unserialize_numpy(params_npy_file)
-    np.testing.assert_array_equal(data, renormalization_params_dfs)
+    params_csv_file = os.path.join(result_dir, "basins_renormalization_params.csv")
+    renormalization_params_dfs.to_csv(params_csv_file, sep=",", index=True, header=True)
 
 
 def summarize_metrics(result_dir):
@@ -166,15 +166,15 @@ def summarize_metrics(result_dir):
             else:
                 test_metrics[key] = test_metrics[key] + value
         count = count + 1
-    metric_dfs = pd.DataFrame(train_metrics, index=basin_ids)
-    metric_dfs_ = metric_dfs.transpose()
-    index_npy_file = os.path.join(result_dir, "basins_metrics.npy")
-    hydro_utils.serialize_numpy(metric_dfs_, index_npy_file)
-    data = hydro_utils.unserialize_numpy(index_npy_file)
-    np.testing.assert_array_equal(data, metric_dfs_)
+    metric_dfs_train = pd.DataFrame(train_metrics, index=basin_ids).transpose()
+    metric_dfs_test = pd.DataFrame(test_metrics, index=basin_ids).transpose()
+    metric_file_train = os.path.join(result_dir, "basins_metrics_train.csv")
+    metric_file_test = os.path.join(result_dir, "basins_metrics_test.csv")
+    metric_dfs_train.to_csv(metric_file_train, sep=",", index=True, header=True)
+    metric_dfs_test.to_csv(metric_file_test, sep=",", index=True, header=True)
 
 
-def save_streamflow_to_npy_file(result_dir, model_name):
+def save_streamflow(result_dir, model_name):
     path = pathlib.Path(result_dir)
     all_basins_files = [file for file in path.iterdir() if file.is_dir()]
     streamflow = []
@@ -189,13 +189,15 @@ def save_streamflow_to_npy_file(result_dir, model_name):
             header=None,
         )
         streamflow.append(streamflow_df)
-    streamflow_dfs = pd.concat(streamflow, axis=1)[1:]
+    streamflow_dfs = pd.concat(streamflow, axis=1)
     streamflow_dfs.columns = basin_ids
     print(streamflow_dfs)
-    eva_npy_file = os.path.join(result_dir, "basin_qsim.npy")
-    hydro_utils.serialize_numpy(streamflow_dfs, eva_npy_file)
-    data = hydro_utils.unserialize_numpy(eva_npy_file)
-    np.testing.assert_array_equal(data, streamflow_dfs)
+    test_info_file = path.parent.joinpath("data_info_test.json")
+    test_info = hydro_utils.unserialize_json(test_info_file)
+    date = test_info["time"][-streamflow_dfs.shape[0] :]
+    streamflow_dfs.index = date
+    eva_csv_file = os.path.join(result_dir, "basin_qsim.csv")
+    streamflow_dfs.to_csv(eva_csv_file)
 
 
 if __name__ == "__main__":
@@ -206,7 +208,7 @@ if __name__ == "__main__":
         "exp001",
         "xaj_mz_hyperparam_SCE_UA_rep1000_ngs1000",
     )
-    # summarize_parameters(one_model_one_hyperparam_setting_dir, "xaj_mz")
+    summarize_parameters(one_model_one_hyperparam_setting_dir, "xaj_mz")
     # renormalize_params(one_model_one_hyperparam_setting_dir, "xaj_mz")
     # summarize_metrics(one_model_one_hyperparam_setting_dir)
-    save_streamflow_to_npy_file(one_model_one_hyperparam_setting_dir, "xaj_mz")
+    # save_streamflow(one_model_one_hyperparam_setting_dir, "xaj_mz")

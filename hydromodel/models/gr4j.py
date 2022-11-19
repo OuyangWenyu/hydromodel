@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 from numba import jit
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 
 from hydromodel.models.xaj import uh_conv
 
@@ -198,10 +199,10 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False):
     Union[np.array, tuple]
         streamflow or (streamflow, states)
     """
-    x1_scale = [100.0, 1200.0]
-    x2_sacle = [-5.0, 3.0]
-    x3_scale = [20.0, 300.0]
-    x4_scale = [1.1, 2.9]
+    x1_scale = MODEL_PARAM_DICT["gr4j"]["param_range"]["x1"]
+    x2_sacle = MODEL_PARAM_DICT["gr4j"]["param_range"]["x2"]
+    x3_scale = MODEL_PARAM_DICT["gr4j"]["param_range"]["x3"]
+    x4_scale = MODEL_PARAM_DICT["gr4j"]["param_range"]["x4"]
     x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
     x2 = x2_sacle[0] + parameters[:, 1] * (x2_sacle[1] - x2_sacle[0])
     x3 = x3_scale[0] + parameters[:, 2] * (x3_scale[1] - x3_scale[0])

@@ -38,6 +38,9 @@ cd hydro-model-xaj
 git pull
 # create python environment
 conda env create -f environment.yml
+# if conda is very slow, mamba can be an alternative:
+# conda install -c conda-forge mamba
+# mamba env create -f environment.yml
 # activate it
 conda activate xaj
 ```

@@ -1,21 +1,20 @@
 import argparse
-import json
 import os
 import sys
-
-import datetime as dt
 import pandas as pd
+from pathlib import Path
 
-sys.path.append("../..")
-import spotpy
-from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua, SpotSetup
+sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
+import definitions
+from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua
 from hydromodel.utils import hydro_utils
-
-# from hydromodel.data.data_preprocess import split_train_data,split_test_data,Unit_Conversion
-from hydromodel.data.data_preprocess import chose_data_by_period
 from hydromodel.data.data_postprocess import (
     mm_per_day_to_m3_per_sec,
+    renormalize_params,
     save_sceua_calibrated_params,
+    save_streamflow,
+    summarize_metrics,
+    summarize_parameters,
 )
 from hydromodel.visual.pyspot_plots import show_calibrate_result, show_test_result
 from hydromodel.models.xaj import xaj
@@ -23,113 +22,127 @@ from hydromodel.calibrate.calibrate_ga import calibrate_by_ga
 
 
 def main(args):
+    exp = args.exp
     algo = args.algorithm
-    basin_id = args.basin_id
-    train_period = args.train_period
-    test_period = args.test_period
     warmup = args.warmup_length
     route_method = args.route_method
     model = args.model_name
-    algo_param = args.algorithm_param
-    data = hydro_utils.unserialize_numpy(
-        os.path.join(args.data_dir, basin_id, "basins_lump_p_pe_q.npy")
-    )
-    json_file = os.path.join(args.data_dir, basin_id, "data_info.json")
-    all_period = hydro_utils.unserialize_json(json_file)["time"]
-    all_periods = [dt.datetime.strptime(a_date, "%Y-%m-%d") for a_date in all_period]
-    data_train = chose_data_by_period(data, all_period, train_period)
-    data_test = chose_data_by_period(data, all_period, test_period)
+    hyperparam_file = args.hyperparam_file
+    data_dir = os.path.join(definitions.ROOT_DIR, "hydromodel", "example", exp)
+    algo_param_file = os.path.join(data_dir, hyperparam_file)
+    algo_param = hydro_utils.unserialize_json_ordered(algo_param_file)
+    train_data_info_file = os.path.join(data_dir, "data_info_train.json")
+    train_data_file = os.path.join(data_dir, "basins_lump_p_pe_q_train.npy")
+    test_data_info_file = os.path.join(data_dir, "data_info_test.json")
+    test_data_file = os.path.join(data_dir, "basins_lump_p_pe_q_test.npy")
+    data_train = hydro_utils.unserialize_numpy(train_data_file)
+    data_test = hydro_utils.unserialize_numpy(test_data_file)
+    data_info_train = hydro_utils.unserialize_json_ordered(train_data_info_file)
+    data_info_test = hydro_utils.unserialize_json_ordered(test_data_info_file)
     if algo == "SCE_UA":
-
-        calibrate_by_sceua(
-            data_train[:, :, 0:2],
-            data_train[:, :, -1:],
-            warmup_length=warmup,
-            model=model,
-            **algo_param
+        one_model_one_hyperparam_setting_dir = os.path.join(
+            data_dir,
+            model + "_" + hyperparam_file[:-5],
         )
+        for i in range(len(data_info_train["basin"])):
+            basin_id = data_info_train["basin"][i]
+            basin_area = data_info_train["area"][i]
+            hyper_param = {}
+            for key, value in algo_param.items():
+                if key == "basin":
+                    assert value[i] == basin_id
+                    continue
+                hyper_param[key] = value[i]
+            # one directory for one model + one hyperparam setting and one basin
+            spotpy_db_dir = os.path.join(
+                one_model_one_hyperparam_setting_dir,
+                basin_id,
+            )
+            if not os.path.exists(spotpy_db_dir):
+                os.makedirs(spotpy_db_dir)
+            db_name = os.path.join(spotpy_db_dir, "SCEUA_" + model)
+            sampler = calibrate_by_sceua(
+                data_train[:, i : i + 1, 0:2],
+                data_train[:, i : i + 1, -1:],
+                db_name,
+                warmup_length=warmup,
+                model=model,
+                **hyper_param
+            )
 
-        spot_setup = SpotSetup(
-            data_train[:, :, 0:2],
-            data_train[:, :, -1:],
-            warmup_length=warmup,
-            obj_func=spotpy.objectivefunctions.rmse,
-        )
+            show_calibrate_result(
+                sampler.setup,
+                db_name,
+                warmup_length=warmup,
+                save_dir=spotpy_db_dir,
+                basin_id=basin_id,
+                train_period=data_info_train["time"],
+            )
 
-        show_calibrate_result(
-            spot_setup,
-            "SCEUA_xaj_mz",
-            warmup_length=warmup,
-            basin_id=basin_id,
-            train_period=train_period,
-        )
+            params = save_sceua_calibrated_params(basin_id, spotpy_db_dir, db_name)
+            # _ is et which we didn't use here
+            qsim, _ = xaj(
+                data_test[:, i : i + 1, 0:2],
+                params,
+                warmup_length=warmup,
+                route_method=route_method,
+            )
 
-        params = save_sceua_calibrated_params(basin_id, "SCEUA_xaj_mz")
-
-        qsim = xaj(
-            data_test[:, :, 0:2],
-            params,
-            warmup_length=warmup,
-            route_method=route_method,
-        )
-
-        qsim = mm_per_day_to_m3_per_sec(basin_id, qsim)
-        qobs = mm_per_day_to_m3_per_sec(basin_id, data_test[:, :, -1:])
-        pd.DataFrame(qsim.reshape(-1, 1)).to_csv(
-            "..\\example\\" + str(basin_id) + "\\" + str(basin_id) + "_qsim.txt",
-            sep=",",
-            index=False,
-            header=True,
-        )
-
-        show_test_result(qsim, qobs, warmup_length=warmup, basin_id=basin_id)
+            qsim = mm_per_day_to_m3_per_sec(basin_area, qsim)
+            qobs = mm_per_day_to_m3_per_sec(
+                basin_area, data_test[warmup:, i : i + 1, -1:]
+            )
+            test_result_file = os.path.join(
+                spotpy_db_dir, "test_qsim_" + model + "_" + str(basin_id) + ".csv"
+            )
+            pd.DataFrame(qsim.reshape(-1, 1)).to_csv(
+                test_result_file,
+                sep=",",
+                index=False,
+                header=False,
+            )
+            test_date = data_info_test["time"][warmup:]
+            show_test_result(basin_id, test_date, qsim, qobs, save_dir=spotpy_db_dir)
+        summarize_parameters(one_model_one_hyperparam_setting_dir, model)
+        renormalize_params(one_model_one_hyperparam_setting_dir, model)
+        summarize_metrics(one_model_one_hyperparam_setting_dir)
+        save_streamflow(one_model_one_hyperparam_setting_dir, model)
 
     elif algo == "GA":
-        calibrate_by_ga(
-            data[:, :, 0:2],
-            data[:, :, -1:],
-            warmup_length=warmup,
-            model=model,
-            **algo_param
-        )
+        # TODO: not finished
+        for i in range(len(data_info_train["basin"])):
+            basin_id = data_info_train["basin"][i]
+            hyper_param = {}
+            for key, value in algo_param.items():
+                if key == "basin":
+                    assert value[i] == basin_id
+                    continue
+                hyper_param[key] = value[i]
+            calibrate_by_ga(
+                data_train[:, i : i + 1, 0:2],
+                data_train[:, i : i + 1, -1:],
+                warmup_length=warmup,
+                model=model,
+                **hyper_param
+            )
     else:
         raise NotImplementedError(
             "We don't provide this calibrate method! Choose from 'SCE_UA' or 'GA'!"
         )
 
 
-# python calibrate_xaj.py --data_dir "D:\\code\\hydro-model-xaj\\hydromodel\\example" --warmup_length 60
+# before run this command, you should run data_preprocess.py file to save your data as hydro-model-xaj data format
+# you also need to write a hyperparam file for algorithm: SCE_UA -- hyperparam_SCE_UA.json or GA -- hyperparam_GA.json
+# TODO: an example file could be found in example directory
+# python calibrate_xaj_camels_cc.py --data_dir "D:\\code\\hydro-model-xaj\\hydromodel\\example" --warmup_length 60
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calibrate XAJ model by SCE-UA.")
     parser.add_argument(
-        "--data_dir",
-        dest="data_dir",
-        help="the data directory for XAJ model",
-        default="../example",
+        "--exp",
+        dest="exp",
+        help="An exp is corresponding to a data plan from data_preprocess.py",
+        default="exp001",
         type=str,
-    )
-    parser.add_argument(
-        "--basin_id",
-        dest="basin_id",
-        help="the basin for XAJ model",
-        default="92354",
-        type=str,
-    )
-    parser.add_argument(
-        "--train_period",
-        dest="train_period",
-        help="the train period for XAJ model",
-        default=["2014-10-01", "2020-10-01"],
-        type=str,
-        nargs="+",
-    )
-    parser.add_argument(
-        "--test_period",
-        dest="test_period",
-        help="the test period for XAJ model",
-        default=["2019-10-01", "2021-10-01"],
-        type=str,
-        nargs="+",
     )
     parser.add_argument(
         "--warmup_length",
@@ -141,7 +154,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--route_method",
         dest="route_method",
-        help="ethod from mizuRoute for XAJ model",
+        help="Method from mizuRoute for XAJ model",
         default="MZ",
         type=str,
     )
@@ -160,18 +173,11 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "--algorithm_param",
-        dest="algorithm_param",
-        help="parameters set for calibrate algorithm",
-        default={
-            "random_seed": 1234,
-            "rep": 20,
-            "ngs": 5000,
-            "kstop": 10000,
-            "peps": 0.01,
-            "pcento": 0.01,
-        },
-        type=json.loads,
+        "--hyperparam_file",
+        dest="hyperparam_file",
+        help="hyperparam_file used for calibrating algorithm. its parent dir is data_dir",
+        default="hyperparam_SCE_UA_rep2000_ngs2000.json",
+        type=str,
     )
     the_args = parser.parse_args()
     main(the_args)

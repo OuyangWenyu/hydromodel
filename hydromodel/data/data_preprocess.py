@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-11-19 17:17:48
+LastEditTime: 2022-11-19 17:44:29
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\data\data_preprocess.py
@@ -129,25 +129,3 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     test_npy_file = json_file.parent.joinpath(npy_file.stem + "_test.npy")
     hydro_utils.serialize_json(data_info_test, test_json_file)
     hydro_utils.serialize_numpy(data[ind3, :, :], test_npy_file)
-
-
-if __name__ == "__main__":
-    import hydrodataset
-
-    camels_data_dir = hydrodataset.ROOT_DIR
-    # where_save_cache = hydrodataset.CACHE_DIR
-    where_save_cache = Path(
-        os.path.join(definitions.ROOT_DIR, "hydromodel", "example", "exp001")
-    )
-    json_file = where_save_cache.joinpath("data_info.json")
-    npy_file = where_save_cache.joinpath("basins_lump_p_pe_q.npy")
-    train_period = ["2014-10-01", "2020-10-01"]
-    test_period = ["2019-10-01", "2021-10-01"]
-    trans_camels_format_to_xaj_format(
-        camels_data_dir.joinpath("camels", "camels_cc"),
-        ["60668", "61561", "63002", "63007", "63486", "92354", "94560"],
-        ["2014-10-01", "2021-10-01"],
-        json_file,
-        npy_file,
-    )
-    split_train_test(json_file, npy_file, train_period, test_period)

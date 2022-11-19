@@ -1,4 +1,4 @@
-name: xaj10
+name: xaj
 channels:
   - conda-forge
   - defaults

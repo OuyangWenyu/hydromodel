@@ -65,7 +65,7 @@ def save_sceua_calibrated_params(basin_id, save_dir, sceua_calibrated_file_name)
     return np.array(best_calibrate_params).reshape(1, -1)
 
 
-def summarize_parameters(result_dir, model_name):
+def summarize_parameters(result_dir, model_info: dict):
     """
     output parameters of all basins to one file
 
@@ -86,7 +86,7 @@ def summarize_parameters(result_dir, model_name):
     basin_ids = []
     for basin_dir in all_basins_dirs:
         basin_id = basin_dir.stem
-        columns = MODEL_PARAM_DICT[model_name]["param_name"]
+        columns = MODEL_PARAM_DICT[model_info["name"]]["param_name"]
         params_txt = pd.read_csv(
             os.path.join(basin_dir, basin_id + "_calibrate_params.txt")
         )
@@ -101,7 +101,7 @@ def summarize_parameters(result_dir, model_name):
     params_dfs_.to_csv(params_csv_file, sep=",", index=True, header=True)
 
 
-def renormalize_params(result_dir, model_name):
+def renormalize_params(result_dir, model_info: dict):
     path = pathlib.Path(result_dir)
     all_basins_files = [file for file in path.iterdir() if file.is_dir()]
     renormalization_params = []
@@ -112,7 +112,7 @@ def renormalize_params(result_dir, model_name):
         params = np.loadtxt(
             os.path.join(basin_dir, basin_id + "_calibrate_params.txt")
         )[1:].reshape(1, -1)
-        param_ranges = MODEL_PARAM_DICT[model_name]["param_range"]
+        param_ranges = MODEL_PARAM_DICT[model_info["name"]]["param_range"]
         xaj_params = [
             (value[1] - value[0]) * params[:, i] + value[0]
             for i, (key, value) in enumerate(param_ranges.items())
@@ -121,14 +121,16 @@ def renormalize_params(result_dir, model_name):
         params_df = pd.DataFrame(xaj_params_.T)
         renormalization_params.append(params_df)
     renormalization_params_dfs = pd.concat(renormalization_params, axis=1)
-    renormalization_params_dfs.index = MODEL_PARAM_DICT[model_name]["param_name"]
+    renormalization_params_dfs.index = MODEL_PARAM_DICT[model_info["name"]][
+        "param_name"
+    ]
     renormalization_params_dfs.columns = basin_ids
     print(renormalization_params_dfs)
     params_csv_file = os.path.join(result_dir, "basins_renormalization_params.csv")
     renormalization_params_dfs.to_csv(params_csv_file, sep=",", index=True, header=True)
 
 
-def summarize_metrics(result_dir):
+def summarize_metrics(result_dir, model_info: dict):
     """
     output all results' metrics of all basins to one file
 
@@ -174,7 +176,7 @@ def summarize_metrics(result_dir):
     metric_dfs_test.to_csv(metric_file_test, sep=",", index=True, header=True)
 
 
-def save_streamflow(result_dir, model_name):
+def save_streamflow(result_dir, model_info: dict):
     path = pathlib.Path(result_dir)
     all_basins_files = [file for file in path.iterdir() if file.is_dir()]
     streamflow = []
@@ -184,7 +186,7 @@ def save_streamflow(result_dir, model_name):
         basin_ids.append(basin_id)
         streamflow_df = pd.read_csv(
             os.path.join(
-                basin_dir, "test_qsim_" + model_name + "_" + basin_id + ".csv"
+                basin_dir, "test_qsim_" + model_info["name"] + "_" + basin_id + ".csv"
             ),
             header=None,
         )
@@ -208,7 +210,7 @@ if __name__ == "__main__":
         "exp001",
         "xaj_mz_hyperparam_SCE_UA_rep1000_ngs1000",
     )
-    summarize_parameters(one_model_one_hyperparam_setting_dir, "xaj_mz")
-    # renormalize_params(one_model_one_hyperparam_setting_dir, "xaj_mz")
-    # summarize_metrics(one_model_one_hyperparam_setting_dir)
-    # save_streamflow(one_model_one_hyperparam_setting_dir, "xaj_mz")
+    summarize_parameters(one_model_one_hyperparam_setting_dir, {"name": "xaj_mz"})
+    # renormalize_params(one_model_one_hyperparam_setting_dir, {"name":"xaj_mz"})
+    # summarize_metrics(one_model_one_hyperparam_setting_dir,{"name":"xaj_mz"})
+    # save_streamflow(one_model_one_hyperparam_setting_dir,{"name":"xaj_mz"})

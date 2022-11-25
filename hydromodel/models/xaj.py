@@ -639,14 +639,15 @@ def xaj(
         streamflow or (streamflow, states)
     """
     # default values for some function parameters
-    route_method = kwargs["route_method"] if "route_method" in kwargs else "CSL"
+    model_name = kwargs["name"] if "name" in kwargs else "xaj"
     source_type = kwargs["source_type"] if "source_type" in kwargs else "sources"
     source_book = kwargs["source_book"] if "source_book" in kwargs else "ShuiWenYuBao"
     # params
-    if route_method == "CSL":
-        param_ranges = MODEL_PARAM_DICT["xaj"]["param_range"]
-    elif route_method == "MZ":
-        param_ranges = MODEL_PARAM_DICT["xaj_mz"]["param_range"]
+    param_ranges = MODEL_PARAM_DICT[model_name]["param_range"]
+    if model_name == "xaj":
+        route_method = "CSL"
+    elif model_name == "xaj_mz":
+        route_method = "MZ"
     else:
         raise NotImplementedError(
             "We don't provide this route method now! Please use 'CS' or 'MZ'!"

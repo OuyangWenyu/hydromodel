@@ -178,7 +178,7 @@ def routing(q9: np.array, q1: np.array, x2, x3, r_level: Optional[np.array] = No
     return q, r_updated
 
 
-def gr4j(p_and_e, parameters, warmup_length: int, return_state=False):
+def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     """
     run GR4J model
 
@@ -211,7 +211,9 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False):
     if warmup_length > 0:
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
-        _, s0, r0 = gr4j(p_and_e_warmup, parameters, warmup_length=0, return_state=True)
+        _, s0, r0 = gr4j(
+            p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
+        )
     else:
         s0 = 0.5 * x1
         r0 = 0.5 * x3

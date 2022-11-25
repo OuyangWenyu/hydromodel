@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-11-17 16:27:50
+LastEditTime: 2022-11-25 16:34:51
 LastEditors: Wenyu Ouyang
 Description: some basic config for hydro-model-xaj models
 FilePath: \hydro-model-xaj\hydromodel\models\model_config.py
@@ -9,6 +9,7 @@ Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 from collections import OrderedDict
 
+# NOTE: Don't change the parameter settings
 
 MODEL_PARAM_DICT = {
     "xaj": {

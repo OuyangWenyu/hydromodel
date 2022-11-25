@@ -10,11 +10,17 @@ from hydromodel.models.xaj import xaj
 
 
 class SpotSetup(object):
-    def __init__(self, p_and_e, qobs, warmup_length=30, model="xaj", obj_func=None):
+    def __init__(
+        self,
+        p_and_e,
+        qobs,
+        warmup_length=30,
+        model="xaj",
+        model_func_param=None,
+        obj_func=None,
+    ):
         """
         Set up for Spotpy
-
-        NOTE: Don't change the order of parameters
 
         Parameters
         ----------
@@ -26,11 +32,21 @@ class SpotSetup(object):
             GR4J model need warmup period
         model
             we support "gr4j", "hymod", and "xaj"
+        model_func_param
+            parameters of model function
         obj_func
             objective function, typically RMSE
         """
-        self.parameter_names = MODEL_PARAM_DICT[model]["param_name"]
+        if (
+            (model == "xaj")
+            and (model_func_param is not None)
+            and (model_func_param["route_method"] == "MZ")
+        ):
+            self.parameter_names = MODEL_PARAM_DICT["xaj_mz"]["param_name"]
+        else:
+            self.parameter_names = MODEL_PARAM_DICT[model]["param_name"]
         self.model = model
+        self.model_func_param = model_func_param
         self.params = []
         for par_name in self.parameter_names:
             # All parameters' range are [0,1], we will transform them to normal range in the model
@@ -61,24 +77,31 @@ class SpotSetup(object):
             simulated result from xaj
         """
         # Here the model is started with one parameter combination
-        # TODO: Now ParameterSet only support one list, and we only support one basin's calibration now
         # parameter, 2-dim variable: [basin=1, parameter]
         params = np.array(x).reshape(1, -1)
         if self.model == "xaj":
             # xaj model's output include streamflow and evaporation now,
             # but now we only calibrate the model with streamflow
-            sim, _ = xaj(self.p_and_e, params, warmup_length=self.warmup_length)
-        elif self.model == "xaj_mz":
             sim, _ = xaj(
                 self.p_and_e,
                 params,
                 warmup_length=self.warmup_length,
-                route_method="MZ",
+                **self.model_func_param
             )
         elif self.model == "gr4j":
-            sim = gr4j(self.p_and_e, params, warmup_length=self.warmup_length)
+            sim = gr4j(
+                self.p_and_e,
+                params,
+                warmup_length=self.warmup_length,
+                **self.model_func_param
+            )
         elif self.model == "hymod":
-            sim = hymod(self.p_and_e, params, warmup_length=self.warmup_length)
+            sim = hymod(
+                self.p_and_e,
+                params,
+                warmup_length=self.warmup_length,
+                **self.model_func_param
+            )
         else:
             raise NotImplementedError("We don't provide this model now")
         return sim[:, 0, 0]
@@ -130,7 +153,24 @@ class SpotSetup(object):
 
 
 def calibrate_by_sceua(
-    p_and_e, qobs, dbname, warmup_length=30, model="xaj", **sce_ua_param
+    p_and_e,
+    qobs,
+    dbname,
+    warmup_length=30,
+    model="xaj",
+    model_func_param={
+        "route_method": "MZ",
+        "source_type": "sources",
+        "source_book": "ShuiWenYuBao",
+    },
+    calibrate_algo_param={
+        "random_seed": 1234,
+        "rep": 1000,
+        "ngs": 1000,
+        "kstop": 500,
+        "peps": 0.001,
+        "pcento": 0.001,
+    },
 ):
     """
     Function for calibrating model by SCE-UA
@@ -149,19 +189,22 @@ def calibrate_by_sceua(
         the length of warmup period
     model
         we support "gr4j", "hymod", and "xaj"
-    sce_ua_param
-        parameters for sce_ua: random seed=2000, rep=5000, ngs=7, kstop=3, peps=0.1, pcento=0.1 (default values)
+    model_func_param
+        parameters for hydro model
+    algo_param
+        calibrate algorithm. For example, if you want to calibrate xaj model,
+        and use sce-ua algorithm -- random seed=2000, rep=5000, ngs=7, kstop=3, peps=0.1, pcento=0.1
 
     Returns
     -------
     None
     """
-    random_seed = sce_ua_param["random_seed"]
-    rep = sce_ua_param["rep"]
-    ngs = sce_ua_param["ngs"]
-    kstop = sce_ua_param["kstop"]
-    peps = sce_ua_param["peps"]
-    pcento = sce_ua_param["pcento"]
+    random_seed = calibrate_algo_param["random_seed"]
+    rep = calibrate_algo_param["rep"]
+    ngs = calibrate_algo_param["ngs"]
+    kstop = calibrate_algo_param["kstop"]
+    peps = calibrate_algo_param["peps"]
+    pcento = calibrate_algo_param["pcento"]
     np.random.seed(random_seed)  # Makes the results reproduceable
 
     # Initialize the xaj example
@@ -172,10 +215,10 @@ def calibrate_by_sceua(
         qobs,
         warmup_length=warmup_length,
         model=model,
+        model_func_param=model_func_param,
         obj_func=spotpy.objectivefunctions.rmse,
     )
     # Select number of maximum allowed repetitions
-    
     sampler = spotpy.algorithms.sceua(
         spot_setup,
         dbname=dbname,

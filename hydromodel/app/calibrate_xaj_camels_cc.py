@@ -1,7 +1,10 @@
 import argparse
+import json
+import socket
+from datetime import datetime
+import pandas as pd
 import os
 import sys
-import pandas as pd
 from pathlib import Path
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
@@ -23,39 +26,44 @@ from hydromodel.calibrate.calibrate_ga import calibrate_by_ga
 
 def main(args):
     exp = args.exp
-    algo = args.algorithm
     warmup = args.warmup_length
-    route_method = args.route_method
     model = args.model_name
-    hyperparam_file = args.hyperparam_file
+    model_func_param = args.model_func_param
+    algo = args.algorithm_name
+    algo_param = args.algorithm_param
+    comment = args.comment
     data_dir = os.path.join(definitions.ROOT_DIR, "hydromodel", "example", exp)
-    algo_param_file = os.path.join(data_dir, hyperparam_file)
-    algo_param = hydro_utils.unserialize_json_ordered(algo_param_file)
     train_data_info_file = os.path.join(data_dir, "data_info_train.json")
     train_data_file = os.path.join(data_dir, "basins_lump_p_pe_q_train.npy")
     test_data_info_file = os.path.join(data_dir, "data_info_test.json")
     test_data_file = os.path.join(data_dir, "basins_lump_p_pe_q_test.npy")
+    if (
+        os.path.exists(train_data_info_file) is False
+        or os.path.exists(train_data_file) is False
+        or os.path.exists(test_data_info_file) is False
+        or os.path.exists(test_data_file) is False
+    ):
+        raise FileNotFoundError(
+            "The data files are not found, please run datapreprocess4calibrate.py first."
+        )
     data_train = hydro_utils.unserialize_numpy(train_data_file)
     data_test = hydro_utils.unserialize_numpy(test_data_file)
     data_info_train = hydro_utils.unserialize_json_ordered(train_data_info_file)
     data_info_test = hydro_utils.unserialize_json_ordered(test_data_info_file)
+    current_time = datetime.now().strftime("%b%d_%H-%M-%S")
+    save_dir = os.path.join(
+        data_dir, current_time + "_" + socket.gethostname() + comment
+    )
+    if os.path.exists(save_dir) is False:
+        os.makedirs(save_dir)
     if algo == "SCE_UA":
-        one_model_one_hyperparam_setting_dir = os.path.join(
-            data_dir,
-            model + "_" + hyperparam_file[:-5],
-        )
+        hydro_utils.serialize_json(vars(args), os.path.join(save_dir, "args.json"))
         for i in range(len(data_info_train["basin"])):
             basin_id = data_info_train["basin"][i]
             basin_area = data_info_train["area"][i]
-            hyper_param = {}
-            for key, value in algo_param.items():
-                if key == "basin":
-                    assert value[i] == basin_id
-                    continue
-                hyper_param[key] = value[i]
             # one directory for one model + one hyperparam setting and one basin
             spotpy_db_dir = os.path.join(
-                one_model_one_hyperparam_setting_dir,
+                save_dir,
                 basin_id,
             )
             if not os.path.exists(spotpy_db_dir):
@@ -67,7 +75,8 @@ def main(args):
                 db_name,
                 warmup_length=warmup,
                 model=model,
-                **hyper_param
+                model_func_param=model_func_param,
+                calibrate_algo_param=algo_param,
             )
 
             show_calibrate_result(
@@ -85,7 +94,7 @@ def main(args):
                 data_test[:, i : i + 1, 0:2],
                 params,
                 warmup_length=warmup,
-                route_method=route_method,
+                **model_func_param,
             )
 
             qsim = mm_per_day_to_m3_per_sec(basin_area, qsim)
@@ -103,10 +112,10 @@ def main(args):
             )
             test_date = data_info_test["time"][warmup:]
             show_test_result(basin_id, test_date, qsim, qobs, save_dir=spotpy_db_dir)
-        summarize_parameters(one_model_one_hyperparam_setting_dir, model)
-        renormalize_params(one_model_one_hyperparam_setting_dir, model)
-        summarize_metrics(one_model_one_hyperparam_setting_dir)
-        save_streamflow(one_model_one_hyperparam_setting_dir, model)
+        summarize_parameters(save_dir, model)
+        renormalize_params(save_dir, model)
+        summarize_metrics(save_dir)
+        save_streamflow(save_dir, model)
 
     elif algo == "GA":
         # TODO: not finished
@@ -123,7 +132,7 @@ def main(args):
                 data_train[:, i : i + 1, -1:],
                 warmup_length=warmup,
                 model=model,
-                **hyper_param
+                **hyper_param,
             )
     else:
         raise NotImplementedError(
@@ -131,12 +140,11 @@ def main(args):
         )
 
 
-# before run this command, you should run data_preprocess.py file to save your data as hydro-model-xaj data format
-# you also need to write a hyperparam file for algorithm: SCE_UA -- hyperparam_SCE_UA.json or GA -- hyperparam_GA.json
-# TODO: an example file could be found in example directory
-# python calibrate_xaj_camels_cc.py --data_dir "D:\\code\\hydro-model-xaj\\hydromodel\\example" --warmup_length 60
+# NOTE: Before run this command, you should run data_preprocess.py file to save your data as hydro-model-xaj data format,
+# the exp must be same as the exp in data_preprocess.py
+# python calibrate_xaj_camels_cc.py --exp exp001 --warmup_length 365 --model_name xaj --model_func_param {\"route_method\":\"MZ\",\"source_type\":\"sources5mm\"} --algorithm_name SCE_UA --algorithm_param {\"random_seed\":1234,\"rep\":2,\"ngs\":100,\"kstop\":50,\"peps\":0.001,\"pcento\":0.001}
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Calibrate XAJ model by SCE-UA.")
+    parser = argparse.ArgumentParser(description="Calibrate a hydrological model.")
     parser.add_argument(
         "--exp",
         dest="exp",
@@ -147,36 +155,53 @@ if __name__ == "__main__":
     parser.add_argument(
         "--warmup_length",
         dest="warmup_length",
-        help="the length of warmup period for XAJ model",
+        help="the length of warmup period for hydro model",
         default=365,
         type=int,
     )
     parser.add_argument(
-        "--route_method",
-        dest="route_method",
-        help="Method from mizuRoute for XAJ model",
-        default="MZ",
-        type=str,
-    )
-    parser.add_argument(
         "--model_name",
         dest="model_name",
-        help="different implementations for XAJ: 'xaj' or 'xaj_mz'",
-        default="xaj_mz",
+        help="which hydro model you want to calibrate",
+        default="xaj",
         type=str,
     )
     parser.add_argument(
-        "--algorithm",
-        dest="algorithm",
+        "--model_func_param",
+        dest="model_func_param",
+        help="parameters setting for model function, note: not hydromodel parameters but function's parameters",
+        default={
+            "route_method": "MZ",
+            "source_type": "sources5mm",
+        },
+        type=json.loads,
+    )
+    parser.add_argument(
+        "--algorithm_name",
+        dest="algorithm_name",
         help="calibrate algorithm: SCE_UA (default) or GA",
         default="SCE_UA",
         type=str,
     )
     parser.add_argument(
-        "--hyperparam_file",
-        dest="hyperparam_file",
-        help="hyperparam_file used for calibrating algorithm. its parent dir is data_dir",
-        default="hyperparam_SCE_UA_rep2000_ngs2000.json",
+        "--algorithm_param",
+        dest="algorithm_param",
+        help="algorithm parameters used for calibrating algorithm",
+        default={
+            "random_seed": 1234,
+            "rep": 100,
+            "ngs": 100,
+            "kstop": 50,
+            "peps": 0.001,
+            "pcento": 0.001,
+        },
+        type=json.loads,
+    )
+    parser.add_argument(
+        "--comment",
+        dest="comment",
+        help="directory name",
+        default="",
         type=str,
     )
     the_args = parser.parse_args()

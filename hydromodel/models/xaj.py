@@ -9,6 +9,8 @@ from scipy.special import gamma
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 
+PRECISION = 1e-5
+
 
 @jit
 def calculate_evap(lm, c, wu0, wl0, prcp, pet) -> tuple[np.array, np.array, np.array]:
@@ -282,7 +284,6 @@ def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None) -> tuple:
         fr0 = 0.1
     if s0 is None:
         s0 = 0.5 * sm
-    precision = 1e-5
     # For free water storage, because s is related to fr and s0 and fr0 are both values of last period,
     # we have to trans the initial value of s from last period to this one.
     # both WHS（流域水文模拟）'s sample code and HF（水文预报） use s = fr0 * s0 / fr.
@@ -295,11 +296,11 @@ def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None) -> tuple:
     fr = np.where(r > 0.0, r / pe, fr0)
     if np.isnan(fr).any():
         raise ArithmeticError("Please check pe's data! there may be 0.0")
-    ss = np.minimum(fr0 * s0 / fr, sm - precision)
+    ss = np.minimum(fr0 * s0 / fr, sm - PRECISION)
     au = ms * (1.0 - (1.0 - ss / sm) ** (1.0 / (1.0 + ex)))
     if np.isnan(au).any():
         raise ValueError(
-            "Error： NaN values detected. Try set clip function or check your data!!!"
+            "Error: NaN values detected. Try set clip function or check your data!!!"
         )
 
     rs = np.where(
@@ -313,7 +314,7 @@ def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None) -> tuple:
                 pe
                 - sm
                 + ss
-                + sm * ((1 - np.minimum(pe + au, ms - precision) / ms) ** (1 + ex))
+                + sm * ((1 - np.minimum(pe + au, ms - PRECISION) / ms) ** (1 + ex))
             ),
             # equation 2-86 in HF
             fr * (pe + ss - sm),
@@ -329,11 +330,12 @@ def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None) -> tuple:
     # equation 2-88 in HF, next interflow and ground water will be released from the updated free water storage
     # We use the period average runoff as input and the general unit period is day.
     # Hence, we directly use ki and kg rather than ki_{Δt} in books.
-    ri = ki * s * fr
-    rg = kg * s * fr
+    ri = np.where(s < PRECISION, 0.0, ki * s * fr)
+    rg = np.where(s < PRECISION, 0.0, kg * s * fr)
     # equation 2-89 in HF; although it looks different with that in WHS, they are actually same
     # Finally, calculate the final free water storage
     s1 = np.clip(s * (1 - ki - kg), a_min=np.full(s.shape, 0.0), a_max=sm)
+    s1 = np.where(s1 < PRECISION, np.full(s1.shape, 0.0), s1)
     return (rs, ri, rg), (s1, fr)
 
 
@@ -401,11 +403,9 @@ def sources5mm(
     if s0 is None:
         s0 = 0.60 * sm
     if fr0 is None:
-        fr0 = 0.02
-    fr = np.where(pe > 1e-5, runoff / pe, fr0)
-    fr = np.clip(fr, 0.001, 1)
+        fr0 = 0.1
+    fr = np.where(runoff > 0.0, runoff / pe, fr0)
 
-    # 净雨分5mm一段进行计算，因为计算时在FS/FR ~ SMF'关系图上开展，即计算在产流面积上开展，所以用PE做净雨.分段为了差分计算更精确。
     if runoff < 5:
         n = 1
     else:
@@ -413,7 +413,6 @@ def sources5mm(
         if residue_temp != 0:
             residue_temp = 1
         n = int(runoff / 5) + residue_temp
-    # 整除了就是5mm，不整除就少一些，差分每段小了也挺好
     rn = runoff / n
     pen = pe / n
     kss_d = (1 - (1 - (kss_period + kg_period)) ** (1 / n)) / (
@@ -421,33 +420,58 @@ def sources5mm(
     )
     kg_d = kss_d * kg_period / kss_period
 
-    rs = rss = rg = 0
+    rs = np.full(runoff.shape, 0.0)
+    rss = np.full(runoff.shape, 0.0)
+    rg = np.full(runoff.shape, 0.0)
 
     s_ds = []
     fr_ds = []
     s_ds.append(s0)
     fr_ds.append(fr0)
-
     for j in range(n):
-        # 因为产流面积随着自由水蓄水容量的变化而变化，每5mm净雨对应的产流面积肯定是不同的，因此fr是变化的
         fr0_d = fr_ds[j]
         s0_d = s_ds[j]
         fr_d = 1 - (1 - fr) ** (1 / n)
-        s_d = fr0_d * s0_d / fr_d
-
+        s_d = np.minimum(fr0_d * s0_d / fr_d, sm - PRECISION)
         if book == "ShuiWenYuBao":
-            ms = smm
-            if s_d > sm:
-                s_d = sm
-            au = ms * (1 - (1 - s_d / sm) ** (1 / (1 + ex)))
-            if pen + au >= ms:
-                rs_j = (pen + s_d - sm) * fr_d
-            else:
-                rs_j = (pen - sm + s_d + sm * (1 - (pen + au) / ms) ** (ex + 1)) * fr_d
+            # ms = smm
+            au = smm * (1.0 - (1.0 - s_d / sm) ** (1.0 / (1.0 + ex)))
+            if np.isnan(au).any():
+                raise ValueError(
+                    "Error: NaN values detected. Try set clip function or check your data!!!"
+                )
+            rs_j = np.where(
+                pen > 0.0,
+                np.where(
+                    pen + au < smm,
+                    # equation 5-26 in HF
+                    fr_d
+                    * (
+                        pen
+                        - sm
+                        + s_d
+                        + sm
+                        * (
+                            (1 - np.minimum(pen + au, smm - PRECISION) / smm)
+                            ** (1 + ex)
+                        )
+                    ),
+                    # equation 5-27 in HF
+                    fr_d * (pen + s_d - sm),
+                ),
+                np.full(rn.shape, 0.0),
+            )
+            rs_j = np.clip(rs_j, a_min=np.full(rs_j.shape, 0.0), a_max=rn)
             s_d = s_d + (rn - rs_j) / fr_d
-            rss_j = s_d * kss_d * fr_d
-            rg_j = s_d * kg_d * fr_d
-            s_d = s_d * (1 - rss_j + rg_j)
+            if np.isnan(s_d).any():
+                raise ArithmeticError("Please check fr's data! there may be 0.0")
+            s_d = np.minimum(s_d, sm)
+            rss_j = np.where(s_d < PRECISION, 0.0, s_d * kss_d * fr_d)
+            rg_j = np.where(s_d < PRECISION, 0.0, s_d * kg_d * fr_d)
+            s_d = np.clip(
+                s_d * (1 - kss_d - kg_d), a_min=np.full(s_d.shape, 0.0), a_max=sm
+            )
+            s_d = np.where(s_d < PRECISION, np.full(s_d.shape, 0.0), s_d)
 
         elif book == "GongChengShuiWenXue":
             smmf = smm * (1 - (1 - fr_d) ** (1 / ex))
@@ -581,9 +605,7 @@ def xaj(
     params: Union[np.array, list],
     return_state=False,
     warmup_length=30,
-    route_method="CSL",
-    source_type="sources",
-    source_book="ShuiWenYuBao",
+    **kwargs,
 ) -> Union[tuple, np.array]:
     """
     run XAJ model
@@ -600,21 +622,26 @@ def xaj(
         if True, return state values, mainly for warmup periods
     warmup_length
         hydro models need a warm-up period to get good initial state values
-    route_method
-        now we provide two ways: "CSL" (recession constant + lag time) and "MZ" (method from mizuRoute)
-    source_type
-        default is "sources" and it will call "sources" function; the other is "sources5mm",
-        and we will divide the runoff to some <5mm pieces according to the books in this case
-    source_book
-        When source_type is "sources5mm" there are two implementions for dividing sources,
-        as the methods in "ShuiWenYuBao" and "GongChengShuiWenXue"" are different.
-        Hence, both are provided, and the default is the former.
+    kwargs
+        route_method
+            now we provide two ways: "CSL" (recession constant + lag time) and "MZ" (method from mizuRoute)
+        source_type
+            default is "sources" and it will call "sources" function; the other is "sources5mm",
+            and we will divide the runoff to some <5mm pieces according to the books in this case
+        source_book
+            When source_type is "sources5mm" there are two implementions for dividing sources,
+            as the methods in "ShuiWenYuBao" and "GongChengShuiWenXue"" are different.
+            Hence, both are provided, and the default is the former.
 
     Returns
     -------
     Union[np.array, tuple]
         streamflow or (streamflow, states)
     """
+    # default values for some function parameters
+    route_method = kwargs["route_method"] if "route_method" in kwargs else "CSL"
+    source_type = kwargs["source_type"] if "source_type" in kwargs else "sources"
+    source_book = kwargs["source_book"] if "source_book" in kwargs else "ShuiWenYuBao"
     # params
     if route_method == "CSL":
         param_ranges = MODEL_PARAM_DICT["xaj"]["param_range"]
@@ -637,11 +664,11 @@ def xaj(
     c = xaj_params[6]
     sm = xaj_params[7]
     ex = xaj_params[8]
-    ki = xaj_params[9]
-    kg = xaj_params[10]
+    ki_ = xaj_params[9]
+    kg_ = xaj_params[10]
     # ki+kg should be smaller than 1; if not, we scale them
-    ki = np.where(ki + kg < 1.0, ki, 1 / (ki + kg) * ki)
-    kg = np.where(ki + kg < 1.0, kg, 1 / (ki + kg) * kg)
+    ki = np.where(ki_ + kg_ < 1.0, ki_, (1.0 - PRECISION) / (ki_ + kg_) * ki_)
+    kg = np.where(ki_ + kg_ < 1.0, kg_, (1.0 - PRECISION) / (ki_ + kg_) * kg_)
     if route_method == "CSL":
         cs = xaj_params[11]
         l = xaj_params[12]
@@ -666,6 +693,7 @@ def xaj(
             params,
             return_state=True,
             warmup_length=0,
+            **kwargs,
         )
     else:
         w0 = (0.5 * um, 0.5 * lm, 0.5 * dm)

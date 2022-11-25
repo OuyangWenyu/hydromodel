@@ -5,7 +5,7 @@ from numba import jit
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 
 
-def hymod(p_and_e, parameters, warmup_length=30, return_state=False):
+def hymod(p_and_e, parameters, warmup_length=30, return_state=False, **kwargs):
     """
     Run Hymod model
 
@@ -45,7 +45,11 @@ def hymod(p_and_e, parameters, warmup_length=30, return_state=False):
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
         _, x_slow, x_quick, x_loss = hymod(
-            p_and_e_warmup, parameters, warmup_length=0, return_state=True
+            p_and_e_warmup,
+            parameters,
+            warmup_length=0,
+            return_state=True,
+            **kwargs,
         )
     else:
         # Initialize slow tank state

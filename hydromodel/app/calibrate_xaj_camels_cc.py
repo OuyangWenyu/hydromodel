@@ -56,8 +56,7 @@ def main(args):
         os.makedirs(save_dir)
     if algo_info["name"] == "SCE_UA":
         hydro_utils.serialize_json(vars(args), os.path.join(save_dir, "args.json"))
-        # for i in range(len(data_info_train["basin"])):
-        for i in range(1):
+        for i in range(len(data_info_train["basin"])):
             basin_id = data_info_train["basin"][i]
             basin_area = data_info_train["area"][i]
             # one directory for one model + one hyperparam setting and one basin
@@ -131,7 +130,7 @@ def main(args):
 
 # NOTE: Before run this command, you should run data_preprocess.py file to save your data as hydro-model-xaj data format,
 # the exp must be same as the exp in data_preprocess.py
-# python calibrate_xaj_camels_cc.py --exp exp001 --warmup_length 365 --model {\"name\":\"xaj\",\"route_method\":\"MZ\",\"source_type\":\"sources5mm\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":2,\"ngs\":100,\"kstop\":50,\"peps\":0.001,\"pcento\":0.001}
+# python calibrate_xaj_camels_cc.py --exp exp001 --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources5mm\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":2,\"ngs\":100,\"kstop\":50,\"peps\":0.001,\"pcento\":0.001}
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calibrate a hydrological model.")
     parser.add_argument(

@@ -89,9 +89,7 @@ def calculate_prcp_runoff(b, im, wm, w0, pe) -> tuple[np.array, np.array]:
         np.where(
             pe + a < wmm,
             # 1e-5 is a precision which we set to guarantee float's calculation is correct
-            pe
-            - (wm - w0)
-            + wm * (1.0 - np.minimum(a + pe, wmm - 1e-5) / wmm) ** (1.0 + b),
+            pe - (wm - w0) + wm * (1.0 - np.minimum(a + pe, wmm) / wmm) ** (1.0 + b),
             pe - (wm - w0),
         ),
         np.full(pe.shape, 0.0),
@@ -288,93 +286,110 @@ def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None, book="HF") -> tuple:
     # we have to trans the initial value of s from last period to this one.
     # both WHS（流域水文模拟）'s sample code and HF（水文预报） use s = fr0 * s0 / fr.
     # I think they both think free water reservoir as a cubic tank. Its height is s and area of bottom rectangle is fr
-    # but the problem is we will have a cubic tank with varying bottom and height, and fixed boundary (sm is fixed)
-    # -> so strange !!! I think maybe 2-sources xaj is more interpretable
-    # especially when r=0 then fr0=0, the free water cannot disappear immediately, so we have to use s = s0, fr=fr0
+    # we will have a cubic tank with varying bottom and height,
+    # and fixed boundary (in HF sm is fixed) or none-fixed boundary (in EH smmf is not fixed)
+    # but notice r's list like" [1,0] which 1 is the 1st period's runoff and 0 is the 2nd period's runoff
+    # after 1st period, the s1 could not be zero, but in the 2nd period, fr=0, then we cannot set s=0, because some water still in the tank
     # fr's formula could be found in Eq. 9 in "Analysis of parameters of the XinAnJiang model",
     # Here our r doesn't include rim, so there is no need to remove rim from r; this is also the method in 《水文预报》（HF）
-    fr = np.full(fr0.shape, 0.0)
-    fr_mask = r > PRECISION
+
+    # NOTE: when r is 0, fr should be 0, however, s1 may not be zero and it still hold some water,
+    # then fr can not be 0, otherwise when fr is used as denominator it lead to error,
+    # so we have to deal with this case later, for example, when r=0, we cannot use pe * fr to replace r
+    # because fr get the value of last period, and it is not 0
+    fr = np.copy(fr0)
+    if any(fr == 0.0):
+        raise ArithmeticError(
+            "Please check fr's value, fr==0.0 will cause error in the next step!"
+        )
+    # r=0, then r/pe must be 0
+    fr_mask = r > 0.0
     fr[fr_mask] = r[fr_mask] / pe[fr_mask]
     if np.isnan(fr).any():
         raise ArithmeticError("Please check pe's data! there may be 0.0")
 
-    ss = np.full(s0.shape, 0.0)
-    s = np.full(ss.shape, 0.0)
+    # if fr=0, then we cannot get ss, but ss should not be 0, because s1 of last period may not be 0 and it still hold some water
+    ss = np.copy(s0)
+    # same initialization for s
+    s = np.copy(s0)
 
     ss[fr_mask] = fr0[fr_mask] * s0[fr_mask] / fr[fr_mask]
 
     if book == "HF":
-        ss[fr_mask] = np.minimum(ss[fr_mask], sm[fr_mask])
+        ss = np.minimum(ss, sm)
         au = ms * (1.0 - (1.0 - ss / sm) ** (1.0 / (1.0 + ex)))
         if np.isnan(au).any():
             raise ValueError(
                 "Error: NaN values detected. Try set clip function or check your data!!!"
             )
-
-        rs = np.where(
-            pe > 0.0,
-            np.where(
-                pe + au < ms,
-                # equation 2-85 in HF
-                # set precision to guarantee float data's calculation is correct
-                fr
+        # the first condition should be r > 0.0, when r=0, rs must be 0, fig 6-12 in EH or fig 5-4 in HF
+        # so we have to use "pe" carefully!!! when r>0.0, we use pe, otherwise we don't use it!!!
+        rs = np.full(r.shape, 0.0)
+        rs[fr_mask] = np.where(
+            pe[fr_mask] + au[fr_mask] < ms[fr_mask],
+            # equation 2-85 in HF
+            fr[fr_mask]
+            * (
+                pe[fr_mask]
+                - sm[fr_mask]
+                + ss[fr_mask]
+                + sm[fr_mask]
                 * (
-                    pe - sm + ss + sm * ((1 - np.minimum(pe + au, ms) / ms) ** (1 + ex))
-                ),
-                # equation 2-86 in HF
-                fr * (pe + ss - sm),
+                    (
+                        1
+                        - np.minimum(pe[fr_mask] + au[fr_mask], ms[fr_mask])
+                        / ms[fr_mask]
+                    )
+                    ** (1 + ex[fr_mask])
+                )
             ),
-            np.full(r.shape, 0.0),
+            # equation 2-86 in HF
+            fr[fr_mask] * (pe[fr_mask] + ss[fr_mask] - sm[fr_mask]),
         )
         rs = np.minimum(rs, r)
-        # equation 2-87 in HF, some free water leave, so we update free water storage
+
+        # ri's mask is not same as rs's, because last period's s may not be 0
+        # and in this time, ri and rg could be larger than 0
+        # we need firstly calculate the updated s, s's mask is same as fr_mask,
+        # when r==0, then s will be equal to last period's
+        # equation 2-87 in HF, some free water leave or save, so we update free water storage
         s[fr_mask] = ss[fr_mask] + (r[fr_mask] - rs[fr_mask]) / fr[fr_mask]
+        s = np.minimum(s, sm)
         if np.isnan(s).any():
             raise ArithmeticError("Please check fr's data! there may be 0.0")
-        s = np.minimum(s, sm)
 
     elif book == "EH":
-        smmf = np.full(ss.shape, 0.0)
-        smf = np.full(smmf.shape, 0.0)
-        au = np.full(smmf.shape, 0.0)
-        rs = np.full(smmf.shape, 0.0)
-
-        smmf[fr_mask] = ms[fr_mask] * (1 - (1 - fr[fr_mask]) ** (1 / ex[fr_mask]))
-        smf[fr_mask] = smmf[fr_mask] / (1 + ex[fr_mask])
-        ss[fr_mask] = np.minimum(ss[fr_mask], smf[fr_mask])
-        au[fr_mask] = smmf[fr_mask] * (
-            1 - (1 - ss[fr_mask] / smf[fr_mask]) ** (1 / (1 + ex[fr_mask]))
-        )
+        # smmf should be with correpond with s
+        smmf = ms * (1 - (1 - fr) ** (1 / ex))
+        smf = smmf / (1 + ex)
+        ss = np.minimum(ss, smf)
+        au = smmf * (1 - (1 - ss / smf) ** (1 / (1 + ex)))
         if np.isnan(au).any():
             raise ValueError(
                 "Error: NaN values detected. Try set clip function or check your data!!!"
             )
+
+        # rs's mask is keep with fr_mask
+        rs = np.full(r.shape, 0.0)
         rs[fr_mask] = np.where(
-            pe[fr_mask] > 0.0,
-            np.where(
-                pe[fr_mask] + au[fr_mask] < smmf[fr_mask],
-                (
-                    pe[fr_mask]
-                    - smf[fr_mask]
-                    + ss[fr_mask]
-                    + smf[fr_mask]
-                    * (
-                        1
-                        - np.minimum(pe[fr_mask] + au[fr_mask], smmf[fr_mask])
-                        / smmf[fr_mask]
-                    )
-                    ** (ex[fr_mask] + 1)
+            pe[fr_mask] + au[fr_mask] < smmf[fr_mask],
+            (
+                pe[fr_mask]
+                - smf[fr_mask]
+                + ss[fr_mask]
+                + smf[fr_mask]
+                * (
+                    1
+                    - np.minimum(pe[fr_mask] + au[fr_mask], smmf[fr_mask])
+                    / smmf[fr_mask]
                 )
-                * fr[fr_mask],
-                (pe[fr_mask] + ss[fr_mask] - smf[fr_mask]) * fr[fr_mask],
-            ),
-            np.full(r[fr_mask].shape, 0.0),
+                ** (ex[fr_mask] + 1)
+            )
+            * fr[fr_mask],
+            (pe[fr_mask] + ss[fr_mask] - smf[fr_mask]) * fr[fr_mask],
         )
-        rs[fr_mask] = np.minimum(rs[fr_mask], r[fr_mask])
+        rs = np.minimum(rs, r)
         s[fr_mask] = ss[fr_mask] + (r[fr_mask] - rs[fr_mask]) / fr[fr_mask]
-        if np.isnan(s).any():
-            raise ArithmeticError("Please check fr's data! there may be 0.0")
         s = np.minimum(s, smf)
     else:
         raise ValueError("Please set book as 'HF' or 'EH'!")
@@ -455,12 +470,12 @@ def sources5mm(
     # 流域最大点自由水蓄水容量深
     smm = sm * (1 + ex)
     if s0 is None:
-        s0 = 0.60 * sm
+        s0 = 0.50 * sm
     if fr0 is None:
         fr0 = 0.1
     # don't use np.where here, because it will cause some warning
-    fr = np.full(fr0.shape, 0.0)
-    fr_mask = runoff > PRECISION
+    fr = np.copy(fr0)
+    fr_mask = runoff > 0.0
     fr[fr_mask] = runoff[fr_mask] / pe[fr_mask]
     if np.all(runoff < 5):
         n = 1
@@ -477,7 +492,8 @@ def sources5mm(
         1 + kg_period / kss_period
     )
     kg_d = kss_d * kg_period / kss_period
-
+    # kss_d = kss_period
+    # kg_d = kg_period
     rs = np.full(runoff.shape, 0.0)
     rss = np.full(runoff.shape, 0.0)
     rg = np.full(runoff.shape, 0.0)
@@ -490,121 +506,89 @@ def sources5mm(
     for j in range(n):
         fr0_d = fr_ds[j]
         s0_d = s_ds[j]
+        # equation 5-32 in HF, but strange, cause each period, rn/pen is same, fr_d should be same
         fr_d = 1 - (1 - fr) ** (1 / n)
+        # fr_d = fr
 
-        ss_d = np.full(s0_d.shape, 0.0)
-        s1_d = np.full(s0_d.shape, 0.0)
+        ss_d = np.copy(s0_d)
+        s_d = np.copy(s0_d)
+        s1_d = np.copy(s0_d)
 
-        ss_d[fr_mask] = np.minimum(
-            fr0_d[fr_mask] * s0_d[fr_mask] / fr_d[fr_mask], sm[fr_mask]
-        )
+        ss_d[fr_mask] = fr0_d[fr_mask] * s0_d[fr_mask] / fr_d[fr_mask]
+
         if book == "HF":
-            s_d = np.full(s0_d.shape, 0.0)
+            ss_d = np.minimum(ss_d, sm)
             # ms = smm
             au = smm * (1.0 - (1.0 - ss_d / sm) ** (1.0 / (1.0 + ex)))
             if np.isnan(au).any():
                 raise ValueError(
                     "Error: NaN values detected. Try set clip function or check your data!!!"
                 )
-            rs_j = np.where(
-                pen > 0.0,
-                np.where(
-                    pen + au < smm,
-                    # equation 5-26 in HF
-                    fr_d
+            rs_j = np.full(rn.shape, 0.0)
+            rs_j[fr_mask] = np.where(
+                pen[fr_mask] + au[fr_mask] < smm[fr_mask],
+                # equation 5-26 in HF
+                fr_d[fr_mask]
+                * (
+                    pen[fr_mask]
+                    - sm[fr_mask]
+                    + ss_d[fr_mask]
+                    + sm[fr_mask]
                     * (
-                        pen
-                        - sm
-                        + ss_d
-                        + sm * ((1 - np.minimum(pen + au, smm) / smm) ** (1 + ex))
-                    ),
-                    # equation 5-27 in HF
-                    fr_d * (pen + ss_d - sm),
+                        (
+                            1
+                            - np.minimum(pen[fr_mask] + au[fr_mask], smm[fr_mask])
+                            / smm[fr_mask]
+                        )
+                        ** (1 + ex[fr_mask])
+                    )
                 ),
-                np.full(rn.shape, 0.0),
+                # equation 5-27 in HF
+                fr_d[fr_mask] * (pen[fr_mask] + ss_d[fr_mask] - sm[fr_mask]),
             )
             rs_j = np.minimum(rs_j, rn)
             s_d[fr_mask] = ss_d[fr_mask] + (rn[fr_mask] - rs_j[fr_mask]) / fr_d[fr_mask]
-            if np.isnan(s_d).any():
-                raise ArithmeticError("Please check fr's data! there may be 0.0")
             s_d = np.minimum(s_d, sm)
-            rss_j = s_d * kss_d * fr_d
-            rg_j = s_d * kg_d * fr_d
-            s1_d = s_d * (1 - kss_d - kg_d)
 
         elif book == "EH":
-            smmf = np.full(ss_d.shape, 0.0)
-            smf = np.full(smmf.shape, 0.0)
-            au = np.full(smmf.shape, 0.0)
-            rs_j = np.full(smmf.shape, 0.0)
-            rss_j = np.full(smmf.shape, 0.0)
-            rg_j = np.full(smmf.shape, 0.0)
-
-            smmf[fr_mask] = smm[fr_mask] * (
-                1 - (1 - fr_d[fr_mask]) ** (1 / ex[fr_mask])
-            )
-            smf[fr_mask] = smmf[fr_mask] / (1 + ex[fr_mask])
-            ss_d[fr_mask] = np.minimum(ss_d[fr_mask], smf[fr_mask])
-            au[fr_mask] = smmf[fr_mask] * (
-                1 - (1 - ss_d[fr_mask] / smf[fr_mask]) ** (1 / (1 + ex[fr_mask]))
-            )
+            smmf = smm * (1 - (1 - fr_d) ** (1 / ex))
+            smf = smmf / (1 + ex)
+            ss_d = np.minimum(ss_d, smf)
+            au = smmf * (1 - (1 - ss_d / smf) ** (1 / (1 + ex)))
             if np.isnan(au).any():
                 raise ValueError(
                     "Error: NaN values detected. Try set clip function or check your data!!!"
                 )
+            rs_j = np.full(rn.shape, 0.0)
             rs_j[fr_mask] = np.where(
-                pen[fr_mask] > 0.0,
-                np.where(
-                    pen[fr_mask] + au[fr_mask] < smmf[fr_mask],
-                    (
-                        pen[fr_mask]
-                        - smf[fr_mask]
-                        + ss_d[fr_mask]
-                        + smf[fr_mask]
-                        * (
-                            1
-                            - np.minimum(pen[fr_mask] + au[fr_mask], smmf[fr_mask])
-                            / smmf[fr_mask]
-                        )
-                        ** (ex[fr_mask] + 1)
+                pen[fr_mask] + au[fr_mask] < smmf[fr_mask],
+                (
+                    pen[fr_mask]
+                    - smf[fr_mask]
+                    + ss_d[fr_mask]
+                    + smf[fr_mask]
+                    * (
+                        1
+                        - np.minimum(pen[fr_mask] + au[fr_mask], smmf[fr_mask])
+                        / smmf[fr_mask]
                     )
-                    * fr_d[fr_mask],
-                    (pen[fr_mask] + ss_d[fr_mask] - smf[fr_mask]) * fr_d[fr_mask],
-                ),
-                np.full(rn[fr_mask].shape, 0.0),
-            )
-
-            # s_d = s_d + (rn - rs_j) / fr
-            # s_d = np.minimum(s_d, smf)
-            # rss_j = kss_d * s_d * fr_d
-            # rg_j = kg_d * s_d * fr_d
-            # s_d = s_d * (1 - kss_d - kg_d)
-
-            rss_j[fr_mask] = np.where(
-                pen[fr_mask] + au[fr_mask] < smmf[fr_mask],
-                (pen[fr_mask] - rs_j[fr_mask] / fr_d[fr_mask] + ss_d[fr_mask])
-                * kss_d[fr_mask]
+                    ** (ex[fr_mask] + 1)
+                )
                 * fr_d[fr_mask],
-                smf[fr_mask] * kss_d[fr_mask] * fr_d[fr_mask],
+                (pen[fr_mask] + ss_d[fr_mask] - smf[fr_mask]) * fr_d[fr_mask],
             )
-            rg_j[fr_mask] = np.where(
-                pen[fr_mask] + au[fr_mask] < smmf[fr_mask],
-                (pen[fr_mask] - rs_j[fr_mask] / fr_d[fr_mask] + ss_d[fr_mask])
-                * kg_d[fr_mask]
-                * fr_d[fr_mask],
-                smf[fr_mask] * kg_d[fr_mask] * fr_d[fr_mask],
-            )
-            s1_d[fr_mask] = np.where(
-                pen[fr_mask] + au[fr_mask] < smmf[fr_mask],
-                ss_d[fr_mask]
-                + pen[fr_mask]
-                - (rs_j[fr_mask] + rss_j[fr_mask] + rg_j[fr_mask]) / fr_d[fr_mask],
-                smf[fr_mask] - (rss_j[fr_mask] + rg_j[fr_mask]) / fr_d[fr_mask],
-            )
+            rs_j = np.minimum(rs_j, rn)
+            s_d[fr_mask] = ss_d[fr_mask] + (rn[fr_mask] - rs_j[fr_mask]) / fr_d[fr_mask]
+            s_d = np.minimum(s_d, smf)
+
         else:
             raise NotImplementedError(
                 "We don't have this implementation! Please chose 'HF' or 'EH'!!"
             )
+        rss_j = s_d * kss_d * fr_d
+        rg_j = s_d * kg_d * fr_d
+        s1_d = s_d * (1 - kss_d - kg_d)
+
         rs = rs + rs_j
         rss = rss + rss_j
         rg = rg + rg_j

@@ -293,11 +293,19 @@ def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None, book="HF") -> tuple:
     # especially when r=0 then fr0=0, the free water cannot disappear immediately, so we have to use s = s0, fr=fr0
     # fr's formula could be found in Eq. 9 in "Analysis of parameters of the XinAnJiang model",
     # Here our r doesn't include rim, so there is no need to remove rim from r; this is also the method in 《水文预报》（HF）
-    fr = np.where(r > 0.0, r / pe, fr0)
+    fr = np.full(fr0.shape, 0.0)
+    fr_mask = r > PRECISION
+    fr[fr_mask] = r[fr_mask] / pe[fr_mask]
     if np.isnan(fr).any():
         raise ArithmeticError("Please check pe's data! there may be 0.0")
-    ss = np.minimum(fr0 * s0 / fr, sm - PRECISION)
+
+    ss = np.full(s0.shape, 0.0)
+    s = np.full(ss.shape, 0.0)
+
+    ss[fr_mask] = fr0[fr_mask] * s0[fr_mask] / fr[fr_mask]
+
     if book == "HF":
+        ss[fr_mask] = np.minimum(ss[fr_mask], sm[fr_mask])
         au = ms * (1.0 - (1.0 - ss / sm) ** (1.0 / (1.0 + ex)))
         if np.isnan(au).any():
             raise ValueError(
@@ -312,50 +320,59 @@ def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None, book="HF") -> tuple:
                 # set precision to guarantee float data's calculation is correct
                 fr
                 * (
-                    pe
-                    - sm
-                    + ss
-                    + sm * ((1 - np.minimum(pe + au, ms - PRECISION) / ms) ** (1 + ex))
+                    pe - sm + ss + sm * ((1 - np.minimum(pe + au, ms) / ms) ** (1 + ex))
                 ),
                 # equation 2-86 in HF
                 fr * (pe + ss - sm),
             ),
             np.full(r.shape, 0.0),
         )
-        rs = np.clip(rs, a_min=np.full(rs.shape, 0.0), a_max=r)
+        rs = np.minimum(rs, r)
         # equation 2-87 in HF, some free water leave, so we update free water storage
-        s = ss + (r - rs) / fr
+        s[fr_mask] = ss[fr_mask] + (r[fr_mask] - rs[fr_mask]) / fr[fr_mask]
         if np.isnan(s).any():
             raise ArithmeticError("Please check fr's data! there may be 0.0")
         s = np.minimum(s, sm)
 
     elif book == "EH":
-        smmf = ms * (1 - (1 - fr) ** (1 / ex))
-        smf = smmf / (1 + ex)
-        ss = np.minimum(ss, smf)
-        au = smmf * (1 - (1 - ss / smf) ** (1 / (1 + ex)))
+        smmf = np.full(ss.shape, 0.0)
+        smf = np.full(smmf.shape, 0.0)
+        au = np.full(smmf.shape, 0.0)
+        rs = np.full(smmf.shape, 0.0)
+
+        smmf[fr_mask] = ms[fr_mask] * (1 - (1 - fr[fr_mask]) ** (1 / ex[fr_mask]))
+        smf[fr_mask] = smmf[fr_mask] / (1 + ex[fr_mask])
+        ss[fr_mask] = np.minimum(ss[fr_mask], smf[fr_mask])
+        au[fr_mask] = smmf[fr_mask] * (
+            1 - (1 - ss[fr_mask] / smf[fr_mask]) ** (1 / (1 + ex[fr_mask]))
+        )
         if np.isnan(au).any():
             raise ValueError(
                 "Error: NaN values detected. Try set clip function or check your data!!!"
             )
-        rs = np.where(
-            pe > 0.0,
+        rs[fr_mask] = np.where(
+            pe[fr_mask] > 0.0,
             np.where(
-                pe + au < smmf,
+                pe[fr_mask] + au[fr_mask] < smmf[fr_mask],
                 (
-                    pe
-                    - smf
-                    + ss
-                    + smf
-                    * (1 - np.minimum(pe + au, smmf - PRECISION) / smmf) ** (ex + 1)
+                    pe[fr_mask]
+                    - smf[fr_mask]
+                    + ss[fr_mask]
+                    + smf[fr_mask]
+                    * (
+                        1
+                        - np.minimum(pe[fr_mask] + au[fr_mask], smmf[fr_mask])
+                        / smmf[fr_mask]
+                    )
+                    ** (ex[fr_mask] + 1)
                 )
-                * fr,
-                (pe + ss - smf) * fr,
+                * fr[fr_mask],
+                (pe[fr_mask] + ss[fr_mask] - smf[fr_mask]) * fr[fr_mask],
             ),
-            np.full(r.shape, 0.0),
+            np.full(r[fr_mask].shape, 0.0),
         )
-        rs = np.clip(rs, a_min=np.full(rs.shape, 0.0), a_max=r)
-        s = ss + (r - rs) / fr
+        rs[fr_mask] = np.minimum(rs[fr_mask], r[fr_mask])
+        s[fr_mask] = ss[fr_mask] + (r[fr_mask] - rs[fr_mask]) / fr[fr_mask]
         if np.isnan(s).any():
             raise ArithmeticError("Please check fr's data! there may be 0.0")
         s = np.minimum(s, smf)
@@ -365,12 +382,14 @@ def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None, book="HF") -> tuple:
     # equation 2-88 in HF, next interflow and ground water will be released from the updated free water storage
     # We use the period average runoff as input and the general unit period is day.
     # Hence, we directly use ki and kg rather than ki_{Δt} in books.
-    ri = np.where(s < PRECISION, np.full(r.shape, 0.0), ki * s * fr)
-    rg = np.where(s < PRECISION, np.full(r.shape, 0.0), kg * s * fr)
+    ri = ki * s * fr
+    rg = kg * s * fr
+    # ri = np.where(s < PRECISION, np.full(r.shape, 0.0), ki * s * fr)
+    # rg = np.where(s < PRECISION, np.full(r.shape, 0.0), kg * s * fr)
     # equation 2-89 in HF; although it looks different with that in WHS, they are actually same
     # Finally, calculate the final free water storage
     s1 = s * (1 - ki - kg)
-    s1 = np.where(s1 < PRECISION, np.full(s1.shape, 0.0), s1)
+    # s1 = np.where(s1 < PRECISION, np.full(s1.shape, 0.0), s1)
     return (rs, ri, rg), (s1, fr)
 
 
@@ -429,7 +448,7 @@ def sources5mm(
         residue_temp = 1
     period_num_1d = int(hours_per_day / time_interval_hours) + residue_temp
     # 当kss+kg>1时，根式为偶数运算时，kss_period会成为复数，这里会报错；另外注意分母可能为0，kss不可取0
-    # 对kss+kg的取值进行限制，也是符合物理意义的，地下水出流不能超过自身的蓄水。
+    # 对kss+kg的取值进行限制
     kss_period = (1 - (1 - (ki + kg)) ** (1 / period_num_1d)) / (1 + kg / ki)
     kg_period = kss_period * kg / ki
 
@@ -439,8 +458,10 @@ def sources5mm(
         s0 = 0.60 * sm
     if fr0 is None:
         fr0 = 0.1
-    fr = np.where(runoff > 0.0, runoff / pe, fr0)
-
+    # don't use np.where here, because it will cause some warning
+    fr = np.full(fr0.shape, 0.0)
+    fr_mask = runoff > PRECISION
+    fr[fr_mask] = runoff[fr_mask] / pe[fr_mask]
     if np.all(runoff < 5):
         n = 1
     else:
@@ -465,14 +486,22 @@ def sources5mm(
     fr_ds = []
     s_ds.append(s0)
     fr_ds.append(fr0)
+
     for j in range(n):
         fr0_d = fr_ds[j]
         s0_d = s_ds[j]
         fr_d = 1 - (1 - fr) ** (1 / n)
-        s_d = np.minimum(fr0_d * s0_d / fr_d, sm - PRECISION)
+
+        ss_d = np.full(s0_d.shape, 0.0)
+        s1_d = np.full(s0_d.shape, 0.0)
+
+        ss_d[fr_mask] = np.minimum(
+            fr0_d[fr_mask] * s0_d[fr_mask] / fr_d[fr_mask], sm[fr_mask]
+        )
         if book == "HF":
+            s_d = np.full(s0_d.shape, 0.0)
             # ms = smm
-            au = smm * (1.0 - (1.0 - s_d / sm) ** (1.0 / (1.0 + ex)))
+            au = smm * (1.0 - (1.0 - ss_d / sm) ** (1.0 / (1.0 + ex)))
             if np.isnan(au).any():
                 raise ValueError(
                     "Error: NaN values detected. Try set clip function or check your data!!!"
@@ -486,58 +515,63 @@ def sources5mm(
                     * (
                         pen
                         - sm
-                        + s_d
-                        + sm
-                        * (
-                            (1 - np.minimum(pen + au, smm - PRECISION) / smm)
-                            ** (1 + ex)
-                        )
+                        + ss_d
+                        + sm * ((1 - np.minimum(pen + au, smm) / smm) ** (1 + ex))
                     ),
                     # equation 5-27 in HF
-                    fr_d * (pen + s_d - sm),
+                    fr_d * (pen + ss_d - sm),
                 ),
                 np.full(rn.shape, 0.0),
             )
-            rs_j = np.clip(rs_j, a_min=np.full(rs_j.shape, 0.0), a_max=rn)
-            s_d = s_d + (rn - rs_j) / fr_d
+            rs_j = np.minimum(rs_j, rn)
+            s_d[fr_mask] = ss_d[fr_mask] + (rn[fr_mask] - rs_j[fr_mask]) / fr_d[fr_mask]
             if np.isnan(s_d).any():
                 raise ArithmeticError("Please check fr's data! there may be 0.0")
             s_d = np.minimum(s_d, sm)
-            rss_j = np.where(
-                s_d < PRECISION, np.full(s_d.shape, 0.0), s_d * kss_d * fr_d
-            )
-            rg_j = np.where(s_d < PRECISION, np.full(s_d.shape, 0.0), s_d * kg_d * fr_d)
-            s_d = np.clip(
-                s_d * (1 - kss_d - kg_d), a_min=np.full(s_d.shape, 0.0), a_max=sm
-            )
-            s_d = np.where(s_d < PRECISION, np.full(s_d.shape, 0.0), s_d)
+            rss_j = s_d * kss_d * fr_d
+            rg_j = s_d * kg_d * fr_d
+            s1_d = s_d * (1 - kss_d - kg_d)
 
         elif book == "EH":
-            smmf = smm * (1 - (1 - fr_d) ** (1 / ex))
-            smf = smmf / (1 + ex)
-            # 如果出现s_d>smf的情况，说明s_d = fr0_d * s0_d / fr_d导致的计算误差不合理，需要进行修正。
-            s_d = np.minimum(s_d, smf)
-            au = smmf * (1 - (1 - s_d / smf) ** (1 / (1 + ex)))
+            smmf = np.full(ss_d.shape, 0.0)
+            smf = np.full(smmf.shape, 0.0)
+            au = np.full(smmf.shape, 0.0)
+            rs_j = np.full(smmf.shape, 0.0)
+            rss_j = np.full(smmf.shape, 0.0)
+            rg_j = np.full(smmf.shape, 0.0)
+
+            smmf[fr_mask] = smm[fr_mask] * (
+                1 - (1 - fr_d[fr_mask]) ** (1 / ex[fr_mask])
+            )
+            smf[fr_mask] = smmf[fr_mask] / (1 + ex[fr_mask])
+            ss_d[fr_mask] = np.minimum(ss_d[fr_mask], smf[fr_mask])
+            au[fr_mask] = smmf[fr_mask] * (
+                1 - (1 - ss_d[fr_mask] / smf[fr_mask]) ** (1 / (1 + ex[fr_mask]))
+            )
             if np.isnan(au).any():
                 raise ValueError(
                     "Error: NaN values detected. Try set clip function or check your data!!!"
                 )
-            rs_j = np.where(
-                pen > 0.0,
+            rs_j[fr_mask] = np.where(
+                pen[fr_mask] > 0.0,
                 np.where(
-                    pen + au < smmf,
+                    pen[fr_mask] + au[fr_mask] < smmf[fr_mask],
                     (
-                        pen
-                        - smf
-                        + s_d
-                        + smf
-                        * (1 - np.minimum(pen + au, smmf - PRECISION) / smmf)
-                        ** (ex + 1)
+                        pen[fr_mask]
+                        - smf[fr_mask]
+                        + ss_d[fr_mask]
+                        + smf[fr_mask]
+                        * (
+                            1
+                            - np.minimum(pen[fr_mask] + au[fr_mask], smmf[fr_mask])
+                            / smmf[fr_mask]
+                        )
+                        ** (ex[fr_mask] + 1)
                     )
-                    * fr_d,
-                    (pen + s_d - smf) * fr_d,
+                    * fr_d[fr_mask],
+                    (pen[fr_mask] + ss_d[fr_mask] - smf[fr_mask]) * fr_d[fr_mask],
                 ),
-                np.full(rn.shape, 0.0),
+                np.full(rn[fr_mask].shape, 0.0),
             )
 
             # s_d = s_d + (rn - rs_j) / fr
@@ -546,23 +580,26 @@ def sources5mm(
             # rg_j = kg_d * s_d * fr_d
             # s_d = s_d * (1 - kss_d - kg_d)
 
-            rss_j = np.where(
-                pen + au < smmf,
-                (pen - rs_j / fr_d + s_d) * kss_d * fr_d,
-                smf * kss_d * fr_d,
+            rss_j[fr_mask] = np.where(
+                pen[fr_mask] + au[fr_mask] < smmf[fr_mask],
+                (pen[fr_mask] - rs_j[fr_mask] / fr_d[fr_mask] + ss_d[fr_mask])
+                * kss_d[fr_mask]
+                * fr_d[fr_mask],
+                smf[fr_mask] * kss_d[fr_mask] * fr_d[fr_mask],
             )
-            # tag = (pen - rs_j / fr_d + s_d == s_d)
-            # if not tag[0]:
-            #     print("pen - rs_j / fr_d is not 0")
-            rg_j = np.where(
-                pen + au < smmf,
-                (pen - rs_j / fr_d + s_d) * kg_d * fr_d,
-                smf * kg_d * fr_d,
+            rg_j[fr_mask] = np.where(
+                pen[fr_mask] + au[fr_mask] < smmf[fr_mask],
+                (pen[fr_mask] - rs_j[fr_mask] / fr_d[fr_mask] + ss_d[fr_mask])
+                * kg_d[fr_mask]
+                * fr_d[fr_mask],
+                smf[fr_mask] * kg_d[fr_mask] * fr_d[fr_mask],
             )
-            s_d = np.where(
-                pen + au < smmf,
-                s_d + pen - (rs_j + rss_j + rg_j) / fr_d,
-                smf - (rss_j + rg_j) / fr_d,
+            s1_d[fr_mask] = np.where(
+                pen[fr_mask] + au[fr_mask] < smmf[fr_mask],
+                ss_d[fr_mask]
+                + pen[fr_mask]
+                - (rs_j[fr_mask] + rss_j[fr_mask] + rg_j[fr_mask]) / fr_d[fr_mask],
+                smf[fr_mask] - (rss_j[fr_mask] + rg_j[fr_mask]) / fr_d[fr_mask],
             )
         else:
             raise NotImplementedError(
@@ -572,7 +609,7 @@ def sources5mm(
         rss = rss + rss_j
         rg = rg + rg_j
         # 赋值s_d和fr_d到数组中，以给下一段做初值
-        s_ds.append(s_d)
+        s_ds.append(s1_d)
         fr_ds.append(fr_d)
 
     return (rs, rss, rg), (s_ds[-1], fr_ds[-1])

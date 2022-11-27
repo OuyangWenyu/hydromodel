@@ -236,7 +236,7 @@ def generation(p_and_e, k, b, im, um, lm, dm, c, wu0=None, wl0=None, wd0=None) -
     return (r, rim, e, pe), (wu, wl, wd)
 
 
-def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None) -> tuple:
+def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None, book="HF") -> tuple:
     """
     Divide the runoff to different sources
 
@@ -247,8 +247,8 @@ def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None) -> tuple:
     It is nearly same with that in "Hydrologic Forecasting" (HF) Page 148-149
     We use the period average runoff as input and the unit period is day so we don't need to difference it as books show
 
-    We also provide code for formula from《水文预报》 the fifth version. Page 40-41 and 150-151;
-    the procedures in 《工程水文学》 the third version are different we also provide.
+    We also provide code for formula from《水文预报》"Hydrologic Forecasting" (HF) the fifth version. Page 40-41 and 150-151;
+    the procedures in 《工程水文学》"Engineering Hydrology" (EH) the third version are different we also provide.
     they are in the "sources5mm" function.
 
     Parameters
@@ -297,44 +297,79 @@ def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None) -> tuple:
     if np.isnan(fr).any():
         raise ArithmeticError("Please check pe's data! there may be 0.0")
     ss = np.minimum(fr0 * s0 / fr, sm - PRECISION)
-    au = ms * (1.0 - (1.0 - ss / sm) ** (1.0 / (1.0 + ex)))
-    if np.isnan(au).any():
-        raise ValueError(
-            "Error: NaN values detected. Try set clip function or check your data!!!"
-        )
+    if book == "HF":
+        au = ms * (1.0 - (1.0 - ss / sm) ** (1.0 / (1.0 + ex)))
+        if np.isnan(au).any():
+            raise ValueError(
+                "Error: NaN values detected. Try set clip function or check your data!!!"
+            )
 
-    rs = np.where(
-        pe > 0.0,
-        np.where(
-            pe + au < ms,
-            # equation 2-85 in HF
-            # set precision to guarantee float data's calculation is correct
-            fr
-            * (
-                pe
-                - sm
-                + ss
-                + sm * ((1 - np.minimum(pe + au, ms - PRECISION) / ms) ** (1 + ex))
+        rs = np.where(
+            pe > 0.0,
+            np.where(
+                pe + au < ms,
+                # equation 2-85 in HF
+                # set precision to guarantee float data's calculation is correct
+                fr
+                * (
+                    pe
+                    - sm
+                    + ss
+                    + sm * ((1 - np.minimum(pe + au, ms - PRECISION) / ms) ** (1 + ex))
+                ),
+                # equation 2-86 in HF
+                fr * (pe + ss - sm),
             ),
-            # equation 2-86 in HF
-            fr * (pe + ss - sm),
-        ),
-        np.full(r.shape, 0.0),
-    )
-    rs = np.clip(rs, a_min=np.full(rs.shape, 0.0), a_max=r)
-    # equation 2-87 in HF, some free water leave, so we update free water storage
-    s = ss + (r - rs) / fr
-    if np.isnan(s).any():
-        raise ArithmeticError("Please check fr's data! there may be 0.0")
-    s = np.minimum(s, sm)
+            np.full(r.shape, 0.0),
+        )
+        rs = np.clip(rs, a_min=np.full(rs.shape, 0.0), a_max=r)
+        # equation 2-87 in HF, some free water leave, so we update free water storage
+        s = ss + (r - rs) / fr
+        if np.isnan(s).any():
+            raise ArithmeticError("Please check fr's data! there may be 0.0")
+        s = np.minimum(s, sm)
+
+    elif book == "EH":
+        smmf = ms * (1 - (1 - fr) ** (1 / ex))
+        smf = smmf / (1 + ex)
+        ss = np.minimum(ss, smf)
+        au = smmf * (1 - (1 - ss / smf) ** (1 / (1 + ex)))
+        if np.isnan(au).any():
+            raise ValueError(
+                "Error: NaN values detected. Try set clip function or check your data!!!"
+            )
+        rs = np.where(
+            pe > 0.0,
+            np.where(
+                pe + au < smmf,
+                (
+                    pe
+                    - smf
+                    + ss
+                    + smf
+                    * (1 - np.minimum(pe + au, smmf - PRECISION) / smmf) ** (ex + 1)
+                )
+                * fr,
+                (pe + ss - smf) * fr,
+            ),
+            np.full(r.shape, 0.0),
+        )
+        rs = np.clip(rs, a_min=np.full(rs.shape, 0.0), a_max=r)
+        s = ss + (r - rs) / fr
+        if np.isnan(s).any():
+            raise ArithmeticError("Please check fr's data! there may be 0.0")
+        s = np.minimum(s, smf)
+    else:
+        raise ValueError("Please set book as 'HF' or 'EH'!")
+    # the following part is same for both HF and EH. Even the formula is different, but their meaning is same
     # equation 2-88 in HF, next interflow and ground water will be released from the updated free water storage
     # We use the period average runoff as input and the general unit period is day.
     # Hence, we directly use ki and kg rather than ki_{Δt} in books.
-    ri = np.where(s < PRECISION, 0.0, ki * s * fr)
-    rg = np.where(s < PRECISION, 0.0, kg * s * fr)
+    ri = np.where(s < PRECISION, np.full(r.shape, 0.0), ki * s * fr)
+    rg = np.where(s < PRECISION, np.full(r.shape, 0.0), kg * s * fr)
     # equation 2-89 in HF; although it looks different with that in WHS, they are actually same
     # Finally, calculate the final free water storage
-    s1 = np.clip(s * (1 - ki - kg), a_min=np.full(s.shape, 0.0), a_max=sm)
+    s1 = s * (1 - ki - kg)
     s1 = np.where(s1 < PRECISION, np.full(s1.shape, 0.0), s1)
     return (rs, ri, rg), (s1, fr)
 
@@ -349,10 +384,10 @@ def sources5mm(
     s0=None,
     fr0=None,
     time_interval_hours=24,
-    book="ShuiWenYuBao",
+    book="HF",
 ):
     """
-    Divide the runoff to different sources according to books -- 《水文预报》 5th edition and 《工程水文学》 3rd edition
+    Divide the runoff to different sources according to books -- 《水文预报》HF 5th edition and 《工程水文学》EH 3rd edition
 
     Parameters
     ----------
@@ -373,9 +408,9 @@ def sources5mm(
     fr0
         initial area of generation
     time_interval_hours
-        由于Ki、Kg、Ci、Cg都是以24小时为时段长定义的，需根据时段长转换
+        由于Ki、Kg、Ci、Cg都是以24小时为时段长定义的,需根据时段长转换
     book
-        the methods in 《水文预报》 5th edition and 《工程水文学》 3rd edition are different,
+        the methods in 《水文预报》HF 5th edition and 《工程水文学》EH 3rd edition are different,
         hence, both are provided, and the default is the former -- "ShuiWenYuBao";
         the other one is "GongChengShuiWenXue"
 
@@ -406,13 +441,15 @@ def sources5mm(
         fr0 = 0.1
     fr = np.where(runoff > 0.0, runoff / pe, fr0)
 
-    if runoff < 5:
+    if np.all(runoff < 5):
         n = 1
     else:
-        residue_temp = runoff % 5
+        # when modeling multiple basins, the number of divides is not the same, so we use the maximum number
+        r_max = np.max(runoff)
+        residue_temp = r_max % 5
         if residue_temp != 0:
             residue_temp = 1
-        n = int(runoff / 5) + residue_temp
+        n = int(r_max / 5) + residue_temp
     rn = runoff / n
     pen = pe / n
     kss_d = (1 - (1 - (kss_period + kg_period)) ** (1 / n)) / (
@@ -433,7 +470,7 @@ def sources5mm(
         s0_d = s_ds[j]
         fr_d = 1 - (1 - fr) ** (1 / n)
         s_d = np.minimum(fr0_d * s0_d / fr_d, sm - PRECISION)
-        if book == "ShuiWenYuBao":
+        if book == "HF":
             # ms = smm
             au = smm * (1.0 - (1.0 - s_d / sm) ** (1.0 / (1.0 + ex)))
             if np.isnan(au).any():
@@ -466,35 +503,70 @@ def sources5mm(
             if np.isnan(s_d).any():
                 raise ArithmeticError("Please check fr's data! there may be 0.0")
             s_d = np.minimum(s_d, sm)
-            rss_j = np.where(s_d < PRECISION, 0.0, s_d * kss_d * fr_d)
-            rg_j = np.where(s_d < PRECISION, 0.0, s_d * kg_d * fr_d)
+            rss_j = np.where(
+                s_d < PRECISION, np.full(s_d.shape, 0.0), s_d * kss_d * fr_d
+            )
+            rg_j = np.where(s_d < PRECISION, np.full(s_d.shape, 0.0), s_d * kg_d * fr_d)
             s_d = np.clip(
                 s_d * (1 - kss_d - kg_d), a_min=np.full(s_d.shape, 0.0), a_max=sm
             )
             s_d = np.where(s_d < PRECISION, np.full(s_d.shape, 0.0), s_d)
 
-        elif book == "GongChengShuiWenXue":
+        elif book == "EH":
             smmf = smm * (1 - (1 - fr_d) ** (1 / ex))
             smf = smmf / (1 + ex)
             # 如果出现s_d>smf的情况，说明s_d = fr0_d * s0_d / fr_d导致的计算误差不合理，需要进行修正。
-            if s_d > smf:
-                s_d = smf
+            s_d = np.minimum(s_d, smf)
             au = smmf * (1 - (1 - s_d / smf) ** (1 / (1 + ex)))
-            if pen + au >= smmf:
-                rs_j = (pen + s_d - smf) * fr_d
-                rss_j = smf * kss_d * fr_d
-                rg_j = smf * kg_d * fr_d
-                s_d = smf - (rss_j + rg_j) / fr_d
-            else:
-                rs_j = (
-                    pen - smf + s_d + smf * (1 - (pen + au) / smmf) ** (ex + 1)
-                ) * fr_d
-                rss_j = (pen - rs_j / fr_d + s_d) * kss_d * fr_d
-                rg_j = (pen - rs_j / fr_d + s_d) * kg_d * fr_d
-                s_d = s_d + pen - (rs_j + rss_j + rg_j) / fr_d
+            if np.isnan(au).any():
+                raise ValueError(
+                    "Error: NaN values detected. Try set clip function or check your data!!!"
+                )
+            rs_j = np.where(
+                pen > 0.0,
+                np.where(
+                    pen + au < smmf,
+                    (
+                        pen
+                        - smf
+                        + s_d
+                        + smf
+                        * (1 - np.minimum(pen + au, smmf - PRECISION) / smmf)
+                        ** (ex + 1)
+                    )
+                    * fr_d,
+                    (pen + s_d - smf) * fr_d,
+                ),
+                np.full(rn.shape, 0.0),
+            )
+
+            # s_d = s_d + (rn - rs_j) / fr
+            # s_d = np.minimum(s_d, smf)
+            # rss_j = kss_d * s_d * fr_d
+            # rg_j = kg_d * s_d * fr_d
+            # s_d = s_d * (1 - kss_d - kg_d)
+
+            rss_j = np.where(
+                pen + au < smmf,
+                (pen - rs_j / fr_d + s_d) * kss_d * fr_d,
+                smf * kss_d * fr_d,
+            )
+            # tag = (pen - rs_j / fr_d + s_d == s_d)
+            # if not tag[0]:
+            #     print("pen - rs_j / fr_d is not 0")
+            rg_j = np.where(
+                pen + au < smmf,
+                (pen - rs_j / fr_d + s_d) * kg_d * fr_d,
+                smf * kg_d * fr_d,
+            )
+            s_d = np.where(
+                pen + au < smmf,
+                s_d + pen - (rs_j + rss_j + rg_j) / fr_d,
+                smf - (rss_j + rg_j) / fr_d,
+            )
         else:
             raise NotImplementedError(
-                "We don't have this implementation! Please chose 'ShuiWenYuBao' or 'GongChengShuiWenXue'!!"
+                "We don't have this implementation! Please chose 'HF' or 'EH'!!"
             )
         rs = rs + rs_j
         rss = rss + rss_j
@@ -716,7 +788,9 @@ def xaj(
                 inputs[i, :, :], k, b, im, um, lm, dm, c, *w0
             )
             if source_type == "sources":
-                (rs, ri, rg), (s, fr) = sources(pe, r, sm, ex, ki, kg, s0, fr0)
+                (rs, ri, rg), (s, fr) = sources(
+                    pe, r, sm, ex, ki, kg, s0, fr0, book=source_book
+                )
             elif source_type == "sources5mm":
                 (rs, ri, rg), (s, fr) = sources5mm(
                     pe, r, sm, ex, ki, kg, s0, fr0, book=source_book
@@ -728,7 +802,9 @@ def xaj(
                 inputs[i, :, :], k, b, im, um, lm, dm, c, *w
             )
             if source_type == "sources":
-                (rs, ri, rg), (s, fr) = sources(pe, r, sm, ex, ki, kg, s, fr)
+                (rs, ri, rg), (s, fr) = sources(
+                    pe, r, sm, ex, ki, kg, s, fr, book=source_book
+                )
             elif source_type == "sources5mm":
                 (rs, ri, rg), (s, fr) = sources5mm(
                     pe, r, sm, ex, ki, kg, s, fr, book=source_book

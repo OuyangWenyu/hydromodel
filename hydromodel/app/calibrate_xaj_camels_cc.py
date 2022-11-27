@@ -154,6 +154,7 @@ if __name__ == "__main__":
         default={
             "name": "xaj_mz",
             "source_type": "sources5mm",
+            "source_book": "EH",
         },
         type=json.loads,
     )

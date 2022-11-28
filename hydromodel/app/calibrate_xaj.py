@@ -24,7 +24,7 @@ from hydromodel.models.xaj import xaj
 from hydromodel.calibrate.calibrate_ga import calibrate_by_ga
 
 
-def main(args):
+def calibrate(args):
     exp = args.exp
     warmup = args.warmup_length
     model_info = args.model
@@ -181,4 +181,4 @@ if __name__ == "__main__":
         type=str,
     )
     the_args = parser.parse_args()
-    main(the_args)
+    calibrate(the_args)

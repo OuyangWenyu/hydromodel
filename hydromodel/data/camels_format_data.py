@@ -170,7 +170,7 @@ class MyCamels(hydrodataset.Camels):
         Returns
         -------
         np.array
-            streamflow data, 3-dim [station, time, streamflow]
+            streamflow data, 3-dim [station, time, streamflow], unit is m3/s
         """
         if target_cols is None:
             return np.array([])
@@ -193,8 +193,7 @@ class MyCamels(hydrodataset.Camels):
                     [c, ind1, ind2] = np.intersect1d(
                         date, t_range_list, return_indices=True
                     )
-                    # it is only for unified process to divide by 35.314666721489
-                    y[k, ind2, j] = sm_data["ssm(mm)"].values[ind1] / 35.314666721489
+                    y[k, ind2, j] = sm_data["ssm(mm)"].values[ind1]
                 elif target_cols[j] == "ET":
                     et_file = os.path.join(
                         self.data_source_description["CAMELS_ET_DIR"],
@@ -246,7 +245,7 @@ class MyCamels(hydrodataset.Camels):
                     # although a better way is to extend [1, 1, 1, 2, 2, 2, 3] to [1, 1, 1, 2, 2, 2, 3, 3, 3]
                     y[k, ind4, j] = (
                         et_data["ET(kg/m^2/8day)"][ind3] / days_interval
-                    ) / 35.314666721489
+                    )
                     # More notice: it is only for unified process to divide by 35.314666721489
                     # notice the value's unit is kg/m2/8d and has a scale factor 0.1
                     # more information can be seen here: https://www.ntsg.umt.edu/project/modis/mod16.php

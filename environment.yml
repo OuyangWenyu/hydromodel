@@ -1,4 +1,4 @@
-name: xaj-dev
+name: xaj
 channels:
   - conda-forge
   - defaults
@@ -11,9 +11,7 @@ dependencies:
   - spotpy
   - seaborn
   - tqdm
-  - sphinx
   - pytest
-  - black
   - pip
   - pip:
     - hydrodataset

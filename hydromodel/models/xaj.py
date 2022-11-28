@@ -507,8 +507,8 @@ def sources5mm(
         fr0_d = fr_ds[j]
         s0_d = s_ds[j]
         # equation 5-32 in HF, but strange, cause each period, rn/pen is same, fr_d should be same
-        fr_d = 1 - (1 - fr) ** (1 / n)
-        # fr_d = fr
+        # fr_d = 1 - (1 - fr) ** (1 / n)
+        fr_d = fr
 
         ss_d = np.copy(s0_d)
         s_d = np.copy(s0_d)

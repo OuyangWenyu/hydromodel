@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-11-19 17:44:29
+LastEditTime: 2022-11-28 14:06:26
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\data\data_preprocess.py
@@ -15,7 +15,7 @@ from pathlib import Path
 from collections import OrderedDict
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
-import definitions
+import hydrodataset
 from hydromodel.utils import hydro_utils
 from hydromodel.data import camels_format_data
 
@@ -43,10 +43,39 @@ def trans_camels_format_to_xaj_format(
     npy_file: str
         where to save the npy file
     """
-    camels = camels_format_data.MyCamels(camels_data_dir)
-    q = camels.read_target_cols(
-        gage_id_lst=basin_ids, t_range=t_range, target_cols=["Q"]
-    )
+    if camels_data_dir.stem == "camels_cc":
+        # this is for the author's own data format, for camels we don't need this
+        camels = camels_format_data.MyCamels(camels_data_dir)
+        p_pet = camels.read_relevant_cols(
+            gage_id_lst=basin_ids,
+            t_range=t_range,
+            var_lst=["total_precipitation", "potential_evaporation"],
+        )
+        q = camels.read_target_cols(
+            gage_id_lst=basin_ids, t_range=t_range, target_cols=["Q"]
+        )
+    else:
+        region = camels_data_dir.stem.split("_")[-1].upper()
+        camels = hydrodataset.Camels(camels_data_dir, region=region)
+        flow_tag = camels.get_target_cols()
+        ft3persec2m3persec = 1 / 35.314666721489
+        if region == "US":
+            pet = camels.read_camels_us_model_output_data(
+                basin_ids, t_range, var_lst=["PET"]
+            )
+            p = camels.read_relevant_cols(
+                gage_id_lst=basin_ids,
+                t_range=t_range,
+                var_lst=["prcp"],
+            )
+            p_pet = np.concatenate([p, pet], axis=2)
+        else:
+            raise NotImplementedError("Only CAMELS-US is supported now.")
+        q = camels.read_target_cols(
+            gage_id_lst=basin_ids, t_range=t_range, target_cols=flow_tag
+        )
+        # TODO: camels's streamflow data is in ft3/s, need refactor to unify the unit
+        q = q * ft3persec2m3persec
     # generally streamflow's unit is m3/s, we transform it to mm/day
     # basin areas also should be saved,
     # we will use it to transform streamflow's unit to m3/s after we finished predicting
@@ -59,11 +88,7 @@ def trans_camels_format_to_xaj_format(
     daytos = 24 * 3600
     temparea = np.tile(basin_area, (1, q.shape[1]))
     q = np.expand_dims(q[:, :, 0] / (temparea * km2tom2) * mtomm * daytos, axis=2)
-    p_pet = camels.read_relevant_cols(
-        gage_id_lst=basin_ids,
-        t_range=t_range,
-        var_lst=["total_precipitation", "potential_evaporation"],
-    )
+
     date_lst = [str(t)[:10] for t in hydro_utils.t_range_days(t_range)]
     data_info = OrderedDict(
         {

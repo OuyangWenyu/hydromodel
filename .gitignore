@@ -164,3 +164,11 @@ fabric.properties
 .vscode
 /test/SCEUA_*.csv
 /hydromodel/app/*.csv
+/test/test_data_camels_cc.py
+/hydromodel/example/*
+/result/
+# sample data
+!/hydromodel/example/example
+hydromodel/example/example/*
+!/hydromodel/example/example/basins_lump_p_pe_q_*.npy
+!/hydromodel/example/example/data_info_*.json

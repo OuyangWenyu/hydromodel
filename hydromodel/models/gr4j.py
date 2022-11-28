@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 from numba import jit
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 
 from hydromodel.models.xaj import uh_conv
 
@@ -177,7 +178,7 @@ def routing(q9: np.array, q1: np.array, x2, x3, r_level: Optional[np.array] = No
     return q, r_updated
 
 
-def gr4j(p_and_e, parameters, warmup_length: int, return_state=False):
+def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     """
     run GR4J model
 
@@ -198,10 +199,10 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False):
     Union[np.array, tuple]
         streamflow or (streamflow, states)
     """
-    x1_scale = [100.0, 1200.0]
-    x2_sacle = [-5.0, 3.0]
-    x3_scale = [20.0, 300.0]
-    x4_scale = [1.1, 2.9]
+    x1_scale = MODEL_PARAM_DICT["gr4j"]["param_range"]["x1"]
+    x2_sacle = MODEL_PARAM_DICT["gr4j"]["param_range"]["x2"]
+    x3_scale = MODEL_PARAM_DICT["gr4j"]["param_range"]["x3"]
+    x4_scale = MODEL_PARAM_DICT["gr4j"]["param_range"]["x4"]
     x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
     x2 = x2_sacle[0] + parameters[:, 1] * (x2_sacle[1] - x2_sacle[0])
     x3 = x3_scale[0] + parameters[:, 2] * (x3_scale[1] - x3_scale[0])
@@ -210,7 +211,9 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False):
     if warmup_length > 0:
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
-        _, s0, r0 = gr4j(p_and_e_warmup, parameters, warmup_length=0, return_state=True)
+        _, s0, r0 = gr4j(
+            p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
+        )
     else:
         s0 = 0.5 * x1
         r0 = 0.5 * x3

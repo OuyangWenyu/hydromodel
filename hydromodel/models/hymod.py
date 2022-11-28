@@ -2,8 +2,10 @@
 import numpy as np
 from numba import jit
 
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 
-def hymod(p_and_e, parameters, warmup_length=30, return_state=False):
+
+def hymod(p_and_e, parameters, warmup_length=30, return_state=False, **kwargs):
     """
     Run Hymod model
 
@@ -29,11 +31,11 @@ def hymod(p_and_e, parameters, warmup_length=30, return_state=False):
         streamflow, x_slow, x_quick, x_loss or streamflow
     """
     # parameter, 2-dim variable: [parameter=1, basin]
-    cmax_scale = [1.0, 500.0]
-    bexp_sacle = [0.1, 2.0]
-    alpha_scale = [0.1, 0.99]
-    ks_scale = [0.001, 0.10]
-    kq_scale = [0.1, 0.99]
+    cmax_scale = MODEL_PARAM_DICT["hymod"]["param_range"]["cmax"]
+    bexp_sacle = MODEL_PARAM_DICT["hymod"]["param_range"]["bexp"]
+    alpha_scale = MODEL_PARAM_DICT["hymod"]["param_range"]["alpha"]
+    ks_scale = MODEL_PARAM_DICT["hymod"]["param_range"]["ks"]
+    kq_scale = MODEL_PARAM_DICT["hymod"]["param_range"]["kq"]
     cmax = cmax_scale[0] + parameters[:, 0] * (cmax_scale[1] - cmax_scale[0])
     bexp = bexp_sacle[0] + parameters[:, 1] * (bexp_sacle[1] - bexp_sacle[0])
     alpha = alpha_scale[0] + parameters[:, 2] * (alpha_scale[1] - alpha_scale[0])
@@ -43,7 +45,11 @@ def hymod(p_and_e, parameters, warmup_length=30, return_state=False):
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
         _, x_slow, x_quick, x_loss = hymod(
-            p_and_e_warmup, parameters, warmup_length=0, return_state=True
+            p_and_e_warmup,
+            parameters,
+            warmup_length=0,
+            return_state=True,
+            **kwargs,
         )
     else:
         # Initialize slow tank state

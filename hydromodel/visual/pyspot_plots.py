@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-11-17 10:39:58
+LastEditTime: 2022-11-29 09:35:45
 LastEditors: Wenyu Ouyang
 Description: Plots for calibration and testing results
 FilePath: \hydro-model-xaj\hydromodel\visual\pyspot_plots.py
@@ -87,17 +87,21 @@ def show_test_result(basin_id, test_date, qsim, obs, save_dir):
 
 
 def plot_train_iteration(likelihood, save_fig):
+    # matplotlib.use("Agg")
     fig = plt.figure(figsize=(9, 6))
     ax = fig.subplots()
     ax.plot(likelihood)
     ax.set_ylabel("RMSE")
     ax.set_xlabel("Iteration")
     plt.savefig(save_fig, bbox_inches="tight")
+    # plt.cla()
+    plt.close()
 
 
 def plot_sim_and_obs(
     date, sim, obs, save_fig, xlabel="Date", ylabel="Streamflow(mm/day)"
 ):
+    # matplotlib.use("Agg")
     fig = plt.figure(figsize=(9, 6))
     ax = fig.subplots()
     ax.plot(
@@ -119,3 +123,5 @@ def plot_sim_and_obs(
     plt.legend(loc="upper right")
     plt.tight_layout()
     plt.savefig(save_fig, bbox_inches="tight")
+    # plt.cla()
+    plt.close()

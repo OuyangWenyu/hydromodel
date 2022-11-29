@@ -1,12 +1,13 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-08-06 18:39:15
-LastEditTime: 2022-11-28 20:47:47
+LastEditTime: 2022-11-29 09:40:51
 LastEditors: Wenyu Ouyang
 Description: 
 FilePath: \hydro-model-xaj\hydromodel\app\calibrate_xaj_for_multicases.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
+import matplotlib
 import os
 import sys
 from pathlib import Path
@@ -14,6 +15,7 @@ from pathlib import Path
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 from hydromodel.app.calibrate_xaj import calibrate
 
+matplotlib.use("Agg")
 exp = "exp001"
 reps = [100, 200, 500, 1000, 2000, 5000, 10000]
 ngs = [100, 200, 500, 1000, 2000, 5000, 10000]

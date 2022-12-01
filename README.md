@@ -28,7 +28,7 @@ $ cd hydro-model-xaj
 # if updating from upstream, pull the new version to local
 $ git pull
 # create python environment
-conda env create -f environment.yml
+$ conda env create -f environment.yml
 # if conda is very slow, mamba can be an alternative:
 # $ conda install -c conda-forge mamba
 # $ mamba env create -f environment.yml
@@ -56,7 +56,7 @@ Run the following code:
 
 ```Shell
 # you can change the algorithm parameters:
-python calibrate_xaj.py --exp example --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":100,\"ngs\":100,\"kstop\":50,\"peps\":0.001,\"pcento\":0.001}
+$ python calibrate_xaj.py --exp example --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":100,\"ngs\":100,\"kstop\":50,\"peps\":0.001,\"pcento\":0.001}
 # python calibrate_xaj.py --exp <name of directory of the prepared data> --warmup_length <hydromodel need some warm-up period> --model <model function parameters> --algorithm <calibration algorithm parameters>
 ```
 
@@ -65,7 +65,7 @@ python calibrate_xaj.py --exp example --warmup_length 365 --model {\"name\":\"xa
 Run the following code:
 
 ```Shell
-python datapostprocess4calibrate.py --exp example
+$ python datapostprocess4calibrate.py --exp example
 ```
 
 You will get two metrics files in the "example" directory: "basins_test_metrics_mean_all_cases.csv" and "basins_test_metrics_median_all_cases.csv". The first one is the mean metrics of the testing period -- one row means the mean metrics of all basins in a case, and the second one is the median metrics.

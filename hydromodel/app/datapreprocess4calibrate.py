@@ -1,17 +1,18 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2022-11-28 14:16:21
+LastEditTime: 2022-12-02 15:14:36
 LastEditors: Wenyu Ouyang
 Description: the script to preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\app\datapreprocess4calibrate.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
+import numpy as np
+import hydrodataset
 import argparse
 import sys
 import os
 from pathlib import Path
-import hydrodataset
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
@@ -37,16 +38,21 @@ def main(args):
     json_file = where_save_cache.joinpath("data_info.json")
     npy_file = where_save_cache.joinpath("basins_lump_p_pe_q.npy")
 
+    # training period can be behind test period
+    periods = np.sort(
+        [train_period[0], train_period[1], test_period[0], test_period[1]]
+    )
     trans_camels_format_to_xaj_format(
         camels_data_dir.joinpath("camels", camels_name),
         basin_ids,
-        [train_period[0], test_period[1]],
+        [periods[0], periods[-1]],
         json_file,
         npy_file,
     )
     split_train_test(json_file, npy_file, train_period, test_period)
 
 
+# python datapreprocess4calibrate.py --camels_name camels_cc --exp exp003 --calibrate_period 2014-10-01 2019-10-01 --test_period 2018-10-01 2021-10-01 --basin_id 60668 61561 63002 63007 63486 92354 94560
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Prepare data for hydro-model-xaj models."
@@ -63,7 +69,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="exp002",
+        default="camels4basins",
         type=str,
     )
     parser.add_argument(
@@ -71,7 +77,7 @@ if __name__ == "__main__":
         dest="calibrate_period",
         help="The period for calibrating",
         # default=["2014-10-01", "2020-10-01"],
-        default=["1990-10-01", "2000-10-01"],
+        default=["2007-01-01", "2014-01-01"],
         nargs="+",
     )
     parser.add_argument(
@@ -79,7 +85,7 @@ if __name__ == "__main__":
         dest="test_period",
         help="The period for testing",
         # default=["2019-10-01", "2021-10-01"],
-        default=["2000-10-01", "2010-10-01"],
+        default=["2001-01-01", "2008-01-01"],
         nargs="+",
     )
     parser.add_argument(

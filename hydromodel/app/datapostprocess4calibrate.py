@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2022-11-28 15:27:54
+LastEditTime: 2022-12-01 13:29:30
 LastEditors: Wenyu Ouyang
 Description: the script to postprocess calibrated models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\app\datapostprocess4calibrate.py
@@ -65,7 +65,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="exp001",
+        default="exp51210",
         type=str,
     )
     parser.add_argument(

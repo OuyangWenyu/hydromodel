@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2022-12-04 14:53:06
+LastEditTime: 2022-12-04 15:24:36
 LastEditors: Wenyu Ouyang
 Description: the script to preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\app\datapreprocess4calibrate.py
@@ -27,7 +27,7 @@ def main(args):
     camels_name = args.camels_name
     exp = args.exp
     cv_fold = args.cv_fold
-    train_period = args.train_period
+    train_period = args.calibrate_period
     test_period = args.test_period
     periods = args.period
     warmup = args.warmup
@@ -57,10 +57,13 @@ def main(args):
     if cv_fold > 1:
         cross_valid_data(json_file, npy_file, periods, warmup, cv_fold)
     else:
+        # when using train_test_split, the warmup period is not used
+        # so you should include the warmup period in the train and test period
         split_train_test(json_file, npy_file, train_period, test_period)
 
 
-# python datapreprocess4calibrate.py --camels_name camels_cc --exp exp003 --calibrate_period 2014-10-01 2019-10-01 --test_period 2018-10-01 2021-10-01 --basin_id 60668 61561 63002 63007 63486 92354 94560
+# python datapreprocess4calibrate.py --camels_name camels_cc --exp exp004 --calibrate_period 2014-10-01 2019-10-01 --test_period 2018-10-01 2021-10-01 --basin_id 60668 61561 63002 63007 63486 92354 94560
+# python datapreprocess4calibrate.py --camels_name camels_cc --exp exp201 --cv_fold 2 --warmup 365 --period 2014-10-01 2021-10-01 --basin_id 60650 60668 61239 61277 61561 61716 62618 63002 63486 63490 92354 94560
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Prepare data for hydro-model-xaj models."
@@ -103,8 +106,8 @@ if __name__ == "__main__":
         nargs="+",
     )
     parser.add_argument(
-        "--train_period",
-        dest="train_period",
+        "--calibrate_period",
+        dest="calibrate_period",
         help="The training period",
         default=["2016-10-01", "2021-10-01"],
         # default=["2007-01-01", "2014-01-01"],

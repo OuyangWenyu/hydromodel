@@ -206,7 +206,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--comment",
         dest="comment",
-        help="directory name",
+        help="A tag for a plan, we will use it when postprocessing results",
         default="HFsources",
         type=str,
     )

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-12-04 11:33:05
+LastEditTime: 2022-12-04 14:55:55
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\data\data_preprocess.py
@@ -147,12 +147,13 @@ def split_train_test(json_file, npy_file, train_period, test_period):
             "area": data_info["area"],
         }
     )
-    train_json_file = json_file.parent.joinpath(json_file.stem + "_train.json")
-    train_npy_file = json_file.parent.joinpath(npy_file.stem + "_train.npy")
+    # unify it with cross validation case, so we add a 'fold0'
+    train_json_file = json_file.parent.joinpath(json_file.stem + "_fold0_train.json")
+    train_npy_file = json_file.parent.joinpath(npy_file.stem + "_fold0_train.npy")
     hydro_utils.serialize_json(data_info_train, train_json_file)
     hydro_utils.serialize_numpy(data[ind1, :, :], train_npy_file)
-    test_json_file = json_file.parent.joinpath(json_file.stem + "_test.json")
-    test_npy_file = json_file.parent.joinpath(npy_file.stem + "_test.npy")
+    test_json_file = json_file.parent.joinpath(json_file.stem + "_fold0_test.json")
+    test_npy_file = json_file.parent.joinpath(npy_file.stem + "_fold0_test.npy")
     hydro_utils.serialize_json(data_info_test, test_json_file)
     hydro_utils.serialize_numpy(data[ind3, :, :], test_npy_file)
 

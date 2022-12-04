@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2022-12-04 14:08:50
+LastEditTime: 2022-12-04 14:53:06
 LastEditors: Wenyu Ouyang
 Description: the script to preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\app\datapreprocess4calibrate.py
@@ -19,6 +19,7 @@ import definitions
 from hydromodel.data.data_preprocess import (
     trans_camels_format_to_xaj_format,
     cross_valid_data,
+    split_train_test,
 )
 
 
@@ -26,6 +27,8 @@ def main(args):
     camels_name = args.camels_name
     exp = args.exp
     cv_fold = args.cv_fold
+    train_period = args.train_period
+    test_period = args.test_period
     periods = args.period
     warmup = args.warmup
     basin_ids = args.basin_id
@@ -39,6 +42,11 @@ def main(args):
     json_file = where_save_cache.joinpath("data_info.json")
     npy_file = where_save_cache.joinpath("basins_lump_p_pe_q.npy")
 
+    if not (cv_fold > 1):
+        # no cross validation
+        periods = np.sort(
+            [train_period[0], train_period[1], test_period[0], test_period[1]]
+        )
     trans_camels_format_to_xaj_format(
         camels_data_dir.joinpath("camels", camels_name),
         basin_ids,
@@ -46,8 +54,10 @@ def main(args):
         json_file,
         npy_file,
     )
-    cross_valid_data(json_file, npy_file, periods, warmup, cv_fold)
-    # split_train_test(json_file, npy_file, train_period, test_period)
+    if cv_fold > 1:
+        cross_valid_data(json_file, npy_file, periods, warmup, cv_fold)
+    else:
+        split_train_test(json_file, npy_file, train_period, test_period)
 
 
 # python datapreprocess4calibrate.py --camels_name camels_cc --exp exp003 --calibrate_period 2014-10-01 2019-10-01 --test_period 2018-10-01 2021-10-01 --basin_id 60668 61561 63002 63007 63486 92354 94560
@@ -67,14 +77,14 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="exp201",
+        default="exp004",
         type=str,
     )
     parser.add_argument(
         "--cv_fold",
         dest="cv_fold",
         help="the number of cross-validation fold",
-        default=2,
+        default=1,
         type=int,
     )
     parser.add_argument(
@@ -93,11 +103,40 @@ if __name__ == "__main__":
         nargs="+",
     )
     parser.add_argument(
+        "--train_period",
+        dest="train_period",
+        help="The training period",
+        default=["2016-10-01", "2021-10-01"],
+        # default=["2007-01-01", "2014-01-01"],
+        nargs="+",
+    )
+    parser.add_argument(
+        "--test_period",
+        dest="test_period",
+        help="The testing period",
+        default=["2014-10-01", "2017-10-01"],
+        # default=["2007-01-01", "2014-01-01"],
+        nargs="+",
+    )
+    parser.add_argument(
         "--basin_id",
         dest="basin_id",
         help="The basins' ids",
-        # default=["60668", "61561", "63002", "63007", "63486", "92354", "94560"],
-        default=["60650", "60668", "61239", "61277", "61561", "61716", "62618", "63002", "63486", "63490", "92354", "94560"],
+        default=["60668", "61561", "63002", "63007", "63486", "92354", "94560"],
+        # default=[
+        #     "60650",
+        #     "60668",
+        #     "61239",
+        #     "61277",
+        #     "61561",
+        #     "61716",
+        #     "62618",
+        #     "63002",
+        #     "63486",
+        #     "63490",
+        #     "92354",
+        #     "94560",
+        # ],
         # default=["01439500", "06885500", "08104900", "09510200"],
         nargs="+",
     )

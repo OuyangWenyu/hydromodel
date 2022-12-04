@@ -167,7 +167,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to a data plan from data_preprocess.py",
-        default="exp201",
+        default="exp004",
         type=str,
     )
     parser.add_argument(
@@ -182,7 +182,7 @@ if __name__ == "__main__":
         dest="model",
         help="which hydro model you want to calibrate and the parameters setting for model function, note: not hydromodel parameters but function's parameters",
         default={
-            "name": "xaj",
+            "name": "xaj_mz",
             "source_type": "sources",
             "source_book": "HF",
         },
@@ -207,7 +207,7 @@ if __name__ == "__main__":
         "--comment",
         dest="comment",
         help="directory name",
-        default="xajHFsources",
+        default="HFsources",
         type=str,
     )
     the_args = parser.parse_args()

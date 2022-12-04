@@ -176,7 +176,7 @@ def summarize_metrics(result_dir, model_info: dict):
     metric_dfs_test.to_csv(metric_file_test, sep=",", index=True, header=True)
 
 
-def save_streamflow(result_dir, model_info: dict):
+def save_streamflow(result_dir, model_info: dict, fold: int):
     path = pathlib.Path(result_dir)
     all_basins_files = [file for file in path.iterdir() if file.is_dir()]
     streamflow = []
@@ -194,7 +194,7 @@ def save_streamflow(result_dir, model_info: dict):
     streamflow_dfs = pd.concat(streamflow, axis=1)
     streamflow_dfs.columns = basin_ids
     print(streamflow_dfs)
-    test_info_file = path.parent.joinpath("data_info_test.json")
+    test_info_file = path.parent.joinpath("data_info_fold" + str(fold) + "_test.json")
     test_info = hydro_utils.unserialize_json(test_info_file)
     date = test_info["time"][-streamflow_dfs.shape[0] :]
     streamflow_dfs.index = date

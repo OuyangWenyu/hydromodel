@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2022-12-02 15:14:36
+LastEditTime: 2022-12-04 14:08:50
 LastEditors: Wenyu Ouyang
 Description: the script to preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\app\datapreprocess4calibrate.py
@@ -18,15 +18,16 @@ sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
 from hydromodel.data.data_preprocess import (
     trans_camels_format_to_xaj_format,
-    split_train_test,
+    cross_valid_data,
 )
 
 
 def main(args):
     camels_name = args.camels_name
     exp = args.exp
-    train_period = args.calibrate_period
-    test_period = args.test_period
+    cv_fold = args.cv_fold
+    periods = args.period
+    warmup = args.warmup
     basin_ids = args.basin_id
     camels_data_dir = hydrodataset.ROOT_DIR
     # where_save_cache = hydrodataset.CACHE_DIR
@@ -38,10 +39,6 @@ def main(args):
     json_file = where_save_cache.joinpath("data_info.json")
     npy_file = where_save_cache.joinpath("basins_lump_p_pe_q.npy")
 
-    # training period can be behind test period
-    periods = np.sort(
-        [train_period[0], train_period[1], test_period[0], test_period[1]]
-    )
     trans_camels_format_to_xaj_format(
         camels_data_dir.joinpath("camels", camels_name),
         basin_ids,
@@ -49,7 +46,8 @@ def main(args):
         json_file,
         npy_file,
     )
-    split_train_test(json_file, npy_file, train_period, test_period)
+    cross_valid_data(json_file, npy_file, periods, warmup, cv_fold)
+    # split_train_test(json_file, npy_file, train_period, test_period)
 
 
 # python datapreprocess4calibrate.py --camels_name camels_cc --exp exp003 --calibrate_period 2014-10-01 2019-10-01 --test_period 2018-10-01 2021-10-01 --basin_id 60668 61561 63002 63007 63486 92354 94560
@@ -61,31 +59,37 @@ if __name__ == "__main__":
         "--camels_name",
         dest="camels_name",
         help="the name of CAMELS-formatted data directory",
-        # default="camels_cc",
-        default="camels_us",
+        default="camels_cc",
+        # default="camels_us",
         type=str,
     )
     parser.add_argument(
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="camels4basins",
+        default="exp201",
         type=str,
     )
     parser.add_argument(
-        "--calibrate_period",
-        dest="calibrate_period",
-        help="The period for calibrating",
-        # default=["2014-10-01", "2020-10-01"],
-        default=["2007-01-01", "2014-01-01"],
-        nargs="+",
+        "--cv_fold",
+        dest="cv_fold",
+        help="the number of cross-validation fold",
+        default=2,
+        type=int,
     )
     parser.add_argument(
-        "--test_period",
-        dest="test_period",
-        help="The period for testing",
-        # default=["2019-10-01", "2021-10-01"],
-        default=["2001-01-01", "2008-01-01"],
+        "--warmup",
+        dest="warmup",
+        help="the number of warmup days",
+        default=365,
+        type=int,
+    )
+    parser.add_argument(
+        "--period",
+        dest="period",
+        help="The whole period",
+        default=["2014-10-01", "2021-10-01"],
+        # default=["2007-01-01", "2014-01-01"],
         nargs="+",
     )
     parser.add_argument(
@@ -93,7 +97,8 @@ if __name__ == "__main__":
         dest="basin_id",
         help="The basins' ids",
         # default=["60668", "61561", "63002", "63007", "63486", "92354", "94560"],
-        default=["01439500", "06885500", "08104900", "09510200"],
+        default=["60650", "60668", "61239", "61277", "61561", "61716", "62618", "63002", "63486", "63490", "92354", "94560"],
+        # default=["01439500", "06885500", "08104900", "09510200"],
         nargs="+",
     )
     the_args = parser.parse_args()

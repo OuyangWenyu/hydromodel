@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-11-28 14:06:26
+LastEditTime: 2022-12-04 11:33:05
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\data\data_preprocess.py
@@ -9,6 +9,7 @@ Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import KFold
 import sys
 import os
 from pathlib import Path
@@ -154,3 +155,80 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     test_npy_file = json_file.parent.joinpath(npy_file.stem + "_test.npy")
     hydro_utils.serialize_json(data_info_test, test_json_file)
     hydro_utils.serialize_numpy(data[ind3, :, :], test_npy_file)
+
+
+def cross_valid_data(json_file, npy_file, period, warmup, cv_fold, time_unit="D"):
+    """
+    Split all data to train and test parts with same format
+
+    Parameters
+    ----------
+    json_file
+        dict file of all data
+    npy_file
+        numpy file of all data
+    period
+        the whole period
+    warmup
+        warmup period length
+    cv_fold
+        number of folds
+
+    Returns
+    -------
+    None
+    """
+    data = hydro_utils.unserialize_numpy(npy_file)
+    data_info = hydro_utils.unserialize_json(json_file)
+    date_lst = pd.to_datetime(data_info["time"]).values.astype("datetime64[D]")
+    date_wo_warmup = date_lst[warmup:]
+    kf = KFold(n_splits=cv_fold, shuffle=False)
+    for i, (train, test) in enumerate(kf.split(date_wo_warmup)):
+        train_period = date_wo_warmup[train]
+        test_period = date_wo_warmup[test]
+        train_period_warmup = np.arange(
+            train_period[0] - np.timedelta64(warmup, time_unit), train_period[0]
+        )
+        test_period_warmup = np.arange(
+            test_period[0] - np.timedelta64(warmup, time_unit), test_period[0]
+        )
+        t_range_train = np.concatenate((train_period_warmup, train_period))
+        t_range_test = np.concatenate((test_period_warmup, test_period))
+        _, ind1, ind2 = np.intersect1d(date_lst, t_range_train, return_indices=True)
+        _, ind3, ind4 = np.intersect1d(date_lst, t_range_test, return_indices=True)
+        data_info_train = OrderedDict(
+            {
+                "time": [
+                    np.datetime_as_string(d, unit=time_unit) for d in t_range_train
+                ],
+                "basin": data_info["basin"],
+                "variable": data_info["variable"],
+                "area": data_info["area"],
+            }
+        )
+        data_info_test = OrderedDict(
+            {
+                "time": [
+                    np.datetime_as_string(d, unit=time_unit) for d in t_range_test
+                ],
+                "basin": data_info["basin"],
+                "variable": data_info["variable"],
+                "area": data_info["area"],
+            }
+        )
+        train_json_file = json_file.parent.joinpath(
+            json_file.stem + "_fold" + str(i) + "_train.json"
+        )
+        train_npy_file = json_file.parent.joinpath(
+            npy_file.stem + "_fold" + str(i) + "_train.npy"
+        )
+        hydro_utils.serialize_json(data_info_train, train_json_file)
+        hydro_utils.serialize_numpy(data[ind1, :, :], train_npy_file)
+        test_json_file = json_file.parent.joinpath(
+            json_file.stem + "_fold" + str(i) + "_test.json"
+        )
+        test_npy_file = json_file.parent.joinpath(
+            npy_file.stem + "_fold" + str(i) + "_test.npy"
+        )
+        hydro_utils.serialize_json(data_info_test, test_json_file)
+        hydro_utils.serialize_numpy(data[ind3, :, :], test_npy_file)

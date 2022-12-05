@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-08-06 18:39:15
-LastEditTime: 2022-11-29 09:40:51
+LastEditTime: 2022-12-05 13:42:19
 LastEditors: Wenyu Ouyang
 Description: 
 FilePath: \hydro-model-xaj\hydromodel\app\calibrate_xaj_for_multicases.py
@@ -16,9 +16,9 @@ sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 from hydromodel.app.calibrate_xaj import calibrate
 
 matplotlib.use("Agg")
-exp = "exp001"
-reps = [100, 200, 500, 1000, 2000, 5000, 10000]
-ngs = [100, 200, 500, 1000, 2000, 5000, 10000]
+exp = "exp61561"
+reps = [5000, 10000]
+ngs = [1000, 2000]
 book = "HF"
 source = "sources"
 
@@ -37,7 +37,7 @@ class XAJCalibrateMultiCases:
             "random_seed": 1234,
             "rep": rep,
             "ngs": ngs,
-            "kstop": int(rep / 2),
+            "kstop": int(rep / 5),
             "peps": 0.001,
             "pcento": 0.001,
         }

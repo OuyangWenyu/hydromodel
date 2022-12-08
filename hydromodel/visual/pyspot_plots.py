@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-11-29 09:35:45
+LastEditTime: 2022-12-08 10:26:33
 LastEditors: Wenyu Ouyang
 Description: Plots for calibration and testing results
 FilePath: \hydro-model-xaj\hydromodel\visual\pyspot_plots.py
@@ -12,7 +12,7 @@ from matplotlib import pyplot as plt
 import pandas as pd
 import os
 import numpy as np
-from hydromodel.utils import stat
+from hydromodel.utils import hydro_constant, stat
 from hydromodel.utils import hydro_utils
 
 
@@ -23,6 +23,8 @@ def show_calibrate_result(
     save_dir,
     basin_id,
     train_period,
+    result_unit="mm/day",
+    basin_area=None,
 ):
     """
     Plot all year result to see the effect of optimized parameters
@@ -35,6 +37,12 @@ def show_calibrate_result(
         the result file saved after optimizing
     basin_id
         id of the basin
+    train_period
+        the period of training data
+    result_unit
+        the unit of result, default is mm/day, we will convert it to m3/s
+    basin_area
+        the area of the basin, its unit must be km2
 
     Returns
     -------
@@ -43,6 +51,8 @@ def show_calibrate_result(
     # Load the results gained with the sceua sampler, stored in SCEUA_xaj.csv
     results = spotpy.analyser.load_csv_results(sceua_calibrated_file)
     # Plot how the objective function was minimized during sampling
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
     plot_train_iteration(
         results["like1"], os.path.join(save_dir, "train_iteration.png")
     )
@@ -54,10 +64,22 @@ def show_calibrate_result(
     # Filter results for simulation results
     fields = [word for word in best_model_run.dtype.names if word.startswith("sim")]
     best_simulation = list(best_model_run[fields])
+    convert_unit_sim = hydro_constant.convert_unit(
+        np.array(best_simulation).reshape(1, -1),
+        result_unit,
+        hydro_constant.unit["streamflow"],
+        basin_area=basin_area,
+    )
+    convert_unit_obs = hydro_constant.convert_unit(
+        np.array(spot_setup.evaluation()).reshape(1, -1),
+        result_unit,
+        hydro_constant.unit["streamflow"],
+        basin_area=basin_area,
+    )
     # calculation rmse、nashsutcliffe and bias for training period
     stat_error = stat.statError(
-        np.array(spot_setup.evaluation()).reshape(1, -1),
-        np.array(best_simulation).reshape(1, -1),
+        convert_unit_obs,
+        convert_unit_sim,
     )
     print("Training Metrics:", basin_id, stat_error)
     hydro_utils.serialize_json_np(
@@ -82,7 +104,6 @@ def show_test_result(basin_id, test_date, qsim, obs, save_dir):
         qsim.flatten(),
         obs.flatten(),
         save_fig,
-        ylabel="Streamflow ($m^3/s$)",
     )
 
 
@@ -99,7 +120,12 @@ def plot_train_iteration(likelihood, save_fig):
 
 
 def plot_sim_and_obs(
-    date, sim, obs, save_fig, xlabel="Date", ylabel="Streamflow(mm/day)"
+    date,
+    sim,
+    obs,
+    save_fig,
+    xlabel="Date",
+    ylabel="Streamflow(" + hydro_constant.unit["streamflow"] + ")",
 ):
     # matplotlib.use("Agg")
     fig = plt.figure(figsize=(9, 6))

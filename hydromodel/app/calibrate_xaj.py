@@ -9,14 +9,14 @@ import os
 import sys
 from pathlib import Path
 
+
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
 from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua
 from hydromodel.utils import hydro_utils
 from hydromodel.data.data_postprocess import (
-    mm_per_day_to_m3_per_sec,
     renormalize_params,
-    save_sceua_calibrated_params,
+    read_save_sceua_calibrated_params,
     save_streamflow,
     summarize_metrics,
     summarize_parameters,
@@ -24,6 +24,7 @@ from hydromodel.data.data_postprocess import (
 from hydromodel.visual.pyspot_plots import show_calibrate_result, show_test_result
 from hydromodel.models.xaj import xaj
 from hydromodel.calibrate.calibrate_ga import calibrate_by_ga
+from hydromodel.utils import hydro_constant
 
 
 def calibrate(args):
@@ -107,9 +108,12 @@ def calibrate(args):
                     save_dir=spotpy_db_dir,
                     basin_id=basin_id,
                     train_period=data_info_train["time"],
+                    basin_area=basin_area,
                 )
 
-                params = save_sceua_calibrated_params(basin_id, spotpy_db_dir, db_name)
+                params = read_save_sceua_calibrated_params(
+                    basin_id, spotpy_db_dir, db_name
+                )
                 # _ is et which we didn't use here
                 qsim, _ = xaj(
                     data_test[:, i : i + 1, 0:2],
@@ -118,9 +122,17 @@ def calibrate(args):
                     **model_info
                 )
 
-                qsim = mm_per_day_to_m3_per_sec(basin_area, qsim)
-                qobs = mm_per_day_to_m3_per_sec(
-                    basin_area, data_test[warmup:, i : i + 1, -1:]
+                qsim = hydro_constant.convert_unit(
+                    qsim,
+                    unit_now="mm/day",
+                    unit_final=hydro_constant.unit["streamflow"],
+                    basin_area=basin_area,
+                )
+                qobs = hydro_constant.convert_unit(
+                    data_test[warmup:, i : i + 1, -1:],
+                    unit_now="mm/day",
+                    unit_final=hydro_constant.unit["streamflow"],
+                    basin_area=basin_area,
                 )
                 test_result_file = os.path.join(
                     spotpy_db_dir,
@@ -132,7 +144,9 @@ def calibrate(args):
                     index=False,
                     header=False,
                 )
-                test_date = data_info_test["time"][warmup:]
+                test_date = pd.to_datetime(
+                    data_info_test["time"][warmup:]
+                ).values.astype("datetime64[D]")
                 show_test_result(
                     basin_id, test_date, qsim, qobs, save_dir=spotpy_db_dir
                 )

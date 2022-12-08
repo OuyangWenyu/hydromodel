@@ -18,7 +18,7 @@ class SpotSetup(object):
         model={
             "name": "xaj_mz",
             "source_type": "sources",
-            "source_book": "ShuiWenYuBao",
+            "source_book": "HF",
         },
         obj_func=None,
     ):
@@ -146,7 +146,7 @@ def calibrate_by_sceua(
     model={
         "name": "xaj_mz",
         "source_type": "sources",
-        "source_book": "ShuiWenYuBao",
+        "source_book": "HF",
     },
     algorithm={
         "name": "SCE_UA",

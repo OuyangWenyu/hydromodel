@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-12-08 10:26:33
+LastEditTime: 2022-12-08 11:21:22
 LastEditors: Wenyu Ouyang
 Description: Plots for calibration and testing results
 FilePath: \hydro-model-xaj\hydromodel\visual\pyspot_plots.py
@@ -75,6 +75,17 @@ def show_calibrate_result(
         result_unit,
         hydro_constant.unit["streamflow"],
         basin_area=basin_area,
+    )
+    # save calibrated results of calibration period
+    train_result_file = os.path.join(
+        save_dir,
+        "train_qsim_" + spot_setup.model["name"] + "_" + str(basin_id) + ".csv",
+    )
+    pd.DataFrame(convert_unit_sim.reshape(-1, 1)).to_csv(
+        train_result_file,
+        sep=",",
+        index=False,
+        header=False,
     )
     # calculation rmse、nashsutcliffe and bias for training period
     stat_error = stat.statError(

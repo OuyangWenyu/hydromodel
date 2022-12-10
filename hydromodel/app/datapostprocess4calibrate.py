@@ -1,12 +1,13 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2022-12-08 13:35:58
+LastEditTime: 2022-12-10 19:34:32
 LastEditors: Wenyu Ouyang
 Description: the script to postprocess calibrated models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\app\datapostprocess4calibrate.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import fnmatch
@@ -15,8 +16,10 @@ import sys
 import os
 from pathlib import Path
 
+
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
+from hydromodel.data.data_postprocess import read_and_save_et_ouputs
 
 
 def statistics(args):
@@ -52,7 +55,7 @@ def statistics(args):
             comment_lst.append(comment)
     comments = np.unique(comment_lst)
 
-    for comment in comments:
+    for comment in tqdm(comments, desc="All settings in an exp directory"):
         comment_folds_test = []
         comment_folds_train = []
         for fold in range(cv_fold):
@@ -64,6 +67,7 @@ def statistics(args):
                 ):
                     comment_fold_dir.append(case_dir)
             comment_fold_dir_newest = np.sort(comment_fold_dir)[-1]
+            read_and_save_et_ouputs(comment_fold_dir_newest, fold=fold)
             comment_fold_file_test = comment_fold_dir_newest.joinpath(
                 "basins_metrics_test.csv"
             )

@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import pandas as pd
-import datetime as dt
 import pathlib
 import spotpy
 from pathlib import Path

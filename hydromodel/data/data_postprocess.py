@@ -1,15 +1,18 @@
 import os
 import numpy as np
 import pandas as pd
+import datetime as dt
 import pathlib
 import spotpy
 from pathlib import Path
 import sys
 
+
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
 from hydromodel.utils import hydro_utils
 from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.xaj import xaj
 
 
 def read_save_sceua_calibrated_params(basin_id, save_dir, sceua_calibrated_file_name):
@@ -193,15 +196,70 @@ def save_streamflow(result_dir, model_info: dict, fold: int):
     streamflow_dfs_train.to_csv(eva_csv_file_train)
 
 
+def read_and_save_et_ouputs(result_dir, fold: int):
+    prameter_file = os.path.join(result_dir, "basins_params.csv")
+    param_values = pd.read_csv(prameter_file, index_col=0)
+    basins_id = param_values.columns.values
+    args_file = os.path.join(result_dir, "args.json")
+    args = hydro_utils.unserialize_json(args_file)
+    warmup_length = args["warmup_length"]
+    model_func_param = args["model"]
+    exp_dir = pathlib.Path(result_dir).parent
+    data_info_train = hydro_utils.unserialize_json(
+        exp_dir.joinpath("data_info_fold" + str(fold) + "_train.json")
+    )
+    data_info_test = hydro_utils.unserialize_json(
+        exp_dir.joinpath("data_info_fold" + str(fold) + "_test.json")
+    )
+    train_period = data_info_train["time"]
+    test_period = data_info_test["time"]
+    train_np_file = os.path.join(
+        exp_dir, "basins_lump_p_pe_q_fold" + str(fold) + "_train.npy"
+    )
+    test_np_file = os.path.join(
+        exp_dir, "basins_lump_p_pe_q_fold" + str(fold) + "_test.npy"
+    )
+    train_data = np.load(train_np_file)
+    test_data = np.load(test_np_file)
+    es_test = []
+    es_train = []
+    for i in range(len(basins_id)):
+        _, e_train = xaj(
+            train_data[:, :, 0:2],
+            param_values[basins_id[i]].values.reshape(1, -1),
+            warmup_length=warmup_length,
+            **model_func_param
+        )
+        _, e_test = xaj(
+            test_data[:, :, 0:2],
+            param_values[basins_id[i]].values.reshape(1, -1),
+            warmup_length=warmup_length,
+            **model_func_param
+        )
+        es_train.append(e_train.flatten())
+        es_test.append(e_test.flatten())
+    df_e_train = pd.DataFrame(
+        np.array(es_train).T, columns=basins_id, index=train_period[warmup_length:]
+    )
+    df_e_test = pd.DataFrame(
+        np.array(es_test).T, columns=basins_id, index=test_period[warmup_length:]
+    )
+    etsim_train_save_path = os.path.join(result_dir, "basin_etsim_train.csv")
+    etsim_test_save_path = os.path.join(result_dir, "basin_etsim_test.csv")
+    df_e_train.to_csv(etsim_train_save_path)
+    df_e_test.to_csv(etsim_test_save_path)
+
+
 if __name__ == "__main__":
     one_model_one_hyperparam_setting_dir = os.path.join(
         definitions.ROOT_DIR,
         "hydromodel",
         "example",
-        "exp001",
-        "xaj_mz_hyperparam_SCE_UA_rep1000_ngs1000",
+        "exp61561",
+        "Dec08_11-38-48_LAPTOP-DNQOPPMS_fold1_HFsourcesrep1000ngs1000",
     )
-    summarize_parameters(one_model_one_hyperparam_setting_dir, {"name": "xaj_mz"})
+    read_and_save_et_ouputs(one_model_one_hyperparam_setting_dir, fold=1)
+    # summarize_parameters(one_model_one_hyperparam_setting_dir, {"name": "xaj_mz"})
     # renormalize_params(one_model_one_hyperparam_setting_dir, {"name":"xaj_mz"})
     # summarize_metrics(one_model_one_hyperparam_setting_dir,{"name":"xaj_mz"})
     # save_streamflow(one_model_one_hyperparam_setting_dir,{"name":"xaj_mz"})

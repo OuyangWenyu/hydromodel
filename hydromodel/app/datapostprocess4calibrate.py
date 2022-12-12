@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2022-12-10 19:34:32
+LastEditTime: 2022-12-11 19:37:10
 LastEditors: Wenyu Ouyang
 Description: the script to postprocess calibrated models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\app\datapostprocess4calibrate.py
@@ -63,7 +63,7 @@ def statistics(args):
             for case in cases:
                 case_dir = where_save_cache.joinpath(case)
                 if case_dir.is_dir() and fnmatch.fnmatch(
-                    case_dir.name, "*_fold" + str(fold) + "_" + comment
+                    case_dir.name, f"*_fold{str(fold)}_" + comment
                 ):
                     comment_fold_dir.append(case_dir)
             comment_fold_dir_newest = np.sort(comment_fold_dir)[-1]

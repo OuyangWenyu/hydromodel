@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-11-25 16:34:51
+LastEditTime: 2022-12-12 14:42:16
 LastEditors: Wenyu Ouyang
 Description: some basic config for hydro-model-xaj models
 FilePath: \hydro-model-xaj\hydromodel\models\model_config.py
@@ -89,7 +89,7 @@ MODEL_PARAM_DICT = {
                 "KI": [0.0, 0.7],
                 "KG": [0.0, 0.7],
                 "A": [0.0, 2.9],
-                "THETA": [0.0, 6.5],
+                "THETA": [0.0, 6.9],
                 "CI": [0.0, 0.9],
                 "CG": [0.98, 0.998],
                 "KERNEL": [1, 15],

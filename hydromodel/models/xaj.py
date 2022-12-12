@@ -681,7 +681,7 @@ def uh_gamma(a, theta, len_uh=15):
     # aa > 0, here we set minimum 0.1 (min of a is 0, set when calling this func); First dimension of a is repeat
     aa = np.maximum(0.0, a[0:len_uh, :, :]) + 0.1
     # theta > 0, here set minimum 0.5
-    theta = np.maximum(0.0, theta[0:len_uh, :, :]) + 0.5
+    theta = np.maximum(0.0, theta[0:len_uh, :, :]) + 0.1
     # len_f, batch, feature
     t = np.expand_dims(
         np.swapaxes(np.tile(np.arange(0.5, len_uh * 1.0), (m[1], 1)), 0, 1), axis=-1

@@ -239,13 +239,9 @@ def test_show_test_result(p_and_e, qobs, warmup_length, db_name, basin_area):
     )
 
 
-# def test_calibrate_xaj_ga(p_and_e, qobs, warmup_length):
-#     calibrate_by_ga(
-#         p_and_e,
-#         qobs,
-#         warmup_length,
-#         run_counts=5,
-#         pop_num=50,
-#         cross_prob=0.5,
-#         mut_prob=0.5,
-#     )
+def test_calibrate_xaj_ga(p_and_e, qobs, warmup_length):
+    calibrate_by_ga(
+        p_and_e,
+        qobs,
+        warmup_length,
+    )

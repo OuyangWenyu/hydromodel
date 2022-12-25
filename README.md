@@ -56,7 +56,8 @@ Run the following code:
 
 ```Shell
 # you can change the algorithm parameters:
-$ python calibrate_xaj.py --exp example --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":100,\"ngs\":100,\"kstop\":50,\"peps\":0.001,\"pcento\":0.001}
+$ python calibrate_xaj.py --exp example --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":5000,\"ngs\":20,\"kstop\":3,\"peps\":0.1,\"pcento\":0.1}
+# for advices of hyper-parameters of sceua, please see the help comment of the function 'calibrate_xaj.py'
 # python calibrate_xaj.py --exp <name of directory of the prepared data> --warmup_length <hydromodel need some warm-up period> --model <model function parameters> --algorithm <calibration algorithm parameters>
 ```
 

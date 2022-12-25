@@ -214,11 +214,11 @@ if __name__ == "__main__":
         default={
             "name": "SCE_UA",
             "random_seed": 1234,
-            "rep": 1000,
+            "rep": 5000,
             "ngs": 20,
             "kstop": 3,
-            "peps": 0.001,
-            "pcento": 0.001,
+            "peps": 0.1,
+            "pcento": 0.1,
         },
         type=json.loads,
     )

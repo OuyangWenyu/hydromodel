@@ -6,7 +6,7 @@ import random
 from deap import tools
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
+from tqdm import tqdm
 import sys
 from pathlib import Path
 
@@ -45,8 +45,8 @@ def evaluate(individual, x_input, y_true, warmup_length, model):
     float
         fitness
     """
-    print("Calculate fitness:")
-    # TODO: Now only support one basin's calibration for once now
+    # print("Calculate fitness:")
+    # NOTE: Now only support one basin's calibration for once now
     params = np.array(individual).reshape(1, -1)
     if model["name"] in ["xaj", "xaj_mz"]:
         # xaj model's output include streamflow and evaporation now,
@@ -60,7 +60,7 @@ def evaluate(individual, x_input, y_true, warmup_length, model):
         raise NotImplementedError("We don't provide this model now")
     rmses = statRmse(y_true[warmup_length:, :, :], sim)
     rmse = rmses.mean(axis=0)
-    print(f"-----------------RMSE: {str(rmse)}------------------------")
+    # print(f"-----------------RMSE: {str(rmse)}------------------------")
     return rmse
 
 
@@ -189,6 +189,7 @@ def calibrate_by_ga(
     stats.register("min", np.min)
 
     # Evaluate the entire population for the first time
+    print("Initiliazing population...")
     fitnesses = map(toolbox.evaluate, pop)
     for ind, fit in zip(pop, fitnesses):
         ind.fitness.values = fit
@@ -205,7 +206,7 @@ def calibrate_by_ga(
     with open(os.path.join(deap_dir, "epoch0.pkl"), "wb") as cp_file:
         pickle.dump(cp, cp_file)
 
-    for gen in range(ga_param["run_counts"]):
+    for gen in tqdm(range(ga_param["run_counts"]), desc="GA calibrating"):
         # Select the next generation individuals
         offspring = toolbox.select(pop, len(pop))
         # Clone the selected individuals
@@ -226,7 +227,10 @@ def calibrate_by_ga(
         # Evaluate the individuals with an invalid fitness
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = map(toolbox.evaluate, invalid_ind)
-        for ind, fit in zip(invalid_ind, fitnesses):
+        for ind, fit in tqdm(
+            zip(invalid_ind, fitnesses),
+            desc=f"{str(gen + 1)} generation fitness calculating",
+        ):
             ind.fitness.values = fit
 
         halloffame.update(offspring)
@@ -235,7 +239,10 @@ def calibrate_by_ga(
         logbook.record(gen=gen + 1, evals=len(invalid_ind), **record)
         # The population is entirely replaced by the offspring
         pop[:] = offspring
-
+        print(
+            f"Best individual of {str(gen + 1)}"
+            + f" generation is: {halloffame[0]}, {halloffame[0].fitness.values}"
+        )
         if gen % ga_param["save_freq"] == 0:
             # Fill the dictionary using the dict(key=value[, ...]) constructor
             cp = dict(
@@ -316,13 +323,13 @@ def show_ga_result(
     hydro_utils.serialize_json_np(
         stat_error, os.path.join(deap_dir, f"{train_test_flag}_metrics.json")
     )
-    t_range = pd.to_datetime(the_period[warmup_length:]).values.astype(
-        "datetime64[D]"
-    )
+    t_range = pd.to_datetime(the_period[warmup_length:]).values.astype("datetime64[D]")
     save_fig = os.path.join(deap_dir, f"{train_test_flag}_results.png")
     if train_mode:
         save_param_file = os.path.join(deap_dir, basin_id + "_calibrate_params.txt")
-        pd.DataFrame(list(halloffame[0])).to_csv(save_param_file, sep=",", index=False, header=True)
+        pd.DataFrame(list(halloffame[0])).to_csv(
+            save_param_file, sep=",", index=False, header=True
+        )
         fit_mins = logbook.select("min")
         plot_train_iteration(fit_mins, os.path.join(deap_dir, "train_iteration.png"))
     plot_sim_and_obs(

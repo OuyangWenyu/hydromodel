@@ -106,6 +106,7 @@ def test_uh_gamma():
 
 def test_uh():
     uh_from_gamma = np.tile(1, (5, 3, 1))
+    # uh_from_gamma = np.arange(15).reshape(5, 3, 1)
     rf = np.arange(30).reshape(10, 3, 1) / 100
     qs = uh_conv(rf, uh_from_gamma)
     np.testing.assert_almost_equal(

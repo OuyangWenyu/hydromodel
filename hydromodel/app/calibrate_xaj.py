@@ -40,18 +40,18 @@ def calibrate(args):
             kfold.append(int(f_name[len("data_info_fold") : -len("_test.json")]))
     kfold = np.sort(kfold)
     for fold in kfold:
-        print("Start to calibrate the {}-th fold".format(fold))
+        print(f"Start to calibrate the {fold}-th fold")
         train_data_info_file = os.path.join(
-            data_dir, "data_info_fold" + str(fold) + "_train.json"
+            data_dir, f"data_info_fold{str(fold)}_train.json"
         )
         train_data_file = os.path.join(
-            data_dir, "basins_lump_p_pe_q_fold" + str(fold) + "_train.npy"
+            data_dir, f"basins_lump_p_pe_q_fold{str(fold)}_train.npy"
         )
         test_data_info_file = os.path.join(
-            data_dir, "data_info_fold" + str(fold) + "_test.json"
+            data_dir, f"data_info_fold{str(fold)}_test.json"
         )
         test_data_file = os.path.join(
-            data_dir, "basins_lump_p_pe_q_fold" + str(fold) + "_test.npy"
+            data_dir, f"basins_lump_p_pe_q_fold{str(fold)}_test.npy"
         )
         if (
             os.path.exists(train_data_info_file) is False
@@ -119,7 +119,7 @@ def calibrate(args):
                     data_test[:, i : i + 1, 0:2],
                     params,
                     warmup_length=warmup,
-                    **model_info
+                    **model_info,
                 )
 
                 qsim = hydro_constant.convert_unit(
@@ -169,12 +169,12 @@ def calibrate(args):
             raise NotImplementedError(
                 "We don't provide this calibrate method! Choose from 'SCE_UA' or 'GA'!"
             )
-        print("Finish calibrating the {}-th fold".format(fold))
+        print(f"Finish calibrating the {fold}-th fold")
 
 
 # NOTE: Before run this command, you should run data_preprocess.py file to save your data as hydro-model-xaj data format,
 # the exp must be same as the exp in data_preprocess.py
-# python calibrate_xaj.py --exp exp201 --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":2,\"ngs\":100,\"kstop\":50,\"peps\":0.001,\"pcento\":0.001}
+# python calibrate_xaj.py --exp exp201 --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":2000,\"ngs\":20,\"kstop\":3,\"peps\":0.1,\"pcento\":0.1}
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calibrate a hydrological model.")
     parser.add_argument(
@@ -205,13 +205,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "--algorithm",
         dest="algorithm",
-        help="algorithm and its parameters used for calibrating algorithm",
+        help="algorithm and its parameters used for calibrating algorithm. "
+        "Here are some advices for the algorithmic parameter settings:"
+        "rep is the maximum number of calling hydro-model, it is mainly impacted by ngs, if ngs is 30, one population need about 900 evaluations, at this time, 10000 maybe a good choice;"
+        "ngs is the number of complex, better larger than your hydro-model-params number (nopt) but not too large, because the number of population's individuals is ngs * (2*nopt+1), larger ngs need more evaluations;"
+        "kstop is the number of evolution (not evaluation) loops, some small numbers such as 2, 3, 5, ... are recommended, if too large it is hard to finish optimizing;"
+        "peps and pcento are two loop-stop criterion, 0.1 (its unit is %, 0.1 means a relative change of 1/1000) is a good choice",
         default={
             "name": "SCE_UA",
             "random_seed": 1234,
-            "rep": 2,
-            "ngs": 100,
-            "kstop": 50,
+            "rep": 1000,
+            "ngs": 20,
+            "kstop": 3,
             "peps": 0.001,
             "pcento": 0.001,
         },

@@ -203,6 +203,7 @@ def calibrate(args):
 # NOTE: Before run this command, you should run data_preprocess.py file to save your data as hydro-model-xaj data format,
 # the exp must be same as the exp in data_preprocess.py
 # python calibrate_xaj.py --exp exp201 --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":2000,\"ngs\":20,\"kstop\":3,\"peps\":0.1,\"pcento\":0.1}
+# python calibrate_xaj.py --exp exp61561 --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"GA\",\"random_seed\":1234,\"run_counts\":50,\"pop_num\":50,\"cross_prob\":0.5,\"mut_prob\":0.5,\"save_freq\":1}
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calibrate a hydrological model.")
     parser.add_argument(

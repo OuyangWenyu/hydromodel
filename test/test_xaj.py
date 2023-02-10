@@ -1,15 +1,15 @@
 import os
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
-import spotpy
 
 import definitions
-from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua, SpotSetup
+from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua
 from hydromodel.calibrate.calibrate_ga import calibrate_by_ga
-from hydromodel.visual.pyspot_plots import show_calibrate_result
+from hydromodel.data.data_postprocess import read_save_sceua_calibrated_params
+from hydromodel.utils import hydro_constant, hydro_utils
+from hydromodel.visual.pyspot_plots import show_calibrate_result, show_test_result
 from hydromodel.models.xaj import xaj, uh_gamma, uh_conv
 
 
@@ -18,6 +18,12 @@ def basin_area():
     # the area of basin 01013500, unit km2
     # basin_area = 2252.7
     return 1.783
+
+
+@pytest.fixture()
+def db_name():
+    db_name = os.path.join(definitions.ROOT_DIR, "test", "SCEUA_xaj_mz")
+    return db_name
 
 
 @pytest.fixture()
@@ -100,6 +106,7 @@ def test_uh_gamma():
 
 def test_uh():
     uh_from_gamma = np.tile(1, (5, 3, 1))
+    # uh_from_gamma = np.arange(15).reshape(5, 3, 1)
     rf = np.arange(30).reshape(10, 3, 1) / 100
     qs = uh_conv(rf, uh_from_gamma)
     np.testing.assert_almost_equal(
@@ -123,44 +130,122 @@ def test_uh():
 
 
 def test_xaj(p_and_e, params, warmup_length):
-    qsim = xaj(p_and_e, params, warmup_length=warmup_length)
+    qsim, e = xaj(
+        p_and_e,
+        params,
+        warmup_length=warmup_length,
+        name="xaj",
+        source_book="HF",
+        source_type="sources",
+    )
     np.testing.assert_array_equal(qsim.shape[0], p_and_e.shape[0] - warmup_length)
 
 
 def test_xaj_mz(p_and_e, params, warmup_length):
-    qsim = xaj(p_and_e, params, warmup_length=warmup_length, route_method="MZ")
+    qsim, e = xaj(
+        p_and_e,
+        np.tile([0.5], (1, 16)),
+        warmup_length=warmup_length,
+        name="xaj_mz",
+        source_book="HF",
+        source_type="sources",
+    )
     np.testing.assert_array_equal(qsim.shape[0], p_and_e.shape[0] - warmup_length)
 
 
-def test_calibrate_xaj_sceua(p_and_e, qobs, warmup_length):
+def test_calibrate_xaj_sceua(p_and_e, qobs, warmup_length, db_name):
+    # just for testing, so the hyper-param is chosen for quick running
     calibrate_by_sceua(
         p_and_e,
         qobs,
+        db_name,
         warmup_length,
-        random_seed=2000,
-        rep=5000,
-        ngs=7,
-        kstop=3,
-        peps=0.1,
-        pcento=0.1,
+        model={
+            "name": "xaj_mz",
+            "source_type": "sources",
+            "source_book": "HF",
+        },
+        algorithm={
+            "name": "SCE_UA",
+            "random_seed": 1234,
+            "rep": 5,
+            "ngs": 7,
+            "kstop": 3,
+            "peps": 0.1,
+            "pcento": 0.1,
+        },
     )
 
 
-def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length):
-    spot_setup = SpotSetup(
-        p_and_e, qobs, warmup_length, obj_func=spotpy.objectivefunctions.rmse
-    )
-    show_calibrate_result(spot_setup, "SCEUA_xaj")
-    plt.show()
-
-
-def test_calibrate_xaj_ga(p_and_e, qobs, warmup_length):
-    calibrate_by_ga(
+def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length, db_name, basin_area):
+    sampler = calibrate_by_sceua(
         p_and_e,
         qobs,
+        db_name,
         warmup_length,
-        run_counts=5,
-        pop_num=50,
-        cross_prob=0.5,
-        mut_prob=0.5,
+        model={
+            "name": "xaj_mz",
+            "source_type": "sources",
+            "source_book": "HF",
+        },
+        algorithm={
+            "name": "SCE_UA",
+            "random_seed": 1234,
+            "rep": 5,
+            "ngs": 7,
+            "kstop": 3,
+            "peps": 0.1,
+            "pcento": 0.1,
+        },
     )
+    train_period = hydro_utils.t_range_days(["2012-01-01", "2017-01-01"])
+    show_calibrate_result(
+        sampler.setup,
+        db_name,
+        warmup_length=warmup_length,
+        save_dir=db_name,
+        basin_id="basin_id",
+        train_period=train_period,
+        basin_area=basin_area,
+    )
+
+
+def test_show_test_result(p_and_e, qobs, warmup_length, db_name, basin_area):
+    params = read_save_sceua_calibrated_params("basin_id", db_name, db_name)
+    qsim, _ = xaj(
+        p_and_e,
+        params,
+        warmup_length=warmup_length,
+        name="xaj_mz",
+        source_type="sources",
+        source_book="HF",
+    )
+
+    qsim = hydro_constant.convert_unit(
+        qsim,
+        unit_now="mm/day",
+        unit_final=hydro_constant.unit["streamflow"],
+        basin_area=basin_area,
+    )
+    qobs = hydro_constant.convert_unit(
+        qobs[warmup_length:, :, :],
+        unit_now="mm/day",
+        unit_final=hydro_constant.unit["streamflow"],
+        basin_area=basin_area,
+    )
+    test_period = hydro_utils.t_range_days(["2012-01-01", "2017-01-01"])
+    show_test_result(
+        "basin_id", test_period[warmup_length:], qsim, qobs, save_dir=db_name
+    )
+
+
+# def test_calibrate_xaj_ga(p_and_e, qobs, warmup_length):
+#     calibrate_by_ga(
+#         p_and_e,
+#         qobs,
+#         warmup_length,
+#         run_counts=5,
+#         pop_num=50,
+#         cross_prob=0.5,
+#         mut_prob=0.5,
+#     )

@@ -3,7 +3,7 @@ from deap import base, creator
 import random
 from deap import tools
 import numpy as np
-from hydromodel.calibrate.stat import statRmse
+from hydromodel.utils.stat import statRmse
 from hydromodel.models.gr4j import gr4j
 from hydromodel.models.hymod import hymod
 from hydromodel.models.xaj import xaj
@@ -35,9 +35,11 @@ def evaluate(individual, x_input, y_true, warmup_length, model):
     # TODO: Now spotpy only support one list, and we only support one basin's calibration now
     params = np.array(individual).reshape(1, -1)
     if model == "xaj":
-        sim = xaj(x_input, params, warmup_length=warmup_length)
+        # xaj model's output include streamflow and evaporation now,
+        # but now we only calibrate the model with streamflow
+        sim, _ = xaj(x_input, params, warmup_length=warmup_length)
     elif model == "xaj_mz":
-        sim = xaj(x_input, params, warmup_length=warmup_length, route_method="MZ")
+        sim, _ = xaj(x_input, params, warmup_length=warmup_length, route_method="MZ")
     elif model == "gr4j":
         sim = gr4j(x_input, params, warmup_length=warmup_length)
     elif model == "hymod":

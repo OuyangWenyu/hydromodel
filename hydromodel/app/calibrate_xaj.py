@@ -34,10 +34,11 @@ def calibrate(args):
     algo_info = args.algorithm
     comment = args.comment
     data_dir = os.path.join(definitions.ROOT_DIR, "hydromodel", "example", exp)
-    kfold = []
-    for f_name in os.listdir(data_dir):
-        if fnmatch.fnmatch(f_name, "*_fold*_test.json"):
-            kfold.append(int(f_name[len("data_info_fold") : -len("_test.json")]))
+    kfold = [
+        int(f_name[len("data_info_fold") : -len("_test.json")])
+        for f_name in os.listdir(data_dir)
+        if fnmatch.fnmatch(f_name, "*_fold*_test.json")
+    ]
     kfold = np.sort(kfold)
     for fold in kfold:
         print(f"Start to calibrate the {fold}-th fold")

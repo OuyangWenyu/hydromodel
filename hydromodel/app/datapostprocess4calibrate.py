@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2022-12-25 09:14:33
+LastEditTime: 2023-05-05 10:14:20
 LastEditors: Wenyu Ouyang
 Description: the script to postprocess calibrated models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\app\datapostprocess4calibrate.py
@@ -135,7 +135,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="exp61561",
+        default="example",
         type=str,
     )
     parser.add_argument(
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         "--cv_fold",
         dest="cv_fold",
         help="The number of cross-validation fold",
-        default=2,
+        default=1,
         type=int,
     )
     the_args = parser.parse_args()

@@ -23,7 +23,7 @@ from hydromodel.data.data_postprocess import (
 )
 from hydromodel.visual.pyspot_plots import show_calibrate_result, show_test_result
 from hydromodel.models.xaj import xaj
-from hydromodel.calibrate.calibrate_ga import calibrate_by_ga
+from hydromodel.calibrate.calibrate_ga import calibrate_by_ga, show_ga_result
 from hydromodel.utils import hydro_constant
 
 
@@ -34,10 +34,11 @@ def calibrate(args):
     algo_info = args.algorithm
     comment = args.comment
     data_dir = os.path.join(definitions.ROOT_DIR, "hydromodel", "example", exp)
-    kfold = []
-    for f_name in os.listdir(data_dir):
-        if fnmatch.fnmatch(f_name, "*_fold*_test.json"):
-            kfold.append(int(f_name[len("data_info_fold") : -len("_test.json")]))
+    kfold = [
+        int(f_name[len("data_info_fold") : -len("_test.json")])
+        for f_name in os.listdir(data_dir)
+        if fnmatch.fnmatch(f_name, "*_fold*_test.json")
+    ]
     kfold = np.sort(kfold)
     for fold in kfold:
         print(f"Start to calibrate the {fold}-th fold")
@@ -79,8 +80,8 @@ def calibrate(args):
         )
         if os.path.exists(save_dir) is False:
             os.makedirs(save_dir)
+        hydro_utils.serialize_json(vars(args), os.path.join(save_dir, "args.json"))
         if algo_info["name"] == "SCE_UA":
-            hydro_utils.serialize_json(vars(args), os.path.join(save_dir, "args.json"))
             for i in range(len(data_info_train["basin"])):
                 basin_id = data_info_train["basin"][i]
                 basin_area = data_info_train["area"][i]
@@ -150,31 +151,60 @@ def calibrate(args):
                 show_test_result(
                     basin_id, test_date, qsim, qobs, save_dir=spotpy_db_dir
                 )
-            summarize_parameters(save_dir, model_info)
-            renormalize_params(save_dir, model_info)
-            summarize_metrics(save_dir, model_info)
-            save_streamflow(save_dir, model_info, fold=fold)
-
         elif algo_info["name"] == "GA":
-            # TODO: not finished
             for i in range(len(data_info_train["basin"])):
+                basin_id = data_info_train["basin"][i]
+                basin_area = data_info_train["area"][i]
+                # one directory for one model + one hyperparam setting and one basin
+                deap_db_dir = os.path.join(
+                    save_dir,
+                    basin_id,
+                )
+                if not os.path.exists(deap_db_dir):
+                    os.makedirs(deap_db_dir)
                 calibrate_by_ga(
                     data_train[:, i : i + 1, 0:2],
                     data_train[:, i : i + 1, -1:],
+                    deap_db_dir,
                     warmup_length=warmup,
                     model=model_info,
-                    algorithm=algo_info,
+                    ga_param=algo_info,
+                )
+                show_ga_result(
+                    deap_db_dir,
+                    warmup_length=warmup,
+                    basin_id=basin_id,
+                    the_data=data_train[:, i : i + 1, :],
+                    the_period=data_info_train["time"],
+                    basin_area=basin_area,
+                    model_info=model_info,
+                    train_mode=True,
+                )
+                show_ga_result(
+                    deap_db_dir,
+                    warmup_length=warmup,
+                    basin_id=basin_id,
+                    the_data=data_test[:, i : i + 1, :],
+                    the_period=data_info_test["time"],
+                    basin_area=basin_area,
+                    model_info=model_info,
+                    train_mode=False,
                 )
         else:
             raise NotImplementedError(
                 "We don't provide this calibrate method! Choose from 'SCE_UA' or 'GA'!"
             )
+        summarize_parameters(save_dir, model_info)
+        renormalize_params(save_dir, model_info)
+        summarize_metrics(save_dir, model_info)
+        save_streamflow(save_dir, model_info, fold=fold)
         print(f"Finish calibrating the {fold}-th fold")
 
 
 # NOTE: Before run this command, you should run data_preprocess.py file to save your data as hydro-model-xaj data format,
 # the exp must be same as the exp in data_preprocess.py
 # python calibrate_xaj.py --exp exp201 --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":2000,\"ngs\":20,\"kstop\":3,\"peps\":0.1,\"pcento\":0.1}
+# python calibrate_xaj.py --exp exp61561 --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"GA\",\"random_seed\":1234,\"run_counts\":50,\"pop_num\":50,\"cross_prob\":0.5,\"mut_prob\":0.5,\"save_freq\":1}
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calibrate a hydrological model.")
     parser.add_argument(
@@ -211,14 +241,23 @@ if __name__ == "__main__":
         "ngs is the number of complex, better larger than your hydro-model-params number (nopt) but not too large, because the number of population's individuals is ngs * (2*nopt+1), larger ngs need more evaluations;"
         "kstop is the number of evolution (not evaluation) loops, some small numbers such as 2, 3, 5, ... are recommended, if too large it is hard to finish optimizing;"
         "peps and pcento are two loop-stop criterion, 0.1 (its unit is %, 0.1 means a relative change of 1/1000) is a good choice",
+        # default={
+        #     "name": "SCE_UA",
+        #     "random_seed": 1234,
+        #     "rep": 5000,
+        #     "ngs": 20,
+        #     "kstop": 3,
+        #     "peps": 0.1,
+        #     "pcento": 0.1,
+        # },
         default={
-            "name": "SCE_UA",
+            "name": "GA",
             "random_seed": 1234,
-            "rep": 5000,
-            "ngs": 20,
-            "kstop": 3,
-            "peps": 0.1,
-            "pcento": 0.1,
+            "run_counts": 2,
+            "pop_num": 50,
+            "cross_prob": 0.5,
+            "mut_prob": 0.5,
+            "save_freq": 1,
         },
         type=json.loads,
     )

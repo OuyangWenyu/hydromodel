@@ -44,9 +44,9 @@ To use your own data to run the model, we set a data interface, here is the conv
   for "variables" in "basins"
 - Data files should be .npy files with a JSON file that show the information of the data. We provide sample code in
   "test/test_data.py" to show how to process a .csv/.txt file to the required format. 
-- To run the model, the dataset should be split into two parts: the training dataset (used for calibrating) and the testing dataset (used for evaluation). In the xxx directory, there must be four files: "basins_lump_p_pe_q_train.npy", "data_info_train.json", "basins_lump_p_pe_q_test.npy", and "data_info_test.json". (files' name cannot be changed)
+- To run the model, the dataset should be split into two parts: the training dataset (used for calibrating) and the testing dataset (used for evaluation). In the xxx directory, there must be four files: "basins_lump_p_pe_q_foldx_train.npy", "data_info_foldx_train.json", "basins_lump_p_pe_q_foldx_test.npy", and "data_info_foldx_test.json". (files' name cannot be changed; x is 0 if there is only one fold)
 
-To run models in hydro-model-xaj, you need to prepare data in the required format. 
+To run models in hydro-model-xaj, one need to prepare data in the required format. 
 
 We have provided sample data in the "example/example" directory. You can run the model with this data.
 

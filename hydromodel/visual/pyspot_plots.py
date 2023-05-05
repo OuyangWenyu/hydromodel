@@ -14,6 +14,7 @@ import os
 import numpy as np
 from hydromodel.utils import hydro_constant, stat
 from hydromodel.utils import hydro_utils
+from hydromodel.visual.hydro_plot import plot_sim_and_obs, plot_train_iteration
 
 
 def show_calibrate_result(
@@ -116,49 +117,3 @@ def show_test_result(basin_id, test_date, qsim, obs, save_dir):
         obs.flatten(),
         save_fig,
     )
-
-
-def plot_train_iteration(likelihood, save_fig):
-    # matplotlib.use("Agg")
-    fig = plt.figure(figsize=(9, 6))
-    ax = fig.subplots()
-    ax.plot(likelihood)
-    ax.set_ylabel("RMSE")
-    ax.set_xlabel("Iteration")
-    plt.savefig(save_fig, bbox_inches="tight")
-    # plt.cla()
-    plt.close()
-
-
-def plot_sim_and_obs(
-    date,
-    sim,
-    obs,
-    save_fig,
-    xlabel="Date",
-    ylabel="Streamflow(" + hydro_constant.unit["streamflow"] + ")",
-):
-    # matplotlib.use("Agg")
-    fig = plt.figure(figsize=(9, 6))
-    ax = fig.subplots()
-    ax.plot(
-        date,
-        sim,
-        color="black",
-        linestyle="solid",
-        label="Simulation",
-    )
-    ax.plot(
-        date,
-        obs,
-        "r.",
-        markersize=3,
-        label="Observation",
-    )
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    plt.legend(loc="upper right")
-    plt.tight_layout()
-    plt.savefig(save_fig, bbox_inches="tight")
-    # plt.cla()
-    plt.close()

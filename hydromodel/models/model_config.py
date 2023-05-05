@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-12-21 14:06:33
+LastEditTime: 2022-12-25 16:06:05
 LastEditors: Wenyu Ouyang
 Description: some basic config for hydro-model-xaj models
 FilePath: \hydro-model-xaj\hydromodel\models\model_config.py
@@ -84,7 +84,7 @@ MODEL_PARAM_DICT = {
                 "LM": [60.0, 90.0],
                 "DM": [60.0, 120.0],
                 "C": [0.0, 0.2],
-                "SM": [0.0, 100.0],
+                "SM": [1.0, 100.0],
                 "EX": [1.0, 1.5],
                 "KI": [0.0, 0.7],
                 "KG": [0.0, 0.7],

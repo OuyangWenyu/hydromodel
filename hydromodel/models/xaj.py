@@ -734,7 +734,7 @@ def xaj(
     # default values for some function parameters
     model_name = kwargs["name"] if "name" in kwargs else "xaj"
     source_type = kwargs["source_type"] if "source_type" in kwargs else "sources"
-    source_book = kwargs["source_book"] if "source_book" in kwargs else "ShuiWenYuBao"
+    source_book = kwargs["source_book"] if "source_book" in kwargs else "HF"
     # params
     param_ranges = MODEL_PARAM_DICT[model_name]["param_range"]
     if model_name == "xaj":

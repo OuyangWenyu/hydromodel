@@ -1,5 +1,6 @@
 name: xaj-dev
 channels:
+  - pytorch
   - conda-forge
   - defaults
 dependencies:
@@ -16,10 +17,11 @@ dependencies:
   - pyarrow
   - hydroerr
   - xarray
-  - pytorch=1.10
-  - tensorboard
+  - pytorch=1.12.1
+  - torchvision=0.13.1
+  - torchaudio=0.12.1
   - cudatoolkit=11.3
-  - cudnn=8.2.0
+  - tensorboard
   - sphinx
   - pytest
   - black

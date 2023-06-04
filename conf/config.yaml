@@ -8,7 +8,6 @@ model_params:
     hidden_size: 20
     num_layers: 1
     bias: true
-    batch_size: 100
   model_wrapper: null
   model_wrapper_param: null
 data_params:
@@ -21,27 +20,26 @@ data_params:
   cache_path: null
   validation_path: null
   test_path: null
-  batch_size: 100
-  forecast_history: 30
-  forecast_length: 1
   object_ids: ALL
   t_range_train:
     - '1992-01-01'
     - '1993-01-01'
-  t_range_valid: null
-  t_range_test:
+  t_range_valid:
     - '1993-01-01'
     - '1994-01-01'
+  t_range_test:
+    - '1994-01-01'
+    - '1995-01-01'
   warmup_length: 0
   target_cols:
-    - Q_CAMELS_US_NAME
+    - usgsFlow
   target_rm_nan: false
   target_as_input: false
   relevant_types:
-    - DAYMET_NAME
+    - daymet
   relevant_cols:
     - dayl
-    - PRCP_DAYMET_NAME
+    - prcp
     - srad
     - swe
     - tmax
@@ -73,20 +71,19 @@ data_params:
   scaler: StandardScaler
   scaler_params:
     basin_norm_cols:
-      - Q_CAMELS_US_NAME
+      - usgsFlow
       - streamflow
-      - Q_CAMELS_CC_NAME
       - qobs
     gamma_norm_cols:
-      - PRCP_DAYMET_NAME
+      - prcp
       - pr
-      - PRCP_NLDAS_NAME
+      - precipitation
       - pre
       - pet
-      - PET_NLDAS_NAME
-      - ET_MODIS_NAME
+      - evapotranspiration
+      - ET
       - LE
-      - PET_MODIS_NAME
+      - PET
       - PLE
       - GPP
       - Ec
@@ -94,7 +91,7 @@ data_params:
       - Ei
       - ET_water
       - ET_sum
-      - SSM_SMAP_NAME
+      - ssm
       - susm
       - smp
       - ssma
@@ -107,7 +104,7 @@ training_params:
   optimizer: Adam
   optim_params:
     lr: 0.001
-  epochs: 20
+  epochs: 2
   save_epoch: 0
   save_iter: 0
   start_epoch: 1
@@ -122,4 +119,4 @@ evaluate_params:
   metrics:
     - NSE
   fill_nan: no
-  test_epoch: 20
+  test_epoch: 2

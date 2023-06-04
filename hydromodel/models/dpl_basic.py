@@ -46,9 +46,7 @@ def lstm_pbm(dl_model, pb_model, param_func, x, z):
         )
     # just get one-period values, here we use the final period's values
     params = params_[-1, :, :]
-    # Please put p in the first location and pet in the second
-    q = pb_model(x[:, :, : pb_model.feature_size], params)
-    return q
+    return pb_model(x[:, :, : pb_model.feature_size], params)
 
 
 def ann_pbm(dl_model, pb_model, param_func, x, z):
@@ -88,23 +86,25 @@ def ann_pbm(dl_model, pb_model, param_func, x, z):
         raise NotImplementedError(
             "We don't provide this way to limit parameters' range!! Please choose sigmoid or clamp"
         )
-    # Please put p in the first location and pet in the second
-    q = pb_model(x[:, :, : pb_model.feature_size], params)
-    return q
+    return pb_model(x[:, :, : pb_model.feature_size], params)
 
 
 class SimpleLSTM(nn.Module):
     def __init__(self, input_size, output_size, hidden_size, dr=0.5):
         super(SimpleLSTM, self).__init__()
         self.linearIn = nn.Linear(input_size, hidden_size)
-        self.lstm = nn.LSTM(hidden_size, hidden_size, 1, dropout=dr)
+        self.lstm = nn.LSTM(
+            hidden_size,
+            hidden_size,
+            1,
+            dropout=dr,
+        )
         self.linearOut = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
         x0 = F.relu(self.linearIn(x))
         out_lstm, (hn, cn) = self.lstm(x0)
-        out = self.linearOut(out_lstm)
-        return out
+        return self.linearOut(out_lstm)
 
 
 class SimpleAnn(torch.nn.Module):
@@ -140,37 +140,35 @@ class SimpleAnn(torch.nn.Module):
             or (type(hidden_size) in [tuple, list] and len(hidden_size) < 1)
         ):
             linear_list.add_module("linear1", torch.nn.Linear(nx, ny))
+        elif type(hidden_size) is int:
+            if type(dr) in [tuple, list]:
+                dr = dr[0]
+            linear_list.add_module("linear1", torch.nn.Linear(nx, hidden_size))
+            # dropout layer do not have additional weights, so we do not name them here
+            dropout_list.append(torch.nn.Dropout(dr))
+            linear_list.add_module("linear2", torch.nn.Linear(hidden_size, ny))
         else:
-            if type(hidden_size) is int:
-                if type(dr) in [tuple, list]:
-                    dr = dr[0]
-                linear_list.add_module("linear1", torch.nn.Linear(nx, hidden_size))
-                # dropout layer do not have additional weights, so we do not name them here
-                dropout_list.append(torch.nn.Dropout(dr))
-                linear_list.add_module("linear2", torch.nn.Linear(hidden_size, ny))
-            else:
-                linear_list.add_module("linear1", torch.nn.Linear(nx, hidden_size[0]))
-                if type(dr) is float:
-                    dr = [dr] * len(hidden_size)
-                else:
-                    if len(dr) != len(hidden_size):
-                        raise ArithmeticError(
-                            "We set dropout layer for each nn layer, please check the number of dropout layers"
-                        )
-                # dropout_list.add_module("dropout1", torch.nn.Dropout(dr[0]))
-                dropout_list.append(torch.nn.Dropout(dr[0]))
-                for i in range(len(hidden_size) - 1):
-                    linear_list.add_module(
-                        "linear%d" % (i + 1 + 1),
-                        torch.nn.Linear(hidden_size[i], hidden_size[i + 1]),
-                    )
-                    dropout_list.append(
-                        torch.nn.Dropout(dr[i + 1]),
-                    )
-                linear_list.add_module(
-                    "linear%d" % (len(hidden_size) + 1),
-                    torch.nn.Linear(hidden_size[-1], ny),
+            linear_list.add_module("linear1", torch.nn.Linear(nx, hidden_size[0]))
+            if type(dr) is float:
+                dr = [dr] * len(hidden_size)
+            elif len(dr) != len(hidden_size):
+                raise ArithmeticError(
+                    "We set dropout layer for each nn layer, please check the number of dropout layers"
                 )
+            # dropout_list.add_module("dropout1", torch.nn.Dropout(dr[0]))
+            dropout_list.append(torch.nn.Dropout(dr[0]))
+            for i in range(len(hidden_size) - 1):
+                linear_list.add_module(
+                    "linear%d" % (i + 1 + 1),
+                    torch.nn.Linear(hidden_size[i], hidden_size[i + 1]),
+                )
+                dropout_list.append(
+                    torch.nn.Dropout(dr[i + 1]),
+                )
+            linear_list.add_module(
+                "linear%d" % (len(hidden_size) + 1),
+                torch.nn.Linear(hidden_size[-1], ny),
+            )
         self.linear_list = linear_list
         self.dropout_list = dropout_list
 
@@ -179,13 +177,13 @@ class SimpleAnn(torch.nn.Module):
             if i == 0:
                 if len(self.linear_list) == 1:
                     return model(x)
-                out = F.relu(self.dropout_list[i](model(x)))
-            else:
-                if i == len(self.linear_list) - 1:
-                    # in final layer, no relu again
-                    return model(out)
                 else:
-                    out = F.relu(self.dropout_list[i](model(out)))
+                    out = F.relu(self.dropout_list[i](model(x)))
+            elif i == len(self.linear_list) - 1:
+                # in final layer, no relu again
+                return model(out)
+            else:
+                out = F.relu(self.dropout_list[i](model(out)))
 
 
 class KernelConv(nn.Module):

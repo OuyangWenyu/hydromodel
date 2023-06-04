@@ -50,12 +50,12 @@ class CamelsDataset(Dataset):
             _description_
         """
         super(CamelsDataset, self).__init__()
-        if loader_type not in ["train", "valid", "test"]:
+        if loader_type in {"train", "valid", "test"}:
+            self.loader_type = loader_type
+        else:
             raise ValueError(
                 " 'loader_type' must be one of 'train', 'valid' or 'test' "
             )
-        else:
-            self.loader_type = loader_type
         self.basins = basins
         self.dates = dates
 
@@ -64,8 +64,17 @@ class CamelsDataset(Dataset):
         self.means = means
         self.stds = stds
 
-        self.data_attr = data_attr
-        self.data_forcing = data_forcing
+        # Trans str to int if a col is str
+        data_attr_numeric = data_attr.apply(
+            lambda s: pd.factorize(s)[0] if s.dtype == "object" else s
+        )
+        # for data_attr, data_forcing, we need to make sure that there are no NaNs
+        # in the data. If there are NaNs in data_attr, we need to fill them with the mean of the
+        # corresponding column. If there are NaNs in data_forcing, we need to fill them with the
+        # interpolated values.
+        self.data_attr = data_attr_numeric.fillna(data_attr_numeric.mean())
+        self.data_forcing = data_forcing.interpolate_na(dim="time")
+
         self.data_flow = data_flow
 
         # load and preprocess data
@@ -91,11 +100,11 @@ class CamelsDataset(Dataset):
         y = (
             self.y.sel(
                 basin=basin,
-                time=time + np.timedelta64(seq_length - 1, "D"),
+                time=slice(time, time + np.timedelta64(seq_length - 1, "D")),
             )
             .to_array()
             .to_numpy()
-        )
+        ).T
         return torch.from_numpy(xc).float(), torch.from_numpy(y).float()
 
     def _load_data(self):
@@ -106,10 +115,15 @@ class CamelsDataset(Dataset):
             df_std_forcings = self.data_forcing.std().to_pandas()
             df_mean_streamflow = self.data_flow.mean().to_pandas()
             df_std_streamflow = self.data_flow.std().to_pandas()
+            # some attributes are strings, convert them to integers
             df_mean_attr = self.data_attr.mean()
             df_std_attr = self.data_attr.std()
             self.means = pd.concat([df_mean_forcings, df_mean_attr, df_mean_streamflow])
             self.stds = pd.concat([df_std_forcings, df_std_attr, df_std_streamflow])
+            # for stds, when values are all same, stds will be 0/very small,
+            # which will cause NaNs, so we replace small values with 1
+            # this means when self.stds > 1e-5, keep the value, otherwise replace with 1
+            self.stds = self.stds.where(self.stds > 1e-5, 1)
         else:
             train_mode = False
 
@@ -142,9 +156,10 @@ class CamelsDataset(Dataset):
         dates = self.data_flow["time"].to_numpy()
         time_length = len(dates)
         for basin in self.basins:
-            for j in range(time_length - seq_length + 1):
-                lookup.append((basin, dates[j]))
-        self.lookup_table = {i: elem for i, elem in enumerate(lookup)}
+            lookup.extend(
+                (basin, dates[j]) for j in range(time_length - seq_length + 1)
+            )
+        self.lookup_table = dict(enumerate(lookup))
         self.num_samples = len(self.lookup_table)
 
     def get_means(self):
@@ -180,11 +195,10 @@ def load_streamflow(ds_flow, ds_attr, basins, time_range):
         basin=basins, time=slice(time_range[0], time_range[1])
     )
     area = ds_attr["area_gages2"].values
-    flow = (
+    return (
         0.0283168
         * chosen_streamflow
         * 1000
         * 86400
         / (area.reshape(len(area), 1) * 10**6)
     )
-    return flow

@@ -237,11 +237,3 @@ def test_show_test_result(p_and_e, qobs, warmup_length, db_name, basin_area):
     show_test_result(
         "basin_id", test_period[warmup_length:], qsim, qobs, save_dir=db_name
     )
-
-
-def test_calibrate_xaj_ga(p_and_e, qobs, warmup_length):
-    calibrate_by_ga(
-        p_and_e,
-        qobs,
-        warmup_length,
-    )

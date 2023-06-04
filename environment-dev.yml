@@ -13,9 +13,19 @@ dependencies:
   - spotpy=1.5.14
   - seaborn
   - tqdm
+  - pyarrow
+  - hydroerr
+  - xarray
+  - pytorch=1.10
+  - tensorboard
+  - cudatoolkit=11.3
+  - cudnn=8.2.0
   - sphinx
   - pytest
   - black
   - pip
   - pip:
     - hydrodataset
+    # config for deep learning
+    - hydra-core
+    - accelerate

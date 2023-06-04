@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2023-05-05 10:14:20
+LastEditTime: 2023-06-03 16:21:12
 LastEditors: Wenyu Ouyang
 Description: the script to postprocess calibrated models in hydro-model-xaj
-FilePath: \hydro-model-xaj\hydromodel\app\datapostprocess4calibrate.py
+FilePath: /hydro-model-xaj/scripts/datapostprocess4calibrate.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 from tqdm import tqdm
@@ -17,7 +17,7 @@ import os
 from pathlib import Path
 
 
-sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
+sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
 import definitions
 from hydromodel.data.data_postprocess import read_and_save_et_ouputs
 

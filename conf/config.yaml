@@ -1,0 +1,125 @@
+model_params:
+  model_type: PyTorch
+  model_name: LSTM
+  model_param:
+    seq_length: 30
+    input_size: 24
+    output_size: 1
+    hidden_size: 20
+    num_layers: 1
+    bias: true
+    batch_size: 100
+  model_wrapper: null
+  model_wrapper_param: null
+data_params:
+  data_source_name: CAMELS
+  data_path: ../../example/camels_us
+  data_region: null
+  download: true
+  cache_read: true
+  cache_write: false
+  cache_path: null
+  validation_path: null
+  test_path: null
+  batch_size: 100
+  forecast_history: 30
+  forecast_length: 1
+  object_ids: ALL
+  t_range_train:
+    - '1992-01-01'
+    - '1993-01-01'
+  t_range_valid: null
+  t_range_test:
+    - '1993-01-01'
+    - '1994-01-01'
+  warmup_length: 0
+  target_cols:
+    - Q_CAMELS_US_NAME
+  target_rm_nan: false
+  target_as_input: false
+  relevant_types:
+    - DAYMET_NAME
+  relevant_cols:
+    - dayl
+    - PRCP_DAYMET_NAME
+    - srad
+    - swe
+    - tmax
+    - tmin
+    - vp
+  relevant_rm_nan: true
+  constant_cols:
+    - elev_mean
+    - slope_mean
+    - area_gages2
+    - frac_forest
+    - lai_max
+    - lai_diff
+    - dom_land_cover_frac
+    - dom_land_cover
+    - root_depth_50
+    - soil_depth_statsgo
+    - soil_porosity
+    - soil_conductivity
+    - max_water_content
+    - geol_1st_class
+    - geol_2nd_class
+    - geol_porostiy
+    - geol_permeability
+  constant_rm_nan: true
+  constant_only: false
+  other_cols: null
+  data_loader: StreamflowDataset
+  scaler: StandardScaler
+  scaler_params:
+    basin_norm_cols:
+      - Q_CAMELS_US_NAME
+      - streamflow
+      - Q_CAMELS_CC_NAME
+      - qobs
+    gamma_norm_cols:
+      - PRCP_DAYMET_NAME
+      - pr
+      - PRCP_NLDAS_NAME
+      - pre
+      - pet
+      - PET_NLDAS_NAME
+      - ET_MODIS_NAME
+      - LE
+      - PET_MODIS_NAME
+      - PLE
+      - GPP
+      - Ec
+      - Es
+      - Ei
+      - ET_water
+      - ET_sum
+      - SSM_SMAP_NAME
+      - susm
+      - smp
+      - ssma
+      - susma
+  stat_dict_file: null
+training_params:
+  train_mode: true
+  criterion: RMSE
+  criterion_params: null
+  optimizer: Adam
+  optim_params:
+    lr: 0.001
+  epochs: 20
+  save_epoch: 0
+  save_iter: 0
+  start_epoch: 1
+  batch_size: 100
+  random_seed: 1234
+  device:
+    - 0
+  multi_targets: 1
+  num_workers: 0
+  train_but_not_real: false
+evaluate_params:
+  metrics:
+    - NSE
+  fill_nan: no
+  test_epoch: 20

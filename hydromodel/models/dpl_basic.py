@@ -90,7 +90,7 @@ def ann_pbm(dl_model, pb_model, param_func, x, z):
 
 
 class SimpleLSTM(nn.Module):
-    def __init__(self, input_size, output_size, hidden_size, dr=0.5):
+    def __init__(self, input_size, output_size, hidden_size, dr=0.0):
         super(SimpleLSTM, self).__init__()
         self.linearIn = nn.Linear(input_size, hidden_size)
         self.lstm = nn.LSTM(
@@ -105,6 +105,45 @@ class SimpleLSTM(nn.Module):
         x0 = F.relu(self.linearIn(x))
         out_lstm, (hn, cn) = self.lstm(x0)
         return self.linearOut(out_lstm)
+
+
+class LSTMLinear(nn.Module):
+    def __init__(
+        self,
+        input_size,
+        hidden_size: int,
+        output_size=1,
+        num_layers=2,
+        dropout_rate: float = 0.0,
+    ):
+        """Construct LSTM-CAMELS
+
+        Parameters
+        ----------
+        input_size : _type_
+            _description_
+        hidden_size : int
+            _description_
+        dropout_rate : float, optional
+            _description_, by default 0.0
+        """
+        super(LSTMLinear, self).__init__()
+
+        # create required layer
+        self.lstm = nn.LSTM(
+            input_size=input_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            bias=True,
+            batch_first=True,
+        )
+        self.dropout = nn.Dropout(p=dropout_rate)
+        self.fc = nn.Linear(in_features=hidden_size, out_features=output_size)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass through the Network"""
+        output, (h_n, c_n) = self.lstm(x)
+        return self.fc(self.dropout(h_n[-1, :, :]))
 
 
 class SimpleAnn(torch.nn.Module):

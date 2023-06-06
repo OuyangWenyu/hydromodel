@@ -6,17 +6,15 @@ from torch.utils.data import Dataset
 
 
 class CamelsDataset(Dataset):
-    """Base data set class to load and preprocess data (batch-first) using PyTroch's Dataset"""
+    """Base data set class to load and preprocess CAMELS format data using PyTroch's Dataset"""
 
     def __init__(
         self,
-        basins: list,
-        dates: list,
+        cfg: dict,
+        loader_type: str,
         data_attr: pd.DataFrame,
         data_forcing: xr.Dataset,
         data_flow: xr.Dataset,
-        loader_type: str = "train",
-        seq_length: int = 100,
         means: pd.DataFrame = None,
         stds: pd.DataFrame = None,
     ):
@@ -56,10 +54,19 @@ class CamelsDataset(Dataset):
             raise ValueError(
                 " 'loader_type' must be one of 'train', 'valid' or 'test' "
             )
-        self.basins = basins
-        self.dates = dates
+        self.basins = cfg.data_params.object_ids
+        if self.loader_type == "train":
+            self.dates = cfg.data_params.t_range_train
+        elif self.loader_type == "valid":
+            self.dates = cfg.data_params.t_range_valid
+        elif self.loader_type == "test":
+            self.dates = cfg.data_params.t_range_test
+        else:
+            raise ValueError(
+                " 'loader_type' must be one of 'train', 'valid' or 'test' "
+            )
 
-        self.seq_length = seq_length
+        self.seq_length = cfg.training_params.seq_length
 
         self.means = means
         self.stds = stds
@@ -81,9 +88,19 @@ class CamelsDataset(Dataset):
         self._load_data()
 
     def __len__(self):
-        return self.num_samples
+        # self.data_attr.shape[0] means numbers of basins
+        return self.num_samples if self.train_mode else self.data_attr.index.size
 
     def __getitem__(self, item: int):
+        if not self.train_mode:
+            x = self.x.isel(basin=item).to_array().to_numpy().T
+            y = self.y.isel(basin=item).to_array().to_numpy().T
+            if self.c is None or self.c.shape[-1] == 0:
+                return torch.from_numpy(x).float(), torch.from_numpy(y).float()
+            c = self.c.iloc[item, :].values
+            c = np.tile(c, (x.shape[0], 1))
+            xc = np.concatenate((x, c), axis=1)
+            return torch.from_numpy(xc).float(), torch.from_numpy(y).float()
         basin, time = self.lookup_table[item]
         seq_length = self.seq_length
         x = (
@@ -139,6 +156,7 @@ class CamelsDataset(Dataset):
                 self.data_flow, list(self.data_flow.keys())
             )
         else:
+            # no normalization for streamflow in valid/test mode
             self.y = self.data_flow
         self.train_mode = train_mode
         self._create_lookup_table()
@@ -172,6 +190,34 @@ class CamelsDataset(Dataset):
         """revert the normalization for streaflow"""
         feature = feature * self.stds[variable] + self.means[variable]
         return feature
+
+
+class CamelsDataset4N2N(CamelsDataset):
+    def __init__(
+        self,
+        data_attr: xr.Dataset,
+        data_forcing: xr.Dataset,
+        data_flow: xr.Dataset,
+        basins: list,
+        seq_length: int,
+        loader_type: str = "train",
+        with_attributes: bool = True,
+    ):
+        super().__init__(
+            data_attr,
+            data_forcing,
+            data_flow,
+            basins,
+            seq_length,
+            loader_type,
+            with_attributes,
+        )
+
+    def __getitem__(self, item: int):
+        return super().__getitem__(item)
+
+    def __len__(self):
+        return super().__len__()
 
 
 def load_streamflow(ds_flow, ds_attr, basins, time_range):

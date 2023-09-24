@@ -1,0 +1,13 @@
+FROM ewatercycle/wflow-grpc4bmi
+MAINTAINER wangjingyi <1160527180@qq.com>
+
+# Install grpc4bmi
+RUN  pip install grpc4bmi==0.2.8
+
+# Set environment
+WORKDIR /home
+ENV BMI_MODULE=bmixaj
+ENV BMI_CLASS=Bmixaj
+ENV BMI_PORT=55555
+ENTRYPOINT ["run-bmi-server", "--name", "xaj.xaj_bmi.xajBmi", "--path", "/home/wangjingyi/code/hydro-model-xaj/xaj"]
+EXPOSE 55555

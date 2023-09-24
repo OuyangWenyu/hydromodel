@@ -11,3 +11,6 @@ tqdm
 pytest
 hydrodataset
 bmipy
+pyyaml
+requests
+spotpy

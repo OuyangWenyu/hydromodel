@@ -28,8 +28,8 @@ def test_session_division_new():
                                                 fluct_flow_Tr)
     beginning_flow_checked, end_flow_checked = step9_checks_on_flow_events(beginning_rain_checked, end_rain_checked, beginning_flow,
                                                                            end_flow, fluct_flow_Tr)
-    BEGINNING_RAIN, BEGINNING_FLOW, END_RAIN, END_FLOW = step10_checks_on_overlapping_events(beginning_flow_checked, end_flow_checked,
+    BEGINNING_RAIN, END_RAIN, BEGINNING_FLOW, END_FLOW = step10_checks_on_overlapping_events(beginning_flow_checked, end_flow_checked,
                                                                                            beginning_flow_checked,
                                                                                              end_flow_checked, time)
-    print(BEGINNING_RAIN, BEGINNING_FLOW, END_RAIN, END_FLOW)
-    print(len(BEGINNING_RAIN), len(BEGINNING_FLOW), len(END_RAIN), len(END_FLOW))
+    print(BEGINNING_RAIN, END_RAIN, BEGINNING_FLOW, END_FLOW)
+    print(len(BEGINNING_RAIN), len(END_RAIN), len(BEGINNING_FLOW), len(END_FLOW))

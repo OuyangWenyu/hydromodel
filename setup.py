@@ -3,12 +3,16 @@
 
 from setuptools import setup, find_packages
 
+with open("README.md") as readme_file:
+    readme = readme_file.read()
+
 setup(
     name="hydromodel_calibrate_base",  # 输入项目名称
     version="0.0.1",  # 输入版本号
     keywords=[""],  # 输入关键词
     description="",  # 输入概述
-    long_description="",  # 输入描述
+    long_description=readme,
+    long_description_content_type="text/markdown",
 
     url="https://github.com/iHeadWater/hydro-model-xaj",  # 输入项目Github仓库的链接
     author="iHeadWater",  # 输入作者名字

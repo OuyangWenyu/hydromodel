@@ -7,7 +7,7 @@ with open("README.md") as readme_file:
     readme = readme_file.read()
 
 setup(
-    name="hydromodel_calibrate_base",  # 输入项目名称
+    name="hydromodel",  # 输入项目名称
     version="0.0.1",  # 输入版本号
     keywords=[""],  # 输入关键词
     description="",  # 输入概述

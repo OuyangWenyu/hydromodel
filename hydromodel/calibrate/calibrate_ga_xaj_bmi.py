@@ -18,7 +18,7 @@ from hydromodel.utils import hydro_constant, hydro_utils
 from hydromodel.utils import stat
 from hydromodel.utils.stat import statRmse
 from hydromodel.visual.hydro_plot import plot_sim_and_obs, plot_train_iteration
-from xaj.xaj_bmi import xajBmi
+from hydromodel.models.xaj_bmi import xajBmi
 
 
 def evaluate(individual, x_input, y_true, warmup_length, model):

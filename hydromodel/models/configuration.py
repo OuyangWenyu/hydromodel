@@ -1,6 +1,6 @@
 import yaml
 import numpy as np
-from xaj.xajmodel import xaj_state as xaj_state
+from hydromodel.models.xaj import xaj_state as xaj_state
 
 
 def read_config(config_file):

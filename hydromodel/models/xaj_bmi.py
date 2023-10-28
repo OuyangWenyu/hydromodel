@@ -2,8 +2,8 @@ from typing import Tuple
 from bmipy import Bmi
 import numpy as np
 
-from xaj import configuration
-from xaj.xajmodel import xaj_route, xaj_runoff
+from hydromodel.models import configuration
+from hydromodel.models.xajmodel import xaj_route, xaj_runoff
 import datetime
 import logging
 
@@ -14,46 +14,62 @@ PRECISION = 1e-5
 
 class xajBmi(Bmi):
     """Empty model wrapped in a BMI interface."""
+
     name = "hydro-model-xaj"
     input_var_names = ("precipitation", "ETp")
     output_var_names = ("ET", "discharge")
-    var_units = {"precipitation": "mm/day", "ETp": "mm/day", "discharge": "mm/day", "ET": "mm/day"}
+    var_units = {
+        "precipitation": "mm/day",
+        "ETp": "mm/day",
+        "discharge": "mm/day",
+        "ET": "mm/day",
+    }
 
     def __init__(self):
-        """Create a BmiHeat model that is ready for initialization."""
+        """Create a Bmi model that is ready for initialization."""
         self.time_step = 0
 
     def initialize(self, config_file, params, p_and_e):
         try:
             logger.info("xaj: initialize_model")
             config = configuration.read_config(config_file)
-            model_name = config['model_name']
-            source_type = config['source_type']
-            source_book = config['source_book']
+            model_name = config["model_name"]
+            source_type = config["source_type"]
+            source_book = config["source_book"]
             # forcing_data = pd.read_csv(config['forcing_data'])
             model_info = {
-                'model_name': model_name,
-                'source_type': source_type,
-                'source_book': source_book,
-
+                "model_name": model_name,
+                "source_type": source_type,
+                "source_book": source_book,
             }
             # p_and_e_df, p_and_e = configuration.extract_forcing(forcing_data)
-            p_and_e_warmup = p_and_e[0:config['warmup_length'], :, :]
-            self.q_sim_state, self.es_state, self.w0, self.w1, self.w2, self.s0, self.fr0, self.qi0, self.qg0 = configuration.warmup(
-                p_and_e_warmup, params, config['warmup_length'], model_info)
+            p_and_e_warmup = p_and_e[0 : config["warmup_length"], :, :]
+            (
+                self.q_sim_state,
+                self.es_state,
+                self.w0,
+                self.w1,
+                self.w2,
+                self.s0,
+                self.fr0,
+                self.qi0,
+                self.qg0,
+            ) = configuration.warmup(
+                p_and_e_warmup, params, config["warmup_length"], model_info
+            )
 
             self.params = params
-            self.warmup_length = config['warmup_length']
-            self._start_time_str = config['start_time_str']
-            self._end_time_str = config['end_time_str']
-            self._time_units = config['time_units']
+            self.warmup_length = config["warmup_length"]
+            self._start_time_str = config["start_time_str"]
+            self._end_time_str = config["end_time_str"]
+            self._time_units = config["time_units"]
             # self.p_and_e_df = p_and_e_df
             self.p_and_e = p_and_e
             self.config = config
             self.model_info = model_info
 
-            train_period = config['train_period']
-            test_period = config['test_period']
+            train_period = config["train_period"]
+            test_period = config["test_period"]
             self.train_start_time_str = train_period[0]
             self.train_end_time_str = train_period[1]
             self.test_start_time_str = test_period[0]
@@ -61,6 +77,7 @@ class xajBmi(Bmi):
 
         except:
             import traceback
+
             traceback.print_exc()
             raise
 
@@ -68,28 +85,40 @@ class xajBmi(Bmi):
         """Update model for a single time step."""
 
         self.time_step += 1
-        p_and_e_sim = self.p_and_e[self.warmup_length:self.time_step + self.warmup_length]
+        p_and_e_sim = self.p_and_e[
+            self.warmup_length : self.time_step + self.warmup_length
+        ]
         # p_and_e_sim = self.p_and_e[0:self.time_step]
-        self.runoff_im, self.rss_, self.ris_, self.rgs_, self.es_runoff, self.rss = xaj_runoff(p_and_e_sim,
-                                                                                               w0=self.w0, s0=self.s0,
-                                                                                               fr0=self.fr0,
-                                                                                               params_runoff=self.params,
-                                                                                               return_state=False,
-                                                                                               model_info=self.model_info,
-                                                                                               )
+        (
+            self.runoff_im,
+            self.rss_,
+            self.ris_,
+            self.rgs_,
+            self.es_runoff,
+            self.rss,
+        ) = xaj_runoff(
+            p_and_e_sim,
+            w0=self.w0,
+            s0=self.s0,
+            fr0=self.fr0,
+            params_runoff=self.params,
+            return_state=False,
+            model_info=self.model_info,
+        )
         if self.time_step + self.warmup_length >= self.p_and_e.shape[0]:
-            q_sim, es = xaj_route(p_and_e_sim,
-                                  params_route=self.params,
-                                  model_info=self.model_info,
-                                  runoff_im=self.runoff_im,
-                                  rss_=self.rss_,
-                                  ris_=self.ris_,
-                                  rgs_=self.rgs_,
-                                  rss=self.rss,
-                                  qi0=self.qi0,
-                                  qg0=self.qg0,
-                                  es=self.es_runoff,
-                                  )
+            q_sim, es = xaj_route(
+                p_and_e_sim,
+                params_route=self.params,
+                model_info=self.model_info,
+                runoff_im=self.runoff_im,
+                rss_=self.rss_,
+                ris_=self.ris_,
+                rgs_=self.rgs_,
+                rss=self.rss,
+                qi0=self.qi0,
+                qg0=self.qg0,
+                es=self.es_runoff,
+            )
             self.p_sim = p_and_e_sim[:, :, 0]
             self.e_sim = p_and_e_sim[:, :, 1]
             # q_sim = convert_unit(
@@ -128,7 +157,7 @@ class xajBmi(Bmi):
         raise NotImplementedError()
 
     def get_var_type(self, name: str) -> str:
-        return 'float64'
+        return "float64"
 
     def get_var_units(self, name: str) -> str:
         return self.var_units[name]
@@ -143,26 +172,26 @@ class xajBmi(Bmi):
         raise NotImplementedError()
 
     def get_start_time(self, period):
-        if period == 'train':
+        if period == "train":
             return self.start_Time(self.train_start_time_str)
-        if period == 'test':
+        if period == "test":
             return self.start_Time(self.test_start_time_str)
         # return self.start_Time(self._start_time_str)
 
     def get_current_time(self):
         # return self.start_Time(self._start_time_str) + datetime.timedelta(self.time_step+self.warmup_length)
-        if self._time_units == 'hours':
+        if self._time_units == "hours":
             time_step = datetime.timedelta(hours=self.time_step)
-        elif self._time_units == 'days':
+        elif self._time_units == "days":
             time_step = datetime.timedelta(days=self.time_step)
         return self.start_Time(self._start_time_str) + time_step
 
     def get_end_time(self, period):
-        if period == 'train':
+        if period == "train":
             return self.end_Time(self.train_end_time_str)
-        if period == 'test':
+        if period == "test":
             return self.end_Time(self.test_end_time_str)
-        # return self.end_Time(self._end_time_str) 
+        # return self.end_Time(self._end_time_str)
 
     def get_time_units(self) -> str:
         return self._time_units
@@ -175,24 +204,20 @@ class xajBmi(Bmi):
         return self.get_value_ptr(name).flatten()
 
     def get_value_ptr(self, name: str) -> np.ndarray:
-        if name == 'discharge':
+        if name == "discharge":
             return self.q_sim
-        elif name == 'ET':
+        elif name == "ET":
             return self.es
 
-    def get_value_at_indices(
-            self, name: str, inds: np.ndarray
-    ) -> np.ndarray:
-
+    def get_value_at_indices(self, name: str, inds: np.ndarray) -> np.ndarray:
         return self.get_value_ptr(name).take(inds)
 
     def set_value(self, name: str, src: np.ndarray):
-
         val = self.get_value_ptr(name)
         val[:] = src.reshape(val.shape)
 
     def set_value_at_indices(
-            self, name: str, inds: np.ndarray, src: np.ndarray
+        self, name: str, inds: np.ndarray, src: np.ndarray
     ) -> None:
         val = self.get_value_ptr(name)
         val.flat[inds] = src
@@ -246,12 +271,11 @@ class xajBmi(Bmi):
         raise NotImplementedError()
 
     def get_grid_nodes_per_face(
-            self, grid: int, nodes_per_face: np.ndarray
+        self, grid: int, nodes_per_face: np.ndarray
     ) -> np.ndarray:
         raise NotImplementedError()
 
     def start_Time(self, _start_time_str):
-
         try:
             if " " in _start_time_str:
                 date, time = _start_time_str.split(" ")
@@ -263,18 +287,18 @@ class xajBmi(Bmi):
 
             if time:
                 hour, minute, second = time.split(":")
-                # self._startTime = self._startTime.replace(hour=int(hour),   
-                #                                       minute=int(minute),  
+                # self._startTime = self._startTime.replace(hour=int(hour),
+                #                                       minute=int(minute),
                 #                                       second=int(second))
-                self._startTime = datetime.datetime(int(year), int(month), int(day), int(hour), int(minute),
-                                                    int(second))
+                self._startTime = datetime.datetime(
+                    int(year), int(month), int(day), int(hour), int(minute), int(second)
+                )
         except ValueError:
             raise ValueError("Invalid start date format!")
 
         return self._startTime
 
     def end_Time(self, _end_time_str):
-
         try:
             if " " in _end_time_str:
                 date, time = _end_time_str.split(" ")
@@ -286,7 +310,9 @@ class xajBmi(Bmi):
 
             if time:
                 hour, minute, second = time.split(":")
-                self._endTime = datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), int(second))
+                self._endTime = datetime.datetime(
+                    int(year), int(month), int(day), int(hour), int(minute), int(second)
+                )
         except ValueError:
             raise ValueError("Invalid start date format!")
         return self._endTime

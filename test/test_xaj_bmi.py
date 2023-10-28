@@ -1,8 +1,8 @@
 import logging
 
 import definitions
-from xaj.configuration import read_config
-from xaj.xaj_bmi import xajBmi
+from hydromodel.models.configuration import read_config
+from hydromodel.models.xaj_bmi import xajBmi
 
 logging.basicConfig(level=logging.INFO)
 

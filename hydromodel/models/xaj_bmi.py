@@ -3,9 +3,10 @@ from bmipy import Bmi
 import numpy as np
 
 from hydromodel.models import configuration
-from hydromodel.models.xajmodel import xaj_route, xaj_runoff
 import datetime
 import logging
+
+from hydromodel.models.xaj import xaj_route, xaj_runoff
 
 logger = logging.getLogger(__name__)
 

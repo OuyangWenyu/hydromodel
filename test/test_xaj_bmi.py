@@ -3,9 +3,6 @@ import logging
 import definitions
 from hydromodel.models.configuration import read_config
 from hydromodel.models.xaj_bmi import xajBmi
-
-logging.basicConfig(level=logging.INFO)
-
 import pandas as pd
 import os
 from pathlib import Path
@@ -19,8 +16,8 @@ from hydromodel.data.data_preprocess import (
     cross_valid_data,
     split_train_test,
 )
-from xaj.calibrate_sceua_xaj_bmi import calibrate_by_sceua
-from xaj.calibrate_ga_xaj_bmi import (
+from hydromodel.calibrate.calibrate_sceua_xaj_bmi import calibrate_by_sceua
+from hydromodel.calibrate.calibrate_ga_xaj_bmi import (
     calibrate_by_ga,
     show_ga_result,
 )
@@ -34,9 +31,11 @@ from hydromodel.data.data_postprocess import (
 )
 from hydromodel.utils import hydro_constant
 
+logging.basicConfig(level=logging.INFO)
+
 
 def test_bmi():
-    '''
+    """
     model = xajBmi()
     print(model.get_component_name())
     model.initialize("runxaj.yaml")
@@ -64,23 +63,23 @@ def test_bmi():
                 })
     results.to_csv('/home/wangjingyi/code/hydro-model-xaj/scripts/xaj.csv')
     model.finalize()
-    '''
+    """
     # 模型率定
     config = read_config(os.path.relpath("runxaj.yaml"))
-    forcing_data = Path(str(definitions.ROOT_DIR) + str(config['forcing_data']))
-    train_period = config['train_period']
-    test_period = config['test_period']
+    forcing_data = Path(str(definitions.ROOT_DIR) + str(config["forcing_data"]))
+    train_period = config["train_period"]
+    test_period = config["test_period"]
     # period = config['period']
-    json_file = Path(str(definitions.ROOT_DIR) + str(config['json_file']))
-    npy_file = Path(str(definitions.ROOT_DIR) + str(config['npy_file']))
-    cv_fold = config['cv_fold']
-    warmup_length = config['warmup_length']
+    json_file = Path(str(definitions.ROOT_DIR) + str(config["json_file"]))
+    npy_file = Path(str(definitions.ROOT_DIR) + str(config["npy_file"]))
+    cv_fold = config["cv_fold"]
+    warmup_length = config["warmup_length"]
     # model_info
-    model_name = config['model_name']
-    source_type = config['source_type']
-    source_book = config['source_book']
+    model_name = config["model_name"]
+    source_type = config["source_type"]
+    source_book = config["source_book"]
     # algorithm
-    algorithm_name = config['algorithm_name']
+    algorithm_name = config["algorithm_name"]
 
     if not (cv_fold > 1):
         # no cross validation
@@ -93,7 +92,7 @@ def test_bmi():
         split_train_test(json_file, npy_file, train_period, test_period)
 
     kfold = [
-        int(f_name[len("data_info_fold"): -len("_test.json")])
+        int(f_name[len("data_info_fold") : -len("_test.json")])
         for f_name in os.listdir(os.path.dirname(forcing_data))
         if fnmatch.fnmatch(f_name, "*_fold*_test.json")
     ]
@@ -104,19 +103,21 @@ def test_bmi():
             os.path.dirname(forcing_data), f"data_info_fold{str(fold)}_train.json"
         )
         train_data_file = os.path.join(
-            os.path.dirname(forcing_data), f"basins_lump_p_pe_q_fold{str(fold)}_train.npy"
+            os.path.dirname(forcing_data),
+            f"basins_lump_p_pe_q_fold{str(fold)}_train.npy",
         )
         test_data_info_file = os.path.join(
             os.path.dirname(forcing_data), f"data_info_fold{str(fold)}_test.json"
         )
         test_data_file = os.path.join(
-            os.path.dirname(forcing_data), f"basins_lump_p_pe_q_fold{str(fold)}_test.npy"
+            os.path.dirname(forcing_data),
+            f"basins_lump_p_pe_q_fold{str(fold)}_test.npy",
         )
         if (
-                os.path.exists(train_data_info_file) is False
-                or os.path.exists(train_data_file) is False
-                or os.path.exists(test_data_info_file) is False
-                or os.path.exists(test_data_file) is False
+            os.path.exists(train_data_info_file) is False
+            or os.path.exists(train_data_file) is False
+            or os.path.exists(test_data_info_file) is False
+            or os.path.exists(test_data_file) is False
         ):
             raise FileNotFoundError(
                 "The data files are not found, please run datapreprocess4calibrate.py first."
@@ -127,14 +128,17 @@ def test_bmi():
         data_info_test = hydro_utils.unserialize_json_ordered(test_data_info_file)
         current_time = datetime.now().strftime("%b%d_%H-%M-%S")
         # one directory for one model + one hyperparam setting and one basin
-        save_dir = os.path.join(os.path.dirname(forcing_data), current_time + "_" + socket.gethostname() + "_fold" + str(fold))
+        save_dir = os.path.join(
+            os.path.dirname(forcing_data),
+            current_time + "_" + socket.gethostname() + "_fold" + str(fold),
+        )
         if algorithm_name == "SCE_UA":
-            random_seed = config['random_seed']
-            rep = config['rep']
-            ngs = config['ngs']
-            kstop = config['kstop']
-            peps = config['peps']
-            pcento = config['pcento']
+            random_seed = config["random_seed"]
+            rep = config["rep"]
+            ngs = config["ngs"]
+            kstop = config["kstop"]
+            peps = config["peps"]
+            pcento = config["pcento"]
             for i in range(len(data_info_train["basin"])):
                 basin_id = data_info_train["basin"][i]
                 basin_area = data_info_train["area"][i]
@@ -148,23 +152,23 @@ def test_bmi():
                     os.makedirs(spotpy_db_dir)
                 db_name = os.path.join(spotpy_db_dir, "SCEUA_" + model_name)
                 sampler = calibrate_by_sceua(
-                    data_train[:, i: i + 1, 0:2],
-                    data_train[:, i: i + 1, -1:],
+                    data_train[:, i : i + 1, 0:2],
+                    data_train[:, i : i + 1, -1:],
                     db_name,
                     warmup_length=warmup_length,
                     model={
-                        'name': model_name,
-                        'source_type': source_type,
-                        'source_book': source_book
+                        "name": model_name,
+                        "source_type": source_type,
+                        "source_book": source_book,
                     },
                     algorithm={
-                        'name': algorithm_name,
-                        'random_seed': random_seed,
-                        'rep': rep,
-                        'ngs': ngs,
-                        'kstop': kstop,
-                        'peps': peps,
-                        'pcento': pcento
+                        "name": algorithm_name,
+                        "random_seed": random_seed,
+                        "rep": rep,
+                        "ngs": ngs,
+                        "kstop": kstop,
+                        "peps": peps,
+                        "pcento": pcento,
                     },
                 )
 
@@ -182,7 +186,9 @@ def test_bmi():
                 )
 
                 model = xajBmi()
-                model.initialize(os.path.relpath("runxaj.yaml"), params, data_test[:, i: i + 1, 0:2])
+                model.initialize(
+                    os.path.relpath("runxaj.yaml"), params, data_test[:, i : i + 1, 0:2]
+                )
                 j = 0
                 while j <= len(data_info_test["time"]):
                     model.update()
@@ -197,7 +203,7 @@ def test_bmi():
                 )
 
                 qobs = hydro_constant.convert_unit(
-                    data_test[warmup_length:, i: i + 1, -1:],
+                    data_test[warmup_length:, i : i + 1, -1:],
                     unit_now="mm/day",
                     unit_final=hydro_constant.unit["streamflow"],
                     basin_area=basin_area,
@@ -219,12 +225,12 @@ def test_bmi():
                     basin_id, test_date, qsim, qobs, save_dir=spotpy_db_dir
                 )
         elif algorithm_name == "GA":
-            random_seed = config['random_seed']
-            run_counts = config['run_counts']
-            pop_num = config['pop_num']
-            cross_prob = config['cross_prob']
-            mut_prob = config['mut_prob']
-            save_freq = config['save_freq']
+            random_seed = config["random_seed"]
+            run_counts = config["run_counts"]
+            pop_num = config["pop_num"]
+            cross_prob = config["cross_prob"]
+            mut_prob = config["mut_prob"]
+            save_freq = config["save_freq"]
             for i in range(len(data_info_train["basin"])):
                 basin_id = data_info_train["basin"][i]
                 basin_area = data_info_train["area"][i]
@@ -234,36 +240,36 @@ def test_bmi():
                 if not os.path.exists(deap_db_dir):
                     os.makedirs(deap_db_dir)
                 calibrate_by_ga(
-                    data_train[:, i: i + 1, 0:2],
-                    data_train[:, i: i + 1, -1:],
+                    data_train[:, i : i + 1, 0:2],
+                    data_train[:, i : i + 1, -1:],
                     deap_db_dir,
                     warmup_length=warmup_length,
                     model={
-                        'name': model_name,
-                        'source_type': source_type,
-                        'source_book': source_book
+                        "name": model_name,
+                        "source_type": source_type,
+                        "source_book": source_book,
                     },
                     ga_param={
-                        'name': algorithm_name,
-                        'random_seed': random_seed,
-                        'run_counts': run_counts,
-                        'pop_num': pop_num,
-                        'cross_prob': cross_prob,
-                        'mut_prob': mut_prob,
-                        'save_freq': save_freq
+                        "name": algorithm_name,
+                        "random_seed": random_seed,
+                        "run_counts": run_counts,
+                        "pop_num": pop_num,
+                        "cross_prob": cross_prob,
+                        "mut_prob": mut_prob,
+                        "save_freq": save_freq,
                     },
                 )
                 show_ga_result(
                     deap_db_dir,
                     warmup_length=warmup_length,
                     basin_id=basin_id,
-                    the_data=data_train[:, i: i + 1, :],
+                    the_data=data_train[:, i : i + 1, :],
                     the_period=data_info_train["time"],
                     basin_area=basin_area,
                     model_info={
-                        'name': model_name,
-                        'source_type': source_type,
-                        'source_book': source_book
+                        "name": model_name,
+                        "source_type": source_type,
+                        "source_book": source_book,
                     },
                     train_mode=True,
                 )
@@ -271,13 +277,13 @@ def test_bmi():
                     deap_db_dir,
                     warmup_length=warmup_length,
                     basin_id=basin_id,
-                    the_data=data_test[:, i: i + 1, :],
+                    the_data=data_test[:, i : i + 1, :],
                     the_period=data_info_test["time"],
                     basin_area=basin_area,
                     model_info={
-                        'name': model_name,
-                        'source_type': source_type,
-                        'source_book': source_book
+                        "name": model_name,
+                        "source_type": source_type,
+                        "source_book": source_book,
                     },
                     train_mode=False,
                 )
@@ -285,24 +291,37 @@ def test_bmi():
             raise NotImplementedError(
                 "We don't provide this calibrate method! Choose from 'SCE_UA' or 'GA'!"
             )
-        summarize_parameters(save_dir, model_info={
-            'name': model_name,
-            'source_type': source_type,
-            'source_book': source_book
-        })
-        renormalize_params(save_dir, model_info={
-            'name': model_name,
-            'source_type': source_type,
-            'source_book': source_book
-        })
-        summarize_metrics(save_dir, model_info={
-            'name': model_name,
-            'source_type': source_type,
-            'source_book': source_book
-        })
-        save_streamflow(save_dir, model_info={
-            'name': model_name,
-            'source_type': source_type,
-            'source_book': source_book,
-        }, fold=fold)
+        summarize_parameters(
+            save_dir,
+            model_info={
+                "name": model_name,
+                "source_type": source_type,
+                "source_book": source_book,
+            },
+        )
+        renormalize_params(
+            save_dir,
+            model_info={
+                "name": model_name,
+                "source_type": source_type,
+                "source_book": source_book,
+            },
+        )
+        summarize_metrics(
+            save_dir,
+            model_info={
+                "name": model_name,
+                "source_type": source_type,
+                "source_book": source_book,
+            },
+        )
+        save_streamflow(
+            save_dir,
+            model_info={
+                "name": model_name,
+                "source_type": source_type,
+                "source_book": source_book,
+            },
+            fold=fold,
+        )
         print(f"Finish calibrating the {fold}-th fold")

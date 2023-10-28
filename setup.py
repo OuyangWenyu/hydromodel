@@ -1,11 +1,16 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-
+"""
+Author: Wenyu Ouyang
+Date: 2023-10-28 09:16:46
+LastEditTime: 2023-10-28 09:27:22
+LastEditors: Wenyu Ouyang
+Description: setup.py for hydromodel package
+FilePath: \hydro-model-xaj\setup.py
+Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
+"""
+import pathlib
 from setuptools import setup, find_packages
 
-with open("README.md") as readme_file:
-    readme = readme_file.read()
-
+readme = pathlib.Path("README.md").read_text()
 setup(
     name="hydromodel",  # 输入项目名称
     version="0.0.1",  # 输入版本号
@@ -21,5 +26,5 @@ setup(
     include_package_data=True,
     platforms="any",
     install_requires=[""],  # 输入项目所用的包
-    python_requires='>= 3.6 ',  # Python版本要求
+    python_requires=">= 3.7 ",  # Python版本要求
 )

@@ -76,7 +76,7 @@ class xajBmi(Bmi):
             self.test_start_time_str = test_period[0]
             self.test_end_time_str = test_period[1]
 
-        except:
+        except Exception:
             import traceback
 
             traceback.print_exc()
@@ -294,8 +294,8 @@ class xajBmi(Bmi):
                 self._startTime = datetime.datetime(
                     int(year), int(month), int(day), int(hour), int(minute), int(second)
                 )
-        except ValueError:
-            raise ValueError("Invalid start date format!")
+        except ValueError as e:
+            raise ValueError("Invalid start date format!") from e
 
         return self._startTime
 
@@ -314,6 +314,6 @@ class xajBmi(Bmi):
                 self._endTime = datetime.datetime(
                     int(year), int(month), int(day), int(hour), int(minute), int(second)
                 )
-        except ValueError:
-            raise ValueError("Invalid start date format!")
+        except ValueError as e:
+            raise ValueError("Invalid start date format!") from e
         return self._endTime

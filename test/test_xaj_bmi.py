@@ -81,14 +81,13 @@ def test_bmi():
     # algorithm
     algorithm_name = config["algorithm_name"]
 
-    if not (cv_fold > 1):
+    if cv_fold <= 1:
         # no cross validation
         periods = np.sort(
             [train_period[0], train_period[1], test_period[0], test_period[1]]
         )
-    if cv_fold > 1:
-        cross_valid_data(json_file, npy_file, periods, warmup_length, cv_fold)
     else:
+        cross_valid_data(json_file, npy_file, periods, warmup_length, cv_fold)
         split_train_test(json_file, npy_file, train_period, test_period)
 
     kfold = [

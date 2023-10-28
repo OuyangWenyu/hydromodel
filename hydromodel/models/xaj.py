@@ -900,14 +900,6 @@ def xaj_runoff(
     source_book = kwargs.get("source_book", "HF")
     # params
     param_ranges = MODEL_PARAM_DICT[model_name]["param_range"]
-    if model_name == "xaj":
-        route_method = "CSL"
-    elif model_name == "xaj_mz":
-        route_method = "MZ"
-    else:
-        raise NotImplementedError(
-            "We don't provide this route method now! Please use 'CS' or 'MZ'!"
-        )
     xaj_params = [
         (value[1] - value[0]) * params_runoff[:, i] + value[0]
         for i, (key, value) in enumerate(param_ranges.items())
@@ -991,8 +983,6 @@ def xaj_route(
     **kwargs,
 ) -> Union[tuple, np.array]:
     model_name = kwargs.get("name", "xaj")
-    source_type = kwargs.get("source_type", "sources")
-    source_book = kwargs.get("source_book", "HF")
     # params
     param_ranges = MODEL_PARAM_DICT[model_name]["param_range"]
     if model_name == "xaj":
@@ -1007,20 +997,6 @@ def xaj_route(
         (value[1] - value[0]) * params_route[:, i] + value[0]
         for i, (key, value) in enumerate(param_ranges.items())
     ]
-    k = xaj_params[0]
-    b = xaj_params[1]
-    im = xaj_params[2]
-    um = xaj_params[3]
-    lm = xaj_params[4]
-    dm = xaj_params[5]
-    c = xaj_params[6]
-    sm = xaj_params[7]
-    ex = xaj_params[8]
-    ki_ = xaj_params[9]
-    kg_ = xaj_params[10]
-    # ki+kg should be smaller than 1; if not, we scale them
-    ki = np.where(ki_ + kg_ < 1.0, ki_, (1.0 - PRECISION) / (ki_ + kg_) * ki_)
-    kg = np.where(ki_ + kg_ < 1.0, kg_, (1.0 - PRECISION) / (ki_ + kg_) * kg_)
     if route_method == "CSL":
         cs = xaj_params[11]
         l = xaj_params[12]
@@ -1140,17 +1116,6 @@ def xaj_state(
     ci = xaj_params[13]
     cg = xaj_params[14]
 
-    # initialize state values
-    # if warmup_length > 0:
-    #     p_and_e_warmup = p_and_e[0:warmup_length, :, :]
-    #     _q, _e, *w0, s0, fr0, qi0, qg0 = xaj_state(
-    #         p_and_e_warmup,
-    #         params,
-    #         return_state=True,
-    #         warmup_length=0,
-    #         **kwargs,
-    #     )
-    # else:
     w0 = (0.5 * um, 0.5 * lm, 0.5 * dm)
     s0 = 0.5 * sm
     fr0 = np.full(ex.shape, 0.1)

@@ -1,11 +1,10 @@
-python=3.10
 ipykernel
 numpy
 numba
 pandas
 scikit-learn
 deap
-spotpy=1.5.14
+spotpy==1.5.14
 seaborn
 tqdm
 pytest
@@ -13,4 +12,3 @@ hydrodataset
 bmipy
 pyyaml
 requests
-spotpy

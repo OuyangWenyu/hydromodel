@@ -13,9 +13,18 @@ dependencies:
   - spotpy=1.5.14
   - seaborn
   - tqdm
+  - yaml
+  - bmipy
+  # for dev 
   - sphinx
   - pytest
   - black
+  - flake8
+  # pip
   - pip
   - pip:
+    - setuptools
+    - wheel
+    - twine
+    - bump2version
     - hydrodataset

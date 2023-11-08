@@ -13,7 +13,8 @@ dependencies:
   - spotpy=1.5.14
   - seaborn
   - tqdm
-  - pytest
+  - yaml
+  - bmipy
   - pip
   - pip:
     - hydrodataset

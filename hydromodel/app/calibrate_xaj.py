@@ -9,11 +9,11 @@ import os
 import sys
 from pathlib import Path
 
+from hydroutils import hydro_file
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
 from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua
-from hydromodel.utils import hydro_utils
 from hydromodel.data.data_postprocess import (
     renormalize_params,
     read_save_sceua_calibrated_params,
@@ -21,10 +21,10 @@ from hydromodel.data.data_postprocess import (
     summarize_metrics,
     summarize_parameters,
 )
-from hydromodel.visual.pyspot_plots import show_calibrate_result, show_test_result
+from hydromodel.utils.plots import show_calibrate_result, show_test_result
 from hydromodel.models.xaj import xaj
 from hydromodel.calibrate.calibrate_ga import calibrate_by_ga, show_ga_result
-from hydromodel.utils import hydro_constant
+from hydromodel.utils import units
 
 
 def calibrate(args):
@@ -63,10 +63,10 @@ def calibrate(args):
             raise FileNotFoundError(
                 "The data files are not found, please run datapreprocess4calibrate.py first."
             )
-        data_train = hydro_utils.unserialize_numpy(train_data_file)
-        data_test = hydro_utils.unserialize_numpy(test_data_file)
-        data_info_train = hydro_utils.unserialize_json_ordered(train_data_info_file)
-        data_info_test = hydro_utils.unserialize_json_ordered(test_data_info_file)
+        data_train = hydro_file.unserialize_numpy(train_data_file)
+        data_test = hydro_file.unserialize_numpy(test_data_file)
+        data_info_train = hydro_file.unserialize_json_ordered(train_data_info_file)
+        data_info_test = hydro_file.unserialize_json_ordered(test_data_info_file)
         current_time = datetime.now().strftime("%b%d_%H-%M-%S")
         save_dir = os.path.join(
             data_dir,
@@ -80,7 +80,7 @@ def calibrate(args):
         )
         if os.path.exists(save_dir) is False:
             os.makedirs(save_dir)
-        hydro_utils.serialize_json(vars(args), os.path.join(save_dir, "args.json"))
+        hydro_file.serialize_json(vars(args), os.path.join(save_dir, "args.json"))
         if algo_info["name"] == "SCE_UA":
             for i in range(len(data_info_train["basin"])):
                 basin_id = data_info_train["basin"][i]
@@ -123,16 +123,16 @@ def calibrate(args):
                     **model_info,
                 )
 
-                qsim = hydro_constant.convert_unit(
+                qsim = units.convert_unit(
                     qsim,
                     unit_now="mm/day",
-                    unit_final=hydro_constant.unit["streamflow"],
+                    unit_final=units.unit["streamflow"],
                     basin_area=basin_area,
                 )
-                qobs = hydro_constant.convert_unit(
+                qobs = units.convert_unit(
                     data_test[warmup:, i : i + 1, -1:],
                     unit_now="mm/day",
-                    unit_final=hydro_constant.unit["streamflow"],
+                    unit_final=units.unit["streamflow"],
                     basin_area=basin_area,
                 )
                 test_result_file = os.path.join(

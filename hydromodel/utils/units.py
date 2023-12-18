@@ -1,14 +1,17 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-12-08 09:24:54
-LastEditTime: 2022-12-08 09:51:54
+LastEditTime: 2023-12-17 20:37:42
 LastEditors: Wenyu Ouyang
-Description: some constant for hydro model
+Description: some util funcs for hydro model
 FilePath: /hydro-model-xaj/hydromodel/utils/hydro_constant.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
+
 # unify the unit of each variable
 unit = {"streamflow": "m3/s"}
+
+
 def convert_unit(data, unit_now, unit_final, **kwargs):
     """
     convert unit of variable

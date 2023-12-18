@@ -1,20 +1,68 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-12-08 11:21:22
+LastEditTime: 2023-12-17 21:11:58
 LastEditors: Wenyu Ouyang
 Description: Plots for calibration and testing results
-FilePath: \hydro-model-xaj\hydromodel\visual\pyspot_plots.py
+FilePath: \\hydro-model-xaj\\hydromodel\\utils\\plots.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
-import spotpy
+
 from matplotlib import pyplot as plt
+import spotpy
 import pandas as pd
 import os
 import numpy as np
-from hydromodel.utils import hydro_constant, stat
-from hydromodel.utils import hydro_utils
-from hydromodel.visual.hydro_plot import plot_sim_and_obs, plot_train_iteration
+
+from hydroutils import hydro_file, hydro_stat
+
+from hydromodel.utils import units
+
+
+def plot_sim_and_obs(
+    date,
+    sim,
+    obs,
+    save_fig,
+    xlabel="Date",
+    ylabel="Streamflow(" + units.unit["streamflow"] + ")",
+):
+    # matplotlib.use("Agg")
+    fig = plt.figure(figsize=(9, 6))
+    ax = fig.subplots()
+    ax.plot(
+        date,
+        sim,
+        color="black",
+        linestyle="solid",
+        label="Simulation",
+    )
+    ax.plot(
+        date,
+        obs,
+        "r.",
+        markersize=3,
+        label="Observation",
+    )
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    plt.legend(loc="upper right")
+    plt.tight_layout()
+    plt.savefig(save_fig, bbox_inches="tight")
+    # plt.cla()
+    plt.close()
+
+
+def plot_train_iteration(likelihood, save_fig):
+    # matplotlib.use("Agg")
+    fig = plt.figure(figsize=(9, 6))
+    ax = fig.subplots()
+    ax.plot(likelihood)
+    ax.set_ylabel("RMSE")
+    ax.set_xlabel("Iteration")
+    plt.savefig(save_fig, bbox_inches="tight")
+    # plt.cla()
+    plt.close()
 
 
 def show_calibrate_result(
@@ -65,16 +113,16 @@ def show_calibrate_result(
     # Filter results for simulation results
     fields = [word for word in best_model_run.dtype.names if word.startswith("sim")]
     best_simulation = list(best_model_run[fields])
-    convert_unit_sim = hydro_constant.convert_unit(
+    convert_unit_sim = units.convert_unit(
         np.array(best_simulation).reshape(1, -1),
         result_unit,
-        hydro_constant.unit["streamflow"],
+        units.unit["streamflow"],
         basin_area=basin_area,
     )
-    convert_unit_obs = hydro_constant.convert_unit(
+    convert_unit_obs = units.convert_unit(
         np.array(spot_setup.evaluation()).reshape(1, -1),
         result_unit,
-        hydro_constant.unit["streamflow"],
+        units.unit["streamflow"],
         basin_area=basin_area,
     )
     # save calibrated results of calibration period
@@ -89,12 +137,12 @@ def show_calibrate_result(
         header=False,
     )
     # calculation rmse、nashsutcliffe and bias for training period
-    stat_error = stat.statError(
+    stat_error = hydro_stat.stat_error(
         convert_unit_obs,
         convert_unit_sim,
     )
     print("Training Metrics:", basin_id, stat_error)
-    hydro_utils.serialize_json_np(
+    hydro_file.serialize_json_np(
         stat_error, os.path.join(save_dir, "train_metrics.json")
     )
     t_range_train = pd.to_datetime(train_period[warmup_length:]).values.astype(
@@ -105,9 +153,9 @@ def show_calibrate_result(
 
 
 def show_test_result(basin_id, test_date, qsim, obs, save_dir):
-    stat_error = stat.statError(obs.reshape(1, -1), qsim.reshape(1, -1))
+    stat_error = hydro_stat.stat_error(obs.reshape(1, -1), qsim.reshape(1, -1))
     print("Test Metrics:", basin_id, stat_error)
-    hydro_utils.serialize_json_np(
+    hydro_file.serialize_json_np(
         stat_error, os.path.join(save_dir, "test_metrics.json")
     )
     save_fig = os.path.join(save_dir, "test_results.png")

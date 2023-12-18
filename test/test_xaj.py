@@ -4,12 +4,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydroutils import hydro_time
+
 import definitions
 from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua
 from hydromodel.calibrate.calibrate_ga import calibrate_by_ga
 from hydromodel.data.data_postprocess import read_save_sceua_calibrated_params
-from hydromodel.utils import hydro_constant, hydro_utils
-from hydromodel.visual.pyspot_plots import show_calibrate_result, show_test_result
+from hydromodel.utils import units
+from hydromodel.utils.plots import show_calibrate_result, show_test_result
 from hydromodel.models.xaj import xaj, uh_gamma, uh_conv
 
 
@@ -198,7 +200,7 @@ def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length, db_name, basi
             "pcento": 0.1,
         },
     )
-    train_period = hydro_utils.t_range_days(["2012-01-01", "2017-01-01"])
+    train_period = hydro_time.t_range_days(["2012-01-01", "2017-01-01"])
     show_calibrate_result(
         sampler.setup,
         db_name,
@@ -221,19 +223,19 @@ def test_show_test_result(p_and_e, qobs, warmup_length, db_name, basin_area):
         source_book="HF",
     )
 
-    qsim = hydro_constant.convert_unit(
+    qsim = units.convert_unit(
         qsim,
         unit_now="mm/day",
-        unit_final=hydro_constant.unit["streamflow"],
+        unit_final=units.unit["streamflow"],
         basin_area=basin_area,
     )
-    qobs = hydro_constant.convert_unit(
+    qobs = units.convert_unit(
         qobs[warmup_length:, :, :],
         unit_now="mm/day",
-        unit_final=hydro_constant.unit["streamflow"],
+        unit_final=units.unit["streamflow"],
         basin_area=basin_area,
     )
-    test_period = hydro_utils.t_range_days(["2012-01-01", "2017-01-01"])
+    test_period = hydro_time.t_range_days(["2012-01-01", "2017-01-01"])
     show_test_result(
         "basin_id", test_period[warmup_length:], qsim, qobs, save_dir=db_name
     )

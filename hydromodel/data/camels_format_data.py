@@ -1,12 +1,13 @@
 import collections
-import hydrodataset
-from hydrodataset import hydro_utils
 import os
 from typing import Union
 import pandas as pd
 import numpy as np
 from pandas.core.dtypes.common import is_string_dtype, is_numeric_dtype
 from tqdm import tqdm
+
+from hydroutils import hydro_time
+import hydrodataset
 
 
 class MyCamels(hydrodataset.Camels):
@@ -176,7 +177,7 @@ class MyCamels(hydrodataset.Camels):
             return np.array([])
         else:
             nf = len(target_cols)
-        t_range_list = hydro_utils.t_range_days(t_range)
+        t_range_list = hydro_time.t_range_days(t_range)
         nt = t_range_list.shape[0]
         y = np.full([len(gage_id_lst), nt, nf], np.nan)
         for j in tqdm(range(len(target_cols)), desc="Read Q/SSM/ET data of CAMELS-CC"):
@@ -215,8 +216,8 @@ class MyCamels(hydrodataset.Camels):
                         )
                     else:
                         final_date = date[-1] + np.timedelta64(8, "D")
-                    date_all = hydro_utils.t_range_days(
-                        hydro_utils.t_days_lst2range([date[0], final_date])
+                    date_all = hydro_time.t_range_days(
+                        hydro_time.t_days_lst2range([date[0], final_date])
                     )
                     t_range_final = np.intersect1d(date_all, t_range_list)
                     [_, ind3, ind4] = np.intersect1d(
@@ -291,7 +292,7 @@ class MyCamels(hydrodataset.Camels):
         np.array
             forcing data
         """
-        t_range_list = hydro_utils.t_range_days(t_range)
+        t_range_list = hydro_time.t_range_days(t_range)
         nt = t_range_list.shape[0]
         x = np.full([len(gage_id_lst), nt, len(var_lst)], np.nan)
         for k in tqdm(range(len(gage_id_lst)), desc="Read forcing data of CAMELS-CC"):
@@ -384,7 +385,7 @@ class MyCamels(hydrodataset.Camels):
         else:
             return out
 
-    def read_basin_area(self, object_ids) -> np.array:
+    def read_area(self, object_ids) -> np.array:
         return self.read_constant_cols(object_ids, ["Area"], is_return_dict=False)
 
     def read_mean_prep(self, object_ids) -> np.array:

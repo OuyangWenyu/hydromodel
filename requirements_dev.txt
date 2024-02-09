@@ -1,0 +1,24 @@
+pip
+bump2version
+wheel
+watchdog
+flake8
+tox
+coverage
+Sphinx
+twine
+
+pytest
+black
+
+# for hydromodel
+numpy
+numba
+pandas
+scikit-learn
+deap
+spotpy==1.5.14
+seaborn
+tqdm
+hydrodataset
+hydroutils

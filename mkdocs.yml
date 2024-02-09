@@ -1,8 +1,8 @@
-site_name: hydromodel
+site_name: hydro-model-xaj
 site_description: Hydromodel is a python implementation for common hydrological models such as the XinAnJiang (XAJ) model, which is one of the most famous conceptual hydrological models, especially in Southern China.
 site_author: OuyangWenyu
-site_url: https://OuyangWenyu.github.io/hydromodel
-repo_url: https://github.com/OuyangWenyu/hydromodel
+site_url: https://OuyangWenyu.github.io/hydro-model-xaj
+repo_url: https://github.com/OuyangWenyu/hydro-model-xaj
 
 copyright: "Copyright &copy; 2023 - 2023 Wenyu Ouyang"
 
@@ -78,7 +78,7 @@ nav:
     - Contributing: contributing.md
     - FAQ: faq.md
     - Changelog: changelog.md
-    - Report Issues: https://github.com/OuyangWenyu/hydromodel/issues
+    - Report Issues: https://github.com/OuyangWenyu/hydro-model-xaj/issues
     - Examples:
         - examples/intro.ipynb
     - API Reference:

@@ -1,3 +1,5 @@
+black
+black[jupyter]
 pip
 bump2version
 wheel
@@ -9,7 +11,7 @@ Sphinx
 twine
 
 pytest
-black
+pytest-runner
 
 # for hydromodel
 numpy

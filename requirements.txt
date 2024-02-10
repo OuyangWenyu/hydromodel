@@ -1,0 +1,14 @@
+ipykernel
+numpy
+numba
+pandas
+scikit-learn
+deap
+spotpy==1.5.14
+seaborn
+tqdm
+pytest
+hydrodataset
+bmipy
+pyyaml
+requests

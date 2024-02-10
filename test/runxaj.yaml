@@ -1,0 +1,46 @@
+# xaj model configuration
+# The current model runs on the daily time step
+  start_time_str: "1990-01-01"
+  end_time_str: "2009-12-31"
+  time_units: "days"
+  # The current model runs on the hourly time step
+  # basin_area: "66400"
+  # start_time_str: "2021-06-01 00:00:00"
+  # end_time_str: "2021-08-31 23:00:00"
+  # time_units: "hours"
+# initial condition
+  forcing_data: "/hydromodel/example/01013500_lump_p_pe_q.txt"
+  json_file: "/hydromodel/example/data_info.json"
+  npy_file: "/hydromodel/example/basins_lump_p_pe_q.npy"
+  # forcing_file: "/home/wangjingyi/code/hydro-model-xaj/scripts/尼尔基降雨.csv" 
+  warmup_length: 360
+  basin_area: 2252.7
+
+
+  train_period: ["1990-01-01", "2000-12-31"]
+  test_period: ["2001-01-01", "2009-12-31"]
+  period: ["1990-01-01", "2009-12-31"]
+  cv_fold: 1
+  algorithm: "SCE_UA"
+
+#model_info
+  model_name: "xaj_mz"
+  source_type: "sources"
+  source_book: "HF" 
+
+#algorithm_SCE_UA
+  # algorithm_name: "SCE_UA"
+  # random_seed: 1234
+  # rep: 2
+  # ngs: 2
+  # kstop: 1
+  # peps: 0.001
+  # pcento: 0.001
+#algorithm_GA
+  algorithm_name: "GA"
+  random_seed: 1234
+  run_counts: 3
+  pop_num: 50
+  cross_prob: 0.5
+  mut_prob: 0.5
+  save_freq: 1

@@ -11,7 +11,9 @@ import fnmatch
 import socket
 from datetime import datetime
 
-from hydromodel.utils import hydro_utils
+from hydroutils import hydro_file
+
+from hydromodel.utils import units
 from hydromodel.data.data_preprocess import (
     cross_valid_data,
     split_train_test,
@@ -21,7 +23,7 @@ from hydromodel.calibrate.calibrate_ga_xaj_bmi import (
     calibrate_by_ga,
     show_ga_result,
 )
-from hydromodel.visual.pyspot_plots import show_calibrate_result, show_test_result
+from hydromodel.utils.plots import show_calibrate_result, show_test_result
 from hydromodel.data.data_postprocess import (
     renormalize_params,
     read_save_sceua_calibrated_params,
@@ -29,7 +31,6 @@ from hydromodel.data.data_postprocess import (
     summarize_metrics,
     summarize_parameters,
 )
-from hydromodel.utils import hydro_constant
 
 logging.basicConfig(level=logging.INFO)
 
@@ -121,10 +122,10 @@ def test_bmi():
             raise FileNotFoundError(
                 "The data files are not found, please run datapreprocess4calibrate.py first."
             )
-        data_train = hydro_utils.unserialize_numpy(train_data_file)
-        data_test = hydro_utils.unserialize_numpy(test_data_file)
-        data_info_train = hydro_utils.unserialize_json_ordered(train_data_info_file)
-        data_info_test = hydro_utils.unserialize_json_ordered(test_data_info_file)
+        data_train = hydro_file.unserialize_numpy(train_data_file)
+        data_test = hydro_file.unserialize_numpy(test_data_file)
+        data_info_train = hydro_file.unserialize_json_ordered(train_data_info_file)
+        data_info_test = hydro_file.unserialize_json_ordered(test_data_info_file)
         current_time = datetime.now().strftime("%b%d_%H-%M-%S")
         # one directory for one model + one hyperparam setting and one basin
         save_dir = os.path.join(
@@ -194,17 +195,17 @@ def test_bmi():
                     j += 1
                 q_sim = model.get_value("discharge")
 
-                qsim = hydro_constant.convert_unit(
+                qsim = units.convert_unit(
                     q_sim,
                     unit_now="mm/day",
-                    unit_final=hydro_constant.unit["streamflow"],
+                    unit_final=units.unit["streamflow"],
                     basin_area=basin_area,
                 )
 
-                qobs = hydro_constant.convert_unit(
+                qobs = units.convert_unit(
                     data_test[warmup_length:, i : i + 1, -1:],
                     unit_now="mm/day",
-                    unit_final=hydro_constant.unit["streamflow"],
+                    unit_final=units.unit["streamflow"],
                     basin_area=basin_area,
                 )
                 test_result_file = os.path.join(

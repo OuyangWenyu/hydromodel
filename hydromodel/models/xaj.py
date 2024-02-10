@@ -1,6 +1,13 @@
 """
-Core code for XinAnJiang model
+Author: Wenyu Ouyang
+Date: 2021-12-10 23:01:02
+LastEditTime: 2024-02-10 11:51:35
+LastEditors: Wenyu Ouyang
+Description: Core code for XinAnJiang model
+FilePath: /hydro-model-xaj/hydromodel/models/xaj.py
+Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
+
 import logging
 from typing import Union
 import numpy as np
@@ -691,6 +698,14 @@ def uh_gamma(a, theta, len_uh=15):
     w = 1 / denominator * (t ** (aa - 1)) * (np.exp(-t / theta))
     w = w / w.sum(0)  # scale to 1 for each UH
     return w
+
+
+def xaj_runoff():
+    pass
+
+
+def xaj_route():
+    pass
 
 
 def xaj(

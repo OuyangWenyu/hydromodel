@@ -11,7 +11,7 @@ from pathlib import Path
 
 from hydroutils import hydro_file
 
-sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
+sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
 import definitions
 from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua
 from hydromodel.data.data_postprocess import (

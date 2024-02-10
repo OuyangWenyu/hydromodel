@@ -1,0 +1,70 @@
+model_params:
+  model_name: LSTMLinear
+  model_param:
+    input_size: 20
+    hidden_size: 10
+    output_size: 1
+    num_layers: 2
+    dropout_rate: 0.0
+data_params:
+  data_source_name: CAMELS
+  object_ids: ["01013500", "01022500"]
+  # closed interval
+  t_range_train:
+    - '1990-09-01'
+    - '2000-08-31'
+  t_range_valid:
+    - '2000-09-01'
+    - '2005-08-31'
+  t_range_test:
+    - '2005-09-01'
+    - '2010-08-31'
+  warmup_length: 0
+  target_cols:
+    - usgsFlow
+  target_rm_nan: false
+  target_as_input: false
+  relevant_types:
+    - daymet
+  relevant_cols:
+    - dayl
+    - prcp
+    - srad
+    - tmax
+    - tmin
+    - vp
+  constant_cols:
+    - p_mean
+    - p_seasonality
+    - frac_snow
+    - aridity
+    - geol_porostiy
+    - geol_permeability
+    - soil_depth_statsgo
+    - soil_porosity
+    - soil_conductivity
+    - elev_mean
+    - slope_mean
+    - area_gages2
+    - frac_forest
+    - lai_max
+  constant_only: false
+training_params:
+  dataset: CamelsDataset
+  batch_first: true
+  seq_length: 100
+  loss_func: MSELoss
+  optimizer: Adam
+  optim_params:
+    lr: 0.001
+  train_epoch: 2
+  batch_size: 32
+  val_batch_size: 32
+  random_seed: 1234
+  device:
+    - 0
+  num_workers: 0
+evaluate_params:
+  metrics:
+    - NSE
+  test_epoch: 2

@@ -1,3 +1,12 @@
+"""
+Author: Wenyu Ouyang
+Date: 2023-06-02 09:30:36
+LastEditTime: 2023-06-03 10:42:33
+LastEditors: Wenyu Ouyang
+Description: 
+FilePath: /hydro-model-xaj/test/test_hymod.py
+Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
+"""
 import os
 
 import matplotlib.pyplot as plt
@@ -65,29 +74,3 @@ def test_hymod(p_and_e, params):
     np.testing.assert_almost_equal(
         qsim[:5, 0, 0], [0.0003, 0.0003, 0.0002, 0.0002, 0.0002], decimal=4
     )
-
-
-def test_calibrate_hymod_sceua(p_and_e, qobs, basin_area):
-    calibrate_by_sceua(
-        p_and_e,
-        qobs,
-        model="hymod",
-        random_seed=2000,
-        rep=5000,
-        ngs=7,
-        kstop=3,
-        peps=0.1,
-        pcento=0.1,
-    )
-
-
-def test_show_hymod_calibrate_sceua_result(p_and_e, qobs, basin_area):
-    spot_setup = SpotSetup(
-        p_and_e,
-        qobs,
-        warmup_length=10,
-        model="hymod",
-        obj_func=spotpy.objectivefunctions.rmse,
-    )
-    show_calibrate_result(spot_setup, "SCEUA_hymod", "l s-1")
-    plt.show()

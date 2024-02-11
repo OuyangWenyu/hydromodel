@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2023-10-28 09:23:22
-LastEditTime: 2024-02-10 11:17:37
+LastEditTime: 2024-02-11 23:53:20
 LastEditors: Wenyu Ouyang
 Description: Test for rainfall-runoff event identification
 FilePath: \hydro-model-xaj\test\test_rr_event_iden.py
@@ -11,87 +11,28 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 import os
 import pandas as pd
 import definitions
-from hydromodel.utils.dmca_esr import (
-    step1_step2_tr_and_fluctuations_timeseries,
-    step3_core_identification,
-    step4_end_rain_events,
-    step5_beginning_rain_events,
-    step6_checks_on_rain_events,
-    step7_end_flow_events,
-    step8_beginning_flow_events,
-    step9_checks_on_flow_events,
-    step10_checks_on_overlapping_events,
-)
+from hydromodel.utils.dmca_esr import rainfall_runoff_event_identify
 
 
 def test_rainfall_runoff_event_identify():
     rain = pd.read_csv(
-        os.path.join(definitions.ROOT_DIR, "hydromodel/example/division_rain.csv")
-    )["rain"]
+        os.path.join(
+            definitions.ROOT_DIR, "hydromodel", "example", "daily_rainfall_27071.txt"
+        ),
+        header=None,
+        sep="\\s+",
+    )
     flow = pd.read_csv(
-        os.path.join(definitions.ROOT_DIR, "hydromodel/example/division_flow.csv")
-    )["flow"]
-    time = rain.index.to_numpy()
-    rain = rain.to_numpy() / 24
-    flow = flow.to_numpy() / 24
-    rain_min = 0.02
-    max_window = 100
-    (
-        Tr,
-        fluct_rain_Tr,
-        fluct_flow_Tr,
-        fluct_bivariate_Tr,
-    ) = step1_step2_tr_and_fluctuations_timeseries(rain, flow, rain_min, max_window)
-    beginning_core, end_core = step3_core_identification(fluct_bivariate_Tr)
-    end_rain = step4_end_rain_events(
-        beginning_core, end_core, rain, fluct_rain_Tr, rain_min
+        os.path.join(
+            definitions.ROOT_DIR, "hydromodel", "example", "daily_flow_27071.txt"
+        ),
+        header=None,
+        sep="\\s+",
     )
-    beginning_rain = step5_beginning_rain_events(
-        beginning_core, end_rain, rain, fluct_rain_Tr, rain_min
+    BEGINNING_RAIN, END_RAIN, BEGINNING_FLOW, END_FLOW = rainfall_runoff_event_identify(
+        rain.iloc[:, -1], flow.iloc[:, -1]
     )
-    (
-        beginning_rain_checked,
-        end_rain_checked,
-        beginning_core,
-        end_core,
-    ) = step6_checks_on_rain_events(
-        beginning_rain, end_rain, rain, rain_min, beginning_core, end_core
-    )
-    end_flow = step7_end_flow_events(
-        end_rain_checked,
-        beginning_core,
-        end_core,
-        rain,
-        fluct_rain_Tr,
-        fluct_flow_Tr,
-        Tr,
-    )
-    beginning_flow = step8_beginning_flow_events(
-        beginning_rain_checked,
-        end_rain_checked,
-        rain,
-        beginning_core,
-        fluct_rain_Tr,
-        fluct_flow_Tr,
-    )
-    beginning_flow_checked, end_flow_checked = step9_checks_on_flow_events(
-        beginning_rain_checked,
-        end_rain_checked,
-        beginning_flow,
-        end_flow,
-        fluct_flow_Tr,
-    )
-    (
-        BEGINNING_RAIN,
-        END_RAIN,
-        BEGINNING_FLOW,
-        END_FLOW,
-    ) = step10_checks_on_overlapping_events(
-        beginning_rain_checked,
-        end_rain_checked,
-        beginning_flow_checked,
-        end_flow_checked,
-        time,
-    )
-    print(BEGINNING_RAIN, END_RAIN, BEGINNING_FLOW, END_FLOW)
-    print(len(BEGINNING_RAIN), len(END_RAIN), len(BEGINNING_FLOW), len(END_FLOW))
+    assert BEGINNING_RAIN == 0
+    assert END_RAIN == 1
+    assert BEGINNING_FLOW == 0
+    assert END_FLOW == 1

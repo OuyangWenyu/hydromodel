@@ -14,8 +14,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydroutils import hydro_file
+
 import definitions
-from hydromodel.utils import hydro_utils
 
 
 @pytest.fixture()
@@ -49,7 +50,7 @@ def test_save_data(txt_file, json_file, npy_file):
             "variable": variables,
         }
     )
-    hydro_utils.serialize_json(data_info, json_file)
+    hydro_file.serialize_json(data_info, json_file)
     # 1 ft3 = 0.02831685 m3
     ft3tom3 = 2.831685e-2
     # 1 km2 = 10^6 m2
@@ -68,11 +69,11 @@ def test_save_data(txt_file, json_file, npy_file):
         * daytos
     )
     df = data[variables]
-    hydro_utils.serialize_numpy(np.expand_dims(df.values, axis=1), npy_file)
+    hydro_file.serialize_numpy(np.expand_dims(df.values, axis=1), npy_file)
 
 
 def test_load_data(txt_file, npy_file):
     data_ = pd.read_csv(txt_file)
     df = data_[["prcp(mm/day)", "petfao56(mm/day)"]]
-    data = hydro_utils.unserialize_numpy(npy_file)[:, :, :2]
+    data = hydro_file.unserialize_numpy(npy_file)[:, :, :2]
     np.testing.assert_array_equal(data, np.expand_dims(df.values, axis=1))

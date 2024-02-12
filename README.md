@@ -1,11 +1,20 @@
-# hydro-model-xaj
+# hydromodel
 
-## What is hydro-model-xaj
+[![image](https://img.shields.io/pypi/v/hydromodel.svg)](https://pypi.python.org/pypi/hydromodel)
+[![image](https://img.shields.io/conda/vn/conda-forge/hydromodel.svg)](https://anaconda.org/conda-forge/hydromodel)
 
-Hydro-model-xaj is a python implementation for the XinAnJiang (XAJ) model, which is one of the most famous conceptual hydrological models, especially in Southern China.
+[![image](https://pyup.io/repos/github/OuyangWenyu/hydromodel/shield.svg)](https://pyup.io/repos/github/OuyangWenyu/hydromodel)
 
-**Not an official version, just for learning** (Because the objective condition of authors engineering level and urgent time,
-errors may exist)
+-   Free software: GNU General Public License v3
+-   Documentation: https://OuyangWenyu.github.io/hydromodel
+
+## What is hydromodel
+
+**Hydromodel is a python implementation for common hydrological models such as the XinAnJiang (XAJ) model, which is one of the most famous conceptual hydrological models, especially in Southern China.**
+
+An additional feature of hydro-model-xaj is that it provides a differentiable version of XAJ, which means it can be nested in deep-learning algorithms. More information could be found in the following "What are the main features" part.
+
+**Not an official version, just for learning**
 
 ## How to run
 
@@ -34,6 +43,12 @@ $ conda env create -f environment.yml
 # $ mamba env create -f environment.yml
 # activate it
 $ conda activate xaj
+```
+
+If you want to run notebooks in your jupyter notebook, please install jupyter kenel in your jupyter lab:
+
+```Shell
+$ python -m ipykernel install --user --name xaj --display-name "xaj"
 ```
 
 ### Prepare data
@@ -162,6 +177,10 @@ needed, and it is not implemented yet. The following links may be useful:
 
 - https://github.com/ecoon/watershed-workflow
 - https://github.com/ConnectedSystems/Streamfall.jl
+
+**NOTE: We also provide a differentiable version of XAJ, which is based on the [PyTorch](https://pytorch.org/) framework.**
+
+The idea comes from this paper: [From calibration to parameter learning: Harnessing the scaling effects of big data in geoscientific modeling](http://dx.doi.org/10.1038/s41467-021-26107-z) by Tsai et al. (2021). We use the same structure as the original XAJ model but replace the original Numpy code with PyTorch. Then we can use the automatic differentiation technique and stochastic gradient descent algorithms to optimize all parameters. The advantage of this method is that we can use the same code to optimize many basins at once and use big data to improve the model performance. Generally, with the native parallel computing ability of PyTorch, the differentiable version is faster than the original version without any parallel processing. The differentiable version is also in the `models` directory.
 
 Other implementations for XAJ:
 

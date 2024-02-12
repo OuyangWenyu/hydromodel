@@ -1,4 +1,12 @@
-"""Calibrate XAJ model using DEAP"""
+"""
+Author: Wenyu Ouyang
+Date: 2021-12-10 23:01:02
+LastEditTime: 2023-12-17 21:10:45
+LastEditors: Wenyu Ouyang
+Description: Calibrate XAJ model using DEAP
+FilePath: \hydro-model-xaj\hydromodel\calibrate\calibrate_ga.py
+Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
+"""
 import os
 import pickle
 from deap import base, creator
@@ -10,17 +18,17 @@ from tqdm import tqdm
 import sys
 from pathlib import Path
 
+from hydroutils import hydro_file, hydro_stat
+
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
 from hydromodel.models.model_config import MODEL_PARAM_DICT
-from hydromodel.utils import hydro_constant, hydro_utils
-from hydromodel.utils import stat
-from hydromodel.utils.stat import statRmse
+from hydromodel.utils import units
+from hydromodel.utils.plots import plot_sim_and_obs, plot_train_iteration
 from hydromodel.models.gr4j import gr4j
 from hydromodel.models.hymod import hymod
 from hydromodel.models.xaj import xaj
-from hydromodel.visual.hydro_plot import plot_sim_and_obs, plot_train_iteration
 
 
 def evaluate(individual, x_input, y_true, warmup_length, model):
@@ -58,7 +66,8 @@ def evaluate(individual, x_input, y_true, warmup_length, model):
         sim = hymod(x_input, params, warmup_length=warmup_length, **model)
     else:
         raise NotImplementedError("We don't provide this model now")
-    rmses = statRmse(y_true[warmup_length:, :, :], sim)
+    # Calculate RMSE for multi-dim arrays
+    rmses = np.sqrt(np.nanmean((sim - y_true[warmup_length:, :, :]) ** 2, axis=0))
     rmse = rmses.mean(axis=0)
     # print(f"-----------------RMSE: {str(rmse)}------------------------")
     return rmse
@@ -291,16 +300,16 @@ def show_ga_result(
         warmup_length=warmup_length,
         **model_info,
     )
-    convert_unit_sim = hydro_constant.convert_unit(
+    convert_unit_sim = units.convert_unit(
         np.array(best_simulation).reshape(1, -1),
         result_unit,
-        hydro_constant.unit["streamflow"],
+        units.unit["streamflow"],
         basin_area=basin_area,
     )
-    convert_unit_obs = hydro_constant.convert_unit(
+    convert_unit_obs = units.convert_unit(
         np.array(the_data[warmup_length:, :, -1:]).reshape(1, -1),
         result_unit,
-        hydro_constant.unit["streamflow"],
+        units.unit["streamflow"],
         basin_area=basin_area,
     )
     # save calibrated results of calibration period
@@ -315,12 +324,12 @@ def show_ga_result(
         header=False,
     )
     # calculation rmse、nashsutcliffe and bias for training period
-    stat_error = stat.statError(
+    stat_error = hydro_stat.stat_error(
         convert_unit_obs,
         convert_unit_sim,
     )
     print(f"{train_test_flag}ing metrics:", basin_id, stat_error)
-    hydro_utils.serialize_json_np(
+    hydro_file.serialize_json_np(
         stat_error, os.path.join(deap_dir, f"{train_test_flag}_metrics.json")
     )
     t_range = pd.to_datetime(the_period[warmup_length:]).values.astype("datetime64[D]")
@@ -354,8 +363,8 @@ if __name__ == "__main__":
     )
     train_data_info_file = os.path.join(data_dir, "data_info_fold0_train.json")
     train_data_file = os.path.join(data_dir, "basins_lump_p_pe_q_fold0_train.npy")
-    data_train = hydro_utils.unserialize_numpy(train_data_file)
-    data_info_train = hydro_utils.unserialize_json_ordered(train_data_info_file)
+    data_train = hydro_file.unserialize_numpy(train_data_file)
+    data_info_train = hydro_file.unserialize_json_ordered(train_data_info_file)
     model_info = {
         "name": "xaj_mz",
         "source_type": "sources",

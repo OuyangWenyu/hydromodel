@@ -2,11 +2,9 @@ on:
     push:
         branches:
             - master
-            - dev
     pull_request:
         branches:
             - master
-            - dev
 
 name: Linux build
 jobs:
@@ -17,7 +15,6 @@ jobs:
             fail-fast: false
             matrix:
                 config:
-                    - { os: ubuntu-latest, py: "3.8" }
                     - { os: ubuntu-latest, py: "3.9" }
                     - { os: ubuntu-latest, py: "3.10" }
                     - { os: ubuntu-latest, py: "3.11" }

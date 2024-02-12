@@ -6,10 +6,10 @@ import spotpy
 from pathlib import Path
 import sys
 
+from hydroutils import hydro_file
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
-from hydromodel.utils import hydro_utils
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.xaj import xaj
 
@@ -132,8 +132,8 @@ def summarize_metrics(result_dir, model_info: dict):
         basin_ids.append(basin_id)
         train_metric_file = os.path.join(basin_dir, "train_metrics.json")
         test_metric_file = os.path.join(basin_dir, "test_metrics.json")
-        train_metric = hydro_utils.unserialize_json(train_metric_file)
-        test_metric = hydro_utils.unserialize_json(test_metric_file)
+        train_metric = hydro_file.unserialize_json(train_metric_file)
+        test_metric = hydro_file.unserialize_json(test_metric_file)
 
         for key, value in train_metric.items():
             train_metrics[key] = value if count == 0 else train_metrics[key] + value
@@ -176,11 +176,11 @@ def save_streamflow(result_dir, model_info: dict, fold: int):
     streamflow_dfs_test.columns = basin_ids
     streamflow_dfs_train.columns = basin_ids
     test_info_file = path.parent.joinpath("data_info_fold" + str(fold) + "_test.json")
-    test_info = hydro_utils.unserialize_json(test_info_file)
+    test_info = hydro_file.unserialize_json(test_info_file)
     date_test = test_info["time"][-streamflow_dfs_test.shape[0] :]
     streamflow_dfs_test.index = date_test
     train_info_file = path.parent.joinpath("data_info_fold" + str(fold) + "_train.json")
-    train_info = hydro_utils.unserialize_json(train_info_file)
+    train_info = hydro_file.unserialize_json(train_info_file)
     date_train = train_info["time"][-streamflow_dfs_train.shape[0] :]
     streamflow_dfs_train.index = date_train
     eva_csv_file_test = os.path.join(result_dir, "basin_qsim_test.csv")
@@ -194,14 +194,14 @@ def read_and_save_et_ouputs(result_dir, fold: int):
     param_values = pd.read_csv(prameter_file, index_col=0)
     basins_id = param_values.columns.values
     args_file = os.path.join(result_dir, "args.json")
-    args = hydro_utils.unserialize_json(args_file)
+    args = hydro_file.unserialize_json(args_file)
     warmup_length = args["warmup_length"]
     model_func_param = args["model"]
     exp_dir = pathlib.Path(result_dir).parent
-    data_info_train = hydro_utils.unserialize_json(
+    data_info_train = hydro_file.unserialize_json(
         exp_dir.joinpath(f"data_info_fold{fold}_train.json")
     )
-    data_info_test = hydro_utils.unserialize_json(
+    data_info_test = hydro_file.unserialize_json(
         exp_dir.joinpath(f"data_info_fold{fold}_test.json")
     )
     train_period = data_info_train["time"]

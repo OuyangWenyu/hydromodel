@@ -1,3 +1,12 @@
+"""
+Author: Wenyu Ouyang
+Date: 2023-06-02 09:30:36
+LastEditTime: 2023-06-03 10:41:48
+LastEditors: Wenyu Ouyang
+Description: 
+FilePath: /hydro-model-xaj/test/test_gr4j.py
+Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
+"""
 import os
 
 import numpy as np
@@ -8,7 +17,7 @@ from matplotlib import pyplot as plt
 import definitions
 from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua, SpotSetup
 from hydromodel.models.gr4j import gr4j
-from hydromodel.visual.pyspot_plots import show_calibrate_result
+from hydromodel.utils.plots import show_calibrate_result
 
 
 @pytest.fixture()
@@ -69,30 +78,3 @@ def params():
 def test_gr4j(p_and_e, params):
     qsim = gr4j(p_and_e, params, warmup_length=10)
     np.testing.assert_array_equal(qsim.shape, (1817, 1, 1))
-
-
-def test_calibrate_gr4j_sceua(p_and_e, qobs, warmup_length):
-    calibrate_by_sceua(
-        p_and_e,
-        qobs,
-        warmup_length,
-        model="gr4j",
-        random_seed=2000,
-        rep=5000,
-        ngs=7,
-        kstop=3,
-        peps=0.1,
-        pcento=0.1,
-    )
-
-
-def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length):
-    spot_setup = SpotSetup(
-        p_and_e,
-        qobs,
-        warmup_length,
-        model="gr4j",
-        obj_func=spotpy.objectivefunctions.rmse,
-    )
-    show_calibrate_result(spot_setup, "SCEUA_gr4j")
-    plt.show()

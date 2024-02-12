@@ -11,14 +11,15 @@ from deap import base, creator
 from deap import tools
 from tqdm import tqdm
 
+import HydroErr as he
+from hydroutils import hydro_stat, hydro_file
+
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
 from hydromodel.models.model_config import MODEL_PARAM_DICT
-from hydromodel.utils import hydro_constant, hydro_utils
-from hydromodel.utils import stat
-from hydromodel.utils.stat import statRmse
-from hydromodel.visual.hydro_plot import plot_sim_and_obs, plot_train_iteration
+from hydromodel.utils.plots import plot_sim_and_obs, plot_train_iteration
 from hydromodel.models.xaj_bmi import xajBmi
+from hydromodel.utils import units
 
 
 def evaluate(individual, x_input, y_true, warmup_length, model):
@@ -50,8 +51,8 @@ def evaluate(individual, x_input, y_true, warmup_length, model):
         # xaj model's output include streamflow and evaporation now,
         # but now we only calibrate the model with streamflow
         model = xajBmi()
-        model.initialize(os.path.relpath('runxaj.yaml'), params, x_input)
-        while model.get_current_time() <= model.get_end_time('train'):
+        model.initialize(os.path.relpath("runxaj.yaml"), params, x_input)
+        while model.get_current_time() <= model.get_end_time("train"):
             model.update()
         sim = model.get_value("discharge")
         sim = np.expand_dims(sim, 0)
@@ -59,7 +60,7 @@ def evaluate(individual, x_input, y_true, warmup_length, model):
         sim = np.transpose(sim, [2, 1, 0])
     else:
         raise NotImplementedError("We don't provide this model now")
-    rmses = statRmse(y_true[warmup_length:, :, :], sim)
+    rmses = he.rmse(y_true[warmup_length:, :, :], sim)
     rmse = rmses.mean(axis=0)
     # print(f"-----------------RMSE: {str(rmse)}------------------------")
     return rmse
@@ -103,7 +104,7 @@ MAX = 1
 
 
 def calibrate_by_ga(
-        input_data, observed_output, deap_dir, warmup_length=30, model=None, ga_param=None
+    input_data, observed_output, deap_dir, warmup_length=30, model=None, ga_param=None
 ):
     """
     Use GA algorithm to find optimal parameters for hydrologic models
@@ -230,8 +231,8 @@ def calibrate_by_ga(
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = map(toolbox.evaluate, invalid_ind)
         for ind, fit in tqdm(
-                zip(invalid_ind, fitnesses),
-                desc=f"{str(gen + 1)} generation fitness calculating",
+            zip(invalid_ind, fitnesses),
+            desc=f"{str(gen + 1)} generation fitness calculating",
         ):
             ind.fitness.values = fit
 
@@ -256,7 +257,7 @@ def calibrate_by_ga(
             )
 
             with open(
-                    os.path.join(deap_dir, f"epoch{str(gen + 1)}.pkl"), "wb"
+                os.path.join(deap_dir, f"epoch{str(gen + 1)}.pkl"), "wb"
             ) as cp_file:
                 pickle.dump(cp, cp_file)
             print(f"Files of generation {gen} saved.")
@@ -265,15 +266,15 @@ def calibrate_by_ga(
 
 
 def show_ga_result(
-        deap_dir,
-        warmup_length,
-        basin_id,
-        the_data,
-        the_period,
-        basin_area,
-        model_info,
-        result_unit="mm/day",
-        train_mode=True,
+    deap_dir,
+    warmup_length,
+    basin_id,
+    the_data,
+    the_period,
+    basin_area,
+    model_info,
+    result_unit="mm/day",
+    train_mode=True,
 ):
     """
     show the result of GA
@@ -290,22 +291,24 @@ def show_ga_result(
     train_test_flag = "train" if train_mode else "test"
 
     model = xajBmi()
-    model.initialize("runxaj.yaml", np.array(list(halloffame[0])).reshape(1, -1), the_data[:, :, 0:2])
-    while model.get_current_time() <= model.get_end_time('train'):
+    model.initialize(
+        "runxaj.yaml", np.array(list(halloffame[0])).reshape(1, -1), the_data[:, :, 0:2]
+    )
+    while model.get_current_time() <= model.get_end_time("train"):
         model.update()
     best_simulation = model.get_value("discharge")
 
-    convert_unit_sim = hydro_constant.convert_unit(
+    convert_unit_sim = units.convert_unit(
         np.array(best_simulation).reshape(1, -1),
         # best_simulation,
         result_unit,
-        hydro_constant.unit["streamflow"],
+        units.unit["streamflow"],
         basin_area=basin_area,
     )
-    convert_unit_obs = hydro_constant.convert_unit(
+    convert_unit_obs = units.convert_unit(
         np.array(the_data[warmup_length:, :, -1:]).reshape(1, -1),
         result_unit,
-        hydro_constant.unit["streamflow"],
+        units.unit["streamflow"],
         basin_area=basin_area,
     )
     # save calibrated results of calibration period
@@ -320,12 +323,12 @@ def show_ga_result(
         header=False,
     )
     # calculation rmse、nashsutcliffe and bias for training period
-    stat_error = stat.statError(
+    stat_error = hydro_stat.stat_error(
         convert_unit_obs,
         convert_unit_sim,
     )
     print(f"{train_test_flag}ing metrics:", basin_id, stat_error)
-    hydro_utils.serialize_json_np(
+    hydro_file.serialize_json_np(
         stat_error, os.path.join(deap_dir, f"{train_test_flag}_metrics.json")
     )
     t_range = pd.to_datetime(the_period[warmup_length:]).values.astype("datetime64[D]")
@@ -359,8 +362,8 @@ if __name__ == "__main__":
     )
     train_data_info_file = os.path.join(data_dir, "data_info_fold0_train.json")
     train_data_file = os.path.join(data_dir, "basins_lump_p_pe_q_fold0_train.npy")
-    data_train = hydro_utils.unserialize_numpy(train_data_file)
-    data_info_train = hydro_utils.unserialize_json_ordered(train_data_info_file)
+    data_train = hydro_file.unserialize_numpy(train_data_file)
+    data_info_train = hydro_file.unserialize_json_ordered(train_data_info_file)
     model_info = {
         "name": "xaj_mz",
         "source_type": "sources",

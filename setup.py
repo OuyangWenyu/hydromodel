@@ -2,10 +2,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2023-10-28 09:16:46
-LastEditTime: 2023-10-28 17:36:12
+LastEditTime: 2024-02-12 16:16:19
 LastEditors: Wenyu Ouyang
 Description: The setup script
-FilePath: \hydro-model-xaj\setup.py
+FilePath: \hydromodel\setup.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 import io
@@ -65,7 +65,7 @@ setup(
     setup_requires=setup_requirements,
     test_suite="tests",
     tests_require=test_requirements,
-    url="https://github.com/iHeadWater/hydro-model-xaj",
+    url="https://github.com/iHeadWater/hydromodel",
     version="0.0.2",
     zip_safe=False,
 )

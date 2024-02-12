@@ -15,9 +15,10 @@ import os
 from pathlib import Path
 from collections import OrderedDict
 
-sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import hydrodataset
-from hydromodel.utils import hydro_utils
+from hydroutils import hydro_time, hydro_file
+
+sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 from hydromodel.data import camels_format_data
 
 
@@ -80,7 +81,7 @@ def trans_camels_format_to_xaj_format(
     # generally streamflow's unit is m3/s, we transform it to mm/day
     # basin areas also should be saved,
     # we will use it to transform streamflow's unit to m3/s after we finished predicting
-    basin_area = camels.read_basin_area(basin_ids)
+    basin_area = camels.read_area(basin_ids)
     # 1 km2 = 10^6 m2
     km2tom2 = 1e6
     # 1 m = 1000 mm
@@ -90,7 +91,7 @@ def trans_camels_format_to_xaj_format(
     temparea = np.tile(basin_area, (1, q.shape[1]))
     q = np.expand_dims(q[:, :, 0] / (temparea * km2tom2) * mtomm * daytos, axis=2)
 
-    date_lst = [str(t)[:10] for t in hydro_utils.t_range_days(t_range)]
+    date_lst = [str(t)[:10] for t in hydro_time.t_range_days(t_range)]
     data_info = OrderedDict(
         {
             "time": date_lst,
@@ -99,8 +100,8 @@ def trans_camels_format_to_xaj_format(
             "area": basin_area.flatten().tolist(),
         }
     )
-    hydro_utils.serialize_json(data_info, json_file)
-    hydro_utils.serialize_numpy(
+    hydro_file.serialize_json(data_info, json_file)
+    hydro_file.serialize_numpy(
         np.swapaxes(np.concatenate((p_pet, q), axis=2), 0, 1), npy_file
     )
 
@@ -124,16 +125,16 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     -------
     None
     """
-    data = hydro_utils.unserialize_numpy(npy_file)
-    data_info = hydro_utils.unserialize_json(json_file)
+    data = hydro_file.unserialize_numpy(npy_file)
+    data_info = hydro_file.unserialize_json(json_file)
     date_lst = pd.to_datetime(data_info["time"]).values.astype("datetime64[D]")
-    t_range_train = hydro_utils.t_range_days(train_period)
-    t_range_test = hydro_utils.t_range_days(test_period)
+    t_range_train = hydro_time.t_range_days(train_period)
+    t_range_test = hydro_time.t_range_days(test_period)
     _, ind1, ind2 = np.intersect1d(date_lst, t_range_train, return_indices=True)
     _, ind3, ind4 = np.intersect1d(date_lst, t_range_test, return_indices=True)
     data_info_train = OrderedDict(
         {
-            "time": [str(t)[:10] for t in hydro_utils.t_range_days(train_period)],
+            "time": [str(t)[:10] for t in hydro_time.t_range_days(train_period)],
             "basin": data_info["basin"],
             "variable": data_info["variable"],
             "area": data_info["area"],
@@ -141,7 +142,7 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     )
     data_info_test = OrderedDict(
         {
-            "time": [str(t)[:10] for t in hydro_utils.t_range_days(test_period)],
+            "time": [str(t)[:10] for t in hydro_time.t_range_days(test_period)],
             "basin": data_info["basin"],
             "variable": data_info["variable"],
             "area": data_info["area"],
@@ -150,12 +151,12 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     # unify it with cross validation case, so we add a 'fold0'
     train_json_file = json_file.parent.joinpath(json_file.stem + "_fold0_train.json")
     train_npy_file = json_file.parent.joinpath(npy_file.stem + "_fold0_train.npy")
-    hydro_utils.serialize_json(data_info_train, train_json_file)
-    hydro_utils.serialize_numpy(data[ind1, :, :], train_npy_file)
+    hydro_file.serialize_json(data_info_train, train_json_file)
+    hydro_file.serialize_numpy(data[ind1, :, :], train_npy_file)
     test_json_file = json_file.parent.joinpath(json_file.stem + "_fold0_test.json")
     test_npy_file = json_file.parent.joinpath(npy_file.stem + "_fold0_test.npy")
-    hydro_utils.serialize_json(data_info_test, test_json_file)
-    hydro_utils.serialize_numpy(data[ind3, :, :], test_npy_file)
+    hydro_file.serialize_json(data_info_test, test_json_file)
+    hydro_file.serialize_numpy(data[ind3, :, :], test_npy_file)
 
 
 def cross_valid_data(json_file, npy_file, period, warmup, cv_fold, time_unit="D"):
@@ -179,8 +180,8 @@ def cross_valid_data(json_file, npy_file, period, warmup, cv_fold, time_unit="D"
     -------
     None
     """
-    data = hydro_utils.unserialize_numpy(npy_file)
-    data_info = hydro_utils.unserialize_json(json_file)
+    data = hydro_file.unserialize_numpy(npy_file)
+    data_info = hydro_file.unserialize_json(json_file)
     date_lst = pd.to_datetime(data_info["time"]).values.astype("datetime64[D]")
     date_wo_warmup = date_lst[warmup:]
     kf = KFold(n_splits=cv_fold, shuffle=False)
@@ -223,13 +224,13 @@ def cross_valid_data(json_file, npy_file, period, warmup, cv_fold, time_unit="D"
         train_npy_file = json_file.parent.joinpath(
             npy_file.stem + "_fold" + str(i) + "_train.npy"
         )
-        hydro_utils.serialize_json(data_info_train, train_json_file)
-        hydro_utils.serialize_numpy(data[ind1, :, :], train_npy_file)
+        hydro_file.serialize_json(data_info_train, train_json_file)
+        hydro_file.serialize_numpy(data[ind1, :, :], train_npy_file)
         test_json_file = json_file.parent.joinpath(
             json_file.stem + "_fold" + str(i) + "_test.json"
         )
         test_npy_file = json_file.parent.joinpath(
             npy_file.stem + "_fold" + str(i) + "_test.npy"
         )
-        hydro_utils.serialize_json(data_info_test, test_json_file)
-        hydro_utils.serialize_numpy(data[ind3, :, :], test_npy_file)
+        hydro_file.serialize_json(data_info_test, test_json_file)
+        hydro_file.serialize_numpy(data[ind3, :, :], test_npy_file)

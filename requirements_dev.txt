@@ -12,3 +12,15 @@ twine
 
 pytest
 pytest-runner
+
+# for hydromodel
+numpy
+numba
+pandas
+scikit-learn
+deap
+spotpy==1.5.14
+seaborn
+tqdm
+hydrodataset
+hydroutils

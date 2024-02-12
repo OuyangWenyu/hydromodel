@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2023-10-28 09:23:22
-LastEditTime: 2024-02-11 23:53:20
+LastEditTime: 2024-02-12 16:17:26
 LastEditors: Wenyu Ouyang
 Description: Test for rainfall-runoff event identification
-FilePath: \hydro-model-xaj\test\test_rr_event_iden.py
+FilePath: \hydromodel\test\test_rr_event_iden.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 

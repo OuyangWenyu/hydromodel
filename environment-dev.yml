@@ -14,6 +14,9 @@ dependencies:
   - spotpy=1.5.14
   - seaborn
   - tqdm
+  - yaml
+  - bmipy
+  # for dev 
   - pyarrow
   - hydroerr
   - xarray
@@ -25,8 +28,14 @@ dependencies:
   - sphinx
   - pytest
   - black
+  - flake8
+  # pip
   - pip
   - pip:
+    - setuptools
+    - wheel
+    - twine
+    - bump2version
     - hydrodataset
     # config for deep learning
     - hydra-core

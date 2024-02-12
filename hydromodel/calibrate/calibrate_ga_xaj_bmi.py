@@ -1,5 +1,4 @@
 """Calibrate XAJ model using DEAP"""
-
 import os
 import pickle
 import random

@@ -1,6 +1,7 @@
 from typing import Union
 import numpy as np
 import spotpy
+import pandas as pd
 from spotpy.parameter import Uniform, ParameterSet
 from spotpy.objectivefunctions import rmse
 from hydromodel.models.model_config import MODEL_PARAM_DICT
@@ -14,7 +15,7 @@ class SpotSetup(object):
         self,
         p_and_e,
         qobs,
-        warmup_length=30,
+        warmup_length=365,
         model={
             "name": "xaj_mz",
             "source_type": "sources",
@@ -127,24 +128,53 @@ class SpotSetup(object):
         float
             likelihood
         """
-        # SPOTPY expects to get one or multiple values back,
-        # that define the performance of the model run
+        #切片
+    #    time = pd.read_excel('/home/ldaning/code/biye/hydro-model-xaj/hydromodel/example/zhandian/洪水率定时间1.xlsx')
+     #     calibrate_starttime = pd.to_datetime("2014-7-10 0:00")
+     #     calibrate_endtime = pd.to_datetime("2020-6-24 0:00")
+     #     total = 0
+     #     count = 0 
+     #     for i in range(len(time)):
+      #        if(time.iloc[i,0]<calibrate_endtime):
+      #            start_num = (time.iloc[i,0]-calibrate_starttime-pd.Timedelta(hours=365))/pd.Timedelta(hours=1)   
+       #           end_num = (time.iloc[i,1]-calibrate_starttime-pd.Timedelta(hours=365))/pd.Timedelta(hours=1)
+       #           start_num = int(start_num)
+       #           end_num = int(end_num)
+       #           if not self.obj_func:
+        #      # This is used if not overwritten by user
+         #             like_ = rmse(evaluation[start_num:end_num,], simulation[start_num:end_num,])
+          #            total += like_
+          #            count += 1
+                    
+          #        else:
+                    # Way to ensure flexible spot setup class
+            #          like_ = self.obj_func(evaluation[start_num:end_num,], simulation[start_num:end_num,])
+            #          total += like_
+             #         count += 1
+                    
+      #    like=total/count
+       #   return like
         if not self.obj_func:
-            # This is used if not overwritten by user
-            like = rmse(evaluation, simulation)
+         #This is used if not overwritten by user
+                 like= rmse(evaluation, simulation)
+            
+                
         else:
-            # Way to ensure flexible spot setup class
-            like = self.obj_func(evaluation, simulation)
+                 # Way to ensure flexible spot setup class
+            like= self.obj_func(evaluation, simulation)
         return like
 
+        # SPOTPY expects to get one or multiple values back,
+        # that define the performance of the model run
+        
 
 def calibrate_by_sceua(
     p_and_e,
     qobs,
     dbname,
-    warmup_length=30,
+    warmup_length=365,
     model={
-        "name": "xaj_mz",
+        "name": "xaj_mz",    #模型
         "source_type": "sources",
         "source_book": "HF",
     },
@@ -154,8 +184,8 @@ def calibrate_by_sceua(
         "rep": 1000,
         "ngs": 1000,
         "kstop": 500,
-        "peps": 0.001,
-        "pcento": 0.001,
+        "peps": 0.1,
+        "pcento": 0.1,
     },
 ):
     """
@@ -199,9 +229,9 @@ def calibrate_by_sceua(
         qobs,
         warmup_length=warmup_length,
         model=model,
-        obj_func=spotpy.objectivefunctions.rmse,
+        obj_func=spotpy.objectivefunctions.rmse, #均方根误差
     )
-    # Select number of maximum allowed repetitions
+    # Select number of maximum allowed repetitions # 选择允许的最大重复次数
     sampler = spotpy.algorithms.sceua(
         spot_setup,
         dbname=dbname,

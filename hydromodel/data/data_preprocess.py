@@ -1,12 +1,13 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2022-12-04 14:55:55
+LastEditTime: 2024-03-21 18:36:25
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\data\data_preprocess.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
+
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold
@@ -135,6 +136,8 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     data_info_train = OrderedDict(
         {
             "time": [str(t)[:10] for t in hydro_time.t_range_days(train_period)],
+            # TODO: for time, more detailed time is needed, so we need to change the format of time
+            # "time": [str(t)[:16] for t in hydro_time.t_range_days(train_period)],
             "basin": data_info["basin"],
             "variable": data_info["variable"],
             "area": data_info["area"],
@@ -143,6 +146,8 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     data_info_test = OrderedDict(
         {
             "time": [str(t)[:10] for t in hydro_time.t_range_days(test_period)],
+            # TODO: for time, more detailed time is needed, so we need to change the format of time
+            # "time": [str(t)[:16] for t in hydro_time.t_range_days(test_period)],
             "basin": data_info["basin"],
             "variable": data_info["variable"],
             "area": data_info["area"],
@@ -159,7 +164,7 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     hydro_file.serialize_numpy(data[ind3, :, :], test_npy_file)
 
 
-def cross_valid_data(json_file, npy_file, period, warmup, cv_fold, time_unit="D"):
+def cross_valid_data(json_file, npy_file, period, warmup, cv_fold, time_unit="h"):
     """
     Split all data to train and test parts with same format
 

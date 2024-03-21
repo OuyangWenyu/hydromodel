@@ -34,13 +34,15 @@ def read_save_sceua_calibrated_params(basin_id, save_dir, sceua_calibrated_file_
 
     """
     results = spotpy.analyser.load_csv_results(sceua_calibrated_file_name)
-    bestindex, bestobjf = spotpy.analyser.get_minlikeindex(results)
+    bestindex, bestobjf = spotpy.analyser.get_minlikeindex(
+        results
+    )  # 结果数组中具有最小目标函数的位置的索引
     best_model_run = results[bestindex]
     fields = [word for word in best_model_run.dtype.names if word.startswith("par")]
     best_calibrate_params = pd.DataFrame(list(best_model_run[fields]))
     save_file = os.path.join(save_dir, basin_id + "_calibrate_params.txt")
     best_calibrate_params.to_csv(save_file, sep=",", index=False, header=True)
-    return np.array(best_calibrate_params).reshape(1, -1)
+    return np.array(best_calibrate_params).reshape(1, -1)  # 返回一列最佳的结果
 
 
 def summarize_parameters(result_dir, model_info: dict):
@@ -136,9 +138,15 @@ def summarize_metrics(result_dir, model_info: dict):
         test_metric = hydro_file.unserialize_json(test_metric_file)
 
         for key, value in train_metric.items():
-            train_metrics[key] = value if count == 0 else train_metrics[key] + value
+            if count == 0:
+                train_metrics[key] = value
+            else:
+                train_metrics[key] = train_metrics[key] + value
         for key, value in test_metric.items():
-            test_metrics[key] = value if count == 0 else test_metrics[key] + value
+            if count == 0:
+                test_metrics[key] = value
+            else:
+                test_metrics[key] = test_metrics[key] + value
         count = count + 1
     metric_dfs_train = pd.DataFrame(train_metrics, index=basin_ids).transpose()
     metric_dfs_test = pd.DataFrame(test_metrics, index=basin_ids).transpose()
@@ -206,21 +214,21 @@ def read_and_save_et_ouputs(result_dir, fold: int):
     )
     train_period = data_info_train["time"]
     test_period = data_info_test["time"]
-    train_np_file = os.path.join(exp_dir, f"basins_lump_p_pe_q_fold{fold}_train.npy")
-    test_np_file = os.path.join(exp_dir, f"basins_lump_p_pe_q_fold{fold}_test.npy")
+    train_np_file = os.path.join(exp_dir, "data_info_fold" + str(fold) + "_train.npy")
+    test_np_file = os.path.join(exp_dir, "data_info_fold" + str(fold) + "_test.npy")
     train_data = np.load(train_np_file)
     test_data = np.load(test_np_file)
     es_test = []
     es_train = []
     for i in range(len(basins_id)):
         _, e_train = xaj(
-            train_data[:, i : i + 1, 0:2],
+            train_data[:, :, 0:2],
             param_values[basins_id[i]].values.reshape(1, -1),
             warmup_length=warmup_length,
             **model_func_param,
         )
         _, e_test = xaj(
-            test_data[:, i : i + 1, 0:2],
+            test_data[:, :, 0:2],
             param_values[basins_id[i]].values.reshape(1, -1),
             warmup_length=warmup_length,
             **model_func_param,
@@ -241,11 +249,12 @@ def read_and_save_et_ouputs(result_dir, fold: int):
 
 if __name__ == "__main__":
     one_model_one_hyperparam_setting_dir = os.path.join(
-        definitions.ROOT_DIR,
-        "hydromodel",
-        "example",
-        "exp61561",
-        "Dec08_11-38-48_LAPTOP-DNQOPPMS_fold1_HFsourcesrep1000ngs1000",
+        "/home/ldaning/code/biye/hydro-model-xaj/hydromodel/example/model_run_wuxi7"
+        # definitions.ROOT_DIR,
+        # "hydromodel",
+        # "example",
+        # "exp61561",
+        # "Dec08_11-38-48_LAPTOP-DNQOPPMS_fold1_HFsourcesrep1000ngs1000",
     )
     read_and_save_et_ouputs(one_model_one_hyperparam_setting_dir, fold=1)
     # summarize_parameters(one_model_one_hyperparam_setting_dir, {"name": "xaj_mz"})

@@ -10,7 +10,7 @@ Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 import os
 from pathlib import Path
 
-ROOT_DIR = os.path.dirname(os.path.abspath(__file__))  # This is your Project Root
+ROOT_DIR = os.path.dirname(os.path.abspath('/home/ldaning/code/biye/hydro-model-xaj/definitions.py'))  # This is your Project Root
 path = Path(ROOT_DIR)
 DATASET_DIR = os.path.join(path.parent.parent.absolute(), "data")
 print("Please Check your directory:")

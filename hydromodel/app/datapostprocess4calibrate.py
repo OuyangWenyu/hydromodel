@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2023-05-05 10:14:20
+LastEditTime: 2022-12-25 09:14:33
 LastEditors: Wenyu Ouyang
 Description: the script to postprocess calibrated models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\app\datapostprocess4calibrate.py
@@ -27,7 +27,8 @@ def statistics(args):
     cases = args.cases
     cv_fold = args.cv_fold
     where_save_cache = Path(
-        os.path.join(definitions.ROOT_DIR, "hydromodel", "example", exp)
+        os.path.join('/home/ldaning/code/biye/hydro-model-xaj/hydromodel/example/model_run_wuxi7')
+            # definitions.ROOT_DIR, "hydromodel", "example", exp
     )
     if os.path.exists(where_save_cache) is False:
         raise NotImplementedError(
@@ -54,7 +55,6 @@ def statistics(args):
             comment = case_dir.name.split("_")[-1]
             comment_lst.append(comment)
     comments = np.unique(comment_lst)
-
     for comment in tqdm(comments, desc="All settings in an exp directory"):
         comment_folds_test = []
         comment_folds_train = []
@@ -62,11 +62,15 @@ def statistics(args):
             comment_fold_dir = []
             for case in cases:
                 case_dir = where_save_cache.joinpath(case)
+                # print(case_dir)
                 if case_dir.is_dir() and fnmatch.fnmatch(
                     case_dir.name, f"*_fold{str(fold)}_" + comment
                 ):
                     comment_fold_dir.append(case_dir)
+            comment_fold_dir = [str(path) for path in comment_fold_dir] 
+            print(comment_fold_dir)
             comment_fold_dir_newest = np.sort(comment_fold_dir)[-1]
+            comment_fold_dir_newest = Path(comment_fold_dir_newest)
             read_and_save_et_ouputs(comment_fold_dir_newest, fold=fold)
             comment_fold_file_test = comment_fold_dir_newest.joinpath(
                 "basins_metrics_test.csv"
@@ -135,7 +139,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="example",
+        default="exp61561",
         type=str,
     )
     parser.add_argument(

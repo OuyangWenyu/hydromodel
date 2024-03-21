@@ -9,7 +9,7 @@ Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 from matplotlib import pyplot as plt
 import numpy as np
-
+import matplotlib.dates as mdates
 from hydromodel.utils import hydro_constant
 
 
@@ -73,39 +73,78 @@ def plot_sim_and_obs(
     date,
     sim,
     obs,
+    prcp,
     save_fig,
-    xlabel="Date",
+    xlabel="Date(∆t=1hour)",
     ylabel="Streamflow(" + hydro_constant.unit["streamflow"] + ")",
+
 ):
     # matplotlib.use("Agg")
-    fig = plt.figure(figsize=(9, 6))
+    fig = plt.figure(figsize=(9,6),dpi=500)
     ax = fig.subplots()
     ax.plot(
         date,
         sim,
-        color="black",
-        linestyle="solid",
+        color="blue",
+        linestyle="-",
+        linewidth=1,
         label="Simulation",
     )
     ax.plot(
         date,
         obs,
-        "r.",
-        markersize=3,
+        # "r.",
+        color="black",
+        linestyle="-",
+        linewidth=1,
         label="Observation",
     )
+    ylim = np.max(np.vstack((obs, sim)))
+    ax.set_ylim(0, ylim*1.3) 
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%y-%m-%d"))
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     plt.legend(loc="upper right")
-    plt.tight_layout()
+    
+    sim = np.array(sim)
+    obs = np.array(obs)
+
+    numerator = 0
+    denominator = 0
+    meangauge = 0
+    count = 0
+    for i in range(len(obs)):
+        if (obs[i]>=0):
+            numerator+=pow(abs(sim[i])-obs[i],2)
+            meangauge+=obs[i]
+            count+=1
+    meangauge=meangauge/count
+    for i in range(len(obs)):
+        if (obs[i]>=0):
+            denominator+=pow(obs[i]-meangauge,2)
+    NSE= 1-numerator/denominator
+    plt.text(0.9, 0.6, 'NSE=%.2f' % NSE, 
+         horizontalalignment='center',  
+         verticalalignment='center',
+         transform = ax.transAxes,
+         fontsize=10)
+    # plt.xticks(date) 
+    ax2 = ax.twinx()
+    ax2.bar(date,prcp, label='Precipitation', color='royalblue',alpha=0.9,width=0.05)
+    ax2.set_ylabel('Precipitation(mm)')
+    plt.yticks(fontproperties = 'Times New Roman', size = 10)
+    prcp_max = np.max(prcp)
+    ax2.set_ylim(0, prcp_max*4)
+    ax2.invert_yaxis()  #y轴反向
+    ax2.legend(loc='upper left')
+    plt.tight_layout()  # 自动调整子图参数,使之填充整个图像区域
     plt.savefig(save_fig, bbox_inches="tight")
-    # plt.cla()
     plt.close()
 
 
 def plot_train_iteration(likelihood, save_fig):
     # matplotlib.use("Agg")
-    fig = plt.figure(figsize=(9, 6))
+    fig = plt.figure(figsize=(9, 6))  #绘制单个子图
     ax = fig.subplots()
     ax.plot(likelihood)
     ax.set_ylabel("RMSE")

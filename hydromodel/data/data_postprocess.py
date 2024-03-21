@@ -136,15 +136,9 @@ def summarize_metrics(result_dir, model_info: dict):
         test_metric = hydro_utils.unserialize_json(test_metric_file)
 
         for key, value in train_metric.items():
-            if count == 0:
-                train_metrics[key] = value
-            else:
-                train_metrics[key] = train_metrics[key] + value
+            train_metrics[key] = value if count == 0 else train_metrics[key] + value
         for key, value in test_metric.items():
-            if count == 0:
-                test_metrics[key] = value
-            else:
-                test_metrics[key] = test_metrics[key] + value
+            test_metrics[key] = value if count == 0 else test_metrics[key] + value
         count = count + 1
     metric_dfs_train = pd.DataFrame(train_metrics, index=basin_ids).transpose()
     metric_dfs_test = pd.DataFrame(test_metrics, index=basin_ids).transpose()
@@ -205,35 +199,38 @@ def read_and_save_et_ouputs(result_dir, fold: int):
     model_func_param = args["model"]
     exp_dir = pathlib.Path(result_dir).parent
     data_info_train = hydro_utils.unserialize_json(
-        exp_dir.joinpath("data_info_fold" + str(fold) + "_train.json")
+        exp_dir.joinpath(f"data_info_fold{fold}_train.json")
     )
     data_info_test = hydro_utils.unserialize_json(
-        exp_dir.joinpath("data_info_fold" + str(fold) + "_test.json")
+        exp_dir.joinpath(f"data_info_fold{fold}_test.json")
     )
     train_period = data_info_train["time"]
     test_period = data_info_test["time"]
+    # TODO: basins_lump_p_pe_q_fold NAME need to be unified
     train_np_file = os.path.join(
         exp_dir, "data_info_fold" + str(fold) + "_train.npy"
     )
     test_np_file = os.path.join(
         exp_dir, "data_info_fold" + str(fold) + "_test.npy"
     )
+    # train_np_file = os.path.join(exp_dir, f"basins_lump_p_pe_q_fold{fold}_train.npy")
+    # test_np_file = os.path.join(exp_dir, f"basins_lump_p_pe_q_fold{fold}_test.npy")
     train_data = np.load(train_np_file)
     test_data = np.load(test_np_file)
     es_test = []
     es_train = []
     for i in range(len(basins_id)):
         _, e_train = xaj(
-            train_data[:, :, 0:2],
+            train_data[:, i : i + 1, 0:2],
             param_values[basins_id[i]].values.reshape(1, -1),
             warmup_length=warmup_length,
-            **model_func_param
+            **model_func_param,
         )
         _, e_test = xaj(
-            test_data[:, :, 0:2],
+            test_data[:, i : i + 1, 0:2],
             param_values[basins_id[i]].values.reshape(1, -1),
             warmup_length=warmup_length,
-            **model_func_param
+            **model_func_param,
         )
         es_train.append(e_train.flatten())
         es_test.append(e_test.flatten())

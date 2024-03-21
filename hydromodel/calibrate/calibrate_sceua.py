@@ -18,7 +18,7 @@ class SpotSetup(object):
         warmup_length=365,
         model={
             "name": "xaj_mz",
-            "source_type": "sources",
+            "source_type": "sources5mm",
             "source_book": "HF",
         },
         obj_func=None,
@@ -128,44 +128,44 @@ class SpotSetup(object):
         float
             likelihood
         """
-        # 切片
-        #    time = pd.read_excel('/home/ldaning/code/biye/hydro-model-xaj/hydromodel/example/zhandian/洪水率定时间1.xlsx')
-        #     calibrate_starttime = pd.to_datetime("2014-7-10 0:00")
-        #     calibrate_endtime = pd.to_datetime("2020-6-24 0:00")
-        #     total = 0
-        #     count = 0
-        #     for i in range(len(time)):
-        #        if(time.iloc[i,0]<calibrate_endtime):
-        #            start_num = (time.iloc[i,0]-calibrate_starttime-pd.Timedelta(hours=365))/pd.Timedelta(hours=1)
-        #           end_num = (time.iloc[i,1]-calibrate_starttime-pd.Timedelta(hours=365))/pd.Timedelta(hours=1)
-        #           start_num = int(start_num)
-        #           end_num = int(end_num)
-        #           if not self.obj_func:
-        #      # This is used if not overwritten by user
-        #             like_ = rmse(evaluation[start_num:end_num,], simulation[start_num:end_num,])
-        #            total += like_
-        #            count += 1
-
-        #        else:
-        # Way to ensure flexible spot setup class
-        #          like_ = self.obj_func(evaluation[start_num:end_num,], simulation[start_num:end_num,])
-        #          total += like_
-        #         count += 1
-
-        #    like=total/count
-        #   return like
-        if not self.obj_func:
-            # This is used if not overwritten by user
-            like = rmse(evaluation, simulation)
-
-        else:
-            # Way to ensure flexible spot setup class
-            like = self.obj_func(evaluation, simulation)
+        #切片
+        time = pd.read_excel('D:/研究生/毕业论文/new毕业论文/预答辩/碧流河水库/站点信息/洪水率定时间.xlsx')
+        calibrate_starttime = pd.to_datetime("2012-06-10 0:00:00")
+        calibrate_endtime = pd.to_datetime("2019-12-31 23:00:00")
+        total = 0
+        count = 0 
+        for i in range(len(time)):
+            if(time.iloc[i,0]<calibrate_endtime):
+                start_num = (time.iloc[i,0]-calibrate_starttime-pd.Timedelta(hours=365))/pd.Timedelta(hours=1)   
+                end_num = (time.iloc[i,1]-calibrate_starttime-pd.Timedelta(hours=365))/pd.Timedelta(hours=1)
+                start_num = int(start_num)
+                end_num = int(end_num)
+                if not self.obj_func:
+                    like_ = rmse(evaluation[start_num:end_num,], simulation[start_num:end_num,])
+                    total += like_
+                    count += 1
+                    
+                else:
+                    # Way to ensure flexible spot setup class
+                    like_ = self.obj_func(evaluation[start_num:end_num,], simulation[start_num:end_num,])
+                    total += like_
+                    count += 1
+                    
+        like=total/count
         return like
+        # if not self.obj_func:
+        # # This is used if not overwritten by user
+        #         like= rmse(evaluation, simulation)
+            
+                
+        # else:
+        #         # Way to ensure flexible spot setup class
+        #         like= self.obj_func(evaluation, simulation)
+        # return like
 
         # SPOTPY expects to get one or multiple values back,
         # that define the performance of the model run
-
+        
 
 def calibrate_by_sceua(
     p_and_e,
@@ -173,8 +173,8 @@ def calibrate_by_sceua(
     dbname,
     warmup_length=365,
     model={
-        "name": "xaj_mz",  # 模型
-        "source_type": "sources",
+        "name": "xaj_mz",    #模型
+        "source_type": "sources5mm",
         "source_book": "HF",
     },
     algorithm={

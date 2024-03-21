@@ -63,6 +63,7 @@ npy_file = pathlib.Path(
 
 # def test_save_data(txt_file, json_file, npy_file):
 data = pd.read_csv(txt_file)
+datetime_index = pd.to_datetime(data["date"], format="%Y/%m/%d %H:%M")
 # Note: The units are all mm/day! For streamflow, data is divided by basin's area
 # variables = ["prcp(mm/day)", "petfao56(mm/day)", "streamflow(mm/day)"]
 variables = ["prcp(mm/hour)", "pev(mm/hour)", "streamflow(m3/s)"]

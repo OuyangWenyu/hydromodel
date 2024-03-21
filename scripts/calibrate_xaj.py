@@ -33,12 +33,10 @@ def calibrate(args):
     algo_info = args.algorithm
     comment = args.comment
     data_dir = os.path.join(definitions.ROOT_DIR, "hydromodel", "example", exp)
-    data_dir = os.path.join(
-        "/home/ldaning/code/biye/hydro-model-xaj/hydromodel/example/model_run_wuxi7"
-    )
+    data_dir = os.path.join('D:/研究生/毕业论文/new毕业论文/预答辩/碧流河水库/模型运行/')
     kfold = [
         int(f_name[len("data_info_fold") : -len("_test.json")])
-        for f_name in os.listdir(data_dir)  # 输出文件夹下的所有文件
+        for f_name in os.listdir(data_dir) #输出文件夹下的所有文件
         if fnmatch.fnmatch(f_name, "*_fold*_test.json")
     ]
     kfold = np.sort(kfold)
@@ -47,11 +45,15 @@ def calibrate(args):
         train_data_info_file = os.path.join(
             data_dir, f"data_info_fold{str(fold)}_train.json"
         )
-        train_data_file = os.path.join(data_dir, f"data_info_fold{str(fold)}_train.npy")
+        train_data_file = os.path.join(
+            data_dir, f"data_info_fold{str(fold)}_train.npy"
+        )
         test_data_info_file = os.path.join(
             data_dir, f"data_info_fold{str(fold)}_test.json"
         )
-        test_data_file = os.path.join(data_dir, f"data_info_fold{str(fold)}_test.npy")
+        test_data_file = os.path.join(
+            data_dir, f"data_info_fold{str(fold)}_test.npy"
+        )
         if (
             os.path.exists(train_data_info_file) is False
             or os.path.exists(train_data_file) is False
@@ -120,7 +122,7 @@ def calibrate(args):
                 qsim, _ = xaj(  # 计算模拟结果
                     data_test[:, i : i + 1, 0:2],
                     params,
-                    warmup_length=warmup,
+                    warmup_length=0 ,
                     **model_info,
                 )
 
@@ -138,7 +140,7 @@ def calibrate(args):
                     unit_final=units.unit["streamflow"],
                     basin_area=basin_area,
                 )
-                test_result_file = os.path.join(
+                test_result_file = os.path.join(   
                     spotpy_db_dir,
                     "test_qsim_" + model_info["name"] + "_" + str(basin_id) + ".csv",
                 )

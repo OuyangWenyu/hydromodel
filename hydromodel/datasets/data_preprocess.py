@@ -20,7 +20,7 @@ import hydrodataset
 from hydroutils import hydro_time, hydro_file
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
-from hydromodel.data import camels_format_data
+from hydromodel.datasets import camels_format_data
 
 
 def trans_camels_format_to_xaj_format(

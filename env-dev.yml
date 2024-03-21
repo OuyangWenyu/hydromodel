@@ -1,4 +1,4 @@
-name: xaj-dev
+name: xaj
 channels:
   - pytorch
   - conda-forge
@@ -6,27 +6,16 @@ channels:
 dependencies:
   - python=3.10
   - ipykernel
-  - numpy
   - numba
-  - pandas
   - scikit-learn
   - deap
   - spotpy=1.5.14
-  - seaborn
-  - tqdm
   - yaml
   - bmipy
-  # for dev 
   - pyarrow
-  - hydroerr
-  - xarray
-  - pytorch=1.12.1
-  - torchvision=0.13.1
-  - torchaudio=0.12.1
-  - cudatoolkit=11.3
-  - tensorboard
-  - sphinx
   - pytest
+  # for development
+  - sphinx
   - black
   - flake8
   # pip
@@ -36,7 +25,5 @@ dependencies:
     - wheel
     - twine
     - bump2version
+    - muskingumcunge
     - hydrodataset
-    # config for deep learning
-    - hydra-core
-    - accelerate

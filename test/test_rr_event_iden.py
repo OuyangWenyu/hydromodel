@@ -11,7 +11,7 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 import os
 import pandas as pd
 import definitions
-from hydromodel.utils.dmca_esr import rainfall_runoff_event_identify
+from hydromodel.datasets.dmca_esr import rainfall_runoff_event_identify
 
 
 def test_rainfall_runoff_event_identify():

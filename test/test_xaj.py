@@ -7,11 +7,11 @@ import pytest
 from hydroutils import hydro_time
 
 import definitions
-from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua
-from hydromodel.calibrate.calibrate_ga import calibrate_by_ga
-from hydromodel.data.data_postprocess import read_save_sceua_calibrated_params
+from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
+from hydromodel.trainers.calibrate_ga import calibrate_by_ga
+from hydromodel.datasets.data_postprocess import read_save_sceua_calibrated_params
 from hydromodel.utils import units
-from hydromodel.utils.plots import show_calibrate_result, show_test_result
+from hydromodel.trainers.plots import show_calibrate_result, show_test_result
 from hydromodel.models.xaj import xaj, uh_gamma, uh_conv
 
 

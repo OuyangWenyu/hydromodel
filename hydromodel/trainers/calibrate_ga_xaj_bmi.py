@@ -1,34 +1,25 @@
-"""
-Author: Wenyu Ouyang
-Date: 2021-12-10 23:01:02
-LastEditTime: 2023-12-17 21:10:45
-LastEditors: Wenyu Ouyang
-Description: Calibrate XAJ model using DEAP
-FilePath: \hydro-model-xaj\hydromodel\calibrate\calibrate_ga.py
-Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
-"""
+"""Calibrate XAJ model using DEAP"""
 import os
 import pickle
-from deap import base, creator
 import random
-from deap import tools
-import numpy as np
-import pandas as pd
-from tqdm import tqdm
 import sys
 from pathlib import Path
 
-from hydroutils import hydro_file, hydro_stat
+import numpy as np
+import pandas as pd
+from deap import base, creator
+from deap import tools
+from tqdm import tqdm
 
+import HydroErr as he
+from hydroutils import hydro_stat, hydro_file
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
 from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.trainers.plots import plot_sim_and_obs, plot_train_iteration
+from hydromodel.models.xaj_bmi import xajBmi
 from hydromodel.utils import units
-from hydromodel.utils.plots import plot_sim_and_obs, plot_train_iteration
-from hydromodel.models.gr4j import gr4j
-from hydromodel.models.hymod import hymod
-from hydromodel.models.xaj import xaj
 
 
 def evaluate(individual, x_input, y_true, warmup_length, model):
@@ -59,15 +50,17 @@ def evaluate(individual, x_input, y_true, warmup_length, model):
     if model["name"] in ["xaj", "xaj_mz"]:
         # xaj model's output include streamflow and evaporation now,
         # but now we only calibrate the model with streamflow
-        sim, _ = xaj(x_input, params, warmup_length=warmup_length, **model)
-    elif model["name"] == "gr4j":
-        sim = gr4j(x_input, params, warmup_length=warmup_length, **model)
-    elif model["name"] == "hymod":
-        sim = hymod(x_input, params, warmup_length=warmup_length, **model)
+        model = xajBmi()
+        model.initialize(os.path.relpath("runxaj.yaml"), params, x_input)
+        while model.get_current_time() <= model.get_end_time("train"):
+            model.update()
+        sim = model.get_value("discharge")
+        sim = np.expand_dims(sim, 0)
+        sim = np.expand_dims(sim, 1)
+        sim = np.transpose(sim, [2, 1, 0])
     else:
         raise NotImplementedError("We don't provide this model now")
-    # Calculate RMSE for multi-dim arrays
-    rmses = np.sqrt(np.nanmean((sim - y_true[warmup_length:, :, :]) ** 2, axis=0))
+    rmses = he.rmse(y_true[warmup_length:, :, :], sim)
     rmse = rmses.mean(axis=0)
     # print(f"-----------------RMSE: {str(rmse)}------------------------")
     return rmse
@@ -184,7 +177,6 @@ def calibrate_by_ga(
 
     toolbox.decorate("mate", checkBounds(MIN, MAX))
     toolbox.decorate("mutate", checkBounds(MIN, MAX))
-
     pop = toolbox.population(n=ga_param["pop_num"])
     # cxpb  is the probability with which two individuals are crossed
     # mutpb is the probability for mutating an individual
@@ -216,6 +208,8 @@ def calibrate_by_ga(
         pickle.dump(cp, cp_file)
 
     for gen in tqdm(range(ga_param["run_counts"]), desc="GA calibrating"):
+
+        print(f"Generation {gen} started...")
         # Select the next generation individuals
         offspring = toolbox.select(pop, len(pop))
         # Clone the selected individuals
@@ -266,6 +260,7 @@ def calibrate_by_ga(
                 os.path.join(deap_dir, f"epoch{str(gen + 1)}.pkl"), "wb"
             ) as cp_file:
                 pickle.dump(cp, cp_file)
+            print(f"Files of generation {gen} saved.")
     top10 = tools.selBest(pop, k=10)
     return pop
 
@@ -294,14 +289,18 @@ def show_ga_result(
     halloffame = cp["halloffame"]
     print(f"Best individual is: {halloffame[0]}, {halloffame[0].fitness.values}")
     train_test_flag = "train" if train_mode else "test"
-    best_simulation, _ = xaj(
-        the_data[:, :, 0:2],
-        np.array(list(halloffame[0])).reshape(1, -1),
-        warmup_length=warmup_length,
-        **model_info,
+
+    model = xajBmi()
+    model.initialize(
+        "runxaj.yaml", np.array(list(halloffame[0])).reshape(1, -1), the_data[:, :, 0:2]
     )
+    while model.get_current_time() <= model.get_end_time("train"):
+        model.update()
+    best_simulation = model.get_value("discharge")
+
     convert_unit_sim = units.convert_unit(
         np.array(best_simulation).reshape(1, -1),
+        # best_simulation,
         result_unit,
         units.unit["streamflow"],
         basin_area=basin_area,

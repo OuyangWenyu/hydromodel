@@ -12,17 +12,17 @@ from hydroutils import hydro_file
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
 import definitions
-from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua
-from hydromodel.data.data_postprocess import (
+from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
+from hydromodel.datasets.data_postprocess import (
     renormalize_params,
     read_save_sceua_calibrated_params,
     save_streamflow,
     summarize_metrics,
     summarize_parameters,
 )
-from hydromodel.utils.plots import show_calibrate_result, show_test_result
+from hydromodel.trainers.plots import show_calibrate_result, show_test_result
 from hydromodel.models.xaj import xaj
-from hydromodel.calibrate.calibrate_ga import calibrate_by_ga, show_ga_result
+from hydromodel.trainers.calibrate_ga import calibrate_by_ga, show_ga_result
 from hydromodel.utils import units
 
 

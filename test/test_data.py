@@ -23,7 +23,7 @@ from hydroutils import hydro_file
 
 import definitions
 from hydromodel.utils import hydro_utils
-from hydromodel.data.data_preprocess import (
+from hydromodel.datasets.data_preprocess import (
     cross_valid_data,
     split_train_test,
 )

@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
 import definitions
-from hydromodel.data.data_postprocess import read_and_save_et_ouputs
+from hydromodel.datasets.data_postprocess import read_and_save_et_ouputs
 
 
 def statistics(args):

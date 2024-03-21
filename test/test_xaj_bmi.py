@@ -14,17 +14,17 @@ from datetime import datetime
 from hydroutils import hydro_file
 
 from hydromodel.utils import units
-from hydromodel.data.data_preprocess import (
+from hydromodel.datasets.data_preprocess import (
     cross_valid_data,
     split_train_test,
 )
-from hydromodel.calibrate.calibrate_sceua_xaj_bmi import calibrate_by_sceua
-from hydromodel.calibrate.calibrate_ga_xaj_bmi import (
+from hydromodel.trainers.calibrate_sceua_xaj_bmi import calibrate_by_sceua
+from hydromodel.trainers.calibrate_ga_xaj_bmi import (
     calibrate_by_ga,
     show_ga_result,
 )
-from hydromodel.utils.plots import show_calibrate_result, show_test_result
-from hydromodel.data.data_postprocess import (
+from hydromodel.trainers.plots import show_calibrate_result, show_test_result
+from hydromodel.datasets.data_postprocess import (
     renormalize_params,
     read_save_sceua_calibrated_params,
     save_streamflow,

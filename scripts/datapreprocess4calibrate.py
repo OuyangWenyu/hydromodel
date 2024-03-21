@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
 import definitions
-from hydromodel.data.data_preprocess import (
+from hydromodel.datasets.data_preprocess import (
     trans_camels_format_to_xaj_format,
     cross_valid_data,
     split_train_test,

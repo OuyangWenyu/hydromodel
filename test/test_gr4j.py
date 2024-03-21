@@ -15,9 +15,9 @@ import pytest
 import spotpy
 from matplotlib import pyplot as plt
 import definitions
-from hydromodel.calibrate.calibrate_sceua import calibrate_by_sceua, SpotSetup
+from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua, SpotSetup
 from hydromodel.models.gr4j import gr4j
-from hydromodel.utils.plots import show_calibrate_result
+from hydromodel.trainers.plots import show_calibrate_result
 
 
 @pytest.fixture()

@@ -14,13 +14,16 @@ pytest
 pytest-runner
 
 # for hydromodel
-numpy
+ipykernel
 numba
-pandas
 scikit-learn
 deap
 spotpy==1.5.14
-seaborn
-tqdm
+pytest
+bmipy
+pyyaml
+requests
+
+muskingumcunge
+
 hydrodataset
-hydroutils

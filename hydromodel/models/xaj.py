@@ -12,7 +12,8 @@ from hydromodel.models.model_config import MODEL_PARAM_DICT
 PRECISION = 1e-5
 
 
-@jit
+# @jit
+@jit(nopython=True)
 def calculate_evap(lm, c, wu0, wl0, prcp, pet) -> tuple[np.array, np.array, np.array]:
     """
     Three-layers evaporation model from "Watershed Hydrologic Simulation" written by Prof. RenJun Zhao.
@@ -55,7 +56,8 @@ def calculate_evap(lm, c, wu0, wl0, prcp, pet) -> tuple[np.array, np.array, np.a
     return eu, el, ed
 
 
-@jit
+# @jit
+@jit(nopython=True)
 def calculate_prcp_runoff(b, im, wm, w0, pe) -> tuple[np.array, np.array]:
     """
     Calculates the amount of runoff generated from rainfall after entering the underlying surface.
@@ -599,7 +601,8 @@ def sources5mm(
     return (rs, rss, rg), (s_ds[-1], fr_ds[-1])
 
 
-@jit
+# @jit
+@jit(nopython=True)
 def linear_reservoir(x, weight, last_y=None) -> np.array:
     """
     Linear reservoir's release function
@@ -697,7 +700,7 @@ def xaj(
     p_and_e,
     params: Union[np.array, list],
     return_state=False,
-    warmup_length=30,
+    warmup_length=365,
     **kwargs,
 ) -> Union[tuple, np.array]:
     """
@@ -733,7 +736,7 @@ def xaj(
     """
     # default values for some function parameters
     model_name = kwargs["name"] if "name" in kwargs else "xaj"
-    source_type = kwargs["source_type"] if "source_type" in kwargs else "sources"
+    source_type = kwargs["source_type"] if "source_type" in kwargs else "sources5mm"
     source_book = kwargs["source_book"] if "source_book" in kwargs else "HF"
     # params
     param_ranges = MODEL_PARAM_DICT[model_name]["param_range"]
@@ -749,6 +752,8 @@ def xaj(
         (value[1] - value[0]) * params[:, i] + value[0]
         for i, (key, value) in enumerate(param_ranges.items())
     ]
+    # xaj_params = [param_ranges[key] for key in param_ranges] 
+
     k = xaj_params[0]
     b = xaj_params[1]
     im = xaj_params[2]
@@ -763,6 +768,7 @@ def xaj(
     # ki+kg should be smaller than 1; if not, we scale them
     ki = np.where(ki_ + kg_ < 1.0, ki_, (1.0 - PRECISION) / (ki_ + kg_) * ki_)
     kg = np.where(ki_ + kg_ < 1.0, kg_, (1.0 - PRECISION) / (ki_ + kg_) * kg_)
+    
     if route_method == "CSL":
         cs = xaj_params[11]
         l = xaj_params[12]
@@ -774,7 +780,7 @@ def xaj(
         kernel_size = int(xaj_params[15])
     else:
         raise NotImplementedError(
-            "We don't provide this route method now! Please use 'CS' or 'MZ'!"
+            "We don't provide this route method now! Please use 'CSL' or 'MZ'!"
         )
     ci = xaj_params[13]
     cg = xaj_params[14]
@@ -795,6 +801,7 @@ def xaj(
         fr0 = np.full(ex.shape, 0.1)
         qi0 = np.full(ci.shape, 0.1)
         qg0 = np.full(cg.shape, 0.1)
+
 
     # state_variables
     inputs = p_and_e[warmup_length:, :, :]

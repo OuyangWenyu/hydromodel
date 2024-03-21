@@ -250,7 +250,7 @@ def unserialize_json_ordered(my_file):
 
 
 def unserialize_json(my_file):
-    with open(my_file, "r") as fp:
+    with open(my_file, "r") as fp: #自动分配和释放资源
         my_object = json.load(fp)
     return my_object
 
@@ -273,7 +273,7 @@ def serialize_numpy(my_array, my_file):
 
 
 def unserialize_numpy(my_file):
-    y = np.load(my_file, allow_pickle=True)
+    y = np.load(my_file, allow_pickle=True)  #读取npy文件
     return y
 
 
@@ -303,9 +303,9 @@ def t_range2_array(t_range, *, step=np.timedelta64(1, "D")):
     return tArray
 
 
-def t_range_days(t_range, *, step=np.timedelta64(1, "D")):
-    sd = dt.datetime.strptime(t_range[0], "%Y-%m-%d")
-    ed = dt.datetime.strptime(t_range[1], "%Y-%m-%d")
+def t_range_days(t_range, *, step=np.timedelta64(1, "h")):
+    sd = dt.datetime.strptime(t_range[0], "%Y-%m-%d %H:%M:%S")
+    ed = dt.datetime.strptime(t_range[1], "%Y-%m-%d %H:%M:%S")
     t_array = np.arange(sd, ed, step)
     return t_array
 

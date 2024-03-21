@@ -8,7 +8,8 @@ from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.xaj import uh_conv
 
 
-@jit
+# @jit
+@jit(nopython=True)
 def calculate_precip_store(s, precip_net, x1):
     """Calculates the amount of rainfall which enters the storage reservoir."""
     n = x1 * (1.0 - (s / x1) ** 2) * np.tanh(precip_net / x1)
@@ -16,7 +17,8 @@ def calculate_precip_store(s, precip_net, x1):
     return n / d
 
 
-@jit
+# @jit
+@jit(nopython=True)
 def calculate_evap_store(s, evap_net, x1):
     """Determines the evaporation loss from the production store"""
     n = s * (2.0 - s / x1) * np.tanh(evap_net / x1)
@@ -24,7 +26,8 @@ def calculate_evap_store(s, evap_net, x1):
     return n / d
 
 
-@jit
+# @jit
+@jit(nopython=True)
 def calculate_perc(current_store, x1):
     """Determines how much water percolates out of the production store to streamflow"""
     return current_store * (
@@ -86,7 +89,8 @@ def production(
     return current_runoff, s_update
 
 
-@jit
+# @jit
+@jit(nopython=True)
 def s_curves1(t, x4):
     """
     Unit hydrograph ordinates for UH1 derived from S-curves.
@@ -100,7 +104,8 @@ def s_curves1(t, x4):
         return 1
 
 
-@jit
+# @jit
+@jit(nopython=True)
 def s_curves2(t, x4):
     """
     Unit hydrograph ordinates for UH2 derived from S-curves.

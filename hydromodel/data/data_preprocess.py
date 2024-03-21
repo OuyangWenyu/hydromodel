@@ -126,14 +126,14 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     """
     data = hydro_utils.unserialize_numpy(npy_file)
     data_info = hydro_utils.unserialize_json(json_file)
-    date_lst = pd.to_datetime(data_info["time"]).values.astype("datetime64[D]")
+    date_lst = pd.to_datetime(data_info["time"]).values.astype("datetime64[h]")
     t_range_train = hydro_utils.t_range_days(train_period)
     t_range_test = hydro_utils.t_range_days(test_period)
     _, ind1, ind2 = np.intersect1d(date_lst, t_range_train, return_indices=True)
     _, ind3, ind4 = np.intersect1d(date_lst, t_range_test, return_indices=True)
     data_info_train = OrderedDict(
         {
-            "time": [str(t)[:10] for t in hydro_utils.t_range_days(train_period)],
+            "time": [str(t)[:16] for t in hydro_utils.t_range_days(train_period)],
             "basin": data_info["basin"],
             "variable": data_info["variable"],
             "area": data_info["area"],
@@ -141,7 +141,7 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     )
     data_info_test = OrderedDict(
         {
-            "time": [str(t)[:10] for t in hydro_utils.t_range_days(test_period)],
+            "time": [str(t)[:16] for t in hydro_utils.t_range_days(test_period)],
             "basin": data_info["basin"],
             "variable": data_info["variable"],
             "area": data_info["area"],
@@ -158,7 +158,7 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     hydro_utils.serialize_numpy(data[ind3, :, :], test_npy_file)
 
 
-def cross_valid_data(json_file, npy_file, period, warmup, cv_fold, time_unit="D"):
+def cross_valid_data(json_file, npy_file, period, warmup, cv_fold, time_unit="h"):
     """
     Split all data to train and test parts with same format
 
@@ -181,7 +181,8 @@ def cross_valid_data(json_file, npy_file, period, warmup, cv_fold, time_unit="D"
     """
     data = hydro_utils.unserialize_numpy(npy_file)
     data_info = hydro_utils.unserialize_json(json_file)
-    date_lst = pd.to_datetime(data_info["time"]).values.astype("datetime64[D]")
+    date_lst = pd.to_datetime(data_info["time"]).values.astype("datetime64[h]")
+    # date_lst = pd.to_datetime(data_info["time"]).dt.strftime("%Y-%m-%d %H:00:00") 
     date_wo_warmup = date_lst[warmup:]
     kf = KFold(n_splits=cv_fold, shuffle=False)
     for i, (train, test) in enumerate(kf.split(date_wo_warmup)):

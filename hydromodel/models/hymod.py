@@ -95,13 +95,15 @@ def hymod(p_and_e, parameters, warmup_length=30, return_state=False, **kwargs):
     return streamflow
 
 
-@jit
+# @jit
+@jit(nopython=True)
 def power(x, y):
     x = np.abs(x)  # Needed to capture invalid overflow with negative values
     return x**y
 
 
-@jit
+# @jit
+@jit(nopython=True)
 def linres(x_slow, inflow, rs):
     # Linear reservoir
     x_slow = (1 - rs) * x_slow + (1 - rs) * inflow
@@ -109,7 +111,8 @@ def linres(x_slow, inflow, rs):
     return x_slow, outflow
 
 
-@jit
+# @jit
+@jit(nopython=True)
 def excess(x_loss, cmax, bexp, pval, pet_val):
     # this function calculates excess precipitation and evaporation
     xn_prev = x_loss

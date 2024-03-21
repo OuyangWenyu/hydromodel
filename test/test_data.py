@@ -13,67 +13,146 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import pytest
-
-from hydroutils import hydro_file
-
+import fnmatch
+import socket
+from datetime import datetime
+import pathlib
+import os
+import sys
+from pathlib import Path
+import pathlib
+sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
 import definitions
+from hydromodel.utils import hydro_utils
+from hydromodel.data.data_preprocess import (
+    cross_valid_data,
+    split_train_test,
+)
 
 
-@pytest.fixture()
-def txt_file():
-    return os.path.join(
-        definitions.ROOT_DIR, "hydromodel", "example", "01013500_lump_p_pe_q.txt"
+
+# @pytest.fixture()
+# def txt_file():
+#     return os.path.join(
+#         definitions.ROOT_DIR, "hydromodel", "example", "01013500_lump_p_pe_q.txt"
+#     )
+
+
+# @pytest.fixture()
+# def json_file():
+#     return os.path.join(definitions.ROOT_DIR, "hydromodel", "example", "data_info.json")
+
+
+# @pytest.fixture()
+# def npy_file():
+#     return os.path.join(
+#         definitions.ROOT_DIR, "hydromodel", "example", "basins_lump_p_pe_q.npy"
+#     )
+
+txt_file = pathlib.Path('D:/研究生/毕业论文/new毕业论文/预答辩/雪野水库/XUEYE.csv')
+forcing_data = pathlib.Path('D:/研究生/毕业论文/new毕业论文/预答辩/雪野水库//XUEYE.csv')
+json_file = pathlib.Path('D:/研究生/毕业论文/new毕业论文/预答辩/雪野水库/模型运行/data_info.json')
+npy_file = pathlib.Path('D:/研究生/毕业论文/new毕业论文/预答辩/雪野水库/模型运行/data_info.npy')
+
+
+# def test_save_data(txt_file, json_file, npy_file):
+data = pd.read_csv(txt_file)
+datetime_index = pd.to_datetime(data["date"], format="%Y/%m/%d %H:%M")
+# Note: The units are all mm/day! For streamflow, data is divided by basin's area
+# variables = ["prcp(mm/day)", "petfao56(mm/day)", "streamflow(mm/day)"]
+variables = ["prcp(mm/hour)", "pev(mm/hour)", "streamflow(m3/s)"]
+data_info = OrderedDict(
+    {
+        # "time": data["date"].values.tolist(),
+        "time": datetime_index.values.tolist(),
+        "basin": ["XUEYE"],
+        "variable": variables,
+        "area": ["431"],
+    }
+)
+hydro_utils.serialize_json(data_info, json_file)
+# 1 ft3 = 0.02831685 m3
+# ft3tom3 = 2.831685e-2
+
+# 1 km2 = 10^6 m2
+km2tom2 = 1e6
+# 1 m = 1000 mm
+mtomm = 1000
+# 1 day = 24 * 3600 s
+# daytos = 24 * 3600
+hourtos = 3600
+# trans ft3/s to mm/day
+# basin_area = 2055.56
+basin_area = 431
+data[variables[-1]] = (
+    data[["streamflow(m3/s)"]].values
+    # * ft3tom3
+    / (basin_area * km2tom2) 
+    * mtomm
+    * hourtos
+)
+df = data[variables]
+hydro_utils.serialize_numpy(np.expand_dims(df.values, axis=1), npy_file)
+
+
+# def test_load_data(txt_file, npy_file):
+#     data_ = pd.read_csv(txt_file)
+#     df = data_[["prcp(mm/day)", "petfao56(mm/day)"]]
+#     data = hydro_utils.unserialize_numpy(npy_file)[:, :, :2]
+#     np.testing.assert_array_equal(data, np.expand_dims(df.values, axis=1))
+
+
+# start_train = datetime(2014, 5, 1, 1)  
+# end_train = datetime(2020, 1, 1, 7)
+# start_test = datetime(2020, 1, 1, 8)
+# end_test = datetime(2021, 10, 11, 23)
+train_period = ["2006-01-01 1:00:00", "2017-01-01 0:00:00"]
+test_period = ["2017-01-01 0:00:00", "2021-01-01 0:00:00"]
+period = ["2013-01-01 8:00:00", "2023-01-01 0:00:00"]
+cv_fold = 1
+warmup_length=365
+  
+
+if cv_fold > 1:
+    cross_valid_data(json_file, npy_file, period, warmup_length, cv_fold)
+else:
+    split_train_test(json_file, npy_file, train_period, test_period)
+
+
+
+kfold = [
+    int(f_name[len("data_info_fold") : -len("_test.json")])
+    for f_name in os.listdir(os.path.dirname(txt_file))
+    if fnmatch.fnmatch(f_name, "*_fold*_test.json")
+]
+kfold = np.sort(kfold)
+for fold in kfold:
+    print(f"Start to calibrate the {fold}-th fold")
+    train_data_info_file = os.path.join(
+        os.path.dirname(forcing_data), f"data_info_fold{str(fold)}_train.json"
     )
-
-
-@pytest.fixture()
-def json_file():
-    return os.path.join(definitions.ROOT_DIR, "hydromodel", "example", "data_info.json")
-
-
-@pytest.fixture()
-def npy_file():
-    return os.path.join(
-        definitions.ROOT_DIR, "hydromodel", "example", "basins_lump_p_pe_q.npy"
+    train_data_file = os.path.join(
+        os.path.dirname(forcing_data), f"data_info_fold{str(fold)}_train.npy"
     )
-
-
-def test_save_data(txt_file, json_file, npy_file):
-    data = pd.read_csv(txt_file)
-    print(data.columns)
-    # Note: The units are all mm/day! For streamflow, data is divided by basin's area
-    variables = ["prcp(mm/day)", "petfao56(mm/day)", "streamflow(mm/day)"]
-    data_info = OrderedDict(
-        {
-            "time": data["date"].values.tolist(),
-            "basin": ["01013500"],
-            "variable": variables,
-        }
+    test_data_info_file = os.path.join(
+        os.path.dirname(forcing_data), f"data_info_fold{str(fold)}_test.json"
     )
-    hydro_file.serialize_json(data_info, json_file)
-    # 1 ft3 = 0.02831685 m3
-    ft3tom3 = 2.831685e-2
-    # 1 km2 = 10^6 m2
-    km2tom2 = 1e6
-    # 1 m = 1000 mm
-    mtomm = 1000
-    # 1 day = 24 * 3600 s
-    daytos = 24 * 3600
-    # trans ft3/s to mm/day
-    basin_area = 2252.7
-    data[variables[-1]] = (
-        data[["streamflow(ft3/s)"]].values
-        * ft3tom3
-        / (basin_area * km2tom2)
-        * mtomm
-        * daytos
+    test_data_file = os.path.join(
+        os.path.dirname(forcing_data), f"data_info_fold{str(fold)}_test.npy"
     )
-    df = data[variables]
-    hydro_file.serialize_numpy(np.expand_dims(df.values, axis=1), npy_file)
-
-
-def test_load_data(txt_file, npy_file):
-    data_ = pd.read_csv(txt_file)
-    df = data_[["prcp(mm/day)", "petfao56(mm/day)"]]
-    data = hydro_file.unserialize_numpy(npy_file)[:, :, :2]
-    np.testing.assert_array_equal(data, np.expand_dims(df.values, axis=1))
+    if (
+        os.path.exists(train_data_info_file) is False
+        or os.path.exists(train_data_file) is False
+        or os.path.exists(test_data_info_file) is False
+        or os.path.exists(test_data_file) is False
+    ):
+        raise FileNotFoundError(
+            "The data files are not found, please run datapreprocess4calibrate.py first."
+        )
+    data_train = hydro_utils.unserialize_numpy(train_data_file)
+    data_test = hydro_utils.unserialize_numpy(test_data_file)
+    data_info_train = hydro_utils.unserialize_json_ordered(train_data_info_file)
+    data_info_test = hydro_utils.unserialize_json_ordered(test_data_info_file)
+    current_time = datetime.now().strftime("%b%d_%H-%M-%S")
+    # one directory for one model + one hyperparam setting and one basin
+    save_dir = os.path.join(os.path.dirname(forcing_data), current_time+ "_"+ socket.gethostname()+ "_fold"+ str(fold))

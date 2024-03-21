@@ -1,15 +1,14 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-12-08 09:24:54
-LastEditTime: 2024-03-21 20:08:16
+LastEditTime: 2022-12-08 09:51:54
 LastEditors: Wenyu Ouyang
-Description: some util funcs for hydro model
-FilePath: \hydro-model-xaj\hydromodel\utils\units.py
+Description: some constant for hydro model
+FilePath: /hydro-model-xaj/hydromodel/utils/hydro_constant.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
-
 # unify the unit of each variable
-unit = {"streamflow": "m^3/s"}
+unit = {"streamflow": "m3/s"}
 def convert_unit(data, unit_now, unit_final, **kwargs):
     """
     convert unit of variable
@@ -30,7 +29,7 @@ def convert_unit(data, unit_now, unit_final, **kwargs):
     data
         data after conversion
     """
-    if unit_now == "mm/hour" and unit_final == "m^3/s":
+    if unit_now == "mm/day" and unit_final == "m3/s":
         result = mm_per_day_to_m3_per_sec(basin_area=kwargs["basin_area"], q=data)
     else:
         raise ValueError("unit conversion not supported")
@@ -59,8 +58,6 @@ def mm_per_day_to_m3_per_sec(basin_area, q):
     # 1 m = 1000 mm
     mtomm = 1000
     # 1 day = 24 * 3600 s
-    # daytos = 24 * 3600
-    hourtos = 3600
-    basin_area=float(basin_area)
-    q_trans = q * basin_area * km2tom2 / (mtomm * hourtos)
+    daytos = 24 * 3600
+    q_trans = q * basin_area * km2tom2 / (mtomm * daytos)
     return q_trans

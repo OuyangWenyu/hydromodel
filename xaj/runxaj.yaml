@@ -1,0 +1,21 @@
+# xaj model configuration
+#The current model runs on the daily time step
+  # start_time_str: "1990-01-01"
+  # end_time_str: "2009-12-31"
+
+  # time_units: "days"
+  basin_area: "66400"
+  start_time_str: "2021-06-01 00:00:00"
+  end_time_str: "2021-08-31 23:00:00"
+  time_units: "hours"
+# initial condition
+  # forcing_file: "/home/wangjingyi/code/hydro-model-xaj/hydromodel/example/hymod_input.csv"
+  forcing_file: "/home/wangjingyi/code/hydro-model-xaj/scripts/尼尔基降雨.csv" 
+  warmup_length: 360
+#   json_file: "/home/wangjingyi/code/hydro-model-xaj/hydromodel/example/01013500_lump_p_pe_q.json"
+#   npy_file: "/home/wangjingyi/code/hydro-model-xaj/hydromodel/example/01013500_lump_p_pe_q.npy"
+
+#   train_period: ["1990-01-01", "2000-12-31"]
+#   test_period: ["2001-01-01", "2009-12-31"]
+#   period: ["1990-01-01", "2009-12-31"]
+#   cv_fold: 2

@@ -134,7 +134,7 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     _, ind3, ind4 = np.intersect1d(date_lst, t_range_test, return_indices=True)
     data_info_train = OrderedDict(
         {
-            "time": [str(t)[:10] for t in hydro_time.t_range_days(train_period)],
+            "time": [str(t)[:16] for t in hydro_utils.t_range_days(train_period)],
             "basin": data_info["basin"],
             "variable": data_info["variable"],
             "area": data_info["area"],
@@ -142,7 +142,7 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     )
     data_info_test = OrderedDict(
         {
-            "time": [str(t)[:10] for t in hydro_time.t_range_days(test_period)],
+            "time": [str(t)[:16] for t in hydro_utils.t_range_days(test_period)],
             "basin": data_info["basin"],
             "variable": data_info["variable"],
             "area": data_info["area"],
@@ -159,7 +159,7 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     hydro_file.serialize_numpy(data[ind3, :, :], test_npy_file)
 
 
-def cross_valid_data(json_file, npy_file, period, warmup, cv_fold, time_unit="D"):
+def cross_valid_data(json_file, npy_file, period, warmup, cv_fold, time_unit="h"):
     """
     Split all data to train and test parts with same format
 

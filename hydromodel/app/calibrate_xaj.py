@@ -34,9 +34,10 @@ def calibrate(args):
     algo_info = args.algorithm
     comment = args.comment
     data_dir = os.path.join(definitions.ROOT_DIR, "hydromodel", "example", exp)
+    data_dir = os.path.join('D:/研究生/毕业论文/new毕业论文/预答辩/碧流河水库/模型运行/')
     kfold = [
         int(f_name[len("data_info_fold") : -len("_test.json")])
-        for f_name in os.listdir(data_dir)
+        for f_name in os.listdir(data_dir) #输出文件夹下的所有文件
         if fnmatch.fnmatch(f_name, "*_fold*_test.json")
     ]
     kfold = np.sort(kfold)
@@ -46,13 +47,13 @@ def calibrate(args):
             data_dir, f"data_info_fold{str(fold)}_train.json"
         )
         train_data_file = os.path.join(
-            data_dir, f"basins_lump_p_pe_q_fold{str(fold)}_train.npy"
+            data_dir, f"data_info_fold{str(fold)}_train.npy"
         )
         test_data_info_file = os.path.join(
             data_dir, f"data_info_fold{str(fold)}_test.json"
         )
         test_data_file = os.path.join(
-            data_dir, f"basins_lump_p_pe_q_fold{str(fold)}_test.npy"
+            data_dir, f"data_info_fold{str(fold)}_test.npy"
         )
         if (
             os.path.exists(train_data_info_file) is False
@@ -77,7 +78,8 @@ def calibrate(args):
             + str(fold)
             + "_"
             + comment,
-        )
+        ) 
+        #读输入文件
         if os.path.exists(save_dir) is False:
             os.makedirs(save_dir)
         hydro_file.serialize_json(vars(args), os.path.join(save_dir, "args.json"))
@@ -86,14 +88,15 @@ def calibrate(args):
                 basin_id = data_info_train["basin"][i]
                 basin_area = data_info_train["area"][i]
                 # one directory for one model + one hyperparam setting and one basin
-                spotpy_db_dir = os.path.join(
+                spotpy_db_dir = os.path.join(   #一个模型一个文件夹
                     save_dir,
                     basin_id,
                 )
                 if not os.path.exists(spotpy_db_dir):
                     os.makedirs(spotpy_db_dir)
                 db_name = os.path.join(spotpy_db_dir, "SCEUA_" + model_info["name"])
-                sampler = calibrate_by_sceua(
+
+                sampler = calibrate_by_sceua(      #率定
                     data_train[:, i : i + 1, 0:2],
                     data_train[:, i : i + 1, -1:],
                     db_name,
@@ -102,7 +105,7 @@ def calibrate(args):
                     algorithm=algo_info,
                 )
 
-                show_calibrate_result(
+                show_calibrate_result(#展示率定结果
                     sampler.setup,
                     db_name,
                     warmup_length=warmup,
@@ -110,16 +113,17 @@ def calibrate(args):
                     basin_id=basin_id,
                     train_period=data_info_train["time"],
                     basin_area=basin_area,
+                    prcp=data_train[365:, i : i + 1, 0:1].flatten(),   
                 )
 
-                params = read_save_sceua_calibrated_params(
+                params = read_save_sceua_calibrated_params(  #保存率定的参数文件
                     basin_id, spotpy_db_dir, db_name
                 )
                 # _ is et which we didn't use here
-                qsim, _ = xaj(
+                qsim, _ = xaj(    #计算模拟结果
                     data_test[:, i : i + 1, 0:2],
                     params,
-                    warmup_length=warmup,
+                    warmup_length=0 ,
                     **model_info,
                 )
 
@@ -135,7 +139,7 @@ def calibrate(args):
                     unit_final=units.unit["streamflow"],
                     basin_area=basin_area,
                 )
-                test_result_file = os.path.join(
+                test_result_file = os.path.join(   
                     spotpy_db_dir,
                     "test_qsim_" + model_info["name"] + "_" + str(basin_id) + ".csv",
                 )
@@ -146,10 +150,10 @@ def calibrate(args):
                     header=False,
                 )
                 test_date = pd.to_datetime(
-                    data_info_test["time"][warmup:]
-                ).values.astype("datetime64[D]")
+                    data_info_test["time"][:]
+                ).values.astype("datetime64[h]")
                 show_test_result(
-                    basin_id, test_date, qsim, qobs, save_dir=spotpy_db_dir
+                    basin_id, test_date,qsim, qobs, save_dir=spotpy_db_dir,warmup_length=0,prcp=data_test[:, i : i + 1, 0:1].flatten(),basin_area=basin_area
                 )
         elif algo_info["name"] == "GA":
             for i in range(len(data_info_train["basin"])):
@@ -205,13 +209,13 @@ def calibrate(args):
 # the exp must be same as the exp in data_preprocess.py
 # python calibrate_xaj.py --exp exp201 --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":2000,\"ngs\":20,\"kstop\":3,\"peps\":0.1,\"pcento\":0.1}
 # python calibrate_xaj.py --exp exp61561 --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"GA\",\"random_seed\":1234,\"run_counts\":50,\"pop_num\":50,\"cross_prob\":0.5,\"mut_prob\":0.5,\"save_freq\":1}
-if __name__ == "__main__":
+if __name__ == "__main__": #固定套路
     parser = argparse.ArgumentParser(description="Calibrate a hydrological model.")
     parser.add_argument(
         "--exp",
         dest="exp",
         help="An exp is corresponding to a data plan from data_preprocess.py",
-        default="exp004",
+        default="D:\研究生\毕业论文\new毕业论文\预答辩\碧流河水库\模型运行",
         type=str,
     )
     parser.add_argument(
@@ -226,8 +230,8 @@ if __name__ == "__main__":
         dest="model",
         help="which hydro model you want to calibrate and the parameters setting for model function, note: not hydromodel parameters but function's parameters",
         default={
-            "name": "xaj_mz",
-            "source_type": "sources",
+            "name": "xaj",
+            "source_type": "sources5mm",
             "source_book": "HF",
         },
         type=json.loads,
@@ -241,24 +245,24 @@ if __name__ == "__main__":
         "ngs is the number of complex, better larger than your hydro-model-params number (nopt) but not too large, because the number of population's individuals is ngs * (2*nopt+1), larger ngs need more evaluations;"
         "kstop is the number of evolution (not evaluation) loops, some small numbers such as 2, 3, 5, ... are recommended, if too large it is hard to finish optimizing;"
         "peps and pcento are two loop-stop criterion, 0.1 (its unit is %, 0.1 means a relative change of 1/1000) is a good choice",
-        # default={
-        #     "name": "SCE_UA",
-        #     "random_seed": 1234,
-        #     "rep": 5000,
-        #     "ngs": 20,
-        #     "kstop": 3,
-        #     "peps": 0.1,
-        #     "pcento": 0.1,
-        # },
         default={
-            "name": "GA",
-            "random_seed": 1234,
-            "run_counts": 2,
-            "pop_num": 50,
-            "cross_prob": 0.5,
-            "mut_prob": 0.5,
-            "save_freq": 1,
+            "name": "SCE_UA",
+            "random_seed":1234,
+            "rep":3,
+            "ngs": 1000,
+            "kstop": 1000,
+            "peps": 0.1,
+            "pcento": 0.1,
         },
+        # default={
+        #     "name": "GA",
+        #     "random_seed": 1234,
+        #     "run_counts": 2,
+        #     "pop_num": 50,
+        #     "cross_prob": 0.5,
+        #     "mut_prob": 0.5,
+        #     "save_freq": 1,
+        # },
         type=json.loads,
     )
     parser.add_argument(

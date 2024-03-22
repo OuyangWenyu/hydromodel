@@ -1,12 +1,13 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2023-12-17 21:10:45
+LastEditTime: 2024-03-22 21:26:01
 LastEditors: Wenyu Ouyang
 Description: Calibrate XAJ model using DEAP
-FilePath: \hydro-model-xaj\hydromodel\calibrate\calibrate_ga.py
+FilePath: \hydro-model-xaj\hydromodel\trainers\calibrate_ga.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
+
 import os
 import pickle
 from deap import base, creator
@@ -15,20 +16,13 @@ from deap import tools
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import sys
-from pathlib import Path
 
 from hydroutils import hydro_file, hydro_stat
 
 
-sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
-import definitions
 from hydromodel.models.model_config import MODEL_PARAM_DICT
-from hydromodel.utils import units
+from hydromodel.models.model_dict import MODEL_DICT
 from hydromodel.trainers.train_utils import plot_sim_and_obs, plot_train_iteration
-from hydromodel.models.gr4j import gr4j
-from hydromodel.models.hymod import hymod
-from hydromodel.models.xaj import xaj
 
 
 def evaluate(individual, x_input, y_true, warmup_length, model):
@@ -46,7 +40,7 @@ def evaluate(individual, x_input, y_true, warmup_length, model):
     warmup_length
         the length of warmup period
     model
-        model's name: "xaj", "xaj_mz", "gr4j", or "hymod"
+        model's config
 
     Returns
     -------
@@ -56,21 +50,14 @@ def evaluate(individual, x_input, y_true, warmup_length, model):
     # print("Calculate fitness:")
     # NOTE: Now only support one basin's calibration for once now
     params = np.array(individual).reshape(1, -1)
-    if model["name"] in ["xaj", "xaj_mz"]:
-        # xaj model's output include streamflow and evaporation now,
-        # but now we only calibrate the model with streamflow
-        sim, _ = xaj(x_input, params, warmup_length=warmup_length, **model)
-    elif model["name"] == "gr4j":
-        sim = gr4j(x_input, params, warmup_length=warmup_length, **model)
-    elif model["name"] == "hymod":
-        sim = hymod(x_input, params, warmup_length=warmup_length, **model)
-    else:
-        raise NotImplementedError("We don't provide this model now")
+    # model's output include streamflow and evaporation now,
+    # but now we only calibrate the model with streamflow
+    sim, _ = MODEL_DICT[model["name"]](
+        x_input, params, warmup_length=warmup_length, **model
+    )
     # Calculate RMSE for multi-dim arrays
     rmses = np.sqrt(np.nanmean((sim - y_true[warmup_length:, :, :]) ** 2, axis=0))
-    rmse = rmses.mean(axis=0)
-    # print(f"-----------------RMSE: {str(rmse)}------------------------")
-    return rmse
+    return rmses.mean(axis=0)
 
 
 def checkBounds(min, max):
@@ -212,6 +199,8 @@ def calibrate_by_ga(
         logbook=logbook,
         rndstate=random.getstate(),
     )
+    if not os.path.exists(deap_dir):
+        os.makedirs(deap_dir)
     with open(os.path.join(deap_dir, "epoch0.pkl"), "wb") as cp_file:
         pickle.dump(cp, cp_file)
 
@@ -294,7 +283,7 @@ def show_ga_result(
     halloffame = cp["halloffame"]
     print(f"Best individual is: {halloffame[0]}, {halloffame[0].fitness.values}")
     train_test_flag = "train" if train_mode else "test"
-    best_simulation, _ = xaj(
+    best_simulation, _ = MODEL_DICT[model_info["name"]](
         the_data[:, :, 0:2],
         np.array(list(halloffame[0])).reshape(1, -1),
         warmup_length=warmup_length,

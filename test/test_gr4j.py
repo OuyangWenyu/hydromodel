@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2023-06-02 09:30:36
-LastEditTime: 2024-03-22 09:30:05
+LastEditTime: 2024-03-22 11:07:00
 LastEditors: Wenyu Ouyang
 Description: Test case for GR4J model
 FilePath: \hydro-model-xaj\test\test_gr4j.py
@@ -9,19 +9,13 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
 import os
-
 import numpy as np
 import pandas as pd
 import pytest
+
+from hydrodataset import Camels
 from hydromodel import SETTING
 from hydromodel.models.gr4j import gr4j
-
-
-@pytest.fixture()
-def basin_area():
-    # the area of basin 01013500, unit km2
-    # basin_area = 2252.7
-    return 1.783
 
 
 @pytest.fixture()
@@ -30,39 +24,34 @@ def warmup_length():
 
 
 @pytest.fixture()
-def the_data():
+def camels():
+    # for methods testing, we simply use the CAMELS dataset
     root_dir = SETTING["local_data_path"]["datasets-origin"]
-    # test_data = pd.read_csv(os.path.join(root_dir, "hydromodel", "example", '01013500_lump_p_pe_q.txt'))
-    return pd.read_csv(
-        os.path.join(root_dir, "hydromodel", "example", "hymod_input.csv"), sep=";"
+    return Camels(os.path.join(root_dir, "camels", "camels_us"))
+
+
+@pytest.fixture()
+def basin_area(camels):
+    attr = camels.read_attributes(["01013500"], ["area"])
+    return attr["area"].values[0]
+
+
+@pytest.fixture()
+def p_and_e(camels):
+    p_and_e = camels.read_ts_xrdataset(
+        ["01013500"], ["2010-01-01", "2014-01-01"], ["prcp", "PET"]
     )
-
-
-@pytest.fixture()
-def p_and_e(the_data):
-    # p_and_e_df = test_data[['prcp(mm/day)', 'petfao56(mm/day)']]
     # three dims: sequence (time), batch (basin), feature (variable)
-    # p_and_e = np.expand_dims(p_and_e_df.values, axis=1)
-    p_and_e_df = the_data[["rainfall[mm]", "TURC [mm d-1]"]]
-    return np.expand_dims(p_and_e_df.values, axis=1)
+    return np.expand_dims(p_and_e.values, axis=1)
 
 
 @pytest.fixture()
-def qobs(basin_area, the_data):
-    # 1 ft3 = 0.02831685 m3
-    ft3tom3 = 2.831685e-2
-    # 1 km2 = 10^6 m2
-    km2tom2 = 1e6
-    # 1 m = 1000 mm
-    mtomm = 1000
-    # 1 day = 24 * 3600 s
-    daytos = 24 * 3600
-    # qobs_ = np.expand_dims(test_data[['streamflow(ft3/s)']].values, axis=1)
-    # trans ft3/s to mm/day
-    # return qobs_ * ft3tom3 / (basin_area * km2tom2) * mtomm * daytos
-
-    qobs_ = np.expand_dims(the_data[["Discharge[ls-1]"]].values, axis=1)
-    # trans l/s to mm/day
+def qobs(basin_area, camels):
+    qobs_ = camels.read_ts_xrdataset(
+        ["01013500"], ["2010-01-01", "2014-01-01"], ["streamflow"]
+    )
+    # we use pint package to handle the unit conversion
+    # trans unit to mm/day
     return qobs_ * 1e-3 / (basin_area * km2tom2) * mtomm * daytos
 
 

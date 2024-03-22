@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-22 09:51:19
+LastEditTime: 2024-03-22 20:07:08
 LastEditors: Wenyu Ouyang
 Description: Plots for calibration and testing results
-FilePath: \hydro-model-xaj\hydromodel\trainers\plots.py
+FilePath: \hydro-model-xaj\hydromodel\trainers\train_utils.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 

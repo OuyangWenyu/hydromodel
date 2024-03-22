@@ -12,7 +12,9 @@ PRECISION = 1e-5
 
 
 class xajBmi(Bmi):
-    """Empty model wrapped in a BMI interface."""
+    """Empty model wrapped in a BMI interface.
+    TODO: not implemented yet
+    """
 
     name = "hydro-model-xaj"
     input_var_names = ("precipitation", "ETp")

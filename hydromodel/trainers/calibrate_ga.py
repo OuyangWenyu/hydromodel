@@ -25,7 +25,7 @@ sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
 import definitions
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.utils import units
-from hydromodel.trainers.plots import plot_sim_and_obs, plot_train_iteration
+from hydromodel.trainers.train_utils import plot_sim_and_obs, plot_train_iteration
 from hydromodel.models.gr4j import gr4j
 from hydromodel.models.hymod import hymod
 from hydromodel.models.xaj import xaj

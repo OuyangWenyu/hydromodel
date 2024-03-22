@@ -20,7 +20,7 @@ from hydromodel.datasets.data_postprocess import (
     summarize_metrics,
     summarize_parameters,
 )
-from hydromodel.trainers.plots import show_calibrate_result, show_test_result
+from hydromodel.trainers.train_utils import show_calibrate_result, show_test_result
 from hydromodel.models.xaj import xaj
 from hydromodel.trainers.calibrate_ga import calibrate_by_ga, show_ga_result
 from hydromodel.utils import units

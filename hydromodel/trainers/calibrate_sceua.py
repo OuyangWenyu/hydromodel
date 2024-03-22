@@ -3,26 +3,15 @@ import numpy as np
 import spotpy
 import pandas as pd
 from spotpy.parameter import Uniform, ParameterSet
-from spotpy.objectivefunctions import rmse
 from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.model_dict import CRITERION_DICT, MODEL_DICT
 from hydromodel.models.gr4j import gr4j
 from hydromodel.models.hymod import hymod
 from hydromodel.models.xaj import xaj
 
 
 class SpotSetup(object):
-    def __init__(
-        self,
-        p_and_e,
-        qobs,
-        warmup_length=365,
-        model={
-            "name": "xaj_mz",
-            "source_type": "sources5mm",
-            "source_book": "HF",
-        },
-        obj_func=None,
-    ):
+    def __init__(self, p_and_e, qobs, warmup_length=365, model=None, metric=None):
         """
         Set up for Spotpy
 
@@ -38,17 +27,29 @@ class SpotSetup(object):
             we support "gr4j", "hymod", and "xaj"
         model_func_param
             parameters of model function
-        obj_func
-            objective function, typically RMSE
+        metric
+            metric configs including objective function, typically RMSE
         """
+        if model is None:
+            model = {
+                "name": "xaj_mz",
+                "source_type": "sources5mm",
+                "source_book": "HF",
+            }
+        if metric is None:
+            metric = {
+                "type": "time_series",
+                "obj_func": "rmse",
+                "events": None,
+            }
         self.parameter_names = MODEL_PARAM_DICT[model["name"]]["param_name"]
         self.model = model
         self.params = []
-        for par_name in self.parameter_names:
-            # All parameters' range are [0,1], we will transform them to normal range in the model
-            self.params.append(Uniform(par_name, low=0.0, high=1.0))
+        self.params.extend(
+            Uniform(par_name, low=0.0, high=1.0) for par_name in self.parameter_names
+        )
         # Just a way to keep this example flexible and applicable to various examples
-        self.obj_func = obj_func
+        self.metric = metric
         # Load Observation data from file
         self.p_and_e = p_and_e
         # chose observation data after warmup period
@@ -75,22 +76,11 @@ class SpotSetup(object):
         # Here the model is started with one parameter combination
         # parameter, 2-dim variable: [basin=1, parameter]
         params = np.array(x).reshape(1, -1)
-        if self.model["name"] in ["xaj", "xaj_mz"]:
-            # xaj model's output include streamflow and evaporation now,
-            # but now we only calibrate the model with streamflow
-            sim, _ = xaj(
-                self.p_and_e, params, warmup_length=self.warmup_length, **self.model
-            )
-        elif self.model["name"] == "gr4j":
-            sim = gr4j(
-                self.p_and_e, params, warmup_length=self.warmup_length, **self.model
-            )
-        elif self.model["name"] == "hymod":
-            sim = hymod(
-                self.p_and_e, params, warmup_length=self.warmup_length, **self.model
-            )
-        else:
-            raise NotImplementedError("We don't provide this model now")
+        # xaj model's output include streamflow and evaporation now,
+        # but now we only calibrate the model with streamflow
+        sim, _ = MODEL_DICT[self.model["name"]](
+            self.p_and_e, params, warmup_length=self.warmup_length, **self.model
+        )
         return sim[:, 0, 0]
 
     def evaluation(self) -> Union[list, np.array]:
@@ -109,7 +99,6 @@ class SpotSetup(object):
         self,
         simulation: Union[list, np.array],
         evaluation: Union[list, np.array],
-        params=None,
     ) -> float:
         """
         A user defined objective function to calculate fitness.
@@ -120,72 +109,46 @@ class SpotSetup(object):
             simulation results
         evaluation:
             evaluation results
-        params:
-            parameters leading to the simulation
 
         Returns
         -------
         float
             likelihood
         """
-        #切片
-        time = pd.read_excel('D:/研究生/毕业论文/new毕业论文/预答辩/碧流河水库/站点信息/洪水率定时间.xlsx')
+        if self.metric["type"] == "time_series":
+            return CRITERION_DICT[self.metric["obj_func"]](evaluation, simulation)
+        # for events
+        time = self.metric["events"]
+        if time is None:
+            raise ValueError(
+                "time should not be None since you choose events, otherwise choose time_series"
+            )
+        # TODO: not finished for events
         calibrate_starttime = pd.to_datetime("2012-06-10 0:00:00")
         calibrate_endtime = pd.to_datetime("2019-12-31 23:00:00")
         total = 0
-        count = 0 
+        count = 0
         for i in range(len(time)):
-            if(time.iloc[i,0]<calibrate_endtime):
-                start_num = (time.iloc[i,0]-calibrate_starttime-pd.Timedelta(hours=365))/pd.Timedelta(hours=1)   
-                end_num = (time.iloc[i,1]-calibrate_starttime-pd.Timedelta(hours=365))/pd.Timedelta(hours=1)
+            if time.iloc[i, 0] < calibrate_endtime:
+                start_num = (
+                    time.iloc[i, 0] - calibrate_starttime - pd.Timedelta(hours=365)
+                ) / pd.Timedelta(hours=1)
+                end_num = (
+                    time.iloc[i, 1] - calibrate_starttime - pd.Timedelta(hours=365)
+                ) / pd.Timedelta(hours=1)
                 start_num = int(start_num)
                 end_num = int(end_num)
-                if not self.obj_func:
-                    like_ = rmse(evaluation[start_num:end_num,], simulation[start_num:end_num,])
-                    total += like_
-                    count += 1
-                    
-                else:
-                    # Way to ensure flexible spot setup class
-                    like_ = self.obj_func(evaluation[start_num:end_num,], simulation[start_num:end_num,])
-                    total += like_
-                    count += 1
-                    
-        like=total/count
-        return like
-        # if not self.obj_func:
-        # # This is used if not overwritten by user
-        #         like= rmse(evaluation, simulation)
-            
-                
-        # else:
-        #         # Way to ensure flexible spot setup class
-        #         like= self.obj_func(evaluation, simulation)
-        # return like
+                like_ = self.obj_func(
+                    evaluation[start_num:end_num,], simulation[start_num:end_num,]
+                )
+                count += 1
 
-        # SPOTPY expects to get one or multiple values back,
-        # that define the performance of the model run
-        
+                total += like_
+        return total / count
+
 
 def calibrate_by_sceua(
-    p_and_e,
-    qobs,
-    dbname,
-    warmup_length=365,
-    model={
-        "name": "xaj_mz",    #模型
-        "source_type": "sources5mm",
-        "source_book": "HF",
-    },
-    algorithm={
-        "name": "SCE_UA",
-        "random_seed": 1234,
-        "rep": 1000,
-        "ngs": 1000,
-        "kstop": 500,
-        "peps": 0.1,
-        "pcento": 0.1,
-    },
+    p_and_e, qobs, dbname, warmup_length=365, model=None, algorithm=None, metric=None
 ):
     """
     Function for calibrating model by SCE-UA
@@ -204,14 +167,41 @@ def calibrate_by_sceua(
         the length of warmup period
     model
         we support "gr4j", "hymod", and "xaj", parameters for hydro model
-    calibrate_algo
+    algorithm
         calibrate algorithm. For example, if you want to calibrate xaj model,
         and use sce-ua algorithm -- random seed=2000, rep=5000, ngs=7, kstop=3, peps=0.1, pcento=0.1
+    metric
+        metric configs for events calculation or
+        just one long time-series calculation
+        with an objective function, typically RMSE
 
     Returns
     -------
     None
     """
+    if model is None:
+        model = {
+            "name": "xaj_mz",  # 模型
+            "source_type": "sources5mm",
+            "source_book": "HF",
+        }
+    if algorithm is None:
+        algorithm = {
+            "name": "SCE_UA",
+            "random_seed": 1234,
+            "rep": 1000,
+            "ngs": 1000,
+            "kstop": 500,
+            "peps": 0.1,
+            "pcento": 0.1,
+        }
+    if metric is None:
+        metric = {
+            "type": "time_series",
+            "obj_func": "RMSE",
+            # when "type" is "events", this is not None, but idxs of events in time series
+            "events": None,
+        }
     random_seed = algorithm["random_seed"]
     rep = algorithm["rep"]
     ngs = algorithm["ngs"]
@@ -228,7 +218,7 @@ def calibrate_by_sceua(
         qobs,
         warmup_length=warmup_length,
         model=model,
-        obj_func=spotpy.objectivefunctions.rmse,  # 均方根误差
+        metric=metric,
     )
     # Select number of maximum allowed repetitions # 选择允许的最大重复次数
     sampler = spotpy.algorithms.sceua(

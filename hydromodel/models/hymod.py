@@ -44,7 +44,7 @@ def hymod(p_and_e, parameters, warmup_length=30, return_state=False, **kwargs):
     if warmup_length > 0:
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
-        _, x_slow, x_quick, x_loss = hymod(
+        _, _, x_slow, x_quick, x_loss = hymod(
             p_and_e_warmup,
             parameters,
             warmup_length=0,
@@ -88,11 +88,11 @@ def hymod(p_and_e, parameters, warmup_length=30, return_state=False, **kwargs):
 
         # Compute total flow for timestep
         output[t, :] = qs + outflow
-        t = t + 1
+        t += 1
     streamflow = np.expand_dims(output, axis=2)
     if return_state:
-        return streamflow, x_slow, x_quick, x_loss
-    return streamflow
+        return streamflow, et, x_slow, x_quick, x_loss
+    return streamflow, et
 
 
 # @jit

@@ -86,7 +86,8 @@ def production(
     # The precip. for routing is the sum of the rainfall which
     # did not make it to storage and the percolation from the store
     current_runoff = perc + (precip_net - precip_store)
-    return current_runoff, s_update
+    # TODO: check if evap_store is the real ET
+    return current_runoff, evap_store, s_update
 
 
 # @jit
@@ -189,8 +190,8 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
 
     Parameters
     ----------
-    p_and_e
-
+    p_and_e: ndarray
+        3-dim input -- [time, basin, variable]: precipitation and potential evaporation
     parameters
         2-dim variable -- [basin, parameter]:
         the parameters are x1, x2, x3 and x4
@@ -216,7 +217,7 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     if warmup_length > 0:
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
-        _, s0, r0 = gr4j(
+        _, _, s0, r0 = gr4j(
             p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
         )
     else:
@@ -225,12 +226,14 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     inputs = p_and_e[warmup_length:, :, :]
     streamflow_ = np.full(inputs.shape[:2], 0.0)
     prs = np.full(inputs.shape[:2], 0.0)
+    ets = np.full(inputs.shape[:2], 0.0)
     for i in range(inputs.shape[0]):
         if i == 0:
-            pr, s = production(inputs[i, :, :], x1, s0)
+            pr, et, s = production(inputs[i, :, :], x1, s0)
         else:
-            pr, s = production(inputs[i, :, :], x1, s)
+            pr, et, s = production(inputs[i, :, :], x1, s)
         prs[i, :] = pr
+        ets[i, :] = et
     prs_x = np.expand_dims(prs, axis=2)
     conv_q9, conv_q1 = uh_gr4j(x4)
     q9 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
@@ -250,5 +253,5 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         streamflow_[i, :] = q
     streamflow = np.expand_dims(streamflow_, axis=2)
     if return_state:
-        return streamflow, s, r
-    return streamflow
+        return streamflow, ets, s, r
+    return streamflow, ets

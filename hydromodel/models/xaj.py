@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2024-02-10 11:51:35
+LastEditTime: 2024-03-22 17:05:22
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
 FilePath: /hydro-model-xaj/hydromodel/models/xaj.py
@@ -767,7 +767,7 @@ def xaj(
         (value[1] - value[0]) * params[:, i] + value[0]
         for i, (key, value) in enumerate(param_ranges.items())
     ]
-    # xaj_params = [param_ranges[key] for key in param_ranges] 
+    # xaj_params = [param_ranges[key] for key in param_ranges]
 
     k = xaj_params[0]
     b = xaj_params[1]
@@ -783,7 +783,7 @@ def xaj(
     # ki+kg should be smaller than 1; if not, we scale them
     ki = np.where(ki_ + kg_ < 1.0, ki_, (1.0 - PRECISION) / (ki_ + kg_) * ki_)
     kg = np.where(ki_ + kg_ < 1.0, kg_, (1.0 - PRECISION) / (ki_ + kg_) * kg_)
-    
+
     if route_method == "CSL":
         cs = xaj_params[11]
         l = xaj_params[12]
@@ -816,7 +816,6 @@ def xaj(
         fr0 = np.full(ex.shape, 0.1)
         qi0 = np.full(ci.shape, 0.1)
         qg0 = np.full(cg.shape, 0.1)
-
 
     # state_variables
     inputs = p_and_e[warmup_length:, :, :]

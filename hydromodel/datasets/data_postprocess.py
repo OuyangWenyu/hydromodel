@@ -3,13 +3,9 @@ import numpy as np
 import pandas as pd
 import pathlib
 import spotpy
-from pathlib import Path
-import sys
 
 from hydroutils import hydro_file
 
-sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
-import definitions
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.xaj import xaj
 
@@ -34,23 +30,15 @@ def read_save_sceua_calibrated_params(basin_id, save_dir, sceua_calibrated_file_
 
     """
     results = spotpy.analyser.load_csv_results(sceua_calibrated_file_name)
-<<<<<<< HEAD
     bestindex, bestobjf = spotpy.analyser.get_minlikeindex(
         results
     )  # 结果数组中具有最小目标函数的位置的索引
-=======
-    bestindex, bestobjf = spotpy.analyser.get_minlikeindex(results) #结果数组中具有最小目标函数的位置的索引
->>>>>>> wangjingyi1999-event
     best_model_run = results[bestindex]
     fields = [word for word in best_model_run.dtype.names if word.startswith("par")] 
     best_calibrate_params = pd.DataFrame(list(best_model_run[fields]))
     save_file = os.path.join(save_dir, basin_id + "_calibrate_params.txt")
     best_calibrate_params.to_csv(save_file, sep=",", index=False, header=True)
-<<<<<<< HEAD
     return np.array(best_calibrate_params).reshape(1, -1)  # 返回一列最佳的结果
-=======
-    return np.array(best_calibrate_params).reshape(1, -1)    #返回一列最佳的结果
->>>>>>> wangjingyi1999-event
 
 
 def summarize_parameters(result_dir, model_info: dict):
@@ -223,12 +211,8 @@ def read_and_save_et_ouputs(result_dir, fold: int):
     train_period = data_info_train["time"]
     test_period = data_info_test["time"]
     # TODO: basins_lump_p_pe_q_fold NAME need to be unified
-    train_np_file = os.path.join(
-        exp_dir, "data_info_fold" + str(fold) + "_train.npy"
-    )
-    test_np_file = os.path.join(
-        exp_dir, "data_info_fold" + str(fold) + "_test.npy"
-    )
+    train_np_file = os.path.join(exp_dir, f"data_info_fold{fold}_train.npy")
+    test_np_file = os.path.join(exp_dir, f"data_info_fold{fold}_test.npy")
     # train_np_file = os.path.join(exp_dir, f"basins_lump_p_pe_q_fold{fold}_train.npy")
     # test_np_file = os.path.join(exp_dir, f"basins_lump_p_pe_q_fold{fold}_test.npy")
     train_data = np.load(train_np_file)

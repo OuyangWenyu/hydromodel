@@ -6,11 +6,9 @@ import pytest
 
 from hydroutils import hydro_time
 
-import definitions
+from hydromodel import SETTING
 from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
-from hydromodel.trainers.calibrate_ga import calibrate_by_ga
 from hydromodel.datasets.data_postprocess import read_save_sceua_calibrated_params
-from hydromodel.utils import units
 from hydromodel.trainers.plots import show_calibrate_result, show_test_result
 from hydromodel.models.xaj import xaj, uh_gamma, uh_conv
 
@@ -24,8 +22,7 @@ def basin_area():
 
 @pytest.fixture()
 def db_name():
-    db_name = os.path.join(definitions.ROOT_DIR, "test", "SCEUA_xaj_mz")
-    return db_name
+    return os.path.join(SETTING["local_data_path"]["root"], "test", "SCEUA_xaj_mz")
 
 
 @pytest.fixture()
@@ -35,7 +32,7 @@ def warmup_length():
 
 @pytest.fixture()
 def the_data():
-    root_dir = definitions.ROOT_DIR
+    root_dir = SETTING["local_data_path"]["root"]
     # test_data = pd.read_csv(os.path.join(root_dir, "hydromodel", "example", '01013500_lump_p_pe_q.txt'))
     return pd.read_csv(
         os.path.join(root_dir, "hydromodel", "example", "hymod_input.csv"), sep=";"

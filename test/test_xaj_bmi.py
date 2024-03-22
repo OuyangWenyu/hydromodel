@@ -1,7 +1,5 @@
 import logging
 
-import definitions
-from hydromodel.models.configuration import read_config
 from hydromodel.models.xaj_bmi import xajBmi
 import pandas as pd
 import os
@@ -13,7 +11,6 @@ from datetime import datetime
 
 from hydroutils import hydro_file
 
-from hydromodel.utils import units
 from hydromodel.datasets.data_preprocess import (
     cross_valid_data,
     split_train_test,

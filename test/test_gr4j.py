@@ -1,23 +1,20 @@
 """
 Author: Wenyu Ouyang
 Date: 2023-06-02 09:30:36
-LastEditTime: 2023-06-03 10:41:48
+LastEditTime: 2024-03-22 09:30:05
 LastEditors: Wenyu Ouyang
-Description: 
-FilePath: /hydro-model-xaj/test/test_gr4j.py
+Description: Test case for GR4J model
+FilePath: \hydro-model-xaj\test\test_gr4j.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
+
 import os
 
 import numpy as np
 import pandas as pd
 import pytest
-import spotpy
-from matplotlib import pyplot as plt
-import definitions
-from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua, SpotSetup
+from hydromodel import SETTING
 from hydromodel.models.gr4j import gr4j
-from hydromodel.trainers.plots import show_calibrate_result
 
 
 @pytest.fixture()
@@ -34,7 +31,7 @@ def warmup_length():
 
 @pytest.fixture()
 def the_data():
-    root_dir = definitions.ROOT_DIR
+    root_dir = SETTING["local_data_path"]["datasets-origin"]
     # test_data = pd.read_csv(os.path.join(root_dir, "hydromodel", "example", '01013500_lump_p_pe_q.txt'))
     return pd.read_csv(
         os.path.join(root_dir, "hydromodel", "example", "hymod_input.csv"), sep=";"

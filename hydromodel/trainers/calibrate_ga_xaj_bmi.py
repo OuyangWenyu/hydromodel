@@ -1,9 +1,8 @@
 """Calibrate XAJ model using DEAP"""
+
 import os
 import pickle
 import random
-import sys
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -14,12 +13,9 @@ from tqdm import tqdm
 import HydroErr as he
 from hydroutils import hydro_stat, hydro_file
 
-sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
-import definitions
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.trainers.plots import plot_sim_and_obs, plot_train_iteration
 from hydromodel.models.xaj_bmi import xajBmi
-from hydromodel.utils import units
 
 
 def evaluate(individual, x_input, y_true, warmup_length, model):

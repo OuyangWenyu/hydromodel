@@ -1,110 +1,257 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-21 18:36:25
+LastEditTime: 2024-03-25 14:50:32
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
-FilePath: \hydro-model-xaj\hydromodel\data\data_preprocess.py
+FilePath: \hydro-model-xaj\hydromodel\datasets\data_preprocess.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 
+import os
+import re
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold
-import sys
-import os
-from pathlib import Path
 from collections import OrderedDict
+import xarray as xr
 
-import hydrodataset
 from hydroutils import hydro_time, hydro_file
 
-sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent.parent))
-from hydromodel.datasets import camels_format_data
+from hydromodel import CACHE_DIR
+from hydromodel.datasets import *
 
 
-def trans_camels_format_to_xaj_format(
-    camels_data_dir, basin_ids: list, t_range: list, json_file, npy_file
-):
-    """tranform data with camels format to hydro-model-xaj format
-
-    CAMELS format could be seen here: https://gdex.ucar.edu/dataset/camels/file.html
-    download basin_timeseries_v1p2_metForcing_obsFlow.zip and unzip it, you will see the format of data
-
-    hydro-model-xaj format: see README.md file -- https://github.com/OuyangWenyu/hydro-model-xaj
+def check_tsdata_format(file_path):
+    """
+    Checks the time-series data for required and optional columns
+    used in hydrological modeling.
 
     Parameters
     ----------
-    camels_data_dir : str
-        the directory of your CAMELS format data
-    basin_ids : list
-        a list of basins' ids which you choose for modeling
-    t_range: list
-        for example, ["2014-10-01", "2021-10-01"]
-    json_file: str
-        where to save the json file
-    npy_file: str
-        where to save the npy file
-    """
-    if camels_data_dir.stem == "camels_cc":
-        # this is for the author's own data format, for camels we don't need this
-        camels = camels_format_data.MyCamels(camels_data_dir)
-        p_pet = camels.read_relevant_cols(
-            gage_id_lst=basin_ids,
-            t_range=t_range,
-            var_lst=["total_precipitation", "potential_evaporation"],
-        )
-        q = camels.read_target_cols(
-            gage_id_lst=basin_ids, t_range=t_range, target_cols=["Q"]
-        )
-    else:
-        region = camels_data_dir.stem.split("_")[-1].upper()
-        camels = hydrodataset.Camels(camels_data_dir, region=region)
-        flow_tag = camels.get_target_cols()
-        ft3persec2m3persec = 1 / 35.314666721489
-        if region == "US":
-            pet = camels.read_camels_us_model_output_data(
-                basin_ids, t_range, var_lst=["PET"]
-            )
-            p = camels.read_relevant_cols(
-                gage_id_lst=basin_ids,
-                t_range=t_range,
-                var_lst=["prcp"],
-            )
-            p_pet = np.concatenate([p, pet], axis=2)
-        else:
-            raise NotImplementedError("Only CAMELS-US is supported now.")
-        q = camels.read_target_cols(
-            gage_id_lst=basin_ids, t_range=t_range, target_cols=flow_tag
-        )
-        # TODO: camels's streamflow data is in ft3/s, need refactor to unify the unit
-        q = q * ft3persec2m3persec
-    # generally streamflow's unit is m3/s, we transform it to mm/day
-    # basin areas also should be saved,
-    # we will use it to transform streamflow's unit to m3/s after we finished predicting
-    basin_area = camels.read_area(basin_ids)
-    # 1 km2 = 10^6 m2
-    km2tom2 = 1e6
-    # 1 m = 1000 mm
-    mtomm = 1000
-    # 1 day = 24 * 3600 s
-    daytos = 24 * 3600
-    temparea = np.tile(basin_area, (1, q.shape[1]))
-    q = np.expand_dims(q[:, :, 0] / (temparea * km2tom2) * mtomm * daytos, axis=2)
+    file_path : str
+        Path to the hydrological data file.
 
-    date_lst = [str(t)[:10] for t in hydro_time.t_range_days(t_range)]
-    data_info = OrderedDict(
-        {
-            "time": date_lst,
-            "basin": basin_ids,
-            "variable": ["prcp(mm/day)", "pet(mm/day)", "streamflow(mm/day)"],
-            "area": basin_area.flatten().tolist(),
-        }
-    )
-    hydro_file.serialize_json(data_info, json_file)
-    hydro_file.serialize_numpy(
-        np.swapaxes(np.concatenate((p_pet, q), axis=2), 0, 1), npy_file
-    )
+    Returns
+    -------
+    bool
+        True if the data file format is correct, False otherwise.
+    """
+    # prcp means precipitation, pet means potential evapotranspiration, flow means streamflow
+    required_columns = [
+        TIME_NAME,
+        PRCP_NAME,
+        PET_NAME,
+        FLOW_NAME,
+    ]
+    # et means evapotranspiration, node_flow means upstream streamflow
+    # node1 means the first upstream node, node2 means the second upstream node, etc.
+    # these nodes are the nearest upstream nodes of the target node
+    # meaning: if node1_flow, node2_flow, and more upstream nodes are parellel.
+    # No serial relationship
+    optional_columns = [ET_NAME, NODE_FLOW_NAME]
+
+    try:
+        data = pd.read_csv(file_path)
+
+        # Check required columns
+        if any(column not in data.columns for column in required_columns):
+            print(f"Missing required columns in file: {file_path}")
+            return False
+
+        # Check optional columns
+        for column in optional_columns:
+            if column not in data.columns:
+                print(
+                    f"Optional column '{column}' not found in file: {file_path}, but it's okay."
+                )
+        # Check node_flow columns (flexible number of nodes)
+        node_flow_columns = [
+            col for col in data.columns if re.match(r"node\d+_flow", col)
+        ]
+        if not node_flow_columns:
+            print(f"No 'node_flow' columns found in file: {file_path}, but it's okay.")
+
+        # Check time format and sorting
+        try:
+            data["time"] = pd.to_datetime(data["time"], format=TIME_FORMAT)
+        except ValueError:
+            print(f"Time format is incorrect in file: {file_path}")
+            return False
+
+        if not data["time"].is_monotonic_increasing:
+            print(f"Data is not sorted by time in file: {file_path}")
+            return False
+
+        # Check for consistent time intervals
+        time_differences = (
+            data["time"].diff().dropna()
+        )  # Calculate differences and remove NaN
+        if not all(time_differences == time_differences.iloc[0]):
+            print(f"Time series is not at consistent intervals in file: {file_path}")
+            return False
+
+        return True
+
+    except Exception as e:
+        print(f"Error reading file {file_path}: {e}")
+        return False
+
+
+def check_basin_attr_format(file_path):
+    """
+    Checks the basin attributes data for required columns.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the basin attributes data file.
+
+    Returns
+    -------
+    bool
+        True if the basin attributes file format is correct, False otherwise.
+    """
+    required_columns = [ID_NAME, NAME_NAME, AREA_NAME]
+
+    try:
+        data = pd.read_csv(file_path)
+
+        if missing_required_columns := [
+            col for col in required_columns if col not in data.columns
+        ]:
+            print(
+                f"Missing required columns in basin attributes file: {file_path}: {missing_required_columns}"
+            )
+            return False
+
+        # Additional checks (e.g., datatype checks, non-empty rows) can be added here
+
+        return True
+
+    except Exception as e:
+        print(f"Error reading basin attributes file {file_path}: {e}")
+        return False
+
+
+def check_folder_contents(folder_path, basin_attr_file="basin_attributes.csv"):
+    """
+    Checks all time series data files in a folder and a single basin attributes file.
+
+    Parameters
+    ----------
+    folder_path : str
+        Path to the folder containing the time series data files.
+    basin_attr_file : str
+        Filename of the basin attributes file, default is "basin_attributes.csv".
+
+    Returns
+    -------
+    bool
+        True if all files in the folder and the basin attributes file are correct, False otherwise.
+    """
+    # 检查流域属性文件
+    if not check_basin_attr_format(os.path.join(folder_path, basin_attr_file)):
+        return False
+
+    # 获取流域ID列表
+    basin_ids = pd.read_csv(os.path.join(folder_path, basin_attr_file))["id"].tolist()
+
+    # 检查每个流域的时序文件
+    for basin_id in basin_ids:
+        file_name = f"basin_{basin_id}.csv"
+        file_path = os.path.join(folder_path, file_name)
+
+        if not os.path.exists(file_path):
+            print(f"Missing time series data file for basin {basin_id}: {file_path}")
+            return False
+
+        if not check_tsdata_format(file_path):
+            print(f"Time series data format check failed for file: {file_path}")
+            return False
+
+    return True
+
+
+def process_and_save_data_as_nc(
+    folder_path,
+    save_folder=CACHE_DIR,
+    nc_attrs_file="attributes.nc",
+    nc_ts_file="timeseries.nc",
+):
+    # 验证文件夹内容
+    if not check_folder_contents(folder_path):
+        print("Folder contents validation failed.")
+        return False
+
+    # 读取流域属性
+    basin_attr_file = os.path.join(folder_path, "basin_attributes.csv")
+    basin_attrs = pd.read_csv(basin_attr_file)
+
+    # 创建属性数据集
+    ds_attrs = xr.Dataset.from_dataframe(basin_attrs.set_index(ID_NAME))
+    new_column_names = {}
+    units = {}
+
+    for col in basin_attrs.columns:
+        new_name = remove_unit_from_name(col)
+        unit = get_unit_from_name(col)
+        new_column_names[col] = new_name
+        if unit:
+            units[new_name] = unit
+
+    basin_attrs.rename(columns=new_column_names, inplace=True)
+
+    # 创建不带单位的数据集
+    ds_attrs = xr.Dataset.from_dataframe(basin_attrs.set_index(ID_NAME))
+
+    # 为有单位的变量添加单位属性
+    for var_name, unit in units.items():
+        ds_attrs[var_name].attrs["units"] = unit
+    # 初始化时序数据集
+    ds_ts = xr.Dataset()
+
+    # 初始化用于保存单位的字典
+    units = {}
+
+    # 获取流域ID列表
+    basin_ids = basin_attrs[ID_NAME].tolist()
+
+    # 为每个流域读取并处理时序数据
+    for i, basin_id in enumerate(basin_ids):
+        file_name = f"basin_{basin_id}.csv"
+        file_path = os.path.join(folder_path, file_name)
+        data = pd.read_csv(file_path)
+        data[TIME_NAME] = pd.to_datetime(data[TIME_NAME])
+
+        # 在处理第一个流域时构建单位字典
+        if i == 0:
+            for col in data.columns:
+                new_name = remove_unit_from_name(col)
+                if unit := get_unit_from_name(col):
+                    units[new_name] = unit
+
+        # 修改列名以移除单位
+        renamed_columns = {col: remove_unit_from_name(col) for col in data.columns}
+        data.rename(columns=renamed_columns, inplace=True)
+
+        # 将 DataFrame 转换为 xarray Dataset
+        ds_basin = xr.Dataset.from_dataframe(data.set_index(TIME_NAME))
+
+        # 为每个变量设置单位属性
+        for var in ds_basin.data_vars:
+            if var in units:
+                ds_basin[var].attrs["units"] = units[var]
+        # 添加 basin 坐标
+        ds_basin = ds_basin.expand_dims({"basin": [basin_id]})
+        # 合并到主数据集
+        ds_ts = xr.merge([ds_ts, ds_basin], compat="no_conflicts")
+
+    # 保存为 NetCDF 文件
+    ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
+    ds_ts.to_netcdf(os.path.join(save_folder, nc_ts_file))
+
+    return True
 
 
 def split_train_test(json_file, npy_file, train_period, test_period):

@@ -26,4 +26,4 @@ dependencies:
     - twine
     - bump2version
     - muskingumcunge
-    - hydrodataset
+    - hydrodata

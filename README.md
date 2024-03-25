@@ -53,7 +53,26 @@ $ python -m ipykernel install --user --name xaj --display-name "xaj"
 
 ### Prepare data
 
-To use your own data to run the model, we set a data interface, here is the convention:
+To use your own data to run the model, you can prepare the data in the required format:
+
+For one basin (We only support one basin now), the data is put in one csv/txt file.
+There are three necessary columns: "time", "prcp", "pet", and "flow". "time" is the time series, "prcp" is the precipitation, "pet" is the potential evapotranspiration, and "flow" is the observed streamflow. 
+The time series should be continuous (NaN values are allowed), and the time step should be the same for all columns. The time format should be "YYYY-MM-DD HH:MM:SS". The data should be sorted by time.
+
+You can run a checker function to see if the data is in the right format:
+
+```Shell
+$ cd hydromodel/scripts
+$ python check_data_format.py --data_file <absolute path of the data file>
+```
+
+Then, you can use the data_preprocess module to transform the data to the required format:
+
+```Shell
+$ python datapreprocess4calibrate.py --data <name of the data file> --exp <name of the directory of the prepared data>
+```
+
+The data will be transformed in data interface, here is the convention:
 
 - All input data for models are three-dimensional NumPy array: [time, basin, variable], which means "time" series data
   for "variables" in "basins"
@@ -89,36 +108,6 @@ You will get two metrics files in the "example" directory: "basins_test_metrics_
 More details about the analysis could be seen in show_results.ipynb file. It is a jupyter notebook.
 
 Now we only provide some simple statistics calculations.
-
-### How to make the sample data
-
-In this part, we simply introduce how we prepare the sample data.
-
-Here We provide an example for some basins in [the CAMELS dataset](https://ral.ucar.edu/solutions/products/camels), a very common used dataset for hydrological model evaluation.
-
-You can download CAMELS according to this [instruction](https://github.com/OuyangWenyu/hydrodataset).
-
-Check if you have successfully downloaded and put it in the right place.
-
-```Shell
-$ conda activate xaj
-$ python
->>> import os
->>> from hydrodataset.camels import Camels
->>> camels = Camels(data_path=os.path.join("camels", "camels_us"), download=False, region="US")
-```
-
-if any error is raised, please see this [instruction](https://github.com/OuyangWenyu/hydrodataset) again.
-
-Then, we provide a script to transform data organized like CAMELS to the required format, you can use it like this:
-
-```Shell
-$ cd hydromodel/app
-$ python datapreprocess4calibrate.py --camels_dir <name of camels_dir> --exp <name of directory of the prepared data> --calibrate_period <calibration period> --test_period <test period> --basin_id <basin id>
-# such as: python datapreprocess4calibrate.py --camels_name camels_us --exp xxx --calibrate_period 1990-10-01 2000-10-01 --test_period 2000-10-01 2010-10-01 --basin_id 01439500 06885500 08104900 09510200
-```
-
-Then you can see some files in hydromodel/example/xxx directory.
 
 ## Why does hydro-model-xaj exist
 

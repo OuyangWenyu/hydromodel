@@ -5,9 +5,6 @@ import pandas as pd
 from spotpy.parameter import Uniform, ParameterSet
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.model_dict import CRITERION_DICT, MODEL_DICT
-from hydromodel.models.gr4j import gr4j
-from hydromodel.models.hymod import hymod
-from hydromodel.models.xaj import xaj
 
 
 class SpotSetup(object):

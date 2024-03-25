@@ -4,7 +4,6 @@ import pytest
 import os
 import pandas as pd
 import xarray as xr
-from sklearn.model_selection import KFold
 
 from hydromodel import SETTING
 from hydromodel.datasets import *
@@ -261,11 +260,10 @@ def test_load_dataset():
     print(data)
 
 
-def create_temp_netCDF(tmp_path, periods=10):
-    """temp NetCDF file for test"""
-    ts_file = tmp_path / "time_series.nc"
+@pytest.fixture
+def ts_data_tmp(periods=10):
     basins = ["basin1", "basin2", "basin3"]
-    data = xr.Dataset(
+    return xr.Dataset(
         {
             "flow": (("time", "basin"), np.random.rand(periods, 3)),
             "prcp": (("time", "basin"), np.random.rand(periods, 3)),
@@ -275,32 +273,25 @@ def create_temp_netCDF(tmp_path, periods=10):
             "basin": basins,
         },
     )
-    data.to_netcdf(ts_file)
-    return str(ts_file)
 
 
-@pytest.fixture
-def ts_file_fixture(tmp_path):
-    return create_temp_netCDF(tmp_path)
-
-
-def test_cross_valid_data(ts_file_fixture):
+def test_cross_valid_data(ts_data_tmp):
     period = ("2022-01-01", "2022-01-10")
     warmup = 3
     cv_fold = 3
 
-    train_test_data = cross_valid_data(ts_file_fixture, period, warmup, cv_fold)
+    train_test_data = cross_valid_data(ts_data_tmp, period, warmup, cv_fold)
 
     assert len(train_test_data) == cv_fold
 
 
-def test_split_train_test(ts_file_fixture):
+def test_split_train_test(ts_data_tmp):
     # Define the train and test periods
     train_period = ("2022-01-01", "2022-01-05")
     test_period = ("2022-01-06", "2022-01-10")
 
     # Call the function to split the data
-    train_data, test_data = split_train_test(ts_file_fixture, train_period, test_period)
+    train_data, test_data = split_train_test(ts_data_tmp, train_period, test_period)
 
     # Assert that the train and test data have the correct length and shape
     basins = ["basin1", "basin2", "basin3"]

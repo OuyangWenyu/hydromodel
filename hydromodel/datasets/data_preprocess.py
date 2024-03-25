@@ -278,14 +278,14 @@ def process_and_save_data_as_nc(
     return True
 
 
-def split_train_test(ts_file, train_period, test_period):
+def split_train_test(ts_data, train_period, test_period):
     """
     Split all data to train and test parts with same format
 
     Parameters
     ----------
-    ts_file
-        nc file of all time series data
+    ts_data: xr.Dataset
+        time series data
     train_period
         training period
     test_period
@@ -295,7 +295,6 @@ def split_train_test(ts_file, train_period, test_period):
     -------
     None
     """
-    ts_data = xr.open_dataset(ts_file)
     # Convert date strings to pandas datetime objects
     train_start, train_end = pd.to_datetime(train_period[0]), pd.to_datetime(
         train_period[1]
@@ -332,14 +331,14 @@ def validate_freq(freq):
         return False
 
 
-def cross_valid_data(ts_file, period, warmup, cv_fold, freq="1D"):
+def cross_valid_data(ts_data, period, warmup, cv_fold, freq="1D"):
     """
     Split all data to train and test parts with same format for cross validation.
 
     Parameters
     ----------
-    ts_file : str
-        Path to the NetCDF file of time series data.
+    ts_data : xr.Dataset
+        time series data.
     period : tuple of str
         The whole period in the format ("start_date", "end_date").
     warmup : int
@@ -358,7 +357,6 @@ def cross_valid_data(ts_file, period, warmup, cv_fold, freq="1D"):
         raise ValueError(
             "Time unit must be number with either 'Y','M','W','D','h','m' or 's', such as 3D."
         )
-    ts_data = xr.open_dataset(ts_file)
 
     # Convert the whole period to pandas datetime
     start_date, end_date = pd.to_datetime(period[0]), pd.to_datetime(period[1])

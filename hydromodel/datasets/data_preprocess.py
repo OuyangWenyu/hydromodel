@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-25 17:06:13
+LastEditTime: 2024-03-25 17:19:38
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\datasets\data_preprocess.py
@@ -57,11 +57,10 @@ def check_tsdata_format(file_path):
     try:
         data = pd.read_csv(file_path)
 
+        data_columns = [remove_unit_from_name(col) for col in data.columns]
         # Check required columns
         missing_required_columns = [
-            column
-            for column in data.columns
-            if remove_unit_from_name(column) not in required_columns
+            column for column in required_columns if column not in data_columns
         ]
 
         if missing_required_columns:
@@ -71,11 +70,8 @@ def check_tsdata_format(file_path):
             return False
 
         # Check optional columns
-        for column in data.columns:
-            if (
-                remove_unit_from_name(column) not in required_columns
-                and remove_unit_from_name(column) not in optional_columns
-            ):
+        for column in optional_columns:
+            if column not in data_columns:
                 print(
                     f"Optional column '{column}' not found in file: {file_path}, but it's okay."
                 )

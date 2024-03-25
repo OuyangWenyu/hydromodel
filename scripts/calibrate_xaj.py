@@ -11,7 +11,6 @@ from pathlib import Path
 from hydroutils import hydro_file
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
-import definitions
 from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
 from hydromodel.datasets.data_postprocess import (
     renormalize_params,
@@ -23,7 +22,6 @@ from hydromodel.datasets.data_postprocess import (
 from hydromodel.trainers.train_utils import show_calibrate_result, show_test_result
 from hydromodel.models.xaj import xaj
 from hydromodel.trainers.calibrate_ga import calibrate_by_ga, show_ga_result
-from hydromodel.utils import units
 
 
 def calibrate(args):
@@ -32,7 +30,6 @@ def calibrate(args):
     model_info = args.model
     algo_info = args.algorithm
     comment = args.comment
-    data_dir = os.path.join(definitions.ROOT_DIR, "hydromodel", "example", exp)
     data_dir = os.path.join('D:/研究生/毕业论文/new毕业论文/预答辩/碧流河水库/模型运行/')
     kfold = [
         int(f_name[len("data_info_fold") : -len("_test.json")])

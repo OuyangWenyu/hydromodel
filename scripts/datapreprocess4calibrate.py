@@ -1,12 +1,13 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2023-06-03 16:21:17
+LastEditTime: 2024-03-25 17:10:51
 LastEditors: Wenyu Ouyang
 Description: the script to preprocess data for models in hydro-model-xaj
-FilePath: /hydro-model-xaj/scripts/datapreprocess4calibrate.py
+FilePath: \hydro-model-xaj\scripts\datapreprocess4calibrate.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
+
 import numpy as np
 import hydrodataset
 import argparse
@@ -15,9 +16,7 @@ import os
 from pathlib import Path
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
-import definitions
 from hydromodel.datasets.data_preprocess import (
-    trans_camels_format_to_xaj_format,
     cross_valid_data,
     split_train_test,
 )

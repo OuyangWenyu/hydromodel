@@ -1,15 +1,21 @@
 from hydrodataset import Camels
+import numpy as np
 import pytest
 import os
 import pandas as pd
 import xarray as xr
+from sklearn.model_selection import KFold
 
 from hydromodel import SETTING
 from hydromodel.datasets import *
-from hydromodel.datasets.data_preprocess import process_and_save_data_as_nc
+from hydromodel.datasets.data_preprocess import (
+    process_and_save_data_as_nc,
+    split_train_test,
+)
 from hydromodel.datasets.data_preprocess import check_tsdata_format
 from hydromodel.datasets.data_preprocess import check_basin_attr_format
 from hydromodel.datasets.data_preprocess import check_folder_contents
+from hydromodel.datasets.data_preprocess import cross_valid_data
 
 
 @pytest.fixture()
@@ -253,3 +259,50 @@ def test_load_dataset():
         ["01013500"], ["2010-01-01", "2014-01-01"], ["streamflow"]
     )
     print(data)
+
+
+def create_temp_netCDF(tmp_path, periods=10):
+    """temp NetCDF file for test"""
+    ts_file = tmp_path / "time_series.nc"
+    basins = ["basin1", "basin2", "basin3"]
+    data = xr.Dataset(
+        {
+            "flow": (("time", "basin"), np.random.rand(periods, 3)),
+            "prcp": (("time", "basin"), np.random.rand(periods, 3)),
+        },
+        coords={
+            "time": pd.date_range(start="2022-01-01", periods=periods),
+            "basin": basins,
+        },
+    )
+    data.to_netcdf(ts_file)
+    return str(ts_file)
+
+
+@pytest.fixture
+def ts_file_fixture(tmp_path):
+    return create_temp_netCDF(tmp_path)
+
+
+def test_cross_valid_data(ts_file_fixture):
+    period = ("2022-01-01", "2022-01-10")
+    warmup = 3
+    cv_fold = 3
+
+    train_test_data = cross_valid_data(ts_file_fixture, period, warmup, cv_fold)
+
+    assert len(train_test_data) == cv_fold
+
+
+def test_split_train_test(ts_file_fixture):
+    # Define the train and test periods
+    train_period = ("2022-01-01", "2022-01-05")
+    test_period = ("2022-01-06", "2022-01-10")
+
+    # Call the function to split the data
+    train_data, test_data = split_train_test(ts_file_fixture, train_period, test_period)
+
+    # Assert that the train and test data have the correct length and shape
+    basins = ["basin1", "basin2", "basin3"]
+    assert len(train_data.time) == 5 and train_data.flow.shape == (5, len(basins))
+    assert len(test_data.time) == 5 and test_data.flow.shape == (5, len(basins))

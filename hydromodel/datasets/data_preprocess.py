@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-25 17:19:38
+LastEditTime: 2024-03-25 19:54:15
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\datasets\data_preprocess.py
@@ -278,16 +278,14 @@ def process_and_save_data_as_nc(
     return True
 
 
-def split_train_test(json_file, npy_file, train_period, test_period):
+def split_train_test(ts_file, train_period, test_period):
     """
     Split all data to train and test parts with same format
 
     Parameters
     ----------
-    json_file
-        dict file of all data
-    npy_file
-        numpy file of all data
+    ts_file
+        nc file of all time series data
     train_period
         training period
     test_period
@@ -297,116 +295,97 @@ def split_train_test(json_file, npy_file, train_period, test_period):
     -------
     None
     """
-    data = hydro_file.unserialize_numpy(npy_file)
-    data_info = hydro_file.unserialize_json(json_file)
-    date_lst = pd.to_datetime(data_info["time"]).values.astype("datetime64[D]")
-    t_range_train = hydro_time.t_range_days(train_period)
-    t_range_test = hydro_time.t_range_days(test_period)
-    _, ind1, ind2 = np.intersect1d(date_lst, t_range_train, return_indices=True)
-    _, ind3, ind4 = np.intersect1d(date_lst, t_range_test, return_indices=True)
-    data_info_train = OrderedDict(
-        {
-            "time": [str(t)[:10] for t in hydro_time.t_range_days(train_period)],
-            # TODO: for time, more detailed time is needed, so we need to change the format of time
-            # "time": [str(t)[:16] for t in hydro_time.t_range_days(train_period)],
-            "basin": data_info["basin"],
-            "variable": data_info["variable"],
-            "area": data_info["area"],
-        }
+    ts_data = xr.open_dataset(ts_file)
+    # Convert date strings to pandas datetime objects
+    train_start, train_end = pd.to_datetime(train_period[0]), pd.to_datetime(
+        train_period[1]
     )
-    data_info_test = OrderedDict(
-        {
-            "time": [str(t)[:10] for t in hydro_time.t_range_days(test_period)],
-            # TODO: for time, more detailed time is needed, so we need to change the format of time
-            # "time": [str(t)[:16] for t in hydro_time.t_range_days(test_period)],
-            "basin": data_info["basin"],
-            "variable": data_info["variable"],
-            "area": data_info["area"],
-        }
+    test_start, test_end = pd.to_datetime(test_period[0]), pd.to_datetime(
+        test_period[1]
     )
-    # unify it with cross validation case, so we add a 'fold0'
-    train_json_file = json_file.parent.joinpath(json_file.stem + "_fold0_train.json")
-    train_npy_file = json_file.parent.joinpath(npy_file.stem + "_fold0_train.npy")
-    hydro_file.serialize_json(data_info_train, train_json_file)
-    hydro_file.serialize_numpy(data[ind1, :, :], train_npy_file)
-    test_json_file = json_file.parent.joinpath(json_file.stem + "_fold0_test.json")
-    test_npy_file = json_file.parent.joinpath(npy_file.stem + "_fold0_test.npy")
-    hydro_file.serialize_json(data_info_test, test_json_file)
-    hydro_file.serialize_numpy(data[ind3, :, :], test_npy_file)
+
+    # Select data for training and testing periods
+    train_data = ts_data.sel(time=slice(train_start, train_end))
+    test_data = ts_data.sel(time=slice(test_start, test_end))
+
+    return train_data, test_data
 
 
-def cross_valid_data(json_file, npy_file, period, warmup, cv_fold, time_unit="h"):
+def validate_freq(freq):
     """
-    Split all data to train and test parts with same format
+    Validate if the freq string is a valid pandas frequency.
 
     Parameters
     ----------
-    json_file
-        dict file of all data
-    npy_file
-        numpy file of all data
-    period
-        the whole period
-    warmup
-        warmup period length
-    cv_fold
-        number of folds
+    freq : str
+        Frequency string to validate.
 
     Returns
     -------
-    None
+    bool
+        True if the freq string is valid, False otherwise.
     """
-    data = hydro_file.unserialize_numpy(npy_file)
-    data_info = hydro_file.unserialize_json(json_file)
-    date_lst = pd.to_datetime(data_info["time"]).values.astype("datetime64[D]")
-    date_wo_warmup = date_lst[warmup:]
+    try:
+        pd.to_timedelta("1" + freq)
+        return True
+    except ValueError:
+        return False
+
+
+def cross_valid_data(ts_file, period, warmup, cv_fold, freq="1D"):
+    """
+    Split all data to train and test parts with same format for cross validation.
+
+    Parameters
+    ----------
+    ts_file : str
+        Path to the NetCDF file of time series data.
+    period : tuple of str
+        The whole period in the format ("start_date", "end_date").
+    warmup : int
+        Warmup period length in days.
+    cv_fold : int
+        Number of folds for cross-validation.
+    freq : str
+        len of one period.
+
+    Returns
+    -------
+    list of tuples
+        Each tuple contains training and testing datasets for a fold.
+    """
+    if not validate_freq(freq):
+        raise ValueError(
+            "Time unit must be number with either 'Y','M','W','D','h','m' or 's', such as 3D."
+        )
+    ts_data = xr.open_dataset(ts_file)
+
+    # Convert the whole period to pandas datetime
+    start_date, end_date = pd.to_datetime(period[0]), pd.to_datetime(period[1])
+    date_lst = pd.date_range(start=start_date, end=end_date, freq=freq)
+    date_rm_warmup = date_lst[warmup:]
+
+    # Initialize lists to store train and test datasets for each fold
+    train_test_data = []
+
+    # KFold split
     kf = KFold(n_splits=cv_fold, shuffle=False)
-    for i, (train, test) in enumerate(kf.split(date_wo_warmup)):
-        train_period = date_wo_warmup[train]
-        test_period = date_wo_warmup[test]
-        train_period_warmup = np.arange(
-            train_period[0] - np.timedelta64(warmup, time_unit), train_period[0]
-        )
-        test_period_warmup = np.arange(
-            test_period[0] - np.timedelta64(warmup, time_unit), test_period[0]
-        )
-        t_range_train = np.concatenate((train_period_warmup, train_period))
-        t_range_test = np.concatenate((test_period_warmup, test_period))
-        _, ind1, ind2 = np.intersect1d(date_lst, t_range_train, return_indices=True)
-        _, ind3, ind4 = np.intersect1d(date_lst, t_range_test, return_indices=True)
-        data_info_train = OrderedDict(
-            {
-                "time": [
-                    np.datetime_as_string(d, unit=time_unit) for d in t_range_train
-                ],
-                "basin": data_info["basin"],
-                "variable": data_info["variable"],
-                "area": data_info["area"],
-            }
-        )
-        data_info_test = OrderedDict(
-            {
-                "time": [
-                    np.datetime_as_string(d, unit=time_unit) for d in t_range_test
-                ],
-                "basin": data_info["basin"],
-                "variable": data_info["variable"],
-                "area": data_info["area"],
-            }
-        )
-        train_json_file = json_file.parent.joinpath(
-            json_file.stem + "_fold" + str(i) + "_train.json"
-        )
-        train_npy_file = json_file.parent.joinpath(
-            npy_file.stem + "_fold" + str(i) + "_train.npy"
-        )
-        hydro_file.serialize_json(data_info_train, train_json_file)
-        hydro_file.serialize_numpy(data[ind1, :, :], train_npy_file)
-        test_json_file = json_file.parent.joinpath(
-            json_file.stem + "_fold" + str(i) + "_test.json"
-        )
-        test_npy_file = json_file.parent.joinpath(
-            npy_file.stem + "_fold" + str(i) + "_test.npy"
-        )
-        hydro_file.serialize_json(data_info_test, test_json_file)
-        hydro_file.serialize_numpy(data[ind3, :, :], test_npy_file)
+    for train_index, test_index in kf.split(date_rm_warmup):
+        train_period = date_rm_warmup[train_index]
+        test_period = date_rm_warmup[test_index]
+        # Create warmup periods using the specified frequency
+        train_period_warmup = pd.date_range(
+            end=train_period[0], periods=warmup + 1, freq=freq
+        )[:-1]
+        test_period_warmup = pd.date_range(
+            end=test_period[0], periods=warmup + 1, freq=freq
+        )[:-1]
+
+        # Select data from ts_data based on train and test periods
+        train_data = ts_data.sel(time=train_period.union(train_period_warmup))
+        test_data = ts_data.sel(time=test_period.union(test_period_warmup))
+
+        # Add the datasets to the list
+        train_test_data.append((train_data, test_data))
+
+    return train_test_data

@@ -5,7 +5,14 @@ FLOW_NAME = "flow(m^3/s)"
 NODE_FLOW_NAME = "node1_flow(m^3/s)"
 AREA_NAME = "area(km^2)"
 TIME_NAME = "time"
-TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+POSSIBLE_TIME_FORMATS = [
+    "%Y-%m-%d %H:%M:%S",  # 完整的日期和时间
+    "%Y-%m-%d",  # 只有日期
+    "%d/%m/%Y",  # 不同的日期格式
+    "%m/%d/%Y %H:%M",  # 月/日/年 小时:分钟
+    "%d/%m/%Y %H:%M",  # 日/月/年 小时:分钟
+    # ... 可以根据需要添加更多格式 ...
+]
 ID_NAME = "id"
 NAME_NAME = "name"
 

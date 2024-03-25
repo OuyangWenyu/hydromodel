@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-25 14:50:32
+LastEditTime: 2024-03-25 17:06:13
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\datasets\data_preprocess.py
@@ -39,32 +39,47 @@ def check_tsdata_format(file_path):
     """
     # prcp means precipitation, pet means potential evapotranspiration, flow means streamflow
     required_columns = [
-        TIME_NAME,
-        PRCP_NAME,
-        PET_NAME,
-        FLOW_NAME,
+        remove_unit_from_name(TIME_NAME),
+        remove_unit_from_name(PRCP_NAME),
+        remove_unit_from_name(PET_NAME),
+        remove_unit_from_name(FLOW_NAME),
     ]
     # et means evapotranspiration, node_flow means upstream streamflow
     # node1 means the first upstream node, node2 means the second upstream node, etc.
     # these nodes are the nearest upstream nodes of the target node
     # meaning: if node1_flow, node2_flow, and more upstream nodes are parellel.
     # No serial relationship
-    optional_columns = [ET_NAME, NODE_FLOW_NAME]
+    optional_columns = [
+        remove_unit_from_name(ET_NAME),
+        remove_unit_from_name(NODE_FLOW_NAME),
+    ]
 
     try:
         data = pd.read_csv(file_path)
 
         # Check required columns
-        if any(column not in data.columns for column in required_columns):
-            print(f"Missing required columns in file: {file_path}")
+        missing_required_columns = [
+            column
+            for column in data.columns
+            if remove_unit_from_name(column) not in required_columns
+        ]
+
+        if missing_required_columns:
+            print(
+                f"Missing required columns in file: {file_path}: {missing_required_columns}"
+            )
             return False
 
         # Check optional columns
-        for column in optional_columns:
-            if column not in data.columns:
+        for column in data.columns:
+            if (
+                remove_unit_from_name(column) not in required_columns
+                and remove_unit_from_name(column) not in optional_columns
+            ):
                 print(
                     f"Optional column '{column}' not found in file: {file_path}, but it's okay."
                 )
+
         # Check node_flow columns (flexible number of nodes)
         node_flow_columns = [
             col for col in data.columns if re.match(r"node\d+_flow", col)
@@ -73,19 +88,26 @@ def check_tsdata_format(file_path):
             print(f"No 'node_flow' columns found in file: {file_path}, but it's okay.")
 
         # Check time format and sorting
-        try:
-            data["time"] = pd.to_datetime(data["time"], format=TIME_FORMAT)
-        except ValueError:
+        time_parsed = False
+        for time_format in POSSIBLE_TIME_FORMATS:
+            try:
+                data[TIME_NAME] = pd.to_datetime(data[TIME_NAME], format=time_format)
+                time_parsed = True
+                break
+            except ValueError:
+                continue
+
+        if not time_parsed:
             print(f"Time format is incorrect in file: {file_path}")
             return False
 
-        if not data["time"].is_monotonic_increasing:
+        if not data[TIME_NAME].is_monotonic_increasing:
             print(f"Data is not sorted by time in file: {file_path}")
             return False
 
         # Check for consistent time intervals
         time_differences = (
-            data["time"].diff().dropna()
+            data[TIME_NAME].diff().dropna()
         )  # Calculate differences and remove NaN
         if not all(time_differences == time_differences.iloc[0]):
             print(f"Time series is not at consistent intervals in file: {file_path}")
@@ -155,7 +177,9 @@ def check_folder_contents(folder_path, basin_attr_file="basin_attributes.csv"):
         return False
 
     # 获取流域ID列表
-    basin_ids = pd.read_csv(os.path.join(folder_path, basin_attr_file))["id"].tolist()
+    basin_ids = pd.read_csv(
+        os.path.join(folder_path, basin_attr_file), dtype={ID_NAME: str}
+    )[ID_NAME].tolist()
 
     # 检查每个流域的时序文件
     for basin_id in basin_ids:
@@ -222,8 +246,12 @@ def process_and_save_data_as_nc(
         file_name = f"basin_{basin_id}.csv"
         file_path = os.path.join(folder_path, file_name)
         data = pd.read_csv(file_path)
-        data[TIME_NAME] = pd.to_datetime(data[TIME_NAME])
-
+        for time_format in POSSIBLE_TIME_FORMATS:
+            try:
+                data[TIME_NAME] = pd.to_datetime(data[TIME_NAME], format=time_format)
+                break
+            except ValueError:
+                continue
         # 在处理第一个流域时构建单位字典
         if i == 0:
             for col in data.columns:

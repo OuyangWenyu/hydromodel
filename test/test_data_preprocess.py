@@ -1,8 +1,10 @@
+from hydrodataset import Camels
 import pytest
 import os
 import pandas as pd
 import xarray as xr
 
+from hydromodel import SETTING
 from hydromodel.datasets import *
 from hydromodel.datasets.data_preprocess import process_and_save_data_as_nc
 from hydromodel.datasets.data_preprocess import check_tsdata_format
@@ -230,5 +232,24 @@ def test_process_and_save_data_as_nc_with_valid_data(all_data_dir, basin_attrs_f
     assert result
 
     # Assert that the NetCDF files are created
-    assert os.path.exists(os.path.join(folder_path, "attributes.nc"))
-    assert os.path.exists(os.path.join(folder_path, "timeseries.nc"))
+    attrs_file = os.path.join(folder_path, "attributes.nc")
+    ts_file = os.path.join(folder_path, "timeseries.nc")
+    assert os.path.exists(attrs_file)
+    assert os.path.exists(ts_file)
+
+    # 使用 xarray 加载 NetCDF 文件
+    ds_attrs = xr.open_dataset(attrs_file)
+    ds_ts = xr.open_dataset(ts_file)
+
+    # 确保加载的数据集不为空
+    assert ds_attrs is not None
+    assert ds_ts is not None
+
+
+def test_load_dataset():
+    dataset_dir = SETTING["local_data_path"]["datasets-origin"]
+    camels = Camels(os.path.join(dataset_dir, "camels", "camels_us"))
+    data = camels.read_ts_xrdataset(
+        ["01013500"], ["2010-01-01", "2014-01-01"], ["streamflow"]
+    )
+    print(data)

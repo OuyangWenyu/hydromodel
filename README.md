@@ -12,77 +12,84 @@
 
 **Hydromodel is a python implementation for common hydrological models such as the XinAnJiang (XAJ) model, which is one of the most famous conceptual hydrological models, especially in Southern China.**
 
-An additional feature of hydro-model-xaj is that it provides a differentiable version of XAJ, which means it can be nested in deep-learning algorithms. More information could be found in the following "What are the main features" part.
-
 **Not an official version, just for learning**
+
+This is a Python console program (no graphic interface now). It is **still developing**.
 
 ## How to run
 
-### Environment
+### Install
 
-Hydro-model-xaj is a Python console program (no graphic interface now). It is **still developing**, and we have not
-provided a pip or conda package for hydro-model-xaj yet, so please set up a Python environment for the code.
+We provided a pip package. You can install it with pip:
 
-If you are new to python, please [install miniconda or anaconda on your computer and config the environment](https://conda.io/projects/conda/en/stable/user-guide/install/index.html).
-
-Since you see hydro-model-xaj in GitHub, I think you have known a little about git and GitHub at least. Please install git on your computer and register your own GitHub account.
-
-Then, fork hydro-model-xaj to your GitHub, and clone it to your computer. If you have forked it before, please update it from [upstream](https://github.com/OuyangWenyu/hydro-model-xaj) as our previous version has some errors. Open your terminal, input：
 
 ```Shell
-# clone hydro-model-xaj, if you have cloned it, ignore this step 
-$ git clone <address of hydro-model-xaj in your github>
-# move to it
-$ cd hydro-model-xaj
-# if updating from upstream, pull the new version to local
-$ git pull
 # create python environment
-$ conda env create -f environment.yml
-# if conda is very slow, mamba can be an alternative:
-# $ conda install -c conda-forge mamba
-# $ mamba env create -f environment.yml
-# activate it
-$ conda activate xaj
+$ conda create -n hydromodel python=3.10
+$ conda activate hydromodel
+# install hydromodel
+$ pip install hydromodel
 ```
 
 If you want to run notebooks in your jupyter notebook, please install jupyter kenel in your jupyter lab:
 
 ```Shell
-$ python -m ipykernel install --user --name xaj --display-name "xaj"
+# if you don't have a jupyterlab in your PC, please install it at first
+# $ conda install -c conda-forge jupyterlab
+$ conda activate hydromodel
+$ conda install -c conda-forge ipykernel
+$ python -m ipykernel install --user --name hydromodel --display-name "hydromodel"
 ```
 
 ### Prepare data
 
-To use your own data to run the model, you can prepare the data in the required format:
+You can use the CAMELS dataset (see [here](https://github.com/OuyangWenyu/hydrodataset) to prepare it) to run the model.
 
-For one basin (We only support one basin now), the data is put in one csv/txt file.
-There are three necessary columns: "time", "prcp", "pet", and "flow". "time" is the time series, "prcp" is the precipitation, "pet" is the potential evapotranspiration, and "flow" is the observed streamflow. 
-The time series should be continuous (NaN values are allowed), and the time step should be the same for all columns. The time format should be "YYYY-MM-DD HH:MM:SS". The data should be sorted by time.
+To use your own data to run the model, you need prepare the data in the required format.
 
-You can run a checker function to see if the data is in the right format:
+We provide some transformation functions in the "scripts" directory. You can use them to transform your data to the required format.
 
+But you still need to do some manual work before transformation. Here are the steps:
+
+1. Put all data in one directory and check if it is organized as the following format:
+```
+your_data_directory_for_hydromodel/
+# one attribute csv file for all basins
+├─ basin_attributes.csv
+# one timeseries csv file for one basin, xxx and yyy are the basin ids
+├─ basin_xxx.csv
+├─ basin_yyy.csv
+├─ basin_zzz.csv
+├─ ...
+```
+basin_attributes.csv should have the following columns:
+```csv
+id     name  area(km^2)
+xxx  Basin A         100
+yyy  Basin B         200
+zzz  Basin C         300
+```
+basin_xxx.csv should have the following columns:
+```csv
+time  pet(mm/day)  prcp(mm/day)  flow(m^3/s)  et(mm/day)  node1_flow(m^3/s)
+2022-01-01 00:00:00            1                 10                 13                 16                 19
+2022-01-02 00:00:00            2                 11                 14                 17                 20
+2022-01-03 00:00:00            3                 12                 15                 18                 21
+```
+The sequence of the columns is not important, but the column names should be the same as the above.
+No more unnecessary columns are allowed.
+For time series csv files, et and node1_flow are optional. If you don't have them, you can ignore them.
+The units of all variables could be different, but they cannot be missed and should be put in `()` in the column name.
+
+2. download [prepare_data.py](https://github.com/OuyangWenyu/hydro-model-xaj/tree/master/scripts) and run the following code to transform the data format to the required format:
 ```Shell
-$ cd hydromodel/scripts
-$ python check_data_format.py --data_file <absolute path of the data file>
+$ python prepare_data.py --origin_data_dir <your_data_directory_for_hydromodel>
 ```
 
-Then, you can use the data_preprocess module to transform the data to the required format:
-
+3. If the format is wrong, please do step 1 again carefully. If the format is right, you can run the following code to preprocess the data, such as cross-validation, etc.:
 ```Shell
 $ python datapreprocess4calibrate.py --data <name of the data file> --exp <name of the directory of the prepared data>
 ```
-
-The data will be transformed in data interface, here is the convention:
-
-- All input data for models are three-dimensional NumPy array: [time, basin, variable], which means "time" series data
-  for "variables" in "basins"
-- Data files should be .npy files with a JSON file that show the information of the data. We provide sample code in
-  "test/test_data.py" to show how to process a .csv/.txt file to the required format. 
-- To run the model, the dataset should be split into two parts: the training dataset (used for calibrating) and the testing dataset (used for evaluation). In the xxx directory, there must be four files: "basins_lump_p_pe_q_foldx_train.npy", "data_info_foldx_train.json", "basins_lump_p_pe_q_foldx_test.npy", and "data_info_foldx_test.json". (files' name cannot be changed; x is 0 if there is only one fold)
-
-To run models in hydro-model-xaj, one need to prepare data in the required format. 
-
-We have provided sample data in the "example/example" directory. You can run the model with this data.
 
 ### Run the model
 

@@ -19,25 +19,30 @@ def camels():
 
 
 @pytest.fixture()
-def basin_area(camels):
-    return camels.read_area(["01013500"])
+def basins():
+    return ["01013500"]
 
 
 @pytest.fixture()
-def p_and_e(camels):
+def basin_area(camels, basins):
+    return camels.read_area(basins)
+
+
+@pytest.fixture()
+def p_and_e(camels, basins):
     p_and_e = camels.read_ts_xrdataset(
-        ["01013500"], ["2010-01-01", "2014-01-01"], ["prcp", "PET"]
+        basins, ["2010-01-01", "2014-01-01"], ["prcp", "PET"]
     )
     # three dims: sequence (time), batch (basin), feature (variable)
     return p_and_e.to_array().to_numpy().transpose(2, 1, 0)
 
 
 @pytest.fixture()
-def qobs(basin_area, camels):
+def qobs(basin_area, camels, basins):
     import pint_xarray  # noqa
 
     qobs_ = camels.read_ts_xrdataset(
-        ["01013500"], ["2010-01-01", "2014-01-01"], ["streamflow"]
+        basins, ["2010-01-01", "2014-01-01"], ["streamflow"]
     )
     # we use pint package to handle the unit conversion
     # trans unit to mm/day

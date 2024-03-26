@@ -1,12 +1,13 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-21 20:12:31
+LastEditTime: 2024-03-26 11:13:08
 LastEditors: Wenyu Ouyang
 Description: some basic config for hydro-model-xaj models
 FilePath: \hydro-model-xaj\hydromodel\models\model_config.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
+
 from collections import OrderedDict
 
 # NOTE: Don't change the parameter settings
@@ -42,7 +43,8 @@ MODEL_PARAM_DICT = {
                 "LM": [60.0, 90.0],
                 "DM": [60.0, 120.0],
                 "C": [0.0, 0.2],
-                "SM": [50, 100.0],
+                "SM": [1, 100.0],
+                # "SM": [50, 100.0],
                 "EX": [1.0, 1.5],
                 "KI": [0.0, 0.7],
                 "KG": [0.0, 0.7],
@@ -77,14 +79,18 @@ MODEL_PARAM_DICT = {
         ],
         "param_range": OrderedDict(
             {
-                "K": [0.5, 1.0],
-                "B": [0.2, 0.4],
-                "IM": [0.07, 0.1],
+                "K": [0.1, 1.0],
+                # "K": [0.5, 1.0],
+                "B": [0.1, 0.4],
+                # "B": [0.2, 0.4],
+                "IM": [0.01, 0.1],
+                # "IM": [0.07, 0.1],
                 "UM": [0.0, 20.0],
                 "LM": [60.0, 90.0],
                 "DM": [60.0, 120.0],
                 "C": [0.0, 0.2],
-                "SM": [5, 10],
+                "SM": [1.0, 100.0],
+                # "SM": [5, 10],
                 "EX": [1.0, 1.5],
                 "KI": [0.0, 0.7],
                 "KG": [0.0, 0.7],
@@ -93,23 +99,6 @@ MODEL_PARAM_DICT = {
                 "CI": [0.0, 0.9],
                 "CG": [0.98, 0.998],
                 "KERNEL": [1, 15],
-                
-                # "K": [0.1, 1.0],
-                # "B": [0.1, 0.4],
-                # "IM": [0.01, 0.1],
-                # "UM": [0.0, 20.0],
-                # "LM": [60.0, 90.0],
-                # "DM": [60.0, 120.0],
-                # "C": [0.0, 0.2],
-                # "SM": [5, 10],
-                # "EX": [1.0, 1.5],
-                # "KI": [0.0, 0.7],
-                # "KG": [0.0, 0.7],
-                # "A": [0.0, 2.9],
-                # "THETA": [0.0, 6.5],
-                # "CI": [0.0, 0.9],
-                # "CG": [0.98, 0.998],
-                # "KERNEL": [1, 15],
             }
         ),
     },

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2024-03-22 20:51:39
+LastEditTime: 2024-03-26 11:06:12
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
 FilePath: /hydro-model-xaj/hydromodel/models/xaj.py
@@ -20,7 +20,7 @@ PRECISION = 1e-5
 
 
 # @jit
-@jit(nopython=True)
+# @jit(nopython=True)
 def calculate_evap(lm, c, wu0, wl0, prcp, pet) -> tuple[np.array, np.array, np.array]:
     """
     Three-layers evaporation model from "Watershed Hydrologic Simulation" written by Prof. RenJun Zhao.
@@ -64,7 +64,7 @@ def calculate_evap(lm, c, wu0, wl0, prcp, pet) -> tuple[np.array, np.array, np.a
 
 
 # @jit
-@jit(nopython=True)
+# @jit(nopython=True)
 def calculate_prcp_runoff(b, im, wm, w0, pe) -> tuple[np.array, np.array]:
     """
     Calculates the amount of runoff generated from rainfall after entering the underlying surface.
@@ -609,7 +609,7 @@ def sources5mm(
 
 
 # @jit
-@jit(nopython=True)
+# @jit(nopython=True)
 def linear_reservoir(x, weight, last_y=None) -> np.array:
     """
     Linear reservoir's release function
@@ -702,7 +702,6 @@ def uh_gamma(a, theta, len_uh=15):
     return w
 
 
-
 def xaj(
     p_and_e,
     params: Union[np.array, list],
@@ -743,7 +742,7 @@ def xaj(
     """
     # default values for some function parameters
     model_name = kwargs["name"] if "name" in kwargs else "xaj"
-    source_type = kwargs["source_type"] if "source_type" in kwargs else "sources5mm"
+    source_type = kwargs["source_type"] if "source_type" in kwargs else "sources"
     source_book = kwargs["source_book"] if "source_book" in kwargs else "HF"
     # params
     param_ranges = MODEL_PARAM_DICT[model_name]["param_range"]
@@ -753,13 +752,16 @@ def xaj(
         route_method = "MZ"
     else:
         raise NotImplementedError(
-            "We don't provide this route method now! Please use 'CS' or 'MZ'!"
+            "We don't provide this route method now! Please use 'CSL' or 'MZ'!"
+        )
+    if np.isnan(params).any():
+        raise ValueError(
+            "Parameters contain NaN values. Please check your opt algorithm"
         )
     xaj_params = [
         (value[1] - value[0]) * params[:, i] + value[0]
         for i, (key, value) in enumerate(param_ranges.items())
     ]
-    # xaj_params = [param_ranges[key] for key in param_ranges]
 
     k = xaj_params[0]
     b = xaj_params[1]
@@ -775,7 +777,6 @@ def xaj(
     # ki+kg should be smaller than 1; if not, we scale them
     ki = np.where(ki_ + kg_ < 1.0, ki_, (1.0 - PRECISION) / (ki_ + kg_) * ki_)
     kg = np.where(ki_ + kg_ < 1.0, kg_, (1.0 - PRECISION) / (ki_ + kg_) * kg_)
-
     if route_method == "CSL":
         cs = xaj_params[11]
         l = xaj_params[12]

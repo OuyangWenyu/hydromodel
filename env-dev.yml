@@ -9,7 +9,7 @@ dependencies:
   - numba
   - scikit-learn
   - deap
-  - spotpy=1.5.14
+  - spotpy
   - yaml
   - bmipy
   - pyarrow

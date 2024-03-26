@@ -24,9 +24,10 @@ def db_dir():
     return the_dir
 
 
-def test_calibrate_xaj_sceua(p_and_e, qobs, warmup_length, db_dir):
+def test_calibrate_xaj_sceua(basins, p_and_e, qobs, warmup_length, db_dir):
     # just for testing, so the hyper-param is chosen for quick running
     calibrate_by_sceua(
+        basins,
         p_and_e,
         qobs,
         os.path.join(db_dir, "sceua_xaj"),

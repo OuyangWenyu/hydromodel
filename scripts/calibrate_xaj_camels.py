@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-03-25 20:52:08
+LastEditTime: 2024-03-26 10:16:49
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
 FilePath: \hydro-model-xaj\scripts\calibrate_xaj_camels.py
@@ -65,6 +65,7 @@ def main(args):
     r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit="mm/d")
     qobs = np.expand_dims(r_mmd["streamflow"].to_numpy().transpose(1, 0), axis=2)
     calibrate_by_sceua(
+        basin_ids,
         p_and_e,
         qobs,
         os.path.join(where_save, "sceua_xaj"),

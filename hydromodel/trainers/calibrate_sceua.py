@@ -1,3 +1,4 @@
+import os
 from typing import Union
 import numpy as np
 import spotpy
@@ -11,6 +12,8 @@ class SpotSetup(object):
     def __init__(self, p_and_e, qobs, warmup_length=365, model=None, metric=None):
         """
         Set up for Spotpy
+        NOTE: once for a basin in one sampler or
+        for all basins in one sampler with one parameter combination
 
         Parameters
         ----------
@@ -78,7 +81,7 @@ class SpotSetup(object):
         sim, _ = MODEL_DICT[self.model["name"]](
             self.p_and_e, params, warmup_length=self.warmup_length, **self.model
         )
-        return sim[:, 0, 0]
+        return sim
 
     def evaluation(self) -> Union[list, np.array]:
         """
@@ -89,8 +92,7 @@ class SpotSetup(object):
         Union[list, np.array]
             observation
         """
-        # TODO: we only support one basin's calibration now
-        return self.true_obs[:, 0, 0]
+        return self.true_obs
 
     def objectivefunction(
         self,
@@ -135,7 +137,7 @@ class SpotSetup(object):
                 ) / pd.Timedelta(hours=1)
                 start_num = int(start_num)
                 end_num = int(end_num)
-                like_ = self.obj_func(
+                like_ = CRITERION_DICT[self.metric["obj_func"]](
                     evaluation[start_num:end_num,], simulation[start_num:end_num,]
                 )
                 count += 1
@@ -145,7 +147,14 @@ class SpotSetup(object):
 
 
 def calibrate_by_sceua(
-    p_and_e, qobs, dbname, warmup_length=365, model=None, algorithm=None, metric=None
+    basins,
+    p_and_e,
+    qobs,
+    dbname,
+    warmup_length=365,
+    model=None,
+    algorithm=None,
+    metric=None,
 ):
     """
     Function for calibrating model by SCE-UA
@@ -154,6 +163,8 @@ def calibrate_by_sceua(
 
     Parameters
     ----------
+    basins
+        basin ids
     p_and_e
         inputs of model
     qobs
@@ -206,25 +217,28 @@ def calibrate_by_sceua(
     peps = algorithm["peps"]
     pcento = algorithm["pcento"]
     np.random.seed(random_seed)  # Makes the results reproduceable
-
-    # Initialize the xaj example
-    # In this case, we tell the setup which algorithm we want to use, so
-    # we can use this exmaple for different algorithms
-    spot_setup = SpotSetup(
-        p_and_e,
-        qobs,
-        warmup_length=warmup_length,
-        model=model,
-        metric=metric,
-    )
-    # Select number of maximum allowed repetitions # 选择允许的最大重复次数
-    sampler = spotpy.algorithms.sceua(
-        spot_setup,
-        dbname=dbname,
-        dbformat="csv",
-        random_state=random_seed,
-    )
-    # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
-    sampler.sample(rep, ngs=ngs, kstop=kstop, peps=peps, pcento=pcento)
-    print("Calibrate Finished!")
+    for i in range(len(basins)):
+        # Initialize the xaj example
+        # In this case, we tell the setup which algorithm we want to use, so
+        # we can use this exmaple for different algorithms
+        spot_setup = SpotSetup(
+            p_and_e[:, i : i + 1, :],
+            qobs[:, i : i + 1, :],
+            warmup_length=warmup_length,
+            model=model,
+            metric=metric,
+        )
+        db_basin = os.path.join(dbname, basins[i])
+        if not os.path.exists(db_basin):
+            os.makedirs(db_basin)
+        # Select number of maximum allowed repetitions
+        sampler = spotpy.algorithms.sceua(
+            spot_setup,
+            dbname=db_basin,
+            dbformat="csv",
+            random_state=random_seed,
+        )
+        # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
+        sampler.sample(rep, ngs=ngs, kstop=kstop, peps=peps, pcento=pcento)
+        print("Calibrate Finished!")
     return sampler

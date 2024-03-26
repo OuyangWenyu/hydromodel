@@ -23,6 +23,7 @@ from hydroutils import hydro_file, hydro_stat
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.model_dict import MODEL_DICT
 from hydromodel.trainers.train_utils import plot_sim_and_obs, plot_train_iteration
+from models.model_dict import rmse43darr
 
 
 def evaluate(individual, x_input, y_true, warmup_length, model):
@@ -56,8 +57,7 @@ def evaluate(individual, x_input, y_true, warmup_length, model):
         x_input, params, warmup_length=warmup_length, **model
     )
     # Calculate RMSE for multi-dim arrays
-    rmses = np.sqrt(np.nanmean((sim - y_true[warmup_length:, :, :]) ** 2, axis=0))
-    return rmses.mean(axis=0)
+    return rmse43darr(y_true[warmup_length:, :, :], sim)
 
 
 def checkBounds(min, max):

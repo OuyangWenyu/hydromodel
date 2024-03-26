@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-03-23 08:25:49
-LastEditTime: 2024-03-26 18:11:44
+LastEditTime: 2024-03-26 20:41:22
 LastEditors: Wenyu Ouyang
 Description: LOSS_DICT and MODEL_DICT
 FilePath: \hydro-model-xaj\hydromodel\models\model_dict.py

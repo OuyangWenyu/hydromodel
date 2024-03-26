@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-03-26 18:55:25
+LastEditTime: 2024-03-26 19:53:51
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
 FilePath: \hydro-model-xaj\scripts\calibrate_xaj.py
@@ -9,7 +9,6 @@ Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 
 import json
-import numpy as np
 import argparse
 import sys
 import os
@@ -19,11 +18,9 @@ import yaml
 
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
+from datasets.data_preprocess import cross_val_split_tsdata
 from hydromodel.datasets import *
 from hydromodel.datasets.data_preprocess import (
-    cross_valid_data,
-    split_train_test,
-    get_ts_from_diffsource,
     get_pe_q_from_ts,
 )
 from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
@@ -41,22 +38,22 @@ def calibrate(args):
     basin_ids = args.basin_id
     model_info = args.model
     algo_info = args.algorithm
-    loss = args.loss
-    ts_data = get_ts_from_diffsource(data_type, data_dir, periods, basin_ids)
+    loss_info = args.loss
 
     where_save = Path(os.path.join(repo_path, "result", exp))
     if os.path.exists(where_save) is False:
         os.makedirs(where_save)
 
-    if cv_fold <= 1:
-        # no cross validation
-        periods = np.sort(
-            [train_period[0], train_period[1], test_period[0], test_period[1]]
-        )
-        train_and_test_data = split_train_test(ts_data, train_period, test_period)
-    else:
-        # cross validation
-        train_and_test_data = cross_valid_data(ts_data, periods, warmup, cv_fold)
+    train_and_test_data = cross_val_split_tsdata(
+        data_type,
+        data_dir,
+        cv_fold,
+        train_period,
+        test_period,
+        periods,
+        warmup,
+        basin_ids,
+    )
 
     print("Start to calibrate the model")
 
@@ -70,7 +67,7 @@ def calibrate(args):
             warmup,
             model=model_info,
             algorithm=algo_info,
-            loss=loss,
+            loss=loss_info,
         )
     else:
         for i in range(cv_fold):
@@ -84,7 +81,7 @@ def calibrate(args):
                 warmup,
                 model=model_info,
                 algorithm=algo_info,
-                loss=loss,
+                loss=loss_info,
             )
     # Convert the arguments to a dictionary
     args_dict = vars(args)

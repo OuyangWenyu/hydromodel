@@ -1,10 +1,9 @@
 import math
 from typing import Optional, Tuple
-
 import numpy as np
 from numba import jit
-from hydromodel.models.model_config import MODEL_PARAM_DICT
 
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.xaj import uh_conv
 
 

@@ -14,7 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import spotpy
 from spotpy.examples.spot_setup_hymod_python import spot_setup as hymod_setup
-from hydromodel.datasets.data_postprocess import read_save_sceua_calibrated_params
+from trainers.evaluate import read_save_sceua_calibrated_params
 
 
 def test_run_hymod_calibration():

@@ -1,20 +1,24 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-12-08 09:24:54
-LastEditTime: 2024-03-22 20:58:24
+LastEditTime: 2024-03-26 21:29:39
 LastEditors: Wenyu Ouyang
 Description: some util funcs for hydro model
 FilePath: \hydro-model-xaj\test\test_show_results.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 
-from hydromodel.datasets.data_postprocess import read_save_sceua_calibrated_params
+from hydromodel.datasets.data_postprocess import (
+    show_sceua_cali_result,
+)
 from hydromodel.models.xaj import xaj
 from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
-from hydromodel.trainers.train_utils import show_calibrate_result, show_test_result
+from datasets.data_postprocess import show_test_result
 
 
 from hydroutils import hydro_time
+
+from trainers.evaluate import read_save_sceua_calibrated_params
 
 
 def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length, db_name, basin_area):
@@ -39,7 +43,7 @@ def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length, db_name, basi
         },
     )
     train_period = hydro_time.t_range_days(["2012-01-01", "2017-01-01"])
-    show_calibrate_result(
+    show_sceua_cali_result(
         sampler.setup,
         db_name,
         warmup_length=warmup_length,

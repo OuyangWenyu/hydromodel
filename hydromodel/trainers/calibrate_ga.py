@@ -20,9 +20,10 @@ from tqdm import tqdm
 from hydroutils import hydro_file, hydro_stat
 
 
+from datasets.data_postprocess import plot_sim_and_obs
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.model_dict import MODEL_DICT, rmse43darr
-from hydromodel.trainers.train_utils import plot_sim_and_obs, plot_train_iteration
+from datasets.data_postprocess import plot_train_iteration
 
 
 def evaluate(individual, x_input, y_true, warmup_length, model):

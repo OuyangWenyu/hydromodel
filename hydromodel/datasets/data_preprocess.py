@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-25 19:54:15
+LastEditTime: 2024-03-26 19:18:29
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\datasets\data_preprocess.py
@@ -10,15 +10,15 @@ Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 
 import os
 import re
+from hydrodataset import Camels
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold
-from collections import OrderedDict
 import xarray as xr
 
-from hydroutils import hydro_time, hydro_file
+from hydrodata.utils.utils import streamflow_unit_conv
 
-from hydromodel import CACHE_DIR
+from hydromodel import CACHE_DIR, SETTING
 from hydromodel.datasets import *
 
 
@@ -293,7 +293,8 @@ def split_train_test(ts_data, train_period, test_period):
 
     Returns
     -------
-    None
+    tuple of xr.Dataset
+        A tuple of xr.Dataset for training and testing data
     """
     # Convert date strings to pandas datetime objects
     train_start, train_end = pd.to_datetime(train_period[0]), pd.to_datetime(
@@ -387,3 +388,93 @@ def cross_valid_data(ts_data, period, warmup, cv_fold, freq="1D"):
         train_test_data.append((train_data, test_data))
 
     return train_test_data
+
+
+def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
+    """Get time series data from different sources and unify the format and unit of streamflow.
+
+    Parameters
+    ----------
+    data_type
+        The type of the data source, 'camels' or 'owndata'
+    data_dir
+        The directory of the data source
+    periods
+        The periods of the time series data
+    basin_ids
+        The ids of the basins
+
+    Returns
+    -------
+    xr.Dataset
+        The time series data
+
+    Raises
+    ------
+    NotImplementedError
+        The data type is not 'camels' or 'owndata'
+    """
+    prcp_name = remove_unit_from_name(PRCP_NAME)
+    pet_name = remove_unit_from_name(PET_NAME)
+    flow_name = remove_unit_from_name(FLOW_NAME)
+    area_name = remove_unit_from_name(AREA_NAME)
+    if data_type == "camels":
+        camels_data_dir = os.path.join(
+            SETTING["local_data_path"]["datasets-origin"], "camels", data_dir
+        )
+        camels = Camels(camels_data_dir)
+        ts_data = camels.read_ts_xrdataset(
+            basin_ids, periods, ["prcp", "PET", "streamflow"]
+        )
+        basin_area = camels.read_area(basin_ids)
+        # trans unit to mm/day
+        qobs_ = ts_data[["streamflow"]]
+        target_unit = ts_data["prcp"].attrs.get("units", "unknown")
+        r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
+        ts_data[flow_name] = r_mmd["streamflow"]
+        ts_data[flow_name].attrs["units"] = target_unit
+        ts_data = ts_data.rename({"PET": pet_name})
+        # ts_data = ts_data.drop_vars('streamflow')
+    elif data_type == "owndata":
+        ts_data = xr.open_dataset(
+            os.path.join(os.path.dirname(data_dir), "timeseries.nc")
+        )
+        attr_data = xr.open_dataset(
+            os.path.join(os.path.dirname(data_dir), "attributes.nc")
+        )
+        basin_area = attr_data[area_name].values
+        target_unit = ts_data[prcp_name].attrs.get("units", "unknown")
+        qobs_ = ts_data[[flow_name]]
+        r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
+        ts_data[flow_name] = r_mmd[flow_name]
+        ts_data[flow_name].attrs["units"] = target_unit
+    else:
+        raise NotImplementedError(
+            "You should set the data type as 'camels' or 'owndata'"
+        )
+
+    return ts_data
+
+
+def get_pe_q_from_ts(ts_xr_dataset):
+    """Transform the time series data to the format that can be used in the calibration process
+
+    Parameters
+    ----------
+    ts_xr_dataset : xr.Dataset
+        The time series data
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        The tuple contains the precipitation and evaporation data and the observed streamflow data
+    """
+    prcp_name = remove_unit_from_name(PRCP_NAME)
+    pet_name = remove_unit_from_name(PET_NAME)
+    flow_name = remove_unit_from_name(FLOW_NAME)
+    p_and_e = (
+        ts_xr_dataset[[prcp_name, pet_name]].to_array().to_numpy().transpose(2, 1, 0)
+    )
+    qobs = np.expand_dims(ts_xr_dataset[flow_name].to_numpy().transpose(1, 0), axis=2)
+
+    return p_and_e, qobs

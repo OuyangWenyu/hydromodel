@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-22 20:07:08
+LastEditTime: 2024-03-26 18:20:57
 LastEditors: Wenyu Ouyang
 Description: Plots for calibration and testing results
 FilePath: \hydro-model-xaj\hydromodel\trainers\train_utils.py
@@ -64,7 +64,6 @@ def plot_train_iteration(likelihood, save_fig):
 
 
 def show_calibrate_result(
-    spot_setup,
     sceua_calibrated_file,
     warmup_length,
     save_dir,
@@ -79,8 +78,6 @@ def show_calibrate_result(
 
     Parameters
     ----------
-    spot_setup
-        Spotpy's setup class instance
     sceua_calibrated_file
         the result file saved after optimizing
     basin_id

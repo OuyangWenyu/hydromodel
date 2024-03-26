@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
-from scripts.evaluate_xaj import calibrate
+from scripts.evaluate_xaj import evaluate
 
 matplotlib.use("Agg")
 exp = "exp61561"
@@ -49,4 +49,4 @@ for i in range(len(reps)):
         rep = reps[i]
         ng = ngs[j]
         xaj_calibrate = XAJCalibrateMultiCases(exp, book, source, rep, ng)
-        calibrate(xaj_calibrate)
+        evaluate(xaj_calibrate)

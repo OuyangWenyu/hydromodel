@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-03-26 16:54:05
+LastEditTime: 2024-03-26 18:55:25
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
 FilePath: \hydro-model-xaj\scripts\calibrate_xaj.py
@@ -14,18 +14,18 @@ import argparse
 import sys
 import os
 from pathlib import Path
-import xarray as xr
 import yaml
-
-from hydrodataset import Camels
-from hydrodata.utils.utils import streamflow_unit_conv
 
 
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
-from hydromodel import SETTING
 from hydromodel.datasets import *
-from hydromodel.datasets.data_preprocess import cross_valid_data, split_train_test
+from hydromodel.datasets.data_preprocess import (
+    cross_valid_data,
+    split_train_test,
+    get_ts_from_diffsource,
+    get_pe_q_from_ts,
+)
 from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
 
 
@@ -42,22 +42,7 @@ def calibrate(args):
     model_info = args.model
     algo_info = args.algorithm
     loss = args.loss
-    if data_type == "camels":
-        camels_data_dir = os.path.join(
-            SETTING["local_data_path"]["datasets-origin"], "camels", data_dir
-        )
-        camels = Camels(camels_data_dir)
-        ts_data = camels.read_ts_xrdataset(
-            basin_ids, periods, ["prcp", "PET", "streamflow"]
-        )
-    elif data_type == "owndata":
-        ts_data = xr.open_dataset(
-            os.path.join(os.path.dirname(data_dir), "timeseries.nc")
-        )
-    else:
-        raise NotImplementedError(
-            "You should set the data type as 'camels' or 'owndata'"
-        )
+    ts_data = get_ts_from_diffsource(data_type, data_dir, periods, basin_ids)
 
     where_save = Path(os.path.join(repo_path, "result", exp))
     if os.path.exists(where_save) is False:
@@ -68,55 +53,39 @@ def calibrate(args):
         periods = np.sort(
             [train_period[0], train_period[1], test_period[0], test_period[1]]
         )
-    if cv_fold > 1:
-        train_and_test_data = cross_valid_data(ts_data, periods, warmup, cv_fold)
-    else:
-        # when using train_test_split, the warmup period is not used
-        # so you should include the warmup period in the train and test period
         train_and_test_data = split_train_test(ts_data, train_period, test_period)
+    else:
+        # cross validation
+        train_and_test_data = cross_valid_data(ts_data, periods, warmup, cv_fold)
+
     print("Start to calibrate the model")
 
-    if data_type == "camels":
-        basin_area = camels.read_area(basin_ids)
-        p_and_e = (
-            train_and_test_data[0][["prcp", "PET"]]
-            .to_array()
-            .to_numpy()
-            .transpose(2, 1, 0)
-        )
-        # trans unit to mm/day
-        qobs_ = train_and_test_data[0][["streamflow"]]
-        r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit="mm/d")
-        qobs = np.expand_dims(r_mmd["streamflow"].to_numpy().transpose(1, 0), axis=2)
-    elif data_type == "owndata":
-        attr_data = xr.open_dataset(
-            os.path.join(os.path.dirname(data_dir), "attributes.nc")
-        )
-        basin_area = attr_data["area"].values
-        p_and_e = (
-            train_and_test_data[0][[PRCP_NAME, PET_NAME]]
-            .to_array()
-            .to_numpy()
-            .transpose(2, 1, 0)
-        )
-        qobs = np.expand_dims(
-            train_and_test_data[0][[FLOW_NAME]].to_array().to_numpy().transpose(1, 0),
-            axis=2,
+    if cv_fold <= 1:
+        p_and_e, qobs = get_pe_q_from_ts(train_and_test_data[0])
+        calibrate_by_sceua(
+            basin_ids,
+            p_and_e,
+            qobs,
+            os.path.join(where_save, "sceua_xaj"),
+            warmup,
+            model=model_info,
+            algorithm=algo_info,
+            loss=loss,
         )
     else:
-        raise NotImplementedError(
-            "You should set the data type as 'camels' or 'owndata'"
-        )
-    calibrate_by_sceua(
-        basin_ids,
-        p_and_e,
-        qobs,
-        os.path.join(where_save, "sceua_xaj"),
-        warmup,
-        model=model_info,
-        algorithm=algo_info,
-        loss=loss,
-    )
+        for i in range(cv_fold):
+            train_data, _ = train_and_test_data[i]
+            p_and_e_cv, qobs_cv = get_pe_q_from_ts(train_data)
+            calibrate_by_sceua(
+                basin_ids,
+                p_and_e_cv,
+                qobs_cv,
+                os.path.join(where_save, f"sceua_xaj_cv{i+1}"),
+                warmup,
+                model=model_info,
+                algorithm=algo_info,
+                loss=loss,
+            )
     # Convert the arguments to a dictionary
     args_dict = vars(args)
     # Save the arguments to a YAML file
@@ -155,7 +124,7 @@ if __name__ == "__main__":
         "--cv_fold",
         dest="cv_fold",
         help="the number of cross-validation fold",
-        default=1,
+        default=2,
         type=int,
     )
     parser.add_argument(

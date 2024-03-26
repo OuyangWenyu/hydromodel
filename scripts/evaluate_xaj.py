@@ -1,16 +1,17 @@
 import argparse
-import json
 import socket
 import fnmatch
 from datetime import datetime
 import numpy as np
 import pandas as pd
+import yaml
 import os
 import sys
 from pathlib import Path
 from hydroutils import hydro_file
 
-sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
+repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
+sys.path.append(repo_path)
 from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
 from hydromodel.datasets.data_postprocess import (
     renormalize_params,
@@ -24,51 +25,28 @@ from hydromodel.models.xaj import xaj
 from hydromodel.trainers.calibrate_ga import calibrate_by_ga, show_ga_result
 
 
-def calibrate(args):
+def read_yaml_config(file_path):
+    with open(file_path, "r") as file:
+        config = yaml.safe_load(file)
+    return config
+
+
+def evaluate(args):
     exp = args.exp
     warmup = args.warmup_length
-    data_dir = os.path.join(
-        "D:/研究生/毕业论文/new毕业论文/预答辩/碧流河水库/模型运行/"
-    )
-    kfold = [
-        int(f_name[len("data_info_fold") : -len("_test.json")])
-        for f_name in os.listdir(data_dir)  # 输出文件夹下的所有文件
-        if fnmatch.fnmatch(f_name, "*_fold*_test.json")
-    ]
+    cali_dir = Path(os.path.join(repo_path, "result", exp))
+    cali_config = read_yaml_config(os.path.join(cali_dir, "config.yaml"))
     kfold = np.sort(kfold)
     for fold in kfold:
         print(f"Start to calibrate the {fold}-th fold")
-        train_data_info_file = os.path.join(
-            data_dir, f"data_info_fold{str(fold)}_train.json"
-        )
-        train_data_file = os.path.join(data_dir, f"data_info_fold{str(fold)}_train.npy")
-        test_data_info_file = os.path.join(
-            data_dir, f"data_info_fold{str(fold)}_test.json"
-        )
-        test_data_file = os.path.join(data_dir, f"data_info_fold{str(fold)}_test.npy")
-        if (
-            os.path.exists(train_data_info_file) is False
-            or os.path.exists(train_data_file) is False
-            or os.path.exists(test_data_info_file) is False
-            or os.path.exists(test_data_file) is False
-        ):
-            raise FileNotFoundError(
-                "The data files are not found, please run datapreprocess4calibrate.py first."
-            )
-        data_train = hydro_file.unserialize_numpy(train_data_file)
-        data_test = hydro_file.unserialize_numpy(test_data_file)
-        data_info_train = hydro_file.unserialize_json_ordered(train_data_info_file)
-        data_info_test = hydro_file.unserialize_json_ordered(test_data_info_file)
         current_time = datetime.now().strftime("%b%d_%H-%M-%S")
         save_dir = os.path.join(
-            data_dir,
+            cali_dir,
             current_time
             + "_"
             + socket.gethostname()
             + "_fold"
             + str(fold)
-            + "_"
-            + comment,
         )
         # 读输入文件
         if os.path.exists(save_dir) is False:
@@ -86,16 +64,6 @@ def calibrate(args):
                 if not os.path.exists(spotpy_db_dir):
                     os.makedirs(spotpy_db_dir)
                 db_name = os.path.join(spotpy_db_dir, "SCEUA_" + model_info["name"])
-
-                sampler = calibrate_by_sceua(  # 率定
-                    data_train[:, i : i + 1, 0:2],
-                    data_train[:, i : i + 1, -1:],
-                    db_name,
-                    warmup_length=warmup,
-                    model=model_info,
-                    algorithm=algo_info,
-                )
-
                 show_calibrate_result(  # 展示率定结果
                     sampler.setup,
                     db_name,
@@ -223,4 +191,4 @@ if __name__ == "__main__":
         type=int,
     )
     the_args = parser.parse_args()
-    calibrate(the_args)
+    evaluate(the_args)

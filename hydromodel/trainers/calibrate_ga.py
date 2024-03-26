@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2024-03-22 21:26:01
+LastEditTime: 2024-03-26 15:22:19
 LastEditors: Wenyu Ouyang
 Description: Calibrate XAJ model using DEAP
 FilePath: \hydro-model-xaj\hydromodel\trainers\calibrate_ga.py
@@ -21,9 +21,8 @@ from hydroutils import hydro_file, hydro_stat
 
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
-from hydromodel.models.model_dict import MODEL_DICT
+from hydromodel.models.model_dict import MODEL_DICT, rmse43darr
 from hydromodel.trainers.train_utils import plot_sim_and_obs, plot_train_iteration
-from models.model_dict import rmse43darr
 
 
 def evaluate(individual, x_input, y_true, warmup_length, model):

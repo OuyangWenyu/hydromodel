@@ -1,233 +1,197 @@
-import argparse
-import json
-import socket
-import fnmatch
-from datetime import datetime
-import numpy as np
-import pandas as pd
-import os
-import sys
-from pathlib import Path
-from hydroutils import hydro_file
+"""
+Author: Wenyu Ouyang
+Date: 2022-11-19 17:27:05
+LastEditTime: 2024-03-26 16:54:05
+LastEditors: Wenyu Ouyang
+Description: the script to calibrate a model for CAMELS basin
+FilePath: \hydro-model-xaj\scripts\calibrate_xaj.py
+Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
+"""
 
-sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
+import json
+import numpy as np
+import argparse
+import sys
+import os
+from pathlib import Path
+import xarray as xr
+import yaml
+
+from hydrodataset import Camels
+from hydrodata.utils.utils import streamflow_unit_conv
+
+
+repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
+sys.path.append(repo_path)
+from hydromodel import SETTING
+from hydromodel.datasets import *
+from hydromodel.datasets.data_preprocess import cross_valid_data, split_train_test
 from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
-from hydromodel.datasets.data_postprocess import (
-    renormalize_params,
-    read_save_sceua_calibrated_params,
-    save_streamflow,
-    summarize_metrics,
-    summarize_parameters,
-)
-from hydromodel.trainers.train_utils import show_calibrate_result, show_test_result
-from hydromodel.models.xaj import xaj
-from hydromodel.trainers.calibrate_ga import calibrate_by_ga, show_ga_result
 
 
 def calibrate(args):
+    data_type = args.data_type
+    data_dir = args.data_dir
     exp = args.exp
-    warmup = args.warmup_length
+    cv_fold = args.cv_fold
+    train_period = args.calibrate_period
+    test_period = args.test_period
+    periods = args.period
+    warmup = args.warmup
+    basin_ids = args.basin_id
     model_info = args.model
     algo_info = args.algorithm
-    comment = args.comment
-    data_dir = os.path.join('D:/研究生/毕业论文/new毕业论文/预答辩/碧流河水库/模型运行/')
-    kfold = [
-        int(f_name[len("data_info_fold") : -len("_test.json")])
-        for f_name in os.listdir(data_dir) #输出文件夹下的所有文件
-        if fnmatch.fnmatch(f_name, "*_fold*_test.json")
-    ]
-    kfold = np.sort(kfold)
-    for fold in kfold:
-        print(f"Start to calibrate the {fold}-th fold")
-        train_data_info_file = os.path.join(
-            data_dir, f"data_info_fold{str(fold)}_train.json"
+    loss = args.loss
+    if data_type == "camels":
+        camels_data_dir = os.path.join(
+            SETTING["local_data_path"]["datasets-origin"], "camels", data_dir
         )
-        train_data_file = os.path.join(
-            data_dir, f"data_info_fold{str(fold)}_train.npy"
+        camels = Camels(camels_data_dir)
+        ts_data = camels.read_ts_xrdataset(
+            basin_ids, periods, ["prcp", "PET", "streamflow"]
         )
-        test_data_info_file = os.path.join(
-            data_dir, f"data_info_fold{str(fold)}_test.json"
+    elif data_type == "owndata":
+        ts_data = xr.open_dataset(
+            os.path.join(os.path.dirname(data_dir), "timeseries.nc")
         )
-        test_data_file = os.path.join(
-            data_dir, f"data_info_fold{str(fold)}_test.npy"
+    else:
+        raise NotImplementedError(
+            "You should set the data type as 'camels' or 'owndata'"
         )
-        if (
-            os.path.exists(train_data_info_file) is False
-            or os.path.exists(train_data_file) is False
-            or os.path.exists(test_data_info_file) is False
-            or os.path.exists(test_data_file) is False
-        ):
-            raise FileNotFoundError(
-                "The data files are not found, please run datapreprocess4calibrate.py first."
-            )
-        data_train = hydro_file.unserialize_numpy(train_data_file)
-        data_test = hydro_file.unserialize_numpy(test_data_file)
-        data_info_train = hydro_file.unserialize_json_ordered(train_data_info_file)
-        data_info_test = hydro_file.unserialize_json_ordered(test_data_info_file)
-        current_time = datetime.now().strftime("%b%d_%H-%M-%S")
-        save_dir = os.path.join(
-            data_dir,
-            current_time
-            + "_"
-            + socket.gethostname()
-            + "_fold"
-            + str(fold)
-            + "_"
-            + comment,
+
+    where_save = Path(os.path.join(repo_path, "result", exp))
+    if os.path.exists(where_save) is False:
+        os.makedirs(where_save)
+
+    if cv_fold <= 1:
+        # no cross validation
+        periods = np.sort(
+            [train_period[0], train_period[1], test_period[0], test_period[1]]
         )
-        # 读输入文件
-        if os.path.exists(save_dir) is False:
-            os.makedirs(save_dir)
-        hydro_file.serialize_json(vars(args), os.path.join(save_dir, "args.json"))
-        if algo_info["name"] == "SCE_UA":
-            for i in range(len(data_info_train["basin"])):
-                basin_id = data_info_train["basin"][i]
-                basin_area = data_info_train["area"][i]
-                # one directory for one model + one hyperparam setting and one basin
-                spotpy_db_dir = os.path.join(  # 一个模型一个文件夹
-                    save_dir,
-                    basin_id,
-                )
-                if not os.path.exists(spotpy_db_dir):
-                    os.makedirs(spotpy_db_dir)
-                db_name = os.path.join(spotpy_db_dir, "SCEUA_" + model_info["name"])
+    if cv_fold > 1:
+        train_and_test_data = cross_valid_data(ts_data, periods, warmup, cv_fold)
+    else:
+        # when using train_test_split, the warmup period is not used
+        # so you should include the warmup period in the train and test period
+        train_and_test_data = split_train_test(ts_data, train_period, test_period)
+    print("Start to calibrate the model")
 
-                sampler = calibrate_by_sceua(  # 率定
-                    data_train[:, i : i + 1, 0:2],
-                    data_train[:, i : i + 1, -1:],
-                    db_name,
-                    warmup_length=warmup,
-                    model=model_info,
-                    algorithm=algo_info,
-                )
-
-                show_calibrate_result(  # 展示率定结果
-                    sampler.setup,
-                    db_name,
-                    warmup_length=warmup,
-                    save_dir=spotpy_db_dir,
-                    basin_id=basin_id,
-                    train_period=data_info_train["time"],
-                    basin_area=basin_area,
-                    prcp=data_train[365:, i : i + 1, 0:1].flatten(),
-                )
-
-                params = read_save_sceua_calibrated_params(  # 保存率定的参数文件
-                    basin_id, spotpy_db_dir, db_name
-                )
-                # _ is et which we didn't use here
-                qsim, _ = xaj(  # 计算模拟结果
-                    data_test[:, i : i + 1, 0:2],
-                    params,
-                    warmup_length=0 ,
-                    **model_info,
-                )
-
-                qsim = units.convert_unit(
-                    qsim,
-                    # TODO: to unify "mm/hour"
-                    unit_now="mm/day",
-                    unit_final=units.unit["streamflow"],
-                    basin_area=basin_area,
-                )
-                qobs = units.convert_unit(
-                    data_test[warmup:, i : i + 1, -1:],
-                    # TODO: to unify "mm/hour"
-                    unit_now="mm/day",
-                    unit_final=units.unit["streamflow"],
-                    basin_area=basin_area,
-                )
-                test_result_file = os.path.join(   
-                    spotpy_db_dir,
-                    "test_qsim_" + model_info["name"] + "_" + str(basin_id) + ".csv",
-                )
-                pd.DataFrame(qsim.reshape(-1, 1)).to_csv(
-                    test_result_file,
-                    sep=",",
-                    index=False,
-                    header=False,
-                )
-                test_date = pd.to_datetime(data_info_test["time"][:]).values.astype(
-                    "datetime64[h]"
-                )
-                show_test_result(
-                    basin_id,
-                    test_date,
-                    qsim,
-                    qobs,
-                    save_dir=spotpy_db_dir,
-                    warmup_length=warmup,
-                    prcp=data_test[365:, i : i + 1, 0:1].flatten(),
-                )
-        elif algo_info["name"] == "GA":
-            for i in range(len(data_info_train["basin"])):
-                basin_id = data_info_train["basin"][i]
-                basin_area = data_info_train["area"][i]
-                # one directory for one model + one hyperparam setting and one basin
-                deap_db_dir = os.path.join(
-                    save_dir,
-                    basin_id,
-                )
-                if not os.path.exists(deap_db_dir):
-                    os.makedirs(deap_db_dir)
-                calibrate_by_ga(
-                    data_train[:, i : i + 1, 0:2],
-                    data_train[:, i : i + 1, -1:],
-                    deap_db_dir,
-                    warmup_length=warmup,
-                    model=model_info,
-                    ga_param=algo_info,
-                )
-                show_ga_result(
-                    deap_db_dir,
-                    warmup_length=warmup,
-                    basin_id=basin_id,
-                    the_data=data_train[:, i : i + 1, :],
-                    the_period=data_info_train["time"],
-                    basin_area=basin_area,
-                    model_info=model_info,
-                    train_mode=True,
-                )
-                show_ga_result(
-                    deap_db_dir,
-                    warmup_length=warmup,
-                    basin_id=basin_id,
-                    the_data=data_test[:, i : i + 1, :],
-                    the_period=data_info_test["time"],
-                    basin_area=basin_area,
-                    model_info=model_info,
-                    train_mode=False,
-                )
-        else:
-            raise NotImplementedError(
-                "We don't provide this calibrate method! Choose from 'SCE_UA' or 'GA'!"
-            )
-        summarize_parameters(save_dir, model_info)
-        renormalize_params(save_dir, model_info)
-        summarize_metrics(save_dir, model_info)
-        save_streamflow(save_dir, model_info, fold=fold)
-        print(f"Finish calibrating the {fold}-th fold")
+    if data_type == "camels":
+        basin_area = camels.read_area(basin_ids)
+        p_and_e = (
+            train_and_test_data[0][["prcp", "PET"]]
+            .to_array()
+            .to_numpy()
+            .transpose(2, 1, 0)
+        )
+        # trans unit to mm/day
+        qobs_ = train_and_test_data[0][["streamflow"]]
+        r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit="mm/d")
+        qobs = np.expand_dims(r_mmd["streamflow"].to_numpy().transpose(1, 0), axis=2)
+    elif data_type == "owndata":
+        attr_data = xr.open_dataset(
+            os.path.join(os.path.dirname(data_dir), "attributes.nc")
+        )
+        basin_area = attr_data["area"].values
+        p_and_e = (
+            train_and_test_data[0][[PRCP_NAME, PET_NAME]]
+            .to_array()
+            .to_numpy()
+            .transpose(2, 1, 0)
+        )
+        qobs = np.expand_dims(
+            train_and_test_data[0][[FLOW_NAME]].to_array().to_numpy().transpose(1, 0),
+            axis=2,
+        )
+    else:
+        raise NotImplementedError(
+            "You should set the data type as 'camels' or 'owndata'"
+        )
+    calibrate_by_sceua(
+        basin_ids,
+        p_and_e,
+        qobs,
+        os.path.join(where_save, "sceua_xaj"),
+        warmup,
+        model=model_info,
+        algorithm=algo_info,
+        loss=loss,
+    )
+    # Convert the arguments to a dictionary
+    args_dict = vars(args)
+    # Save the arguments to a YAML file
+    with open(os.path.join(where_save, "config.yaml"), "w") as f:
+        yaml.dump(args_dict, f)
 
 
-# NOTE: Before run this command, you should run data_preprocess.py file to save your data as hydro-model-xaj data format,
-# the exp must be same as the exp in data_preprocess.py
-# python calibrate_xaj.py --exp exp201 --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":2000,\"ngs\":20,\"kstop\":3,\"peps\":0.1,\"pcento\":0.1}
-# python calibrate_xaj.py --exp exp61561 --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"GA\",\"random_seed\":1234,\"run_counts\":50,\"pop_num\":50,\"cross_prob\":0.5,\"mut_prob\":0.5,\"save_freq\":1}
-if __name__ == "__main__":  # 固定套路
-    parser = argparse.ArgumentParser(description="Calibrate a hydrological model.")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Run hydro-model-xaj models with the CAMELS dataset"
+    )
     parser.add_argument(
-        "--exp",
-        dest="exp",
-        help="An exp is corresponding to a data plan from data_preprocess.py",
-        default="/home/ldaning/code/biye/hydro-model-xaj/hydromodel/example/model_run_wuxi7",
+        "--data_type",
+        dest="data_type",
+        help="CAMELS dataset or your own data, such as 'camels' or 'owndata'",
+        default="camels",
         type=str,
     )
     parser.add_argument(
-        "--warmup_length",
-        dest="warmup_length",
-        help="the length of warmup period for hydro model",
+        "--data_dir",
+        dest="data_dir",
+        help="The directory of the CAMELS dataset or your own data, for CAMELS,"
+        + " as we use SETTING to set the data path, you can directly choose camels_us;"
+        + " for your own data, you should set the absolute path of your data directory",
+        default="camels_us",
+        type=str,
+    )
+    parser.add_argument(
+        "--exp",
+        dest="exp",
+        help="An exp is corresponding to one data setting",
+        default="expcamels001",
+        type=str,
+    )
+    parser.add_argument(
+        "--cv_fold",
+        dest="cv_fold",
+        help="the number of cross-validation fold",
+        default=1,
+        type=int,
+    )
+    parser.add_argument(
+        "--warmup",
+        dest="warmup",
+        help="the number of warmup days",
         default=365,
         type=int,
+    )
+    parser.add_argument(
+        "--period",
+        dest="period",
+        help="The whole period",
+        default=["2007-01-01", "2014-01-01"],
+        nargs="+",
+    )
+    parser.add_argument(
+        "--calibrate_period",
+        dest="calibrate_period",
+        help="The training period",
+        default=["2007-01-01", "2014-01-01"],
+        nargs="+",
+    )
+    parser.add_argument(
+        "--test_period",
+        dest="test_period",
+        help="The testing period",
+        default=["2007-01-01", "2014-01-01"],
+        nargs="+",
+    )
+    parser.add_argument(
+        "--basin_id",
+        dest="basin_id",
+        help="The basins' ids",
+        default=["01439500", "06885500", "08104900", "09510200"],
+        nargs="+",
     )
     parser.add_argument(
         "--model",
@@ -252,11 +216,12 @@ if __name__ == "__main__":  # 固定套路
         default={
             "name": "SCE_UA",
             "random_seed": 1234,
-            "rep": 600,
-            "ngs": 1000,
-            "kstop": 1000,
-            "peps": 0.01,
-            "pcento": 0.01,
+            # these params are just for test
+            "rep": 10,
+            "ngs": 10,
+            "kstop": 5,
+            "peps": 0.1,
+            "pcento": 0.1,
         },
         # default={
         #     "name": "GA",
@@ -270,11 +235,15 @@ if __name__ == "__main__":  # 固定套路
         type=json.loads,
     )
     parser.add_argument(
-        "--comment",
-        dest="comment",
+        "--loss",
+        dest="loss",
         help="A tag for a plan, we will use it when postprocessing results",
-        default="HF",
-        type=str,
+        default={
+            "type": "time_series",
+            "obj_func": "RMSE",
+            "events": None,
+        },
+        type=json.loads,
     )
     the_args = parser.parse_args()
     calibrate(the_args)

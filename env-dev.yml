@@ -18,6 +18,7 @@ dependencies:
   - sphinx
   - black
   - flake8
+  - pytest
   # pip
   - pip
   - pip:

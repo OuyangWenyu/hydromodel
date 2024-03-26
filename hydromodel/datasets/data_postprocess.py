@@ -34,7 +34,7 @@ def read_save_sceua_calibrated_params(basin_id, save_dir, sceua_calibrated_file_
         results
     )  # 结果数组中具有最小目标函数的位置的索引
     best_model_run = results[bestindex]
-    fields = [word for word in best_model_run.dtype.names if word.startswith("par")] 
+    fields = [word for word in best_model_run.dtype.names if word.startswith("par")]
     best_calibrate_params = pd.DataFrame(list(best_model_run[fields]))
     save_file = os.path.join(save_dir, basin_id + "_calibrate_params.txt")
     best_calibrate_params.to_csv(save_file, sep=",", index=False, header=True)

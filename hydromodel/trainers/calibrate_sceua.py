@@ -5,11 +5,11 @@ import spotpy
 import pandas as pd
 from spotpy.parameter import Uniform, ParameterSet
 from hydromodel.models.model_config import MODEL_PARAM_DICT
-from hydromodel.models.model_dict import CRITERION_DICT, MODEL_DICT
+from hydromodel.models.model_dict import LOSS_DICT, MODEL_DICT
 
 
 class SpotSetup(object):
-    def __init__(self, p_and_e, qobs, warmup_length=365, model=None, metric=None):
+    def __init__(self, p_and_e, qobs, warmup_length=365, model=None, loss=None):
         """
         Set up for Spotpy
         NOTE: once for a basin in one sampler or
@@ -27,8 +27,8 @@ class SpotSetup(object):
             we support "gr4j", "hymod", and "xaj"
         model_func_param
             parameters of model function
-        metric
-            metric configs including objective function, typically RMSE
+        loss
+            loss configs including objective function, typically RMSE
         """
         if model is None:
             model = {
@@ -36,8 +36,8 @@ class SpotSetup(object):
                 "source_type": "sources5mm",
                 "source_book": "HF",
             }
-        if metric is None:
-            metric = {
+        if loss is None:
+            loss = {
                 "type": "time_series",
                 "obj_func": "rmse",
                 "events": None,
@@ -49,7 +49,7 @@ class SpotSetup(object):
             Uniform(par_name, low=0.0, high=1.0) for par_name in self.parameter_names
         )
         # Just a way to keep this example flexible and applicable to various examples
-        self.metric = metric
+        self.loss = loss
         # Load Observation data from file
         self.p_and_e = p_and_e
         # chose observation data after warmup period
@@ -98,6 +98,7 @@ class SpotSetup(object):
         self,
         simulation: Union[list, np.array],
         evaluation: Union[list, np.array],
+        params=None,  # this cannot be removed
     ) -> float:
         """
         A user defined objective function to calculate fitness.
@@ -114,10 +115,10 @@ class SpotSetup(object):
         float
             likelihood
         """
-        if self.metric["type"] == "time_series":
-            return CRITERION_DICT[self.metric["obj_func"]](evaluation, simulation)
+        if self.loss["type"] == "time_series":
+            return LOSS_DICT[self.loss["obj_func"]](evaluation, simulation)
         # for events
-        time = self.metric["events"]
+        time = self.loss["events"]
         if time is None:
             raise ValueError(
                 "time should not be None since you choose events, otherwise choose time_series"
@@ -137,7 +138,7 @@ class SpotSetup(object):
                 ) / pd.Timedelta(hours=1)
                 start_num = int(start_num)
                 end_num = int(end_num)
-                like_ = CRITERION_DICT[self.metric["obj_func"]](
+                like_ = LOSS_DICT[self.loss["obj_func"]](
                     evaluation[start_num:end_num,], simulation[start_num:end_num,]
                 )
                 count += 1
@@ -154,7 +155,7 @@ def calibrate_by_sceua(
     warmup_length=365,
     model=None,
     algorithm=None,
-    metric=None,
+    loss=None,
 ):
     """
     Function for calibrating model by SCE-UA
@@ -178,8 +179,8 @@ def calibrate_by_sceua(
     algorithm
         calibrate algorithm. For example, if you want to calibrate xaj model,
         and use sce-ua algorithm -- random seed=2000, rep=5000, ngs=7, kstop=3, peps=0.1, pcento=0.1
-    metric
-        metric configs for events calculation or
+    loss
+        loss configs for events calculation or
         just one long time-series calculation
         with an objective function, typically RMSE
 
@@ -203,8 +204,8 @@ def calibrate_by_sceua(
             "peps": 0.1,
             "pcento": 0.1,
         }
-    if metric is None:
-        metric = {
+    if loss is None:
+        loss = {
             "type": "time_series",
             "obj_func": "RMSE",
             # when "type" is "events", this is not None, but idxs of events in time series
@@ -226,11 +227,11 @@ def calibrate_by_sceua(
             qobs[:, i : i + 1, :],
             warmup_length=warmup_length,
             model=model,
-            metric=metric,
+            loss=loss,
         )
+        if not os.path.exists(dbname):
+            os.makedirs(dbname)
         db_basin = os.path.join(dbname, basins[i])
-        if not os.path.exists(db_basin):
-            os.makedirs(db_basin)
         # Select number of maximum allowed repetitions
         sampler = spotpy.algorithms.sceua(
             spot_setup,

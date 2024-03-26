@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-03-21 18:44:31
+LastEditTime: 2024-03-26 15:43:08
 LastEditors: Wenyu Ouyang
 Description: the script to postprocess calibrated models in hydro-model-xaj
 FilePath: \hydro-model-xaj\scripts\datapostprocess4calibrate.py
@@ -17,9 +17,8 @@ import sys
 import os
 from pathlib import Path
 
-
-sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
-import definitions
+repo_dir = os.path.dirname(Path(os.path.abspath(__file__)).parent)
+sys.path.append(repo_dir)
 from hydromodel.datasets.data_postprocess import read_and_save_et_ouputs
 
 
@@ -27,15 +26,10 @@ def statistics(args):
     exp = args.exp
     cases = args.cases
     cv_fold = args.cv_fold
-    where_save_cache = Path(
-        os.path.join(
-            "/home/ldaning/code/biye/hydro-model-xaj/hydromodel/example/model_run_wuxi7"
-        )
-        # definitions.ROOT_DIR, "hydromodel", "example", exp
-    )
+    where_save_cache = Path(os.path.join(repo_dir, "result", exp))
     if os.path.exists(where_save_cache) is False:
         raise NotImplementedError(
-            "You should run datapreprocess4calibrate.py and calibrate_xaj_camels_cc.py first."
+            "You should run prepare_data and calibrate scripts at first."
         )
     if cases is None:
         cases = os.listdir(where_save_cache)
@@ -142,7 +136,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="exp61561",
+        default="test_camels_us",
         type=str,
     )
     parser.add_argument(

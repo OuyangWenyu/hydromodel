@@ -46,7 +46,7 @@ def test_calibrate_xaj_sceua(basins, p_and_e, qobs, warmup_length, db_dir):
             "peps": 0.1,
             "pcento": 0.1,
         },
-        metric={
+        loss={
             "type": "time_series",
             "obj_func": "RMSE",
             "events": None,

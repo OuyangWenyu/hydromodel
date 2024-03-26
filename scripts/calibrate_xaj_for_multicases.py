@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
-from scripts.calibrate_xaj import calibrate
+from scripts.evaluate_xaj import calibrate
 
 matplotlib.use("Agg")
 exp = "exp61561"

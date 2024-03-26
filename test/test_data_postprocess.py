@@ -1,16 +1,20 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-26 11:56:33
+LastEditTime: 2024-03-26 17:01:09
 LastEditors: Wenyu Ouyang
 Description: Test for data preprocess
 FilePath: \hydro-model-xaj\test\test_data_postprocess.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 import spotpy
 from spotpy.examples.spot_setup_hymod_python import spot_setup as hymod_setup
-import matplotlib.pyplot as plt
+from hydromodel.datasets.data_postprocess import read_save_sceua_calibrated_params
 
 
 def test_run_hymod_calibration():
@@ -56,3 +60,37 @@ def test_run_hymod_calibration():
     plt.ylabel("Discharge [l s-1]")
     plt.legend(loc="upper right")
     plt.show()
+
+
+def test_read_save_sceua_calibrated_params(tmpdir):
+    # Create a temporary directory for testing
+    temp_dir = tmpdir.mkdir("test_data")
+
+    # Generate some dummy data
+    results = np.array(
+        [(1, 2, 3), (4, 5, 6), (7, 8, 9)],
+        dtype=[("par1", int), ("par2", int), ("par3", int)],
+    )
+    spotpy.analyser.load_csv_results = lambda _: results
+    spotpy.analyser.get_minlikeindex = lambda _: (0, 0)
+
+    # Call the function
+    basin_id = "test_basin"
+    save_dir = temp_dir
+    sceua_calibrated_file_name = "test_results.csv"
+    result = read_save_sceua_calibrated_params(
+        basin_id, save_dir, sceua_calibrated_file_name
+    )
+
+    # Check if the file is saved correctly
+    expected_file_path = os.path.join(save_dir, basin_id + "_calibrate_params.txt")
+    assert os.path.exists(expected_file_path)
+
+    # Check if the saved file contains the expected data
+    expected_data = pd.DataFrame([(1, 2, 3)], columns=["par1", "par2", "par3"])
+    saved_data = pd.read_csv(expected_file_path)
+    pd.testing.assert_frame_equal(saved_data, expected_data)
+
+    # Check if the returned result is correct
+    expected_result = np.array([(1, 2, 3)])
+    np.testing.assert_array_equal(result, expected_result)

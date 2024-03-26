@@ -45,6 +45,8 @@ $ python -m ipykernel install --user --name hydromodel --display-name "hydromode
 
 You can use the CAMELS dataset (see [here](https://github.com/OuyangWenyu/hydrodataset) to prepare it) to run the model.
 
+If CAMELS is used, you can skip this step.
+
 To use your own data to run the model, you need prepare the data in the required format.
 
 We provide some transformation functions in the "scripts" directory. You can use them to transform your data to the required format.
@@ -81,24 +83,25 @@ No more unnecessary columns are allowed.
 For time series csv files, et and node1_flow are optional. If you don't have them, you can ignore them.
 The units of all variables could be different, but they cannot be missed and should be put in `()` in the column name.
 
-2. download [prepare_data.py](https://github.com/OuyangWenyu/hydro-model-xaj/tree/master/scripts) and run the following code to transform the data format to the required format:
+2. Download [prepare_data.py](https://github.com/OuyangWenyu/hydro-model-xaj/tree/master/scripts) and run the following code to transform the data format to the required format:
 ```Shell
 $ python prepare_data.py --origin_data_dir <your_data_directory_for_hydromodel>
 ```
 
-3. If the format is wrong, please do step 1 again carefully. If the format is right, you can run the following code to preprocess the data, such as cross-validation, etc.:
-```Shell
-$ python datapreprocess4calibrate.py --data <name of the data file> --exp <name of the directory of the prepared data>
-```
-
 ### Run the model
 
-Run the following code:
+To run calibration with CAMLES dataset, you can use the following code:
+
+```Shell
+$ python calibrate_xaj.py --exp camels --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":5000,\"ngs\":20,\"kstop\":3,\"peps\":0.1,\"pcento\":0.1}
+```
+
+To use your own data, run the following code:
 
 ```Shell
 # you can change the algorithm parameters:
 $ python calibrate_xaj.py --exp example --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":5000,\"ngs\":20,\"kstop\":3,\"peps\":0.1,\"pcento\":0.1}
-# for advices of hyper-parameters of sceua, please see the help comment of the function 'calibrate_xaj.py'
+# for advices of hyper-parameters of sceua, please see the comment of the function 'calibrate_xaj.py'
 # python calibrate_xaj.py --exp <name of directory of the prepared data> --warmup_length <hydromodel need some warm-up period> --model <model function parameters> --algorithm <calibration algorithm parameters>
 ```
 

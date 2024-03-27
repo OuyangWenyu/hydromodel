@@ -34,7 +34,7 @@ if __name__ == "__main__":
         "--origin_data_dir",
         type=str,
         help="Path to your hydrological data",
-        default="C:\\Users\\wenyu\\Downloads\\biliuhe",
+        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
     )
 
     args = parser.parse_args()

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-03-26 19:53:51
+LastEditTime: 2024-03-27 11:43:47
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
 FilePath: \hydro-model-xaj\scripts\calibrate_xaj.py
@@ -98,7 +98,8 @@ if __name__ == "__main__":
         "--data_type",
         dest="data_type",
         help="CAMELS dataset or your own data, such as 'camels' or 'owndata'",
-        default="camels",
+        # default="camels",
+        default="owndata",
         type=str,
     )
     parser.add_argument(
@@ -107,56 +108,62 @@ if __name__ == "__main__":
         help="The directory of the CAMELS dataset or your own data, for CAMELS,"
         + " as we use SETTING to set the data path, you can directly choose camels_us;"
         + " for your own data, you should set the absolute path of your data directory",
-        default="camels_us",
+        # default="camels_us",
+        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
         type=str,
     )
     parser.add_argument(
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="expcamels001",
+        # default="expcamels001",
+        default="expbiliuhe001",
         type=str,
     )
     parser.add_argument(
         "--cv_fold",
         dest="cv_fold",
         help="the number of cross-validation fold",
-        default=2,
+        default=1,
         type=int,
     )
     parser.add_argument(
         "--warmup",
         dest="warmup",
-        help="the number of warmup days",
-        default=365,
+        help="the number of warmup periods",
+        default=720,
         type=int,
     )
     parser.add_argument(
         "--period",
         dest="period",
         help="The whole period",
-        default=["2007-01-01", "2014-01-01"],
+        # default=["2007-01-01", "2014-01-01"],
+        default=["2012-06-10 00:00", "2022-08-31 23:00"],
         nargs="+",
     )
     parser.add_argument(
         "--calibrate_period",
         dest="calibrate_period",
         help="The training period",
-        default=["2007-01-01", "2014-01-01"],
+        # default=["2007-01-01", "2014-01-01"],
+        default=["2012-06-10 00:00", "2017-08-31 23:00"],
         nargs="+",
     )
     parser.add_argument(
         "--test_period",
         dest="test_period",
         help="The testing period",
-        default=["2007-01-01", "2014-01-01"],
+        # default=["2007-01-01", "2014-01-01"],
+        default=["2017-09-01 00:00", "2022-08-31 23:00"],
         nargs="+",
     )
     parser.add_argument(
         "--basin_id",
         dest="basin_id",
         help="The basins' ids",
-        default=["01439500", "06885500", "08104900", "09510200"],
+        # default=["01439500", "06885500", "08104900", "09510200"],
+        default=["21401550"],
         nargs="+",
     )
     parser.add_argument(

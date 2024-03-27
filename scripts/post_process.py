@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-03-27 11:23:02
+LastEditTime: 2024-03-27 16:27:03
 LastEditors: Wenyu Ouyang
 Description: the script to postprocess results
 FilePath: \hydro-model-xaj\scripts\post_process.py
@@ -26,36 +26,49 @@ def visualize(args):
     kfold = cali_config["cv_fold"]
     basins = cali_config["basin_id"]
     warmup = cali_config["warmup"]
-    for fold in range(kfold):
-        print(f"Start to evaluate the {fold+1}-th fold")
-        fold_dir = os.path.join(cali_dir, f"sceua_xaj_cv{fold+1}")
-        # evaluate both train and test period for all basins
-        eval_train_dir = os.path.join(fold_dir, "train")
-        eval_test_dir = os.path.join(fold_dir, "test")
-        train_eval = Evaluator(cali_dir, fold_dir, eval_train_dir)
-        test_eval = Evaluator(cali_dir, fold_dir, eval_test_dir)
-        ds_train = train_eval.load_results()
-        ds_test = test_eval.load_results()
-        for basin in basins:
-            save_fig_train = os.path.join(eval_train_dir, f"train_sim_obs_{basin}.png")
-            plot_sim_and_obs(
-                ds_train["time"].isel(time=slice(warmup, None)),
-                ds_train["qsim"].sel(basin=basin).isel(time=slice(warmup, None)),
-                ds_train["qobs"].sel(basin=basin).isel(time=slice(warmup, None)),
-                save_fig_train,
-                xlabel="Date",
-                ylabel=None,
+    if kfold <= 1:
+        print("Start to visualize the results")
+        param_dir = os.path.join(cali_dir, "sceua_xaj")
+        eval_train_dir = os.path.join(param_dir, "train")
+        eval_test_dir = os.path.join(param_dir, "test")
+        _visualize(cali_dir, basins, warmup, param_dir, eval_train_dir, eval_test_dir)
+        print("Finish visualizing the results")
+    else:
+        for fold in range(kfold):
+            print(f"Start to visualize the {fold+1}-th fold")
+            param_dir = os.path.join(cali_dir, f"sceua_xaj_cv{fold+1}")
+            eval_train_dir = os.path.join(param_dir, "train")
+            eval_test_dir = os.path.join(param_dir, "test")
+            _visualize(
+                cali_dir, basins, warmup, param_dir, eval_train_dir, eval_test_dir
             )
-            save_fig_test = os.path.join(eval_test_dir, f"test_sim_obs_{basin}.png")
-            plot_sim_and_obs(
-                ds_test["time"].isel(time=slice(warmup, None)),
-                ds_test["qsim"].sel(basin=basin).isel(time=slice(warmup, None)),
-                ds_test["qobs"].sel(basin=basin).isel(time=slice(warmup, None)),
-                save_fig_test,
-                xlabel="Date",
-                ylabel=None,
-            )
-        print(f"Finish visualizing the {fold}-th fold")
+            print(f"Finish visualizing the {fold}-th fold")
+
+
+def _visualize(cali_dir, basins, warmup, param_dir, eval_train_dir, eval_test_dir):
+    train_eval = Evaluator(cali_dir, param_dir, eval_train_dir)
+    test_eval = Evaluator(cali_dir, param_dir, eval_test_dir)
+    ds_train = train_eval.load_results()
+    ds_test = test_eval.load_results()
+    for basin in basins:
+        save_fig_train = os.path.join(eval_train_dir, f"train_sim_obs_{basin}.png")
+        plot_sim_and_obs(
+            ds_train["time"].isel(time=slice(warmup, None)),
+            ds_train["qsim"].sel(basin=basin).isel(time=slice(warmup, None)),
+            ds_train["qobs"].sel(basin=basin).isel(time=slice(warmup, None)),
+            save_fig_train,
+            xlabel="Date",
+            ylabel=None,
+        )
+        save_fig_test = os.path.join(eval_test_dir, f"test_sim_obs_{basin}.png")
+        plot_sim_and_obs(
+            ds_test["time"].isel(time=slice(warmup, None)),
+            ds_test["qsim"].sel(basin=basin).isel(time=slice(warmup, None)),
+            ds_test["qobs"].sel(basin=basin).isel(time=slice(warmup, None)),
+            save_fig_test,
+            xlabel="Date",
+            ylabel=None,
+        )
 
 
 if __name__ == "__main__":
@@ -66,7 +79,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="expcamels001",
+        default="expbiliuhe001",
         type=str,
     )
     the_args = parser.parse_args()

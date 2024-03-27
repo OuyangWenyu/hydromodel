@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-27 14:30:15
+LastEditTime: 2024-03-27 16:31:55
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\datasets\data_preprocess.py
@@ -206,7 +206,8 @@ def process_and_save_data_as_nc(
 
     # 读取流域属性
     basin_attr_file = os.path.join(folder_path, "basin_attributes.csv")
-    basin_attrs = pd.read_csv(basin_attr_file)
+    # id must be str
+    basin_attrs = pd.read_csv(basin_attr_file, dtype={ID_NAME: str})
 
     # 创建属性数据集
     ds_attrs = xr.Dataset.from_dataframe(basin_attrs.set_index(ID_NAME))
@@ -234,8 +235,8 @@ def process_and_save_data_as_nc(
     # 初始化用于保存单位的字典
     units = {}
 
-    # 获取流域ID列表
-    basin_ids = basin_attrs[ID_NAME].tolist()
+    # id must be str
+    basin_ids = basin_attrs[ID_NAME].astype(str).tolist()
 
     # 为每个流域读取并处理时序数据
     for i, basin_id in enumerate(basin_ids):

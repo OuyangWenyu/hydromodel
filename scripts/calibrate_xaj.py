@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-03-27 15:22:39
+LastEditTime: 2024-03-27 15:56:19
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
 FilePath: \hydro-model-xaj\scripts\calibrate_xaj.py
@@ -10,6 +10,7 @@ Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 
 import json
 import argparse
+import shutil
 import sys
 import os
 from pathlib import Path
@@ -85,6 +86,11 @@ def calibrate(args):
                 algorithm=algo_info,
                 loss=loss_info,
             )
+
+    # Save the parameter range file to result directory
+    shutil.copy(param_range_file, where_save)
+    # update the param_range_file path
+    args.param_range_file = os.path.join(where_save, param_range_file.split(os.sep)[-1])
     # Convert the arguments to a dictionary
     args_dict = vars(args)
     # Save the arguments to a YAML file

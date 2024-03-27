@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-27 11:18:09
+LastEditTime: 2024-03-27 16:18:48
 LastEditors: Wenyu Ouyang
 Description: Plots for calibration and testing results
 FilePath: \hydro-model-xaj\hydromodel\trainers\evaluate.py
@@ -24,23 +24,25 @@ from hydromodel.datasets.data_preprocess import (
     get_basin_area,
     _get_pe_q_from_ts,
 )
-from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.model_config import read_model_param_dict
 from hydromodel.models.model_dict import MODEL_DICT
 
 
 class Evaluator:
-    def __init__(self, cali_dir, weight_dir=None, eval_dir=None):
+    def __init__(self, cali_dir, param_dir=None, eval_dir=None):
         """_summary_
 
         Parameters
         ----------
         cali_dir : _type_
             calibration directory
+        param_dir : str
+            parameters directory
         eval_dir : _type_
             evaluation directory
         """
-        if weight_dir is None:
-            weight_dir = cali_dir
+        if param_dir is None:
+            param_dir = cali_dir
         if eval_dir is None:
             eval_dir = cali_dir
         cali_config = read_yaml_config(os.path.join(cali_dir, "config.yaml"))
@@ -49,9 +51,10 @@ class Evaluator:
         self.data_dir = cali_config["data_dir"]
         self.model_info = cali_config["model"]
         self.save_dir = eval_dir
-        self.params_dir = weight_dir
-        if not os.path.exists(weight_dir):
-            os.makedirs(weight_dir)
+        self.params_dir = param_dir
+        self.param_range_file = cali_config["param_range_file"]
+        if not os.path.exists(param_dir):
+            os.makedirs(param_dir)
         if not os.path.exists(eval_dir):
             os.makedirs(eval_dir)
 
@@ -70,7 +73,7 @@ class Evaluator:
         """
         model_info = self.model_info
         p_and_e, _ = _get_pe_q_from_ts(ds)
-        basins = ds["basin"].data
+        basins = ds["basin"].data.astype(str)
         params = _read_all_basin_params(basins, self.params_dir)
         qsim, _ = MODEL_DICT[model_info["name"]](
             p_and_e,
@@ -78,6 +81,7 @@ class Evaluator:
             # we set the warmup_length=0 but later we get results from warmup_length to the end to evaluate
             warmup_length=0,
             **model_info,
+            **{"param_range_file": self.param_range_file},
         )
         qsim, qobs = self._convert_streamflow_units(ds, qsim)
         return qsim, qobs
@@ -94,7 +98,7 @@ class Evaluator:
         qobs : _type_
             _description_
         """
-        basins = ds["basin"].data
+        basins = ds["basin"].data.astype(str)
         self._summarize_parameters(basins)
         self._renormalize_params(basins)
         self._save_evaluate_results(qsim, qobs, ds)
@@ -142,8 +146,9 @@ class Evaluator:
         param_dir = self.params_dir
         model_name = self.model_info["name"]
         params = []
+        model_param_dict = read_model_param_dict(self.param_range_file)
         for basin_id in basin_ids:
-            columns = MODEL_PARAM_DICT[model_name]["param_name"]
+            columns = model_param_dict[model_name]["param_name"]
             params_txt = pd.read_csv(
                 os.path.join(param_dir, basin_id + "_calibrate_params.txt")
             )
@@ -159,11 +164,12 @@ class Evaluator:
         param_dir = self.params_dir
         model_name = self.model_info["name"]
         renormalization_params = []
+        model_param_dict = read_model_param_dict(self.param_range_file)
         for basin_id in basin_ids:
             params = np.loadtxt(
                 os.path.join(param_dir, basin_id + "_calibrate_params.txt")
             )[1:].reshape(1, -1)
-            param_ranges = MODEL_PARAM_DICT[model_name]["param_range"]
+            param_ranges = model_param_dict[model_name]["param_range"]
             xaj_params = [
                 (value[1] - value[0]) * params[:, i] + value[0]
                 for i, (key, value) in enumerate(param_ranges.items())
@@ -172,7 +178,7 @@ class Evaluator:
             params_df = pd.DataFrame(xaj_params_.T)
             renormalization_params.append(params_df)
         renormalization_params_dfs = pd.concat(renormalization_params, axis=1)
-        renormalization_params_dfs.index = MODEL_PARAM_DICT[model_name]["param_name"]
+        renormalization_params_dfs.index = model_param_dict[model_name]["param_name"]
         renormalization_params_dfs.columns = basin_ids
         print(renormalization_params_dfs)
         params_csv_file = os.path.join(param_dir, "basins_denorm_params.csv")

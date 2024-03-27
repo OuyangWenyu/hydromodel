@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-27 15:03:41
+LastEditTime: 2024-03-27 16:16:25
 LastEditors: Wenyu Ouyang
 Description: some basic config for hydro-model-xaj models
 FilePath: \hydro-model-xaj\hydromodel\models\model_config.py
@@ -25,10 +25,8 @@ def read_model_param_dict(file_path="param.yaml"):
             }
             for model, contents in data.items()
         }
-    except FileNotFoundError:
-        print(
-            f"File not found: {file_path}, we directly use the default MODEL_PARAM_DICT."
-        )
+    except Exception as e:
+        print(f"Error: {e}, we directly use the default MODEL_PARAM_DICT.")
         return MODEL_PARAM_DICT
 
 

@@ -1,9 +1,9 @@
 """Show results of calibration and validation."""
+
 import os
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-import spotpy
 
 from hydroutils import hydro_file, hydro_stat
 
@@ -54,18 +54,15 @@ def plot_train_iteration(likelihood, save_fig):
     plt.close()
 
 
-def show_sceua_cali_result(
-    sceua_calibrated_file,
+def show_events_result(
     warmup_length,
     save_dir,
-    basin_id,
     train_period,
-    result_unit="mm/hour",
     basin_area=None,
     prcp=None,
 ):
     """
-    Plot all year result to see the effect of optimized parameters
+    Plot all events result to see the effect of optimized parameters
 
     Parameters
     ----------
@@ -84,65 +81,7 @@ def show_sceua_cali_result(
     -------
     None
     """
-    # Load the results gained with the sceua sampler, stored in SCEUA_xaj.csv
-    # results = []
-    # for chunk in pd.read_csv(sceua_calibrated_file, chunksize=100000 ):
-    #  results.append(chunk)
-    # results = pd.concat(results)
-    results = spotpy.analyser.load_csv_results(sceua_calibrated_file)  # 读取结果
-    # Plot how the objective function was minimized during sampling
-    if not os.path.exists(save_dir):  # 绘制采样过程中目标函数的最小化情况
-        os.makedirs(save_dir)
-    plot_train_iteration(
-        results["like1"],
-        os.path.join(save_dir, "train_iteration.png"),  # 绘制迭代中的RMSE
-    )
-    # Plot the best model run
-    # Find the run_id with the minimal objective function value
-    bestindex, bestobjf = spotpy.analyser.get_minlikeindex(
-        results
-    )  # 绘制最佳模型图并找到run—id
-    # Select best model run
-    best_model_run = results[bestindex]  # 选择最佳模型结果
-    # Filter results for simulation results #最佳模型模拟结果
-    fields = [word for word in best_model_run.dtype.names if word.startswith("sim")]
-    best_simulation = list(best_model_run[fields])
-    convert_unit_sim = units.convert_unit(
-        np.array(best_simulation).reshape(1, -1),
-        # np.array(list(map(float, best_simulation)), dtype=float).reshape(1, -1),
-        result_unit,
-        units.unit["streamflow"],
-        basin_area=basin_area,
-    )
-    convert_unit_obs = units.convert_unit(
-        np.array(spot_setup.evaluation()).reshape(1, -1),
-        result_unit,
-        units.unit["streamflow"],
-        basin_area=basin_area,
-    )
-
-    # save calibrated results of calibration period      #保存率定的结果
-    train_result_file = os.path.join(
-        save_dir,
-        "train_qsim_" + spot_setup.model["name"] + "_" + str(basin_id) + ".csv",
-    )
-    pd.DataFrame(convert_unit_sim.reshape(-1, 1)).to_csv(
-        train_result_file,
-        sep=",",
-        index=False,
-        header=False,
-    )
-    # calculation rmse、nashsutcliffe and bias for training period
-    stat_error = hydro_stat.stat_error(
-        convert_unit_obs,
-        convert_unit_sim,
-    )
-    print("Training Metrics:", basin_id, stat_error)
-    hydro_file.serialize_json_np(
-        stat_error, os.path.join(save_dir, "train_metrics.json")
-    )
-
-    # 循还画图
+    # TODO: not finished
     time = pd.read_excel(
         "D:/研究生/毕业论文/new毕业论文/预答辩/碧流河水库/站点信息/洪水率定时间.xlsx"
     )
@@ -253,7 +192,7 @@ def show_sceua_cali_result(
     plot_sim_and_obs(t_range_train, best_simulation, obs, prcp[:], save_fig)
 
 
-def show_test_result(basin_id, test_date, qsim, obs, save_dir):
+def show_ts_result(basin_id, test_date, qsim, obs, save_dir):
     stat_error = hydro_stat.stat_error(obs.reshape(1, -1), qsim.reshape(1, -1))
     print("Test Metrics:", basin_id, stat_error)
     hydro_file.serialize_json_np(
@@ -371,7 +310,3 @@ def show_test_result(basin_id, test_date, qsim, obs, save_dir):
         prcp[:],
         save_fig,
     )
-    # summarize_parameters(one_model_one_hyperparam_setting_dir, {"name": "xaj_mz"})
-    # renormalize_params(one_model_one_hyperparam_setting_dir, {"name":"xaj_mz"})
-    # summarize_metrics(one_model_one_hyperparam_setting_dir,{"name":"xaj_mz"})
-    # save_streamflow(one_model_one_hyperparam_setting_dir,{"name":"xaj_mz"})

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-27 10:42:57
+LastEditTime: 2024-03-27 11:18:09
 LastEditors: Wenyu Ouyang
 Description: Plots for calibration and testing results
 FilePath: \hydro-model-xaj\hydromodel\trainers\evaluate.py
@@ -197,9 +197,13 @@ class Evaluator:
         model_name = self.model_info["name"]
         file_path = os.path.join(result_dir, f"{model_name}_evaluation_results.nc")
         ds = xr.open_dataset(file_path)
+        # for metrics, warmup_length should be considered
+        warmup_length = self.config["warmup"]
+        qobs = ds["qobs"].transpose("basin", "time").to_numpy()[:, warmup_length:]
+        qsim = ds["qsim"].transpose("basin", "time").to_numpy()[:, warmup_length:]
         test_metrics = hydro_stat.stat_error(
-            ds["qobs"].transpose("basin", "time").to_numpy(),
-            ds["qsim"].transpose("basin", "time").to_numpy(),
+            qobs,
+            qsim,
         )
         metric_dfs_test = pd.DataFrame(test_metrics, index=basin_ids)
         metric_file_test = os.path.join(result_dir, "basins_metrics.csv")
@@ -223,6 +227,12 @@ class Evaluator:
         ds.to_netcdf(file_path)
 
         print(f"Results saved to: {file_path}")
+
+    def load_results(self):
+        result_dir = self.save_dir
+        model_name = self.model_info["name"]
+        file_path = os.path.join(result_dir, f"{model_name}_evaluation_results.nc")
+        return xr.open_dataset(file_path)
 
 
 def _read_save_sceua_calibrated_params(basin_id, save_dir, sceua_calibrated_file_name):

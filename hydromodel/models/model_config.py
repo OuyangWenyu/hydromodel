@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-26 11:13:08
+LastEditTime: 2024-03-27 15:03:41
 LastEditors: Wenyu Ouyang
 Description: some basic config for hydro-model-xaj models
 FilePath: \hydro-model-xaj\hydromodel\models\model_config.py
@@ -10,7 +10,27 @@ Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 
 from collections import OrderedDict
 
-# NOTE: Don't change the parameter settings
+import yaml
+
+
+def read_model_param_dict(file_path="param.yaml"):
+    try:
+        with open(file_path, "r") as file:
+            data = yaml.safe_load(file)
+
+        return {
+            model: {
+                "param_name": contents["param_name"],
+                "param_range": OrderedDict(contents["param_range"]),
+            }
+            for model, contents in data.items()
+        }
+    except FileNotFoundError:
+        print(
+            f"File not found: {file_path}, we directly use the default MODEL_PARAM_DICT."
+        )
+        return MODEL_PARAM_DICT
+
 
 MODEL_PARAM_DICT = {
     "xaj": {
@@ -49,7 +69,7 @@ MODEL_PARAM_DICT = {
                 "KI": [0.0, 0.7],
                 "KG": [0.0, 0.7],
                 "CS": [0.0, 1.0],
-                "L": [1.0, 10.0],  # unit is day
+                "L": [1.0, 10.0],  # unit is same as your time step
                 "CI": [0.0, 0.9],
                 "CG": [0.98, 0.998],
             }

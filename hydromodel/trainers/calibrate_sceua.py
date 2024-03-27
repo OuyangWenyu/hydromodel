@@ -4,12 +4,14 @@ import numpy as np
 import spotpy
 import pandas as pd
 from spotpy.parameter import Uniform, ParameterSet
-from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.model_config import read_model_param_dict
 from hydromodel.models.model_dict import LOSS_DICT, MODEL_DICT
 
 
 class SpotSetup(object):
-    def __init__(self, p_and_e, qobs, warmup_length=365, model=None, loss=None):
+    def __init__(
+        self, p_and_e, qobs, warmup_length=365, model=None, param_file=None, loss=None
+    ):
         """
         Set up for Spotpy
         NOTE: once for a basin in one sampler or
@@ -25,8 +27,8 @@ class SpotSetup(object):
             GR4J model need warmup period
         model
             we support "gr4j", "hymod", and "xaj"
-        model_func_param
-            parameters of model function
+        param_range
+            parameters range of model
         loss
             loss configs including objective function, typically RMSE
         """
@@ -42,7 +44,9 @@ class SpotSetup(object):
                 "obj_func": "rmse",
                 "events": None,
             }
-        self.parameter_names = MODEL_PARAM_DICT[model["name"]]["param_name"]
+        self.param_range_file = {"param_range_file": param_file}
+        param_range = read_model_param_dict(param_file)
+        self.parameter_names = param_range[model["name"]]["param_name"]
         self.model = model
         self.params = []
         self.params.extend(
@@ -79,7 +83,11 @@ class SpotSetup(object):
         # xaj model's output include streamflow and evaporation now,
         # but now we only calibrate the model with streamflow
         sim, _ = MODEL_DICT[self.model["name"]](
-            self.p_and_e, params, warmup_length=self.warmup_length, **self.model
+            self.p_and_e,
+            params,
+            warmup_length=self.warmup_length,
+            **self.model,
+            **self.param_range_file
         )
         return sim
 
@@ -156,6 +164,7 @@ def calibrate_by_sceua(
     model=None,
     algorithm=None,
     loss=None,
+    param_file=None,
 ):
     """
     Function for calibrating model by SCE-UA
@@ -183,6 +192,8 @@ def calibrate_by_sceua(
         loss configs for events calculation or
         just one long time-series calculation
         with an objective function, typically RMSE
+    param_file
+        the file of the parameter range, yaml file
 
     Returns
     -------
@@ -228,6 +239,7 @@ def calibrate_by_sceua(
             warmup_length=warmup_length,
             model=model,
             loss=loss,
+            param_file=param_file,
         )
         if not os.path.exists(dbname):
             os.makedirs(dbname)

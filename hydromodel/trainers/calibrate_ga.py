@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2024-03-26 15:22:19
+LastEditTime: 2024-03-27 15:11:04
 LastEditors: Wenyu Ouyang
 Description: Calibrate XAJ model using DEAP
 FilePath: \hydro-model-xaj\hydromodel\trainers\calibrate_ga.py
@@ -21,7 +21,7 @@ from hydroutils import hydro_file, hydro_stat
 
 
 from hydromodel.datasets.data_postprocess import plot_sim_and_obs, plot_train_iteration
-from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.model_config import read_model_param_dict
 from hydromodel.models.model_dict import MODEL_DICT, rmse43darr
 
 
@@ -97,7 +97,7 @@ MAX = 1
 
 
 def calibrate_by_ga(
-    input_data, observed_output, deap_dir, warmup_length=30, model=None, ga_param=None
+    input_data, observed_output, deap_dir, warmup_length=30, model=None, ga_param=None, **kwargs
 ):
     """
     Use GA algorithm to find optimal parameters for hydrologic models
@@ -141,8 +141,10 @@ def calibrate_by_ga(
             "mut_prob": 0.5,
             "save_freq": 1,
         }
+    pr_file = kwargs.get("param_range_file", None)
+    model_param_dict = read_model_param_dict(pr_file)
     np.random.seed(ga_param["random_seed"])
-    param_num = len(MODEL_PARAM_DICT[model["name"]]["param_name"])
+    param_num = len(model_param_dict[model["name"]]["param_name"])
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMin)
     toolbox = base.Toolbox()

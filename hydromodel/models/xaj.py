@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2024-03-26 11:06:12
+LastEditTime: 2024-03-27 15:09:11
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
 FilePath: /hydro-model-xaj/hydromodel/models/xaj.py
@@ -14,7 +14,7 @@ import numpy as np
 from numba import jit
 from scipy.special import gamma
 
-from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.model_config import read_model_param_dict
 
 PRECISION = 1e-5
 
@@ -741,11 +741,13 @@ def xaj(
         streamflow or (streamflow, states)
     """
     # default values for some function parameters
-    model_name = kwargs["name"] if "name" in kwargs else "xaj"
-    source_type = kwargs["source_type"] if "source_type" in kwargs else "sources"
-    source_book = kwargs["source_book"] if "source_book" in kwargs else "HF"
+    model_name = kwargs.get("name", "xaj")
+    source_type = kwargs.get("source_type", "sources")
+    source_book = kwargs.get("source_book", "HF")
+    pr_file = kwargs.get("param_range_file", None)
+    model_param_dict = read_model_param_dict(pr_file)
     # params
-    param_ranges = MODEL_PARAM_DICT[model_name]["param_range"]
+    param_ranges = model_param_dict[model_name]["param_range"]
     if model_name == "xaj":
         route_method = "CSL"
     elif model_name == "xaj_mz":

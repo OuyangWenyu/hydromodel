@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-26 21:20:18
+LastEditTime: 2024-03-27 14:30:15
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\datasets\data_preprocess.py
@@ -390,7 +390,23 @@ def cross_valid_data(ts_data, period, warmup, cv_fold, freq="1D"):
     return train_test_data
 
 
-def get_basin_area(data_type, data_dir, basin_ids):
+def get_basin_area(data_type, data_dir, basin_ids) -> xr.Dataset:
+    """_summary_
+
+    Parameters
+    ----------
+    data_type : _type_
+        _description_
+    data_dir : _type_
+        _description_
+    basin_ids : _type_
+        _description_
+
+    Returns
+    -------
+    xr.Dataset
+        _description_
+    """
     area_name = remove_unit_from_name(AREA_NAME)
     if data_type == "camels":
         camels_data_dir = os.path.join(
@@ -399,10 +415,9 @@ def get_basin_area(data_type, data_dir, basin_ids):
         camels = Camels(camels_data_dir)
         basin_area = camels.read_area(basin_ids)
     elif data_type == "owndata":
-        attr_data = xr.open_dataset(
-            os.path.join(os.path.dirname(data_dir), "attributes.nc")
-        )
-        basin_area = attr_data[area_name].values
+        attr_data = xr.open_dataset(os.path.join(data_dir, "attributes.nc"))
+        # to guarantee the column name is same as the column name in the time series data
+        basin_area = attr_data[[area_name]].rename({"id": "basin"})
     return basin_area
 
 
@@ -451,9 +466,7 @@ def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
         ts_data = ts_data.rename({"PET": pet_name})
         # ts_data = ts_data.drop_vars('streamflow')
     elif data_type == "owndata":
-        ts_data = xr.open_dataset(
-            os.path.join(os.path.dirname(data_dir), "timeseries.nc")
-        )
+        ts_data = xr.open_dataset(os.path.join(data_dir, "timeseries.nc"))
         target_unit = ts_data[prcp_name].attrs.get("units", "unknown")
         qobs_ = ts_data[[flow_name]]
         r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-03-27 11:43:47
+LastEditTime: 2024-03-27 15:22:39
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
 FilePath: \hydro-model-xaj\scripts\calibrate_xaj.py
@@ -39,6 +39,7 @@ def calibrate(args):
     model_info = args.model
     algo_info = args.algorithm
     loss_info = args.loss
+    param_range_file = args.param_range_file
 
     where_save = Path(os.path.join(repo_path, "result", exp))
     if os.path.exists(where_save) is False:
@@ -68,6 +69,7 @@ def calibrate(args):
             model=model_info,
             algorithm=algo_info,
             loss=loss_info,
+            param_file=param_range_file,
         )
     else:
         for i in range(cv_fold):
@@ -176,6 +178,14 @@ if __name__ == "__main__":
             "source_book": "HF",
         },
         type=json.loads,
+    )
+    parser.add_argument(
+        "--param_range_file",
+        dest="param_range_file",
+        help="The file of the parameter range",
+        # default=None,
+        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe\\param_range.yaml",
+        type=str,
     )
     parser.add_argument(
         "--algorithm",

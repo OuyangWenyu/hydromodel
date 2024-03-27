@@ -93,7 +93,8 @@ $ python prepare_data.py --origin_data_dir <your_data_directory_for_hydromodel>
 To run calibration with CAMLES dataset, you can use the following code:
 
 ```Shell
-$ python calibrate_xaj.py --exp example --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":5000,\"ngs\":20,\"kstop\":3,\"peps\":0.1,\"pcento\":0.1}
+# just an example the hyper-parameters of the model and the algorithm should be tried by yourself
+$ python calibrate_xaj.py --data_type camels --data_dir camels_us --exp expcamels001 --cv_fold 2 --warmup 365 --period 2007-01-01 2014-01-01 --calibrate_period 2007-01-01 2014-01-01 --test_period 2007-01-01 2014-01-01 --basin_id 01439500 06885500 08104900 09510200 --model "{\"name\": \"xaj\", \"source_type\": \"sources5mm\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 10, \"ngs\": 10, \"kstop\": 5, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
 ```
 
 To use your own data, run the following code:
@@ -108,7 +109,7 @@ $ python calibrate_xaj.py --exp example --warmup_length 365 --model {\"name\":\"
 Then you can evaluate the calibrated model with the following code:
 
 ```Shell
-$ python evaluate_xaj.py --exp example
+$ python evaluate_xaj.py --exp expcamels001
 ```
 
 ### See the results
@@ -116,14 +117,10 @@ $ python evaluate_xaj.py --exp example
 Run the following code to see the results of the evaluation:
 
 ```Shell
-$ python post_process.py --exp example
+$ python post_process.py --exp expcamels001
 ```
 
-You will get two metrics files in the "example" directory: "basins_test_metrics_mean_all_cases.csv" and "basins_test_metrics_median_all_cases.csv". The first one is the mean metrics of the testing period -- one row means the mean metrics of all basins in a case, and the second one is the median metrics.
-
-More details about the analysis could be seen in show_results.ipynb file. It is a jupyter notebook.
-
-Now we only provide some simple statistics calculations.
+You will see the results in the `example` directory.
 
 ## Why does hydro-model-xaj exist
 

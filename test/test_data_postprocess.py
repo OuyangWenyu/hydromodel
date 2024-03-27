@@ -14,7 +14,7 @@ from spotpy.examples.spot_setup_hymod_python import spot_setup as hymod_setup
 
 from hydroutils import hydro_time
 
-from hydromodel.datasets.data_postprocess import show_events_result, show_ts_result
+from hydromodel.datasets.data_visualize import show_events_result, show_ts_result
 from hydromodel.models.xaj import xaj
 from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
 from hydromodel.trainers.evaluate import _read_save_sceua_calibrated_params

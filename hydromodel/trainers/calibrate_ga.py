@@ -20,7 +20,7 @@ from tqdm import tqdm
 from hydroutils import hydro_file, hydro_stat
 
 
-from hydromodel.datasets.data_postprocess import plot_sim_and_obs, plot_train_iteration
+from datasets.data_visualize import plot_sim_and_obs, plot_train_iteration
 from hydromodel.models.model_config import read_model_param_dict
 from hydromodel.models.model_dict import MODEL_DICT, rmse43darr
 

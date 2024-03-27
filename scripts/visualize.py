@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-03-27 16:27:03
+LastEditTime: 2024-03-27 17:54:11
 LastEditors: Wenyu Ouyang
 Description: the script to postprocess results
-FilePath: \hydro-model-xaj\scripts\post_process.py
+FilePath: \hydro-model-xaj\scripts\visualize.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 
@@ -15,7 +15,7 @@ from pathlib import Path
 
 repo_dir = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_dir)
-from hydromodel.datasets.data_postprocess import plot_sim_and_obs
+from hydromodel.datasets.data_visualize import plot_sim_and_obs
 from hydromodel.trainers.evaluate import Evaluator, read_yaml_config
 
 

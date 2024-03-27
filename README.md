@@ -117,7 +117,7 @@ $ python evaluate_xaj.py --exp expcamels001
 Run the following code to see the results of the evaluation:
 
 ```Shell
-$ python post_process.py --exp expcamels001
+$ python visualize.py --exp expcamels001
 ```
 
 You will see the results in the `example` directory.

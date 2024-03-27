@@ -1,0 +1,94 @@
+"""
+Author: Wenyu Ouyang
+Date: 2024-03-25 09:21:56
+LastEditTime: 2024-03-27 18:20:38
+LastEditors: Wenyu Ouyang
+Description: preprocess data in an exp before training
+FilePath: \hydro-model-xaj\scripts\preprocess.py
+Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
+"""
+
+from pathlib import Path
+import sys
+import os
+import argparse
+
+current_script_path = Path(os.path.realpath(__file__))
+repo_path = current_script_path.parent.parent
+sys.path.append(str(repo_path))
+from hydromodel.datasets.data_visualize import plot_rr_events
+from hydromodel.datasets.data_preprocess import (
+    get_basin_area,
+    get_ts_from_diffsource,
+    get_rr_events,
+)
+
+
+def main(args):
+    data_path = args.data_dir
+    data_type = args.data_type
+    basin_ids = args.basin_id
+    periods = args.period
+    exp = args.exp
+    where_save = Path(os.path.join(repo_path, "result", exp))
+    if os.path.exists(where_save) is False:
+        os.makedirs(where_save)
+    ts_data = get_ts_from_diffsource(data_type, data_path, periods, basin_ids)
+    basin_area = get_basin_area(data_type, data_path, basin_ids)
+    rr_events = get_rr_events(ts_data["prcp"], ts_data["flow"], basin_area)
+    for basin, event in rr_events.items():
+        basin_rr_dir = os.path.join(where_save, f"{basin}_rr_events")
+        plot_rr_events(
+            event,
+            ts_data["prcp"].sel(basin=basin),
+            ts_data["flow"].sel(basin=basin),
+            basin_rr_dir,
+        )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Prepare data.")
+    parser.add_argument(
+        "--data_type",
+        dest="data_type",
+        help="CAMELS dataset or your own data, such as 'camels' or 'owndata'",
+        # default="camels",
+        default="owndata",
+        type=str,
+    )
+    parser.add_argument(
+        "--data_dir",
+        dest="data_dir",
+        help="The directory of the CAMELS dataset or your own data, for CAMELS,"
+        + " as we use SETTING to set the data path, you can directly choose camels_us;"
+        + " for your own data, you should set the absolute path of your data directory",
+        # default="camels_us",
+        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
+        type=str,
+    )
+    parser.add_argument(
+        "--exp",
+        dest="exp",
+        help="An exp is corresponding to one data setting",
+        # default="expcamels001",
+        default="expbiliuhe001",
+        type=str,
+    )
+    parser.add_argument(
+        "--basin_id",
+        dest="basin_id",
+        help="The basins' ids",
+        # default=["01439500", "06885500", "08104900", "09510200"],
+        default=["21401550"],
+        nargs="+",
+    )
+    parser.add_argument(
+        "--period",
+        dest="period",
+        help="The whole period",
+        # default=["2007-01-01", "2014-01-01"],
+        default=["2012-06-10 00:00", "2022-08-31 23:00"],
+        nargs="+",
+    )
+    args = parser.parse_args()
+    main(args)

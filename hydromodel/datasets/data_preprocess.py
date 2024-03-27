@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-27 16:31:55
+LastEditTime: 2024-03-27 18:17:14
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydro-model-xaj\hydromodel\datasets\data_preprocess.py
@@ -13,10 +13,12 @@ import re
 from hydrodataset import Camels
 import numpy as np
 import pandas as pd
+from pint import UnitRegistry
 from sklearn.model_selection import KFold
 import xarray as xr
 
 from hydrodata.utils.utils import streamflow_unit_conv
+from hydrodata.cleaner.dmca_esr import rainfall_runoff_event_identify
 
 from hydromodel import CACHE_DIR, SETTING
 from hydromodel.datasets import *
@@ -432,7 +434,7 @@ def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
     data_dir
         The directory of the data source
     periods
-        The periods of the time series data
+        The periods of the time series data, [start_date, end_date]
     basin_ids
         The ids of the basins
 
@@ -473,6 +475,7 @@ def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
         r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
         ts_data[flow_name] = r_mmd[flow_name]
         ts_data[flow_name].attrs["units"] = target_unit
+        ts_data = ts_data.sel(time=slice(periods[0], periods[1]))
     else:
         raise NotImplementedError(
             "You should set the data type as 'camels' or 'owndata'"
@@ -519,3 +522,23 @@ def cross_val_split_tsdata(
         # cross validation
         train_and_test_data = cross_valid_data(ts_data, periods, warmup, cv_fold)
     return train_and_test_data
+
+
+def get_rr_events(rain, flow, basin_area):
+    ureg = UnitRegistry()
+    # trans unit to mm/day
+    flow_threshold = streamflow_unit_conv(
+        np.array([100]) * ureg.m**3 / ureg.s,
+        basin_area.isel(basin=0).to_array().to_numpy() * ureg.km**2,
+        target_unit="mm/h",
+    )
+    rr_events = {}
+    for basin in basin_area.basin.values:
+        rr_event = rainfall_runoff_event_identify(
+            rain.sel(basin=basin).to_series(),
+            flow.sel(basin=basin).to_series(),
+            multiple=1,
+            flow_threshold=flow_threshold[0],
+        )
+        rr_events[basin] = rr_event
+    return rr_events

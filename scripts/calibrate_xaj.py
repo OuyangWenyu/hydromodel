@@ -18,10 +18,10 @@ import yaml
 
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
-from datasets.data_preprocess import cross_val_split_tsdata
 from hydromodel.datasets import *
 from hydromodel.datasets.data_preprocess import (
     _get_pe_q_from_ts,
+    cross_val_split_tsdata,
 )
 from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
 

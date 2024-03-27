@@ -18,7 +18,7 @@ from datasets.data_postprocess import show_test_result
 
 from hydroutils import hydro_time
 
-from trainers.evaluate import read_save_sceua_calibrated_params
+from trainers.evaluate import _read_save_sceua_calibrated_params
 
 
 def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length, db_name, basin_area):
@@ -55,7 +55,7 @@ def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length, db_name, basi
 
 
 def test_show_test_result(p_and_e, qobs, warmup_length, db_name, basin_area):
-    params = read_save_sceua_calibrated_params("basin_id", db_name, db_name)
+    params = _read_save_sceua_calibrated_params("basin_id", db_name, db_name)
     qsim, _ = xaj(
         p_and_e,
         params,

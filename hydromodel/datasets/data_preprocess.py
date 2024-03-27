@@ -467,7 +467,7 @@ def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
     return ts_data
 
 
-def get_pe_q_from_ts(ts_xr_dataset):
+def _get_pe_q_from_ts(ts_xr_dataset):
     """Transform the time series data to the format that can be used in the calibration process
 
     Parameters

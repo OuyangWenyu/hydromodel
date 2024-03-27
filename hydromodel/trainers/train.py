@@ -1,19 +1,19 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-08-06 18:39:15
-LastEditTime: 2023-06-03 16:20:53
+LastEditTime: 2024-03-27 09:41:06
 LastEditors: Wenyu Ouyang
-Description: 
-FilePath: /hydro-model-xaj/scripts/calibrate_xaj_for_multicases.py
+Description: We want to build a trainer class for calibration but not done yet.
+FilePath: \hydro-model-xaj\hydromodel\trainers\train.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
+
 import matplotlib
 import os
 import sys
 from pathlib import Path
 
 sys.path.append(os.path.dirname(Path(os.path.abspath(__file__)).parent))
-from scripts.evaluate_xaj import evaluate
 
 matplotlib.use("Agg")
 exp = "exp61561"
@@ -23,7 +23,8 @@ book = "HF"
 source = "sources"
 
 
-class XAJCalibrateMultiCases:
+class Trainer:
+    # TODO: build a trainer class for calibration
     def __init__(self, exp, book, source, rep, ngs):
         self.exp = exp
         self.warmup_length = 365
@@ -48,5 +49,5 @@ for i in range(len(reps)):
     for j in range(len(ngs)):
         rep = reps[i]
         ng = ngs[j]
-        xaj_calibrate = XAJCalibrateMultiCases(exp, book, source, rep, ng)
-        evaluate(xaj_calibrate)
+        xaj_calibrate = Trainer(exp, book, source, rep, ng)
+        # evaluate(xaj_calibrate)

@@ -21,7 +21,7 @@ sys.path.append(repo_path)
 from datasets.data_preprocess import cross_val_split_tsdata
 from hydromodel.datasets import *
 from hydromodel.datasets.data_preprocess import (
-    get_pe_q_from_ts,
+    _get_pe_q_from_ts,
 )
 from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
 
@@ -58,7 +58,7 @@ def calibrate(args):
     print("Start to calibrate the model")
 
     if cv_fold <= 1:
-        p_and_e, qobs = get_pe_q_from_ts(train_and_test_data[0])
+        p_and_e, qobs = _get_pe_q_from_ts(train_and_test_data[0])
         calibrate_by_sceua(
             basin_ids,
             p_and_e,
@@ -72,7 +72,7 @@ def calibrate(args):
     else:
         for i in range(cv_fold):
             train_data, _ = train_and_test_data[i]
-            p_and_e_cv, qobs_cv = get_pe_q_from_ts(train_data)
+            p_and_e_cv, qobs_cv = _get_pe_q_from_ts(train_data)
             calibrate_by_sceua(
                 basin_ids,
                 p_and_e_cv,

@@ -14,7 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import spotpy
 from spotpy.examples.spot_setup_hymod_python import spot_setup as hymod_setup
-from trainers.evaluate import read_save_sceua_calibrated_params
+from trainers.evaluate import _read_save_sceua_calibrated_params
 
 
 def test_run_hymod_calibration():
@@ -78,7 +78,7 @@ def test_read_save_sceua_calibrated_params(tmpdir):
     basin_id = "test_basin"
     save_dir = temp_dir
     sceua_calibrated_file_name = "test_results.csv"
-    result = read_save_sceua_calibrated_params(
+    result = _read_save_sceua_calibrated_params(
         basin_id, save_dir, sceua_calibrated_file_name
     )
 

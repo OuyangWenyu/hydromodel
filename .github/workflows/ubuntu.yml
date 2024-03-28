@@ -41,6 +41,7 @@ jobs:
               run: |
                   echo 'local_data_path:' > hydro_setting.yml
                   echo '  datasets-origin: /home/runner/.cache/' >> hydro_setting.yml
+                  sudo cp hydro_setting.yml /home/runner/hydro_setting.yml
                 # Add other settings here as required
             - name: PKG-TEST
               run: |

@@ -2,7 +2,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2023-10-28 09:16:46
-LastEditTime: 2024-03-28 11:20:44
+LastEditTime: 2024-03-28 12:07:42
 LastEditors: Wenyu Ouyang
 Description: The setup script
 FilePath: \hydromodel\setup.py
@@ -36,14 +36,12 @@ test_requirements = [
 setup(
     author="Wenyu Ouyang",
     author_email="wenyuouyang@outlook.com",
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     classifiers=[
         "Intended Audience :: Developers",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
     ],
@@ -65,7 +63,7 @@ setup(
     setup_requires=setup_requirements,
     test_suite="tests",
     tests_require=test_requirements,
-    url="https://github.com/iHeadWater/hydromodel",
+    url="https://github.com/OuyangWenyu/hydromodel",
     version='0.2.1',
     zip_safe=False,
 )

@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-02-09 15:56:48
-LastEditTime: 2024-03-22 09:12:40
+LastEditTime: 2024-03-28 11:18:55
 LastEditors: Wenyu Ouyang
 Description: Top-level package for hydromodel
-FilePath: \hydro-model-xaj\hydromodel\__init__.py
+FilePath: \hydromodel\hydromodel\__init__.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
@@ -14,8 +14,8 @@ from hydroutils import hydro_file
 import yaml
 
 __author__ = """Wenyu Ouyang"""
-__email__ = "wenyuouyang@outlook.com"
-__version__ = "0.0.1"
+__email__ = 'wenyuouyang@outlook.com'
+__version__ = '0.0.2'
 
 
 CACHE_DIR = hydro_file.get_cache_dir()

@@ -1,4 +1,4 @@
-name: xaj
+name: hydromodel
 channels:
   - pytorch
   - conda-forge
@@ -26,4 +26,4 @@ dependencies:
     - twine
     - bump2version
     - muskingumcunge
-    - hydrodata
+    - hydrodatasource

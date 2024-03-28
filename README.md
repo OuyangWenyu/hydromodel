@@ -31,14 +31,21 @@ $ conda activate hydromodel
 $ pip install hydromodel
 ```
 
-If you want to run notebooks in your jupyter notebook, please install jupyter kenel in your jupyter lab:
+If you want to run the model as a developer, you can clone the repository
 
 ```Shell
-# if you don't have a jupyterlab in your PC, please install it at first
-# $ conda install -c conda-forge jupyterlab
+# fork hydromodel to your GitHub, and clone it to your computer
+$ git clone <address of hydromodel in your github>
+# move to it
+$ cd hydromodel
+# if updating from upstream, pull the new version to local
+$ git pull
+# create python environment
+$ mamba env create -f env-dev.yml
+# if mamba is not installed:
+# $ conda install -c conda-forge mamba
+# activate it
 $ conda activate hydromodel
-$ conda install -c conda-forge ipykernel
-$ python -m ipykernel install --user --name hydromodel --display-name "hydromodel"
 ```
 
 ### Prepare data
@@ -83,7 +90,7 @@ No more unnecessary columns are allowed.
 For time series csv files, et and node1_flow are optional. If you don't have them, you can ignore them.
 The units of all variables could be different, but they cannot be missed and should be put in `()` in the column name.
 
-2. Download [prepare_data.py](https://github.com/OuyangWenyu/hydro-model-xaj/tree/master/scripts) and run the following code to transform the data format to the required format:
+1. Use [prepare_data.py](https://github.com/OuyangWenyu/hydro-model-xaj/tree/master/scripts) -- run the following code to transform the data format to the required format:
 ```Shell
 $ python prepare_data.py --origin_data_dir <your_data_directory_for_hydromodel>
 ```
@@ -101,15 +108,18 @@ To use your own data, run the following code:
 
 ```Shell
 # you can change the algorithm parameters:
-$ python calibrate_xaj.py --exp example --warmup_length 365 --model {\"name\":\"xaj_mz\",\"source_type\":\"sources\",\"source_book\":\"HF\"} --algorithm {\"name\":\"SCE_UA\",\"random_seed\":1234,\"rep\":5000,\"ngs\":20,\"kstop\":3,\"peps\":0.1,\"pcento\":0.1}
+$ python calibrate_xaj.py --data_type owndata --data_dir "C:/Users/wenyu/OneDrive/data/biliuhe" --exp expbiliuhe001 --cv_fold 1 --warmup 720 --period "2012-06-10 00:00" "2022-08-31 23:00" --calibrate_period "2012-06-10 00:00" "2017-08-31 23:00" --test_period "2017-09-01 00:00" "2022-08-31 23:00" --basin_id 21401550 --model "{\"name\": \"xaj\", \"source_type\": \"sources5mm\", \"source_book\": \"HF\"}" --param_range_file "C:/Users/wenyu/OneDrive/data/biliuhe/param_range.yaml" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 10, \"ngs\": 10, \"kstop\": 5, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
 # for advices of hyper-parameters of sceua, please see the comment of the function 'calibrate_xaj.py'
-# python calibrate_xaj.py --exp <name of directory of the prepared data> --warmup_length <hydromodel need some warm-up period> --model <model function parameters> --algorithm <calibration algorithm parameters>
 ```
+
+**NOTE**: For the parameter range in the `param_range_file` file. You can copy it from "hydromodel/models/param.yaml" of this repo and put it anywhere you want. Then you can modify the parameter range in the file. The parameter range is used to limit the parameter space of the hydromodels. If you don't provide the file, the default parameter range will be used.
 
 Then you can evaluate the calibrated model with the following code:
 
 ```Shell
-$ python evaluate_xaj.py --exp expcamels001
+# $ python evaluate_xaj.py --exp expcamels001
+# for your own data
+$ python evaluate_xaj.py --exp expbiliuhe001
 ```
 
 ### See the results
@@ -117,7 +127,9 @@ $ python evaluate_xaj.py --exp expcamels001
 Run the following code to see the results of the evaluation:
 
 ```Shell
-$ python visualize.py --exp expcamels001
+# $ python visualize.py --exp expcamels001
+# for your own data
+$ python visualize.py --exp expbiliuhe001
 ```
 
 You will see the results in the `example` directory.
@@ -152,7 +164,7 @@ More English references could be seen at the end of this README file.
 
 The model mainly includes three parts:
 
-![](docs/source/img/xaj.jpg)
+![](docs/img/xaj.jpg)
 
 For the first part, we use an evaporation coefficient K (ratio of potential evapotranspiration to reference crop
 evaporation generally from Allen, 1998) rather than Kc (the ratio of potential evapotranspiration to pan evaporation)

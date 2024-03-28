@@ -10,15 +10,15 @@ Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 
 import os
 import re
-from hydrodataset import Camels
 import numpy as np
 import pandas as pd
 from pint import UnitRegistry
 from sklearn.model_selection import KFold
 import xarray as xr
 
-from hydrodata.utils.utils import streamflow_unit_conv
-from hydrodata.cleaner.dmca_esr import rainfall_runoff_event_identify
+from hydrodataset import Camels
+from hydrodatasource.utils.utils import streamflow_unit_conv
+from hydrodatasource.cleaner.dmca_esr import rainfall_runoff_event_identify
 
 from hydromodel import CACHE_DIR, SETTING
 from hydromodel.datasets import *

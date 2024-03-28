@@ -2,7 +2,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2023-10-28 09:16:46
-LastEditTime: 2024-02-12 16:16:19
+LastEditTime: 2024-03-28 11:20:44
 LastEditors: Wenyu Ouyang
 Description: The setup script
 FilePath: \hydromodel\setup.py
@@ -66,6 +66,6 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/iHeadWater/hydromodel",
-    version="0.0.2",
+    version='0.0.2',
     zip_safe=False,
 )

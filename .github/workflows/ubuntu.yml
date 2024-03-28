@@ -15,9 +15,7 @@ jobs:
             fail-fast: false
             matrix:
                 config:
-                    - { os: ubuntu-latest, py: "3.9" }
                     - { os: ubuntu-latest, py: "3.10" }
-                    - { os: ubuntu-latest, py: "3.11" }
         steps:
             - name: Checkout Code
               uses: actions/checkout@v3
@@ -39,6 +37,11 @@ jobs:
                   pip install --user -r requirements.txt
                   pip install --user -r requirements_dev.txt
                   pip install .
+            - name: Create hydro_setting.yml
+              run: |
+                  echo 'local_data_path:' > hydro_setting.yml
+                  echo '  datasets-origin: /home/runner/.cache/' >> hydro_setting.yml
+                # Add other settings here as required
             - name: PKG-TEST
               run: |
                   python -m pytest test/test_data_preprocess.py

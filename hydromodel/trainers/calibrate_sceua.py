@@ -37,6 +37,7 @@ class SpotSetup(object):
                 "name": "xaj_mz",
                 "source_type": "sources5mm",
                 "source_book": "HF",
+                "time_interval_hours": 1,
             }
         if loss is None:
             loss = {
@@ -204,6 +205,7 @@ def calibrate_by_sceua(
             "name": "xaj_mz",  # 模型
             "source_type": "sources5mm",
             "source_book": "HF",
+            "time_interval_hours": 1,
         }
     if algorithm is None:
         algorithm = {

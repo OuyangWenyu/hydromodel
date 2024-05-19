@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2024-03-27 15:09:11
+LastEditTime: 2024-05-19 11:41:06
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
 FilePath: /hydro-model-xaj/hydromodel/models/xaj.py
@@ -464,19 +464,20 @@ def sources5mm(
         (fr_ds[-1], s_ds[-1]): state variables' final value;
         all variables are numpy array
     """
-    # 由于Ki、Kg都是以24小时为时段长定义的，需根据时段长转换
+    # Convert Ki and Kg according to the time interval, as they are defined based on a 24-hour time interval
     hours_per_day = 24
-    # 非整除情况，时段+1
+    # Non-divisible case, add 1 to the period
     residue_temp = hours_per_day % time_interval_hours
     if residue_temp != 0:
         residue_temp = 1
     period_num_1d = int(hours_per_day / time_interval_hours) + residue_temp
-    # 当kss+kg>1时，根式为偶数运算时，kss_period会成为复数，这里会报错；另外注意分母可能为0，kss不可取0
-    # 对kss+kg的取值进行限制
+    # When kss+kg>1, the square root becomes a complex number during even root calculation, which will cause an error here.
+    # Also, be aware that the denominator may be 0, kss cannot be 0.
+    # Restrict the value of kss+kg.
     kss_period = (1 - (1 - (ki + kg)) ** (1 / period_num_1d)) / (1 + kg / ki)
     kg_period = kss_period * kg / ki
 
-    # 流域最大点自由水蓄水容量深
+    # Maximum free water storage capacity depth of the basin
     smm = sm * (1 + ex)
     if s0 is None:
         s0 = 0.50 * sm
@@ -601,7 +602,7 @@ def sources5mm(
         rs = rs + rs_j
         rss = rss + rss_j
         rg = rg + rg_j
-        # 赋值s_d和fr_d到数组中，以给下一段做初值
+        # Assign s_d and fr_d to the arrays as initial values for the next segment
         s_ds.append(s1_d)
         fr_ds.append(fr_d)
 
@@ -744,6 +745,7 @@ def xaj(
     model_name = kwargs.get("name", "xaj")
     source_type = kwargs.get("source_type", "sources")
     source_book = kwargs.get("source_book", "HF")
+    time_interval_hours = kwargs.get("time_interval_hours", 1)
     pr_file = kwargs.get("param_range_file", None)
     model_param_dict = read_model_param_dict(pr_file)
     # params
@@ -830,7 +832,7 @@ def xaj(
                 )
             elif source_type == "sources5mm":
                 (rs, ri, rg), (s, fr) = sources5mm(
-                    pe, r, sm, ex, ki, kg, s0, fr0, book=source_book
+                    pe, r, sm, ex, ki, kg, s0, fr0, time_interval_hours=time_interval_hours, book=source_book
                 )
             else:
                 raise NotImplementedError("No such divide-sources method")
@@ -844,7 +846,7 @@ def xaj(
                 )
             elif source_type == "sources5mm":
                 (rs, ri, rg), (s, fr) = sources5mm(
-                    pe, r, sm, ex, ki, kg, s, fr, book=source_book
+                    pe, r, sm, ex, ki, kg, s, fr, time_interval_hours=time_interval_hours, book=source_book
                 )
             else:
                 raise NotImplementedError("No such divide-sources method")

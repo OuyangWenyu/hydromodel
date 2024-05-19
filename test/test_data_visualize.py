@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-28 09:57:58
+LastEditTime: 2024-05-19 11:57:19
 LastEditors: Wenyu Ouyang
 Description: Test for results visualization
 FilePath: \hydromodel\test\test_data_visualize.py
@@ -75,6 +75,7 @@ def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length, db_name, basi
             "name": "xaj_mz",
             "source_type": "sources",
             "source_book": "HF",
+            "time_interval_hours": 1,
         },
         algorithm={
             "name": "SCE_UA",

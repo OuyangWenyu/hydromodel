@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-03-25 09:21:56
-LastEditTime: 2024-03-25 17:08:08
+LastEditTime: 2024-05-20 18:54:58
 LastEditors: Wenyu Ouyang
 Description: Script for preparing data
-FilePath: \hydro-model-xaj\scripts\prepare_data.py
+FilePath: \hydromodel\scripts\prepare_data.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
@@ -34,7 +34,8 @@ if __name__ == "__main__":
         "--origin_data_dir",
         type=str,
         help="Path to your hydrological data",
-        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
+        # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
+        default="C:\\Users\\wenyu\\Downloads\\biliuhe",
     )
 
     args = parser.parse_args()

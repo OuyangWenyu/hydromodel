@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-03-25 09:21:56
-LastEditTime: 2024-03-27 18:20:38
+LastEditTime: 2024-05-20 20:18:14
 LastEditors: Wenyu Ouyang
 Description: preprocess data in an exp before training
-FilePath: \hydro-model-xaj\scripts\preprocess.py
+FilePath: \hydromodel\scripts\preprocess.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
@@ -30,20 +30,22 @@ def main(args):
     basin_ids = args.basin_id
     periods = args.period
     exp = args.exp
+    rr_event = args.rr_event
     where_save = Path(os.path.join(repo_path, "result", exp))
     if os.path.exists(where_save) is False:
         os.makedirs(where_save)
     ts_data = get_ts_from_diffsource(data_type, data_path, periods, basin_ids)
     basin_area = get_basin_area(data_type, data_path, basin_ids)
-    rr_events = get_rr_events(ts_data["prcp"], ts_data["flow"], basin_area)
-    for basin, event in rr_events.items():
-        basin_rr_dir = os.path.join(where_save, f"{basin}_rr_events")
-        plot_rr_events(
-            event,
-            ts_data["prcp"].sel(basin=basin),
-            ts_data["flow"].sel(basin=basin),
-            basin_rr_dir,
-        )
+    if rr_event > 0:
+        rr_events = get_rr_events(ts_data["prcp"], ts_data["flow"], basin_area)
+        for basin, event in rr_events.items():
+            basin_rr_dir = os.path.join(where_save, f"{basin}_rr_events")
+            plot_rr_events(
+                event,
+                ts_data["prcp"].sel(basin=basin),
+                ts_data["flow"].sel(basin=basin),
+                basin_rr_dir,
+            )
 
 
 if __name__ == "__main__":
@@ -63,7 +65,8 @@ if __name__ == "__main__":
         + " as we use SETTING to set the data path, you can directly choose camels_us;"
         + " for your own data, you should set the absolute path of your data directory",
         # default="camels_us",
-        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
+        # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
+        default="C:\\Users\\wenyu\\Downloads\\biliuhe",
         type=str,
     )
     parser.add_argument(
@@ -71,7 +74,8 @@ if __name__ == "__main__":
         dest="exp",
         help="An exp is corresponding to one data setting",
         # default="expcamels001",
-        default="expbiliuhe001",
+        # default="expbiliuhe001",
+        default="expbiliuhetest001",
         type=str,
     )
     parser.add_argument(
@@ -87,8 +91,16 @@ if __name__ == "__main__":
         dest="period",
         help="The whole period",
         # default=["2007-01-01", "2014-01-01"],
-        default=["2012-06-10 00:00", "2022-08-31 23:00"],
+        # default=["2012-06-10 00:00", "2022-08-31 23:00"],
+        default=["2010-01-01 08:00", "2013-09-14 02:00"],
         nargs="+",
+    )
+    parser.add_argument(
+        "--rr_event",
+        dest="rr_event",
+        help="if split the rr events, 0 for no, 1 for yes",
+        default=0,
+        type=int,
     )
     args = parser.parse_args()
     main(args)

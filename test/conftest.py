@@ -45,7 +45,7 @@ def qobs(basin_area, camels, basins):
         basins, ["2010-01-01", "2014-01-01"], ["streamflow"]
     )
     # we use pint package to handle the unit conversion
-    # trans unit to mm/day
+    # trans unit to mm/time_interval
     basin_area = basin_area.pint.quantify()
     qobs = qobs_.pint.quantify()
     target_unit = "mm/d"

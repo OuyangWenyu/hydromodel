@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-03-26 12:00:12
-LastEditTime: 2024-03-27 16:20:25
+LastEditTime: 2024-05-23 10:29:54
 LastEditors: Wenyu Ouyang
 Description: evaluate a calibrated hydrological model
-FilePath: \hydro-model-xaj\scripts\evaluate_xaj.py
+FilePath: \hydromodel\scripts\evaluate_xaj.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
@@ -89,7 +89,8 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to a data plan from calibrate_xaj.py",
-        default="expbiliuhe001",
+        # default="expbiliuhe001",
+        default="exp21113800test001",
         type=str,
     )
     the_args = parser.parse_args()

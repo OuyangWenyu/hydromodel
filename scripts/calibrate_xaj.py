@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-03-27 15:56:19
+LastEditTime: 2024-05-23 10:23:42
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
-FilePath: \hydro-model-xaj\scripts\calibrate_xaj.py
+FilePath: \hydromodel\scripts\calibrate_xaj.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 
@@ -85,6 +85,7 @@ def calibrate(args):
                 model=model_info,
                 algorithm=algo_info,
                 loss=loss_info,
+                param_file=param_range_file,
             )
 
     # Save the parameter range file to result directory
@@ -117,7 +118,8 @@ if __name__ == "__main__":
         + " as we use SETTING to set the data path, you can directly choose camels_us;"
         + " for your own data, you should set the absolute path of your data directory",
         # default="camels_us",
-        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
+        # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
+        default="C:\\Users\\wenyu\\Downloads\\21113800",
         type=str,
     )
     parser.add_argument(
@@ -125,7 +127,7 @@ if __name__ == "__main__":
         dest="exp",
         help="An exp is corresponding to one data setting",
         # default="expcamels001",
-        default="expbiliuhe001",
+        default="exp21113800test001",
         type=str,
     )
     parser.add_argument(
@@ -139,7 +141,8 @@ if __name__ == "__main__":
         "--warmup",
         dest="warmup",
         help="the number of warmup periods",
-        default=720,
+        # default=720,
+        default=120,
         type=int,
     )
     parser.add_argument(
@@ -147,7 +150,8 @@ if __name__ == "__main__":
         dest="period",
         help="The whole period",
         # default=["2007-01-01", "2014-01-01"],
-        default=["2012-06-10 00:00", "2022-08-31 23:00"],
+        # default=["2012-06-10 00:00", "2022-08-31 23:00"],
+        default=["2010-01-01 08:00", "2015-11-02 14:00"],
         nargs="+",
     )
     parser.add_argument(
@@ -155,7 +159,8 @@ if __name__ == "__main__":
         dest="calibrate_period",
         help="The training period",
         # default=["2007-01-01", "2014-01-01"],
-        default=["2012-06-10 00:00", "2017-08-31 23:00"],
+        # default=["2012-06-10 00:00", "2017-08-31 23:00"],
+        default=["2010-01-01 08:00", "2014-09-14 02:00"],
         nargs="+",
     )
     parser.add_argument(
@@ -163,7 +168,8 @@ if __name__ == "__main__":
         dest="test_period",
         help="The testing period",
         # default=["2007-01-01", "2014-01-01"],
-        default=["2017-09-01 00:00", "2022-08-31 23:00"],
+        # default=["2017-09-01 00:00", "2022-08-31 23:00"],
+        default=["2014-09-14 08:00", "2015-11-02 14:00"],
         nargs="+",
     )
     parser.add_argument(
@@ -171,7 +177,8 @@ if __name__ == "__main__":
         dest="basin_id",
         help="The basins' ids",
         # default=["01439500", "06885500", "08104900", "09510200"],
-        default=["21401550"],
+        # default=["21401550"],
+        default=["21113800"],
         nargs="+",
     )
     parser.add_argument(
@@ -182,6 +189,7 @@ if __name__ == "__main__":
             "name": "xaj",
             "source_type": "sources5mm",
             "source_book": "HF",
+            "time_interval_hours": 6,
         },
         type=json.loads,
     )
@@ -190,7 +198,8 @@ if __name__ == "__main__":
         dest="param_range_file",
         help="The file of the parameter range",
         # default=None,
-        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe\\param_range.yaml",
+        # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe\\param_range.yaml",
+        default="C:\\Users\\wenyu\\Downloads\\21113800\\param_range.yaml",
         type=str,
     )
     parser.add_argument(

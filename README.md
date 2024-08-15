@@ -54,7 +54,33 @@ You can use the CAMELS dataset (see [here](https://github.com/OuyangWenyu/hydrod
 
 If CAMELS is used, you can skip this step.
 
+If the warning "hydro_setting.yml not found" is shown, you can create a hydro_setting.yml file in the user directory. In windows, it is usually "C:/Users/<your_username>". In Linux, it is usually "/home/<your_username>". The content of the file is as follows:
+
+```yaml
+# Update the following with your own settings, if you don't have, you can ignore it
+minio:
+  server_url: ''
+  client_endpoint: ''
+  access_key: ''
+  secret: ''
+local_data_path:
+  root: ''
+  datasets-origin: ''
+  datasets-interim: ''
+  basins-origin: ''
+  basins-interim: ''
+postgres:
+  server_url: ''
+  port: 5432
+  username: ''
+  password: ''
+  database: ''
+```
+
+
 To use your own data to run the model, you need prepare the data in the required format.
+
+**NOTE: We currently only support calibrating one basin at a time, although the following instructions cover multiple basin information, we have not thoroughly tested it.**
 
 We provide some transformation functions in the "scripts" directory. You can use them to transform your data to the required format.
 

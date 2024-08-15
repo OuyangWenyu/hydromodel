@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2024-05-19 11:41:06
+LastEditTime: 2024-08-15 16:18:47
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
 FilePath: /hydro-model-xaj/hydromodel/models/xaj.py
@@ -14,7 +14,7 @@ import numpy as np
 from numba import jit
 from scipy.special import gamma
 
-from hydromodel.models.model_config import read_model_param_dict
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 
 PRECISION = 1e-5
 
@@ -746,10 +746,11 @@ def xaj(
     source_type = kwargs.get("source_type", "sources")
     source_book = kwargs.get("source_book", "HF")
     time_interval_hours = kwargs.get("time_interval_hours", 1)
-    pr_file = kwargs.get("param_range_file", None)
-    model_param_dict = read_model_param_dict(pr_file)
+    model_param_dict = kwargs.get(f"{model_name}", None)
+    if model_param_dict is None:
+        model_param_dict = MODEL_PARAM_DICT[f"{model_name}"]
     # params
-    param_ranges = model_param_dict[model_name]["param_range"]
+    param_ranges = model_param_dict["param_range"]
     if model_name == "xaj":
         route_method = "CSL"
     elif model_name == "xaj_mz":
@@ -832,7 +833,16 @@ def xaj(
                 )
             elif source_type == "sources5mm":
                 (rs, ri, rg), (s, fr) = sources5mm(
-                    pe, r, sm, ex, ki, kg, s0, fr0, time_interval_hours=time_interval_hours, book=source_book
+                    pe,
+                    r,
+                    sm,
+                    ex,
+                    ki,
+                    kg,
+                    s0,
+                    fr0,
+                    time_interval_hours=time_interval_hours,
+                    book=source_book,
                 )
             else:
                 raise NotImplementedError("No such divide-sources method")
@@ -846,7 +856,16 @@ def xaj(
                 )
             elif source_type == "sources5mm":
                 (rs, ri, rg), (s, fr) = sources5mm(
-                    pe, r, sm, ex, ki, kg, s, fr, time_interval_hours=time_interval_hours, book=source_book
+                    pe,
+                    r,
+                    sm,
+                    ex,
+                    ki,
+                    kg,
+                    s,
+                    fr,
+                    time_interval_hours=time_interval_hours,
+                    book=source_book,
                 )
             else:
                 raise NotImplementedError("No such divide-sources method")

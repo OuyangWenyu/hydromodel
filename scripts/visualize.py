@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-03-27 17:54:11
+LastEditTime: 2024-08-15 17:02:21
 LastEditors: Wenyu Ouyang
 Description: the script to postprocess results
-FilePath: \hydro-model-xaj\scripts\visualize.py
+FilePath: \hydromodel\scripts\visualize.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 
@@ -79,7 +79,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="expbiliuhe001",
+        default="expselfmadehydrodataset001",
         type=str,
     )
     the_args = parser.parse_args()

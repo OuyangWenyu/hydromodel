@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-05-23 10:23:42
+LastEditTime: 2024-08-15 16:56:41
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
 FilePath: \hydromodel\scripts\calibrate_xaj.py
@@ -15,6 +15,8 @@ import sys
 import os
 from pathlib import Path
 import yaml
+
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 
 
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
@@ -87,11 +89,17 @@ def calibrate(args):
                 loss=loss_info,
                 param_file=param_range_file,
             )
-
-    # Save the parameter range file to result directory
-    shutil.copy(param_range_file, where_save)
     # update the param_range_file path
-    args.param_range_file = os.path.join(where_save, param_range_file.split(os.sep)[-1])
+    if param_range_file is None:
+        param_range_file = os.path.join(where_save, "param_range.yaml")
+        args.param_range_file = param_range_file
+        yaml.dump(MODEL_PARAM_DICT, open(param_range_file, "w"))
+    else:
+        args.param_range_file = os.path.join(
+            where_save, param_range_file.split(os.sep)[-1]
+        )
+        # Save the parameter range file to result directory
+        shutil.copy(param_range_file, where_save)
     # Convert the arguments to a dictionary
     args_dict = vars(args)
     # Save the arguments to a YAML file
@@ -108,7 +116,8 @@ if __name__ == "__main__":
         dest="data_type",
         help="CAMELS dataset or your own data, such as 'camels' or 'owndata'",
         # default="camels",
-        default="owndata",
+        default="selfmadehydrodataset",
+        # default="owndata",
         type=str,
     )
     parser.add_argument(
@@ -119,7 +128,7 @@ if __name__ == "__main__":
         + " for your own data, you should set the absolute path of your data directory",
         # default="camels_us",
         # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
-        default="C:\\Users\\wenyu\\Downloads\\21113800",
+        default="C:\\Users\\wenyu\\OneDrive\\data\\FD_sources",
         type=str,
     )
     parser.add_argument(
@@ -127,7 +136,8 @@ if __name__ == "__main__":
         dest="exp",
         help="An exp is corresponding to one data setting",
         # default="expcamels001",
-        default="exp21113800test001",
+        # default="exp21113800test001",
+        default="expselfmadehydrodataset001",
         type=str,
     )
     parser.add_argument(
@@ -178,7 +188,7 @@ if __name__ == "__main__":
         help="The basins' ids",
         # default=["01439500", "06885500", "08104900", "09510200"],
         # default=["21401550"],
-        default=["21113800"],
+        default=["songliao_21401550"],
         nargs="+",
     )
     parser.add_argument(
@@ -198,8 +208,8 @@ if __name__ == "__main__":
         dest="param_range_file",
         help="The file of the parameter range",
         # default=None,
-        # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe\\param_range.yaml",
-        default="C:\\Users\\wenyu\\Downloads\\21113800\\param_range.yaml",
+        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe\\param_range.yaml",
+        # default="C:\\Users\\wenyu\\Downloads\\21113800\\param_range.yaml",
         type=str,
     )
     parser.add_argument(

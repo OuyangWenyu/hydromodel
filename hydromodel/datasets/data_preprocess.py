@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-05-20 20:08:10
+LastEditTime: 2024-08-15 14:26:02
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydromodel\hydromodel\datasets\data_preprocess.py
@@ -393,17 +393,19 @@ def cross_valid_data(ts_data, period, warmup, cv_fold, freq="1D"):
     return train_test_data
 
 
-def get_basin_area(data_type, data_dir, basin_ids) -> xr.Dataset:
+def get_basin_area(basin_ids, data_type, data_dir, **kwargs) -> xr.Dataset:
     """_summary_
 
     Parameters
     ----------
-    data_type : _type_
-        _description_
-    data_dir : _type_
-        _description_
-    basin_ids : _type_
-        _description_
+    basin_ids : list of str
+        all the basin ids, sorted by the order of the id
+    data_type : str
+        the type of the data source, type in datasource_dict.keys() or 'owndata'
+    data_dir : str
+        the directory of the data source
+    **kwargs
+        some optional parameters for the data source
 
     Returns
     -------
@@ -411,16 +413,17 @@ def get_basin_area(data_type, data_dir, basin_ids) -> xr.Dataset:
         _description_
     """
     area_name = remove_unit_from_name(AREA_NAME)
-    if data_type == "camels":
-        camels_data_dir = os.path.join(
-            SETTING["local_data_path"]["datasets-origin"], "camels", data_dir
-        )
-        camels = Camels(camels_data_dir)
-        basin_area = camels.read_area(basin_ids)
+    if data_type in datasource_dict.keys():
+        datasource = datasource_dict[data_type](data_dir, **kwargs)
+        basin_area = datasource.read_area(basin_ids)
     elif data_type == "owndata":
         attr_data = xr.open_dataset(os.path.join(data_dir, "attributes.nc"))
         # to guarantee the column name is same as the column name in the time series data
         basin_area = attr_data[[area_name]].rename({"id": "basin"})
+    else:
+        raise NotImplementedError(
+            "You should set the data type as 'owndata' or type in datasource_dict.keys()"
+        )
     return basin_area
 
 
@@ -451,30 +454,36 @@ def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
     prcp_name = remove_unit_from_name(PRCP_NAME)
     pet_name = remove_unit_from_name(PET_NAME)
     flow_name = remove_unit_from_name(FLOW_NAME)
-    basin_area = get_basin_area(data_type, data_dir, basin_ids)
-    if data_type == "camels":
-        camels_data_dir = os.path.join(
-            SETTING["local_data_path"]["datasets-origin"], "camels", data_dir
+    basin_area = get_basin_area(basin_ids, data_type, data_dir)
+    if data_type in datasource_dict.keys():
+        datasource = datasource_dict[data_type](data_dir)
+        p_pet_flow_vars = datasource_vars_dict[data_type]
+        ts_data = datasource.read_ts_xrdataset(basin_ids, periods, p_pet_flow_vars)
+        if isinstance(ts_data, dict):
+            # We only support one time-unit in the data source, we select the first
+            ts_data = ts_data[list(ts_data.keys())[0]]
+        # get streamflow and convert the unit
+        qobs_ = ts_data[p_pet_flow_vars[-1:]]
+        target_unit = ts_data[p_pet_flow_vars[0]].attrs.get("units", "unknown")
+        if qobs_[p_pet_flow_vars[-1]].attrs.get("units", "unknown") != target_unit:
+            r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
+            ts_data[flow_name] = r_mmd[p_pet_flow_vars[-1]]
+            ts_data[flow_name].attrs["units"] = target_unit
+        ts_data = ts_data.rename(
+            {
+                p_pet_flow_vars[0]: prcp_name,
+                p_pet_flow_vars[1]: pet_name,
+                p_pet_flow_vars[2]: flow_name,
+            }
         )
-        camels = Camels(camels_data_dir)
-        ts_data = camels.read_ts_xrdataset(
-            basin_ids, periods, ["prcp", "PET", "streamflow"]
-        )
-        # trans unit to mm/time_interval
-        qobs_ = ts_data[["streamflow"]]
-        target_unit = ts_data["prcp"].attrs.get("units", "unknown")
-        r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
-        ts_data[flow_name] = r_mmd["streamflow"]
-        ts_data[flow_name].attrs["units"] = target_unit
-        ts_data = ts_data.rename({"PET": pet_name})
-        # ts_data = ts_data.drop_vars('streamflow')
     elif data_type == "owndata":
         ts_data = xr.open_dataset(os.path.join(data_dir, "timeseries.nc"))
         target_unit = ts_data[prcp_name].attrs.get("units", "unknown")
         qobs_ = ts_data[[flow_name]]
-        r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
-        ts_data[flow_name] = r_mmd[flow_name]
-        ts_data[flow_name].attrs["units"] = target_unit
+        if qobs_[flow_name].attrs.get("units", "unknown") != target_unit:
+            r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
+            ts_data[flow_name] = r_mmd[flow_name]
+            ts_data[flow_name].attrs["units"] = target_unit
         ts_data = ts_data.sel(time=slice(periods[0], periods[1]))
     else:
         raise NotImplementedError(
@@ -512,16 +521,14 @@ def cross_val_split_tsdata(
     data_type, data_dir, cv_fold, train_period, test_period, periods, warmup, basin_ids
 ):
     ts_data = get_ts_from_diffsource(data_type, data_dir, periods, basin_ids)
-    if cv_fold <= 1:
-        # no cross validation
-        periods = np.sort(
-            [train_period[0], train_period[1], test_period[0], test_period[1]]
-        )
-        train_and_test_data = split_train_test(ts_data, train_period, test_period)
-    else:
+    if cv_fold > 1:
         # cross validation
-        train_and_test_data = cross_valid_data(ts_data, periods, warmup, cv_fold)
-    return train_and_test_data
+        return cross_valid_data(ts_data, periods, warmup, cv_fold)
+    # no cross validation
+    periods = np.sort(
+        [train_period[0], train_period[1], test_period[0], test_period[1]]
+    )
+    return split_train_test(ts_data, train_period, test_period)
 
 
 def get_rr_events(rain, flow, basin_area):
@@ -532,21 +539,17 @@ def get_rr_events(rain, flow, basin_area):
         basin_area.isel(basin=0).to_array().to_numpy() * ureg.km**2,
         target_unit=flow.units,
     )
-    # 正则表达式匹配 mm/xh 和 mm/xd 格式
-    match = re.match(r"mm/(\d+)(h|d)", flow.units)
-
-    if match:
-        num, unit = match.groups()
-        num = int(num)
-        if unit == "h":
-            multiple = num
-        elif unit == "d":
-            multiple = num * 24
-        else:
-            raise ValueError(f"Unsupported unit: {unit}")
-    else:
+    if not (match := re.match(r"mm/(\d+)(h|d)", flow.units)):
         raise ValueError(f"Invalid unit format: {flow.units}")
 
+    num, unit = match.groups()
+    num = int(num)
+    if unit == "h":
+        multiple = num
+    elif unit == "d":
+        multiple = num * 24
+    else:
+        raise ValueError(f"Unsupported unit: {unit}")
     print(f"flow.units = { flow.units}, multiple = {multiple}")
     rr_events = {}
     for basin in basin_area.basin.values:

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-03-28 09:55:58
+LastEditTime: 2024-08-15 09:44:35
 LastEditors: Wenyu Ouyang
 Description: Plots for calibration and testing results
 FilePath: \hydromodel\hydromodel\trainers\evaluate.py
@@ -119,7 +119,7 @@ class Evaluator:
         ds = xr.Dataset()
         ds[flow_name] = flow_dataarray
         target_unit = "m^3/s"
-        basin_area = get_basin_area(data_type, data_dir, basins)
+        basin_area = get_basin_area(basins, data_type, data_dir)
         ds_simflow = streamflow_unit_conv(
             ds, basin_area, target_unit=target_unit, inverse=True
         )

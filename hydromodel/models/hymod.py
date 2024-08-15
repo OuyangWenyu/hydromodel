@@ -2,7 +2,7 @@
 import numpy as np
 from numba import jit
 
-from hydromodel.models.model_config import read_model_param_dict
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 
 
 def hymod(p_and_e, parameters, warmup_length=30, return_state=False, **kwargs):
@@ -30,14 +30,17 @@ def hymod(p_and_e, parameters, warmup_length=30, return_state=False, **kwargs):
     Union[list, np.array]
         streamflow, x_slow, x_quick, x_loss or streamflow
     """
-    pr_file = kwargs.get("param_range_file", None)
-    model_param_dict = read_model_param_dict(pr_file)
+    model_param_dict = kwargs.get("hymod", None)
+    if model_param_dict is None:
+        model_param_dict = MODEL_PARAM_DICT["hymod"]
+    # params
+    param_ranges = model_param_dict["param_range"]
     # parameter, 2-dim variable: [parameter=1, basin]
-    cmax_scale = model_param_dict["hymod"]["param_range"]["cmax"]
-    bexp_sacle = model_param_dict["hymod"]["param_range"]["bexp"]
-    alpha_scale = model_param_dict["hymod"]["param_range"]["alpha"]
-    ks_scale = model_param_dict["hymod"]["param_range"]["ks"]
-    kq_scale = model_param_dict["hymod"]["param_range"]["kq"]
+    cmax_scale = param_ranges["cmax"]
+    bexp_sacle = param_ranges["bexp"]
+    alpha_scale = param_ranges["alpha"]
+    ks_scale = param_ranges["ks"]
+    kq_scale = param_ranges["kq"]
     cmax = cmax_scale[0] + parameters[:, 0] * (cmax_scale[1] - cmax_scale[0])
     bexp = bexp_sacle[0] + parameters[:, 1] * (bexp_sacle[1] - bexp_sacle[0])
     alpha = alpha_scale[0] + parameters[:, 2] * (alpha_scale[1] - alpha_scale[0])

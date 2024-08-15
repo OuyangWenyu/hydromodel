@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2024-03-27 15:11:04
+LastEditTime: 2024-08-15 16:38:17
 LastEditors: Wenyu Ouyang
 Description: Calibrate XAJ model using DEAP
-FilePath: \hydro-model-xaj\hydromodel\trainers\calibrate_ga.py
+FilePath: \hydromodel\hydromodel\trainers\calibrate_ga.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
@@ -21,11 +21,11 @@ from hydroutils import hydro_file, hydro_stat
 
 
 from datasets.data_visualize import plot_sim_and_obs, plot_train_iteration
-from hydromodel.models.model_config import read_model_param_dict
+from hydromodel.models.model_config import MODEL_PARAM_DICT, read_model_param_dict
 from hydromodel.models.model_dict import MODEL_DICT, rmse43darr
 
 
-def evaluate(individual, x_input, y_true, warmup_length, model):
+def evaluate(individual, x_input, y_true, warmup_length, model, param_range):
     """
     Calculate fitness for optimization
 
@@ -41,6 +41,8 @@ def evaluate(individual, x_input, y_true, warmup_length, model):
         the length of warmup period
     model
         model's config
+    param_range
+        the dict of model's parameters
 
     Returns
     -------
@@ -53,7 +55,7 @@ def evaluate(individual, x_input, y_true, warmup_length, model):
     # model's output include streamflow and evaporation now,
     # but now we only calibrate the model with streamflow
     sim, _ = MODEL_DICT[model["name"]](
-        x_input, params, warmup_length=warmup_length, **model
+        x_input, params, warmup_length=warmup_length, **model, **param_range
     )
     # Calculate RMSE for multi-dim arrays
     return rmse43darr(y_true[warmup_length:, :, :], sim)
@@ -97,7 +99,13 @@ MAX = 1
 
 
 def calibrate_by_ga(
-    input_data, observed_output, deap_dir, warmup_length=30, model=None, ga_param=None, **kwargs
+    input_data,
+    observed_output,
+    deap_dir,
+    warmup_length=30,
+    model=None,
+    ga_param=None,
+    **kwargs,
 ):
     """
     Use GA algorithm to find optimal parameters for hydrologic models
@@ -141,10 +149,10 @@ def calibrate_by_ga(
             "mut_prob": 0.5,
             "save_freq": 1,
         }
-    pr_file = kwargs.get("param_range_file", None)
-    model_param_dict = read_model_param_dict(pr_file)
+    param_file = kwargs.get("param_file", None)
+    param_range = read_model_param_dict(param_file)
     np.random.seed(ga_param["random_seed"])
-    param_num = len(model_param_dict[model["name"]]["param_name"])
+    param_num = len(param_range[model["name"]]["param_name"])
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMin)
     toolbox = base.Toolbox()
@@ -168,6 +176,7 @@ def calibrate_by_ga(
         y_true=observed_output,
         warmup_length=warmup_length,
         model=model,
+        param_range=param_range,
     )
 
     toolbox.decorate("mate", checkBounds(MIN, MAX))

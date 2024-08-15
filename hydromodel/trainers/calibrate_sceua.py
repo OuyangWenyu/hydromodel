@@ -46,8 +46,8 @@ class SpotSetup(object):
                 "events": None,
             }
         self.param_range_file = {"param_range_file": param_file}
-        param_range = read_model_param_dict(param_file)
-        self.parameter_names = param_range[model["name"]]["param_name"]
+        self.param_range = read_model_param_dict(param_file)
+        self.parameter_names = self.param_range[model["name"]]["param_name"]
         self.model = model
         self.params = []
         self.params.extend(
@@ -88,7 +88,7 @@ class SpotSetup(object):
             params,
             warmup_length=self.warmup_length,
             **self.model,
-            **self.param_range_file
+            **self.param_range
         )
         return sim
 

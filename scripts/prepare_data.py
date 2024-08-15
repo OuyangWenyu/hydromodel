@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-03-25 09:21:56
-LastEditTime: 2024-05-20 18:54:58
+LastEditTime: 2024-08-14 20:06:48
 LastEditors: Wenyu Ouyang
 Description: Script for preparing data
 FilePath: \hydromodel\scripts\prepare_data.py
@@ -34,8 +34,8 @@ if __name__ == "__main__":
         "--origin_data_dir",
         type=str,
         help="Path to your hydrological data",
-        # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
-        default="C:\\Users\\wenyu\\Downloads\\biliuhe",
+        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
+        # default="C:\\Users\\wenyu\\Downloads\\biliuhe",
     )
 
     args = parser.parse_args()

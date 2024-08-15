@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 import numpy as np
 from numba import jit
 
-from hydromodel.models.model_config import read_model_param_dict
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.xaj import uh_conv
 
 
@@ -204,12 +204,15 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     Union[np.array, tuple]
         streamflow or (streamflow, states)
     """
-    pr_file = kwargs.get("param_range_file", None)
-    model_param_dict = read_model_param_dict(pr_file)
-    x1_scale = model_param_dict["gr4j"]["param_range"]["x1"]
-    x2_sacle = model_param_dict["gr4j"]["param_range"]["x2"]
-    x3_scale = model_param_dict["gr4j"]["param_range"]["x3"]
-    x4_scale = model_param_dict["gr4j"]["param_range"]["x4"]
+    model_param_dict = kwargs.get("gr4j", None)
+    if model_param_dict is None:
+        model_param_dict = MODEL_PARAM_DICT["gr4j"]
+    # params
+    param_ranges = model_param_dict["param_range"]
+    x1_scale = param_ranges["x1"]
+    x2_sacle = param_ranges["x2"]
+    x3_scale = param_ranges["x3"]
+    x4_scale = param_ranges["x4"]
     x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
     x2 = x2_sacle[0] + parameters[:, 1] * (x2_sacle[1] - x2_sacle[0])
     x3 = x3_scale[0] + parameters[:, 2] * (x3_scale[1] - x3_scale[0])
@@ -253,6 +256,4 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
             q, r = routing(q9[i, :, 0], q1[i, :, 0], x2, x3, r)
         streamflow_[i, :] = q
     streamflow = np.expand_dims(streamflow_, axis=2)
-    if return_state:
-        return streamflow, ets, s, r
-    return streamflow, ets
+    return (streamflow, ets, s, r) if return_state else (streamflow, ets)

@@ -90,7 +90,7 @@ No more unnecessary columns are allowed.
 For time series csv files, et and node1_flow are optional. If you don't have them, you can ignore them.
 The units of all variables could be different, but they cannot be missed and should be put in `()` in the column name.
 
-1. Use [prepare_data.py](https://github.com/OuyangWenyu/hydro-model-xaj/tree/master/scripts) -- run the following code to transform the data format to the required format:
+1. Use [prepare_data.py](https://github.com/OuyangWenyu/hydromodel/tree/master/scripts) -- run the following code to transform the data format to the required format:
 ```Shell
 $ python prepare_data.py --origin_data_dir <your_data_directory_for_hydromodel>
 ```
@@ -101,7 +101,7 @@ To run calibration with CAMLES dataset, you can use the following code:
 
 ```Shell
 # just an example the hyper-parameters of the model and the algorithm should be tried by yourself
-$ python calibrate_xaj.py --data_type camels --data_dir camels_us --exp expcamels001 --cv_fold 2 --warmup 365 --period 2007-01-01 2014-01-01 --calibrate_period 2007-01-01 2014-01-01 --test_period 2007-01-01 2014-01-01 --basin_id 01439500 06885500 08104900 09510200 --model "{\"name\": \"xaj\", \"source_type\": \"sources5mm\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 10, \"ngs\": 10, \"kstop\": 5, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
+$ python calibrate_xaj.py --data_type camels --data_dir "C:/Users/wenyu/OneDrive/data/camels/camels_us" --exp expcamels001 --cv_fold 2 --warmup 365 --period 2007-01-01 2014-01-01 --calibrate_period 2007-01-01 2014-01-01 --test_period 2007-01-01 2014-01-01 --basin_id 01439500 06885500 08104900 09510200 --model "{\"name\": \"xaj\", \"source_type\": \"sources5mm\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 10, \"ngs\": 10, \"kstop\": 5, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
 ```
 
 To use your own data, run the following code:
@@ -192,9 +192,9 @@ needed, and it is not implemented yet. The following links may be useful:
 - https://github.com/ecoon/watershed-workflow
 - https://github.com/ConnectedSystems/Streamfall.jl
 
-**NOTE: We also provide a differentiable version of XAJ, which is based on the [PyTorch](https://pytorch.org/) framework.**
+We also provide a differentiable version of XAJ, which is based on the [PyTorch](https://pytorch.org/) framework.
 
-The idea comes from this paper: [From calibration to parameter learning: Harnessing the scaling effects of big data in geoscientific modeling](http://dx.doi.org/10.1038/s41467-021-26107-z) by Tsai et al. (2021). We use the same structure as the original XAJ model but replace the original Numpy code with PyTorch. Then we can use the automatic differentiation technique and stochastic gradient descent algorithms to optimize all parameters. The advantage of this method is that we can use the same code to optimize many basins at once and use big data to improve the model performance. Generally, with the native parallel computing ability of PyTorch, the differentiable version is faster than the original version without any parallel processing. The differentiable version is also in the `models` directory.
+The idea comes from this paper: [From calibration to parameter learning: Harnessing the scaling effects of big data in geoscientific modeling](http://dx.doi.org/10.1038/s41467-021-26107-z) by Tsai et al. (2021). We use the same structure as the original XAJ model but replace the original Numpy code with PyTorch. Then we can use the automatic differentiation technique and stochastic gradient descent algorithms to optimize all parameters. The advantage of this method is that we can use the same code to optimize many basins at once and use big data to improve the model performance. Generally, with the native parallel computing ability of PyTorch, the differentiable version is faster than the original version without any parallel processing. The differentiable version is in [torchhydro](https://github.com/OuyangWenyu/torchhydro).
 
 Other implementations for XAJ:
 

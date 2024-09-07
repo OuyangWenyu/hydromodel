@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-08-15 16:56:41
+LastEditTime: 2024-03-27 15:56:19
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
-FilePath: \hydromodel\scripts\calibrate_xaj.py
+FilePath: \hydro-model-xaj\scripts\calibrate_xaj.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 
@@ -15,17 +15,23 @@ import sys
 import os
 from pathlib import Path
 import yaml
-
-from hydromodel.models.model_config import MODEL_PARAM_DICT
+import numpy as np
+import xarray as xr
+import logging  # 去除debug信息
+logging.basicConfig(level=logging.WARNING)
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
+from hydromodel.datasets import *
 from hydromodel.datasets.data_preprocess import (
     _get_pe_q_from_ts,
     cross_val_split_tsdata,
 )
-from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
+from hydromodel.trainers.calibrate_semi_xaj_sceua import calibrate_semi_xaj_sceua
+from hydromodel.models.semi_xaj import semi_xaj
 
 
 def calibrate(args):
@@ -38,10 +44,21 @@ def calibrate(args):
     periods = args.period
     warmup = args.warmup
     basin_ids = args.basin_id
+    calibrate_id = args.calibrate_id
     model_info = args.model
     algo_info = args.algorithm
     loss_info = args.loss
-    param_range_file = args.param_range_file
+
+    print(f'输入文件夹{data_dir}=====================')
+    dt=3
+    attributes = xr.open_dataset(f'{data_dir}/attributes.nc')  # 读取流域属性数据
+    with open(f'{data_dir}/topo.txt', 'r') as f:
+        topo = f.readlines()  # 加载拓扑
+    with open(f'{data_dir}/ModelwithsameParas.json', 'r', encoding='utf-8') as file:
+        modelwithsameParas = json.load(file)  # 加载率定参数
+    with open(f'{data_dir}/params.json', 'r', encoding='utf-8') as file:
+        params_range = json.load(file)  # 加载参数范围
+
 
     where_save = Path(os.path.join(repo_path, "result", exp))
     if os.path.exists(where_save) is False:
@@ -57,51 +74,16 @@ def calibrate(args):
         warmup,
         basin_ids,
     )
+    
 
-    print("Start to calibrate the model")
+    p_and_e, qobs = _get_pe_q_from_ts(train_and_test_data[0])
+    para_seq=np.random.rand(sum(len(item['PARAMETER']) for item in modelwithsameParas))
+    semi_xaj(p_and_e, attributes, modelwithsameParas, para_seq, params_range, topo, dt)
 
-    if cv_fold <= 1:
-        p_and_e, qobs = _get_pe_q_from_ts(train_and_test_data[0])
-        calibrate_by_sceua(
-            basin_ids,
-            p_and_e,
-            qobs,
-            os.path.join(where_save, "sceua_xaj"),
-            warmup,
-            model=model_info,
-            algorithm=algo_info,
-            loss=loss_info,
-            param_file=param_range_file,
-        )
-    else:
-        for i in range(cv_fold):
-            train_data, _ = train_and_test_data[i]
-            p_and_e_cv, qobs_cv = _get_pe_q_from_ts(train_data)
-            calibrate_by_sceua(
-                basin_ids,
-                p_and_e_cv,
-                qobs_cv,
-                os.path.join(where_save, f"sceua_xaj_cv{i+1}"),
-                warmup,
-                model=model_info,
-                algorithm=algo_info,
-                loss=loss_info,
-                param_file=param_range_file,
-            )
-    # update the param_range_file path
-    if param_range_file is None:
-        param_range_file = os.path.join(where_save, "param_range.yaml")
-        args.param_range_file = param_range_file
-        yaml.dump(MODEL_PARAM_DICT, open(param_range_file, "w"))
-    else:
-        args.param_range_file = os.path.join(
-            where_save, param_range_file.split(os.sep)[-1]
-        )
-        # Save the parameter range file to result directory
-        shutil.copy(param_range_file, where_save)
-    # Convert the arguments to a dictionary
+
+   #shutil.copy(param_range_file, where_save)
+    #args.param_range_file = os.path.join(where_save, param_range_file.split(os.sep)[-1])
     args_dict = vars(args)
-    # Save the arguments to a YAML file
     with open(os.path.join(where_save, "config.yaml"), "w") as f:
         yaml.dump(args_dict, f)
 
@@ -114,9 +96,7 @@ if __name__ == "__main__":
         "--data_type",
         dest="data_type",
         help="CAMELS dataset or your own data, such as 'camels' or 'owndata'",
-        # default="camels",
-        default="selfmadehydrodataset",
-        # default="owndata",
+        default="owndata",
         type=str,
     )
     parser.add_argument(
@@ -125,18 +105,14 @@ if __name__ == "__main__":
         help="The directory of the CAMELS dataset or your own data, for CAMELS,"
         + " as we use SETTING to set the data path, you can directly choose camels_us;"
         + " for your own data, you should set the absolute path of your data directory",
-        # default="camels_us",
-        # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
-        default="C:\\Users\\wenyu\\OneDrive\\data\\FD_sources",
+        default=str(repo_path)+"\\input",
         type=str,
     )
     parser.add_argument(
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        # default="expcamels001",
-        # default="exp21113800test001",
-        default="expselfmadehydrodataset001",
+        default="yanwangbizi01",
         type=str,
     )
     parser.add_argument(
@@ -150,55 +126,54 @@ if __name__ == "__main__":
         "--warmup",
         dest="warmup",
         help="the number of warmup periods",
-        # default=720,
-        default=120,
+        default=240,
         type=int,
     )
     parser.add_argument(
         "--period",
         dest="period",
         help="The whole period",
-        # default=["2007-01-01", "2014-01-01"],
-        # default=["2012-06-10 00:00", "2022-08-31 23:00"],
-        default=["2010-01-01 08:00", "2015-11-02 14:00"],
+        default=["2010-01-01 00:00", "2015-10-29 21:00"],
         nargs="+",
     )
     parser.add_argument(
         "--calibrate_period",
         dest="calibrate_period",
         help="The training period",
-        # default=["2007-01-01", "2014-01-01"],
-        # default=["2012-06-10 00:00", "2017-08-31 23:00"],
-        default=["2010-01-01 08:00", "2014-09-14 02:00"],
+        default=["2010-01-01 00:00", "2014-02-28 21:00"],
         nargs="+",
     )
     parser.add_argument(
         "--test_period",
         dest="test_period",
         help="The testing period",
-        # default=["2007-01-01", "2014-01-01"],
-        # default=["2017-09-01 00:00", "2022-08-31 23:00"],
-        default=["2014-09-14 08:00", "2015-11-02 14:00"],
+        default=["2014-03-01 00:00", "2015-10-29 21:00"],
         nargs="+",
     )
     parser.add_argument(
         "--basin_id",
         dest="basin_id",
         help="The basins' ids",
-        # default=["01439500", "06885500", "08104900", "09510200"],
-        # default=["21401550"],
-        default=["songliao_21401550"],
+        default=["1",'2','3'],
         nargs="+",
     )
+
+    parser.add_argument(
+        "--calibrate_id",
+        dest="calibrate_id",
+        help="The calibrate_id",
+        default=2,
+        nargs="+",
+    )
+
     parser.add_argument(
         "--model",
         dest="model",
         help="which hydro model you want to calibrate and the parameters setting for model function, note: not hydromodel parameters but function's parameters",
         default={
-            "name": "xaj",
+            "name": "semi_xaj",
             "source_type": "sources5mm",
             "source_book": "HF",
-            "time_interval_hours": 6,
         },
         type=json.loads,
     )
@@ -207,8 +182,7 @@ if __name__ == "__main__":
         dest="param_range_file",
         help="The file of the parameter range",
         # default=None,
-        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe\\param_range.yaml",
-        # default="C:\\Users\\wenyu\\Downloads\\21113800\\param_range.yaml",
+        default=str(repo_path)+"\\result\\param_range.yaml",
         type=str,
     )
     parser.add_argument(
@@ -224,21 +198,12 @@ if __name__ == "__main__":
             "name": "SCE_UA",
             "random_seed": 1234,
             # these params are just for test
-            "rep": 10,
-            "ngs": 10,
+            "rep": 5,
+            "ngs": 5,
             "kstop": 5,
             "peps": 0.1,
             "pcento": 0.1,
         },
-        # default={
-        #     "name": "GA",
-        #     "random_seed": 1234,
-        #     "run_counts": 2,
-        #     "pop_num": 50,
-        #     "cross_prob": 0.5,
-        #     "mut_prob": 0.5,
-        #     "save_freq": 1,
-        # },
         type=json.loads,
     )
     parser.add_argument(

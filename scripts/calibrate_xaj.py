@@ -7,7 +7,6 @@ Description: the script to calibrate a model for CAMELS basin
 FilePath: \hydromodel\scripts\calibrate_xaj.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
-
 import json
 import argparse
 import shutil
@@ -16,13 +15,9 @@ import os
 from pathlib import Path
 import yaml
 
-# from hydromodel.models.model_config import MODEL_PARAM_DICT
-
-
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 from hydromodel.models.model_config import MODEL_PARAM_DICT
-from hydromodel.datasets import *
 from hydromodel.datasets.data_preprocess import (
     _get_pe_q_from_ts,
     cross_val_split_tsdata,

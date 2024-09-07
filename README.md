@@ -127,7 +127,7 @@ To run calibration with CAMLES dataset, you can use the following code:
 
 ```Shell
 # just an example the hyper-parameters of the model and the algorithm should be tried by yourself
-$ python calibrate_xaj.py --data_type camels --data_dir "C:/Users/wenyu/OneDrive/data/camels/camels_us" --exp expcamels001 --cv_fold 2 --warmup 365 --period 2007-01-01 2014-01-01 --calibrate_period 2007-01-01 2014-01-01 --test_period 2007-01-01 2014-01-01 --basin_id 01439500 06885500 08104900 09510200 --model "{\"name\": \"xaj\", \"source_type\": \"sources5mm\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 10, \"ngs\": 10, \"kstop\": 5, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
+$ python scripts/calibrate_xaj.py --data_type selfmadehydrodataset --data_dir "/ftproot/basins-interim" --exp expcamels001 --cv_fold 2 --warmup 365 --period 2014-10-01 2018-10-01 --calibrate_period 2014-10-01 2018-10-01 --test_period 2017-10-01 2021-10-01 --basin_id songliao_10912404 songliao_11606000 --model "{\"name\": \"xaj_mz\", \"source_type\": \"sources\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 100, \"ngs\": 1000, \"kstop\": 50, \"peps\": 0.1, \"pcento\": 0.001}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
 ```
 
 To use your own data, run the following code:

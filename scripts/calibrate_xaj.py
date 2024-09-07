@@ -16,11 +16,13 @@ import os
 from pathlib import Path
 import yaml
 
-from hydromodel.models.model_config import MODEL_PARAM_DICT
+# from hydromodel.models.model_config import MODEL_PARAM_DICT
 
 
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
+from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.datasets import *
 from hydromodel.datasets.data_preprocess import (
     _get_pe_q_from_ts,
     cross_val_split_tsdata,
@@ -128,6 +130,7 @@ if __name__ == "__main__":
         # default="camels_us",
         # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
         default="C:\\Users\\wenyu\\OneDrive\\data\\FD_sources",
+        # default="/ftproot/basins-interim",
         type=str,
     )
     parser.add_argument(

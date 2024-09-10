@@ -16,6 +16,8 @@ import xarray as xr
 import spotpy
 import yaml
 
+from hydromodel.models.xaj import xaj
+
 from hydroutils import hydro_file, hydro_stat
 from hydrodatasource.utils.utils import streamflow_unit_conv
 

@@ -210,7 +210,8 @@ if __name__ == "__main__":
         dest="param_range_file",
         help="The file of the parameter range",
         # default=None,
-        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe\\param_range.yaml",
+        default="/home/xxcj/Research/hydromodel/param_range.yaml",
+        # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe\\param_range.yaml",
         # default="C:\\Users\\wenyu\\Downloads\\21113800\\param_range.yaml",
         type=str,
     )

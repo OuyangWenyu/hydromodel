@@ -6,40 +6,110 @@ import numpy as np
 import pandas as pd
 
 from hydroutils import hydro_file, hydro_stat, hydro_plot
+from hydrodatasource.reader.data_source import SelfMadeHydroDataset
 
+# 新增读取降雨数据的函数，根据流域 ID 读取相关 csv 文件
+def read_rainfall_data(basin_id, start_time, end_time):
+    print(f"Reading rainfall data for {basin_id} from {start_time} to {end_time}")
+    rainfall_csv_path = f"/ftproot/basins-interim/timeseries/1D/{basin_id}.csv"
+    rainfall_data = pd.read_csv(rainfall_csv_path, parse_dates=["time"])
+    rainfall_data = rainfall_data.set_index("time")
+    rainfall_filtered = rainfall_data[start_time:end_time]
+    # 检查读取的数据
+    print(rainfall_filtered["total_precipitation_hourly"].head())
+    return rainfall_filtered["total_precipitation_hourly"]
 
-def plot_sim_and_obs(
-    date,
-    sim,
-    obs,
-    save_fig,
-    xlabel="Date",
-    ylabel=None,
-):
-    # matplotlib.use("Agg")
-    fig = plt.figure(figsize=(9, 6))
-    ax = fig.subplots()
-    ax.plot(
-        date,
-        sim,
-        color="black",
-        linestyle="solid",
-        label="Simulation",
-    )
-    ax.plot(
-        date,
-        obs,
-        "r.",
-        markersize=3,
-        label="Observation",
-    )
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    plt.legend(loc="upper right")
+def plot_precipitation(date, basin_id, start_time, end_time, ax=None):
+    # 读取降雨数据
+    precipitation = read_rainfall_data(basin_id, start_time, end_time)
+    
+    # 检查是否有降雨数据
+    print(f"Precipitation data for {basin_id}:")
+    print(precipitation.head())
+
+    # 如果没有传入外部子图，则创建一个
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(20, 4))
+
+    # 绘制降雨数据为柱状图，使用 precipitation.index 作为横坐标
+    ax.bar(precipitation.index, precipitation.values, color="blue", label="Precipitation", width=0.8)
+    
+    # 设置x轴和y轴的标签
+    ax.set_xlabel('Date')  # 改为标记为 "Date"
+    ax.set_ylabel('Precipitation (mm/d)', color='black')  # 改为黑色标记
+    
+    # y轴逆置，确保仅执行一次逆置
+    ax.invert_yaxis()
+    
+    # 设置x轴显示格式，显示年月
+    ax.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%Y-%m'))
+
+    plt.xticks(rotation=45)  # 旋转x轴标签以避免重叠
+
+    # 设置图例
+    ax.legend(loc="lower right")
+    
+    return ax
+
+def plot_sim_and_obs(date, sim, obs, ax=None, xlabel="Date", ylabel="Streamflow (m³/s)"):
+    # 如果没有传入外部子图，则创建一个
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(20, 4))
+    # 绘制模拟值和观测值
+    ax.plot(date, sim, color="black", linestyle="solid", label="Simulation")
+    ax.plot(date, obs, "r.", markersize=3, label="Observation")
+    # 设置x轴显示格式，显示年月
+    ax.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%Y-%m'))
+    ax.set_xlabel(xlabel)  # 横轴标记仍为 "Date"
+    ax.set_ylabel(ylabel)  # 纵轴标记改为 "Streamflow"
+    ax.legend(loc="upper right")
+    return ax
+
+def plot_combined_figure(date, sim, obs, save_fig, basin_id, start_time, end_time):
+    # 创建图形对象，包含两个子图
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 10), sharex=True)
+    # 上图：绘制降雨数据
+    plot_precipitation(date, basin_id, start_time, end_time, ax=ax1)
+    # 下图：绘制模拟值与观测值的对比
+    plot_sim_and_obs(date, sim, obs, ax=ax2)
+    # 保存图形
     plt.tight_layout()
     plt.savefig(save_fig, bbox_inches="tight")
-    # plt.cla()
     plt.close()
+
+
+# def plot_sim_and_obs(
+#     date,
+#     sim,
+#     obs,
+#     save_fig,
+#     xlabel="Date",
+#     ylabel=None,
+# ):
+#     # matplotlib.use("Agg")
+#     fig = plt.figure(figsize=(9, 6))
+#     ax = fig.subplots()
+#     ax.plot(
+#         date,
+#         sim,
+#         color="black",
+#         linestyle="solid",
+#         label="Simulation",
+#     )
+#     ax.plot(
+#         date,
+#         obs,
+#         "r.",
+#         markersize=3,
+#         label="Observation",
+#     )
+#     ax.set_xlabel(xlabel)
+#     ax.set_ylabel(ylabel)
+#     plt.legend(loc="upper right")
+#     plt.tight_layout()
+#     plt.savefig(save_fig, bbox_inches="tight")
+#     # plt.cla()
+#     plt.close()
 
 
 def plot_train_iteration(likelihood, save_fig):

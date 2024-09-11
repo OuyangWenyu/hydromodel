@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-05-19 11:57:19
+LastEditTime: 2024-09-11 21:25:42
 LastEditors: Wenyu Ouyang
 Description: Test for results visualization
 FilePath: \hydromodel\test\test_data_visualize.py
@@ -56,7 +56,7 @@ def test_run_hymod_calibration():
         best_simulation,
         color="black",
         linestyle="solid",
-        label="Best objf.=" + str(bestobjf),
+        label=f"Best objf.={str(bestobjf)}",
     )
     plt.plot(setup.evaluation(), "r.", markersize=3, label="Observation data")
     plt.xlabel("Number of Observation Points")
@@ -75,7 +75,8 @@ def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length, db_name, basi
             "name": "xaj_mz",
             "source_type": "sources",
             "source_book": "HF",
-            "time_interval_hours": 1,
+            "kernel_size": 15,
+            "time_interval_hours": 24,
         },
         algorithm={
             "name": "SCE_UA",

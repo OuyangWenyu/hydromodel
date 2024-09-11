@@ -78,7 +78,6 @@ xaj_mz:
   - THETA
   - CI
   - CG
-  - KERNEL
   param_range:
     K:
     - 0.1
@@ -125,9 +124,6 @@ xaj_mz:
     CG:
     - 0.98
     - 0.998
-    KERNEL:
-    - 1
-    - 15
 gr4j:
   param_name:
   - x1

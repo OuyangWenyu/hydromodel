@@ -93,7 +93,7 @@ MODEL_PARAM_DICT = {
             "THETA",  # parameter of mizuRoute
             "CI",  # The recession constant of the lower interflow
             "CG",  # The recession constant of groundwater storage
-            "KERNEL",  # kernel size of mizuRoute unit hydrograph when using convolution method
+            # "KERNEL",  # kernel size of mizuRoute unit hydrograph when using convolution method
         ],
         "param_range": OrderedDict(
             {
@@ -116,7 +116,7 @@ MODEL_PARAM_DICT = {
                 "THETA": [0.0, 6.5],
                 "CI": [0.0, 0.9],
                 "CG": [0.98, 0.998],
-                "KERNEL": [1, 15],
+                # "KERNEL": [1, 15],
             }
         ),
     },

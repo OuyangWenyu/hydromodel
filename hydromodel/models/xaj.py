@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2024-08-15 16:18:47
+LastEditTime: 2024-09-11 21:13:55
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
-FilePath: /hydro-model-xaj/hydromodel/models/xaj.py
+FilePath: /hydromodel/hydromodel/models/xaj.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
@@ -705,11 +705,11 @@ def uh_gamma(a, theta, len_uh=15):
 
 def xaj(
     p_and_e,
-    params: Union[np.array, list],
+    params: Union[np.ndarray, list],
     return_state=False,
     warmup_length=365,
     **kwargs,
-) -> Union[tuple, np.array]:
+) -> Union[tuple, np.ndarray]:
     """
     run XAJ model
 
@@ -726,8 +726,8 @@ def xaj(
     warmup_length
         hydro models need a warm-up period to get good initial state values
     kwargs
-        route_method
-            now we provide two ways: "CSL" (recession constant + lag time) and "MZ" (method from mizuRoute)
+        name
+            now we provide two ways: "xaj" (route:recession constant + lag time) and "xaj_mz" (route:method from mizuRoute)
         source_type
             default is "sources" and it will call "sources" function; the other is "sources5mm",
             and we will divide the runoff to some <5mm pieces according to the books in this case
@@ -735,6 +735,13 @@ def xaj(
             When source_type is "sources5mm" there are two implementions for dividing sources,
             as the methods in "ShuiWenYuBao" and "GongChengShuiWenXue"" are different.
             Hence, both are provided, and the default is the former.
+        kernel_size
+            the size of the kernel for the convolution operation, default is 15 periods
+            if time_interval_hours is 1, it is 15 hours; if time_interval_hours is 24, it is 15 days
+            It is the length of the unit hydrograph
+        time_interval_hours:
+            the time interval of the model, default is 1 hour, for daily case, it should be 24
+            this is only used when source_type is "sources5mm"
 
     Returns
     -------
@@ -745,7 +752,8 @@ def xaj(
     model_name = kwargs.get("name", "xaj")
     source_type = kwargs.get("source_type", "sources")
     source_book = kwargs.get("source_book", "HF")
-    time_interval_hours = kwargs.get("time_interval_hours", 1)
+    kernel_size = kwargs.get("kernel_size", 15)
+    time_interval_hours = kwargs.get("time_interval_hours", 24)
     model_param_dict = kwargs.get(f"{model_name}", None)
     if model_param_dict is None:
         model_param_dict = MODEL_PARAM_DICT[f"{model_name}"]
@@ -789,8 +797,6 @@ def xaj(
         # we will use routing method from mizuRoute -- http://www.geosci-model-dev.net/9/2223/2016/
         a = xaj_params[11]
         theta = xaj_params[12]
-        # make it as a parameter
-        kernel_size = int(xaj_params[15])
     else:
         raise NotImplementedError(
             "We don't provide this route method now! Please use 'CSL' or 'MZ'!"

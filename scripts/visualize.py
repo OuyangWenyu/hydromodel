@@ -73,7 +73,7 @@ def _visualize(cali_dir, basins, warmup, param_dir, eval_train_dir, eval_test_di
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="show results for calibrated hydro-model-xaj models."
+        description="show results for calibrated hydrmodel models."
     )
     parser.add_argument(
         "--exp",

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-03-22 17:45:18
-LastEditTime: 2024-05-19 11:57:04
+LastEditTime: 2024-09-11 21:25:09
 LastEditors: Wenyu Ouyang
 Description: Test case for calibrate
 FilePath: \hydromodel\test\test_calibrate.py
@@ -36,7 +36,8 @@ def test_calibrate_xaj_sceua(basins, p_and_e, qobs, warmup_length, db_dir):
             "name": "xaj_mz",
             "source_type": "sources",
             "source_book": "HF",
-            "time_interval_hours": 1,
+            "kernel_size": 15,
+            "time_interval_hours": 24,
         },
         algorithm={
             "name": "SCE_UA",

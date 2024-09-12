@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-09-11 21:30:09
+LastEditTime: 2024-09-12 08:34:21
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
 FilePath: \hydromodel\scripts\calibrate_xaj.py
@@ -31,6 +31,7 @@ from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
 def calibrate(args):
     data_type = args.data_type
     data_dir = args.data_dir
+    result_dir = args.result_dir
     exp = args.exp
     cv_fold = args.cv_fold
     train_period = args.calibrate_period
@@ -43,7 +44,7 @@ def calibrate(args):
     loss_info = args.loss
     param_range_file = args.param_range_file
 
-    where_save = Path(os.path.join(repo_path, "result", exp))
+    where_save = Path(os.path.join(result_dir, exp))
     if os.path.exists(where_save) is False:
         os.makedirs(where_save)
 
@@ -128,6 +129,13 @@ if __name__ == "__main__":
         # default="camels_us",
         # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
         default="C:\\Users\\wenyu\\OneDrive\\data\\FD_sources",
+        type=str,
+    )
+    parser.add_argument(
+        "--result_dir",
+        dest="result_dir",
+        help="The root directory of results",
+        default=os.path.join(repo_path, "result"),
         type=str,
     )
     parser.add_argument(

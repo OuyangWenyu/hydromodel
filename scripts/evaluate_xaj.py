@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-03-26 12:00:12
-LastEditTime: 2024-05-23 10:29:54
+LastEditTime: 2024-09-12 08:51:27
 LastEditors: Wenyu Ouyang
 Description: evaluate a calibrated hydrological model
 FilePath: \hydromodel\scripts\evaluate_xaj.py
@@ -22,8 +22,9 @@ from hydromodel.trainers.evaluate import Evaluator, read_yaml_config
 
 
 def evaluate(args):
+    result_dir = args.result_dir
     exp = args.exp
-    cali_dir = Path(os.path.join(repo_path, "result", exp))
+    cali_dir = Path(os.path.join(result_dir, exp))
     cali_config = read_yaml_config(os.path.join(cali_dir, "config.yaml"))
     kfold = cali_config["cv_fold"]
     basins = cali_config["basin_id"]
@@ -44,13 +45,7 @@ def evaluate(args):
         basins,
     )
     if kfold <= 1:
-        print("Start to evaluate")
-        # evaluate both train and test period for all basins
-        train_data = train_and_test_data[0]
-        test_data = train_and_test_data[1]
-        param_dir = os.path.join(cali_dir, "sceua_xaj")
-        _evaluate(cali_dir, param_dir, train_data, test_data)
-        print("Finish evaluating")
+        _evaluate_1fold(train_and_test_data, cali_dir)
     else:
         for fold in range(kfold):
             print(f"Start to evaluate the {fold+1}-th fold")
@@ -60,6 +55,16 @@ def evaluate(args):
             test_data = train_and_test_data[fold][1]
             _evaluate(cali_dir, fold_dir, train_data, test_data)
             print(f"Finish evaluating the {fold}-th fold")
+
+
+def _evaluate_1fold(train_and_test_data, cali_dir):
+    print("Start to evaluate")
+    # evaluate both train and test period for all basins
+    train_data = train_and_test_data[0]
+    test_data = train_and_test_data[1]
+    param_dir = os.path.join(cali_dir, "sceua_xaj")
+    _evaluate(cali_dir, param_dir, train_data, test_data)
+    print("Finish evaluating")
 
 
 def _evaluate(cali_dir, param_dir, train_data, test_data):
@@ -84,6 +89,13 @@ def _evaluate(cali_dir, param_dir, train_data, test_data):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="evaluate a calibrated hydrological model."
+    )
+    parser.add_argument(
+        "--result_dir",
+        dest="result_dir",
+        help="The root directory of results",
+        default=os.path.join(repo_path, "result"),
+        type=str,
     )
     parser.add_argument(
         "--exp",

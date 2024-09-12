@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-03-25 09:21:56
-LastEditTime: 2024-08-15 11:57:11
+LastEditTime: 2024-09-12 08:46:51
 LastEditors: Wenyu Ouyang
 Description: preprocess data in an exp before training
 FilePath: \hydromodel\scripts\preprocess.py
@@ -26,17 +26,18 @@ from hydromodel.datasets.data_preprocess import (
 
 def main(args):
     data_path = args.data_dir
+    result_dir = args.result_dir
     data_type = args.data_type
     basin_ids = args.basin_id
     periods = args.period
     exp = args.exp
     rr_event = args.rr_event
-    where_save = Path(os.path.join(repo_path, "result", exp))
+    where_save = Path(os.path.join(result_dir, exp))
     if os.path.exists(where_save) is False:
         os.makedirs(where_save)
-    ts_data = get_ts_from_diffsource(data_type, data_path, periods, basin_ids)
-    basin_area = get_basin_area(basin_ids, data_type, data_path)
     if rr_event > 0:
+        ts_data = get_ts_from_diffsource(data_type, data_path, periods, basin_ids)
+        basin_area = get_basin_area(basin_ids, data_type, data_path)
         rr_events = get_rr_events(ts_data["prcp"], ts_data["flow"], basin_area)
         for basin, event in rr_events.items():
             basin_rr_dir = os.path.join(where_save, f"{basin}_rr_events")
@@ -67,6 +68,13 @@ if __name__ == "__main__":
         # default="C:\\Users\\wenyu\\OneDrive\\data\\FD_sources",
         default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
         # default="C:\\Users\\wenyu\\Downloads\\biliuhe",
+        type=str,
+    )
+    parser.add_argument(
+        "--result_dir",
+        dest="result_dir",
+        help="The root directory of results",
+        default=os.path.join(repo_path, "result"),
         type=str,
     )
     parser.add_argument(

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-08-15 17:02:21
+LastEditTime: 2024-09-12 08:49:06
 LastEditors: Wenyu Ouyang
 Description: the script to postprocess results
 FilePath: \hydromodel\scripts\visualize.py
@@ -20,19 +20,15 @@ from hydromodel.trainers.evaluate import Evaluator, read_yaml_config
 
 
 def visualize(args):
+    result_dir = args.result_dir
     exp = args.exp
-    cali_dir = Path(os.path.join(repo_dir, "result", exp))
+    cali_dir = Path(os.path.join(result_dir, exp))
     cali_config = read_yaml_config(os.path.join(cali_dir, "config.yaml"))
     kfold = cali_config["cv_fold"]
     basins = cali_config["basin_id"]
     warmup = cali_config["warmup"]
     if kfold <= 1:
-        print("Start to visualize the results")
-        param_dir = os.path.join(cali_dir, "sceua_xaj")
-        eval_train_dir = os.path.join(param_dir, "train")
-        eval_test_dir = os.path.join(param_dir, "test")
-        _visualize(cali_dir, basins, warmup, param_dir, eval_train_dir, eval_test_dir)
-        print("Finish visualizing the results")
+        _visualize_1fold(cali_dir, basins, warmup)
     else:
         for fold in range(kfold):
             print(f"Start to visualize the {fold+1}-th fold")
@@ -43,6 +39,15 @@ def visualize(args):
                 cali_dir, basins, warmup, param_dir, eval_train_dir, eval_test_dir
             )
             print(f"Finish visualizing the {fold}-th fold")
+
+
+def _visualize_1fold(cali_dir, basins, warmup):
+    print("Start to visualize the results")
+    param_dir = os.path.join(cali_dir, "sceua_xaj")
+    eval_train_dir = os.path.join(param_dir, "train")
+    eval_test_dir = os.path.join(param_dir, "test")
+    _visualize(cali_dir, basins, warmup, param_dir, eval_train_dir, eval_test_dir)
+    print("Finish visualizing the results")
 
 
 def _visualize(cali_dir, basins, warmup, param_dir, eval_train_dir, eval_test_dir):
@@ -74,6 +79,13 @@ def _visualize(cali_dir, basins, warmup, param_dir, eval_train_dir, eval_test_di
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="show results for calibrated hydrmodel models."
+    )
+    parser.add_argument(
+        "--result_dir",
+        dest="result_dir",
+        help="The root directory of results",
+        default=os.path.join(repo_dir, "result"),
+        type=str,
     )
     parser.add_argument(
         "--exp",

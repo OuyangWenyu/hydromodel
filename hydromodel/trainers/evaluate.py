@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-09-14 18:51:40
+LastEditTime: 2024-09-14 20:31:58
 LastEditors: Wenyu Ouyang
 Description: Plots for calibration and testing results
 FilePath: \hydromodel\hydromodel\trainers\evaluate.py
@@ -311,60 +311,6 @@ def _read_all_basin_params(basins, param_dir):
         basin_params = basin_params.flatten()
         params_list.append(basin_params)
     return np.vstack(params_list)
-
-
-def read_and_save_et_ouputs(result_dir, fold: int):
-    # TODO: not finished yet after we refactor the code
-    prameter_file = os.path.join(result_dir, "basins_params.csv")
-    param_values = pd.read_csv(prameter_file, index_col=0)
-    basins_id = param_values.columns.values
-    args_file = os.path.join(result_dir, "args.json")
-    args = hydro_file.unserialize_json(args_file)
-    warmup_length = args["warmup_length"]
-    model_func_param = args["model"]
-    exp_dir = pathlib.Path(result_dir).parent
-    data_info_train = hydro_file.unserialize_json(
-        exp_dir.joinpath(f"data_info_fold{fold}_train.json")
-    )
-    data_info_test = hydro_file.unserialize_json(
-        exp_dir.joinpath(f"data_info_fold{fold}_test.json")
-    )
-    train_period = data_info_train["time"]
-    test_period = data_info_test["time"]
-    # TODO: basins_lump_p_pe_q_fold NAME need to be unified
-    train_np_file = os.path.join(exp_dir, f"data_info_fold{fold}_train.npy")
-    test_np_file = os.path.join(exp_dir, f"data_info_fold{fold}_test.npy")
-    # train_np_file = os.path.join(exp_dir, f"basins_lump_p_pe_q_fold{fold}_train.npy")
-    # test_np_file = os.path.join(exp_dir, f"basins_lump_p_pe_q_fold{fold}_test.npy")
-    train_data = np.load(train_np_file)
-    test_data = np.load(test_np_file)
-    es_test = []
-    es_train = []
-    for i in range(len(basins_id)):
-        _, e_train = xaj(
-            train_data[:, :, 0:2],
-            param_values[basins_id[i]].values.reshape(1, -1),
-            warmup_length=warmup_length,
-            **model_func_param,
-        )
-        _, e_test = xaj(
-            test_data[:, :, 0:2],
-            param_values[basins_id[i]].values.reshape(1, -1),
-            warmup_length=warmup_length,
-            **model_func_param,
-        )
-        es_train.append(e_train.flatten())
-        es_test.append(e_test.flatten())
-    df_e_train = pd.DataFrame(
-        np.array(es_train).T, columns=basins_id, index=train_period[warmup_length:]
-    )
-    df_e_test = pd.DataFrame(
-        np.array(es_test).T, columns=basins_id, index=test_period[warmup_length:]
-    )
-    etsim_train_save_path = os.path.join(result_dir, "basin_etsim_train.csv")
-    etsim_test_save_path = os.path.join(result_dir, "basin_etsim_test.csv")
-    df_e_train.to_csv(etsim_train_save_path)
-    df_e_test.to_csv(etsim_test_save_path)
 
 
 def read_yaml_config(file_path):

@@ -22,7 +22,7 @@ from hydromodel.datasets.data_preprocess_topo import process_and_save_data_as_nc
 def main(args):
     data_path = args.origin_data_dir
 
-    if process_and_save_data_as_nc(data_path, save_folder=data_path):
+    if process_and_save_data_as_nc(data_path, save_folder=data_path, source='sql'):
         print("Data is ready!")
     else:
         print("Data format is incorrect! Please check the data.")

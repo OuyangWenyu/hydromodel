@@ -16,12 +16,12 @@ from pint import UnitRegistry
 from sklearn.model_selection import KFold
 import xarray as xr
 
-from hydrodataset import Camels
 from hydrodatasource.utils.utils import streamflow_unit_conv
 from hydrodatasource.cleaner.dmca_esr import rainfall_runoff_event_identify
 
 from hydromodel import CACHE_DIR, SETTING
 from hydromodel.datasets import *
+from hydromodel.datasets.read_data_from_topo import read_data_from_topo
 
 
 def check_tsdata_format(file_path):
@@ -200,11 +200,15 @@ def process_and_save_data_as_nc(
     save_folder=CACHE_DIR,
     nc_attrs_file="attributes.nc",
     nc_ts_file="timeseries.nc",
+    source='local'  # source有两种：local和sql
 ):
+    import geopandas as gpd
     # 验证文件夹内容
+    '''
     if not check_folder_contents(folder_path):
         print("Folder contents validation failed.")
         return False
+    '''
 
     # 读取流域属性
     basin_attr_file = os.path.join(folder_path, "basin_attributes.csv")
@@ -212,10 +216,11 @@ def process_and_save_data_as_nc(
     basin_attrs = pd.read_csv(basin_attr_file, dtype={ID_NAME: str})
 
     # 创建属性数据集
-    ds_attrs = xr.Dataset.from_dataframe(basin_attrs.set_index(ID_NAME))
+    # ds_attrs = xr.Dataset.from_dataframe(basin_attrs.set_index(ID_NAME))
     new_column_names = {}
     units = {}
-
+    # TODO: 去除硬编码
+    node_gdf = gpd.read_file(os.path.join(folder_path, 'station_shps', 'biliu_21401550.shp'))
     for col in basin_attrs.columns:
         new_name = remove_unit_from_name(col)
         unit = get_unit_from_name(col)
@@ -241,42 +246,67 @@ def process_and_save_data_as_nc(
     basin_ids = basin_attrs[ID_NAME].astype(str).tolist()
 
     # 为每个流域读取并处理时序数据
-    for i, basin_id in enumerate(basin_ids):
-        file_name = f"basin_{basin_id}.csv"
-        file_path = os.path.join(folder_path, file_name)
-        data = pd.read_csv(file_path)
-        for time_format in POSSIBLE_TIME_FORMATS:
-            try:
-                data[TIME_NAME] = pd.to_datetime(data[TIME_NAME], format=time_format)
-                break
-            except ValueError:
-                continue
-        # 在处理第一个流域时构建单位字典
-        if i == 0:
-            for col in data.columns:
-                new_name = remove_unit_from_name(col)
-                if unit := get_unit_from_name(col):
-                    units[new_name] = unit
+    if source=='local':
+        for i, basin_id in enumerate(basin_ids):
+            file_name = f"basin_{basin_id}.csv"
+            file_path = os.path.join(folder_path, file_name)
+            data = pd.read_csv(file_path)
+            for time_format in POSSIBLE_TIME_FORMATS:
+                try:
+                    data[TIME_NAME] = pd.to_datetime(data[TIME_NAME], format=time_format)
+                    break
+                except ValueError:
+                    continue
+            # 在处理第一个流域时构建单位字典
+            if i == 0:
+                for col in data.columns:
+                    new_name = remove_unit_from_name(col)
+                    if unit := get_unit_from_name(col):
+                        units[new_name] = unit
 
-        # 修改列名以移除单位
-        renamed_columns = {col: remove_unit_from_name(col) for col in data.columns}
-        data.rename(columns=renamed_columns, inplace=True)
+            # 修改列名以移除单位
+            renamed_columns = {col: remove_unit_from_name(col) for col in data.columns}
+            data.rename(columns=renamed_columns, inplace=True)
+
+            # 将 DataFrame 转换为 xarray Dataset
+            ds_basin = xr.Dataset.from_dataframe(data.set_index(TIME_NAME))
+
+            # 为每个变量设置单位属性
+            for var in ds_basin.data_vars:
+                if var in units:
+                    ds_basin[var].attrs["units"] = units[var]
+            # 添加 basin 坐标
+            ds_basin = ds_basin.expand_dims({"basin": [basin_id]})
+            # 合并到主数据集
+            ds_ts = xr.merge([ds_ts, ds_basin], compat="no_conflicts")
+            ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
+            ds_ts.to_netcdf(os.path.join(save_folder, nc_ts_file))
+    else:
+        basin_ids = node_gdf.index.tolist()
+        data_dict = read_data_from_topo(node_gdf, basin_ids)
+        data_df = list(data_dict.values())[0]
+        for col in data_df.columns:
+            new_name = remove_unit_from_name(col)
+            if unit := get_unit_from_name(col):
+                units[new_name] = unit
+        renamed_columns = {col: remove_unit_from_name(col) for col in data_df.columns}
+        data_df.rename(columns=renamed_columns, inplace=True)
 
         # 将 DataFrame 转换为 xarray Dataset
-        ds_basin = xr.Dataset.from_dataframe(data.set_index(TIME_NAME))
+        ds_basin = xr.Dataset.from_dataframe(data_df.set_index(TIME_NAME))
 
         # 为每个变量设置单位属性
         for var in ds_basin.data_vars:
             if var in units:
                 ds_basin[var].attrs["units"] = units[var]
         # 添加 basin 坐标
-        ds_basin = ds_basin.expand_dims({"basin": [basin_id]})
+        ds_basin = ds_basin.expand_dims({"basin": basin_ids})
         # 合并到主数据集
-        ds_ts = xr.merge([ds_ts, ds_basin], compat="no_conflicts")
+        ds_ts = xr.merge([ds_ts, ds_basin], compat="override")
 
-    # 保存为 NetCDF 文件
-    ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
-    ds_ts.to_netcdf(os.path.join(save_folder, nc_ts_file))
+        # 保存为 NetCDF 文件
+        ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
+        ds_ts.to_netcdf(os.path.join(save_folder, nc_ts_file))
 
     return True
 

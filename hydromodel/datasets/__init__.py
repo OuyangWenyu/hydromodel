@@ -17,7 +17,7 @@ ET_NAME = "et(mm/day)"
 FLOW_NAME = "flow(m^3/s)"
 NODE_FLOW_NAME = "node1_flow(m^3/s)"
 AREA_NAME = "area(km^2)"
-TIME_NAME = "time"
+TIME_NAME = "tm"
 POSSIBLE_TIME_FORMATS = [
     "%Y-%m-%d %H:%M:%S",  # 完整的日期和时间
     "%Y-%m-%d",  # 只有日期
@@ -28,6 +28,8 @@ POSSIBLE_TIME_FORMATS = [
 ]
 ID_NAME = "id"
 NAME_NAME = "name"
+CODE_NAME = "编码" # 视站点shapefile不同，可以换成STCD、ID等字段
+STTYPE_NAME = "类型" # 视站点shapefile不同，可以换成sttype、STTP等字段
 
 
 def remove_unit_from_name(name_with_unit):

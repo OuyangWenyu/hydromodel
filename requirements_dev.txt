@@ -12,6 +12,7 @@ twine
 
 pytest
 pytest-runner
+pytest-mock
 
 # for hydromodel
 ipykernel

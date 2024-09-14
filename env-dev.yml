@@ -27,3 +27,4 @@ dependencies:
     - bump2version
     - muskingumcunge
     - hydrodatasource
+    - pytest-mock

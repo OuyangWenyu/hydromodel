@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-08-15 14:26:02
+LastEditTime: 2024-09-14 19:25:13
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydromodel\hydromodel\datasets\data_preprocess.py
@@ -520,6 +520,32 @@ def _get_pe_q_from_ts(ts_xr_dataset):
 def cross_val_split_tsdata(
     data_type, data_dir, cv_fold, train_period, test_period, periods, warmup, basin_ids
 ):
+    """Prepare the time series data for cross-validation or no cross-validation
+
+    Parameters
+    ----------
+    data_type : str
+        The type of the data source, 'camels' or 'owndata'
+    data_dir : str
+        The directory of the data source
+    cv_fold : int
+        The number of folds for cross-validation
+    train_period : list of str
+        The training period in the format ["start_date", "end_date"]
+    test_period : list of str
+        The testing period in the format ["start_date", "end_date"]
+    periods : list of str
+        The whole period in the format ["start_date", "end_date"]
+    warmup : int
+        The warmup period length in days
+    basin_ids : list of str
+        The ids of the basins
+
+    Returns
+    -------
+    tuple of xr.Dataset
+        A tuple of xr.Dataset for training and testing data
+    """
     ts_data = get_ts_from_diffsource(data_type, data_dir, periods, basin_ids)
     if cv_fold > 1:
         # cross validation

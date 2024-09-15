@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-03-26 12:00:12
-LastEditTime: 2024-05-23 10:29:54
+LastEditTime: 2024-09-14 18:46:53
 LastEditors: Wenyu Ouyang
 Description: evaluate a calibrated hydrological model
 FilePath: \hydromodel\scripts\evaluate_xaj.py
@@ -22,8 +22,9 @@ from hydromodel.trainers.evaluate import Evaluator, read_yaml_config
 
 
 def evaluate(args):
+    result_dir = args.result_dir
     exp = args.exp
-    cali_dir = Path(os.path.join(repo_path, "result", exp))
+    cali_dir = Path(os.path.join(result_dir, exp))
     cali_config = read_yaml_config(os.path.join(cali_dir, "config.yaml"))
     kfold = cali_config["cv_fold"]
     basins = cali_config["basin_id"]
@@ -44,13 +45,7 @@ def evaluate(args):
         basins,
     )
     if kfold <= 1:
-        print("Start to evaluate")
-        # evaluate both train and test period for all basins
-        train_data = train_and_test_data[0]
-        test_data = train_and_test_data[1]
-        param_dir = os.path.join(cali_dir, "sceua_xaj")
-        _evaluate(cali_dir, param_dir, train_data, test_data)
-        print("Finish evaluating")
+        _evaluate_1fold(train_and_test_data, cali_dir)
     else:
         for fold in range(kfold):
             print(f"Start to evaluate the {fold+1}-th fold")
@@ -62,28 +57,47 @@ def evaluate(args):
             print(f"Finish evaluating the {fold}-th fold")
 
 
+def _evaluate_1fold(train_and_test_data, cali_dir):
+    print("Start to evaluate")
+    # evaluate both train and test period for all basins
+    train_data = train_and_test_data[0]
+    test_data = train_and_test_data[1]
+    param_dir = os.path.join(cali_dir, "sceua_xaj")
+    _evaluate(cali_dir, param_dir, train_data, test_data)
+    print("Finish evaluating")
+
+
 def _evaluate(cali_dir, param_dir, train_data, test_data):
     eval_train_dir = os.path.join(param_dir, "train")
     eval_test_dir = os.path.join(param_dir, "test")
     train_eval = Evaluator(cali_dir, param_dir, eval_train_dir)
     test_eval = Evaluator(cali_dir, param_dir, eval_test_dir)
-    qsim_train, qobs_train = train_eval.predict(train_data)
-    qsim_test, qobs_test = test_eval.predict(test_data)
+    qsim_train, qobs_train, etsim_train = train_eval.predict(train_data)
+    qsim_test, qobs_test, etsim_test = test_eval.predict(test_data)
     train_eval.save_results(
         train_data,
         qsim_train,
         qobs_train,
+        etsim_train
     )
     test_eval.save_results(
         test_data,
         qsim_test,
         qobs_test,
+        etsim_test
     )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="evaluate a calibrated hydrological model."
+    )
+    parser.add_argument(
+        "--result_dir",
+        dest="result_dir",
+        help="The root directory of results",
+        default=os.path.join(repo_path, "result"),
+        type=str,
     )
     parser.add_argument(
         "--exp",

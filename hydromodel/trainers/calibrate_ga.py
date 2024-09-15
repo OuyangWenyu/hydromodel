@@ -139,6 +139,8 @@ def calibrate_by_ga(
             "name": "xaj_mz",
             "source_type": "sources",
             "source_book": "HF",
+            "kernel_size": 15,
+            "time_interval_hours": 24,
         }
     if ga_param is None:
         ga_param = {
@@ -368,6 +370,8 @@ if __name__ == "__main__":
         "name": "xaj_mz",
         "source_type": "sources",
         "source_book": "HF",
+        "kernel_size": 15,
+        "time_interval_hours": 24,
     }
     train_period = data_info_train["time"]
     basin_area = data_info_train["area"][0]

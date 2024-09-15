@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-11-19 17:27:05
-LastEditTime: 2024-08-15 16:56:41
+LastEditTime: 2024-09-12 08:34:21
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
 FilePath: \hydromodel\scripts\calibrate_xaj.py
@@ -16,8 +16,6 @@ import os
 from pathlib import Path
 import yaml
 
-from hydromodel.models.model_config import MODEL_PARAM_DICT
-
 
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
@@ -26,12 +24,14 @@ from hydromodel.datasets.data_preprocess import (
     _get_pe_q_from_ts,
     cross_val_split_tsdata,
 )
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
 
 
 def calibrate(args):
     data_type = args.data_type
     data_dir = args.data_dir
+    result_dir = args.result_dir
     exp = args.exp
     cv_fold = args.cv_fold
     train_period = args.calibrate_period
@@ -44,7 +44,7 @@ def calibrate(args):
     loss_info = args.loss
     param_range_file = args.param_range_file
 
-    where_save = Path(os.path.join(repo_path, "result", exp))
+    where_save = Path(os.path.join(result_dir, exp))
     if os.path.exists(where_save) is False:
         os.makedirs(where_save)
 
@@ -132,6 +132,13 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
+        "--result_dir",
+        dest="result_dir",
+        help="The root directory of results",
+        default=os.path.join(repo_path, "result"),
+        type=str,
+    )
+    parser.add_argument(
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
@@ -152,54 +159,62 @@ if __name__ == "__main__":
         dest="warmup",
         help="the number of warmup periods",
         # default=720,
-        default=120,
+        default=365,
         type=int,
     )
     parser.add_argument(
         "--period",
         dest="period",
         help="The whole period",
-        # default=["2007-01-01", "2014-01-01"],
+        default=["2014-10-01", "2021-09-30"],
         # default=["2012-06-10 00:00", "2022-08-31 23:00"],
-        default=["2010-01-01 08:00", "2015-11-02 14:00"],
+        # default=["2010-01-01 08:00", "2015-11-02 14:00"],
         nargs="+",
     )
     parser.add_argument(
         "--calibrate_period",
         dest="calibrate_period",
         help="The training period",
-        # default=["2007-01-01", "2014-01-01"],
+        default=["2014-10-01", "2019-09-30"],
         # default=["2012-06-10 00:00", "2017-08-31 23:00"],
-        default=["2010-01-01 08:00", "2014-09-14 02:00"],
+        # default=["2010-01-01 08:00", "2014-09-14 02:00"],
         nargs="+",
     )
     parser.add_argument(
         "--test_period",
         dest="test_period",
         help="The testing period",
-        # default=["2007-01-01", "2014-01-01"],
+        default=["2019-10-01", "2021-09-30"],
         # default=["2017-09-01 00:00", "2022-08-31 23:00"],
-        default=["2014-09-14 08:00", "2015-11-02 14:00"],
+        # default=["2014-09-14 08:00", "2015-11-02 14:00"],
         nargs="+",
     )
     parser.add_argument(
         "--basin_id",
         dest="basin_id",
         help="The basins' ids",
-        # default=["01439500", "06885500", "08104900", "09510200"],
+        default=["changdian_61561", "changdian_62618"],
         # default=["21401550"],
-        default=["songliao_21401550"],
+        # default=["songliao_21401550"],
         nargs="+",
     )
     parser.add_argument(
         "--model",
         dest="model",
-        help="which hydro model you want to calibrate and the parameters setting for model function, note: not hydromodel parameters but function's parameters",
+        help="which hydro model you want to calibrate and the parameters setting for model function,"
+        + " note: not hydromodel parameters but function's parameters."
+        + " Here are some tips for the model parameters settings: "
+        + "if you chose xaj, there are two versions of xaj model, xaj and xaj_mz, "
+        + "the former has the routing method with CSl, the latter used mizuroute, "
+        + "there are two type implemention for dividing sources: source_book = 'HF' means method from book Hydrological Forecast, while EH means Engineering Hydrology "
+        + " source_type is the type of the source data, it can be 'sources' or 'sources5mm'; "
+        + " kernel_size is the size of the convolutional kernel; time_interval_hours is the time interval of the input data",
         default={
-            "name": "xaj",
-            "source_type": "sources5mm",
+            "name": "xaj_mz",
+            "source_type": "sources",
             "source_book": "HF",
-            "time_interval_hours": 6,
+            "kernel_size": 15,
+            "time_interval_hours": 24,
         },
         type=json.loads,
     )
@@ -208,7 +223,7 @@ if __name__ == "__main__":
         dest="param_range_file",
         help="The file of the parameter range",
         # default=None,
-        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe\\param_range.yaml",
+        default="C:\\Users\\wenyu\\OneDrive\\Research\\paper5-dplpartofdissertation\\Results\\XAJ\\changdian_61561\\param_range.yaml",
         # default="C:\\Users\\wenyu\\Downloads\\21113800\\param_range.yaml",
         type=str,
     )
@@ -227,7 +242,7 @@ if __name__ == "__main__":
             # these params are just for test
             "rep": 10,
             "ngs": 10,
-            "kstop": 5,
+            "kstop": 50,
             "peps": 0.1,
             "pcento": 0.1,
         },

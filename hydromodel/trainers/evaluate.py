@@ -1,11 +1,11 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-08-15 09:44:35
+LastEditTime: 2024-09-14 20:31:58
 LastEditors: Wenyu Ouyang
 Description: Plots for calibration and testing results
 FilePath: \hydromodel\hydromodel\trainers\evaluate.py
-Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
+Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
 import pathlib
@@ -75,7 +75,7 @@ class Evaluator:
         p_and_e, _ = _get_pe_q_from_ts(ds)
         basins = ds["basin"].data.astype(str)
         params = _read_all_basin_params(basins, self.params_dir)
-        qsim, _ = MODEL_DICT[model_info["name"]](
+        qsim, etsim = MODEL_DICT[model_info["name"]](
             p_and_e,
             params,
             # we set the warmup_length=0 but later we get results from warmup_length to the end to evaluate
@@ -83,39 +83,67 @@ class Evaluator:
             **model_info,
             **{"param_range_file": self.param_range_file},
         )
-        qsim, qobs = self._convert_streamflow_units(ds, qsim)
-        return qsim, qobs
+        qsim, qobs, etsim = self._convert_streamflow_units(ds, qsim, etsim)
+        return qsim, qobs, etsim
 
-    def save_results(self, ds, qsim, qobs):
+    def save_results(self, ds, qsim, qobs, etsim):
         """save the evaluation results
 
         Parameters
         ----------
-        ds : _type_
+        ds : xr.Dataset
             input dataset
-        qsim : _type_
-            _description_
-        qobs : _type_
-            _description_
+        qsim : xr.Dataset
+            simulated streamflow with unit of m^3/s
+        qobs : xr.Dataset
+            streamflow observation with unit of m^3/s
+        etsim : xr.Dataset
+            simulated evapotranspiration with unit of mm/time_unit(d, h, etc.)
         """
         basins = ds["basin"].data.astype(str)
         self._summarize_parameters(basins)
         self._renormalize_params(basins)
-        self._save_evaluate_results(qsim, qobs, ds)
+        self._save_evaluate_results(qsim, qobs, etsim, ds)
         self._summarize_metrics(basins)
 
-    def _convert_streamflow_units(self, test_data, qsim):
+    def _convert_streamflow_units(self, test_data, qsim, etsim):
+        """convert the streamflow units to m^3/s and save all variables to xr.Dataset
+
+        Parameters
+        ----------
+        test_data : xr.Dataset
+            _description_
+        qsim : np.ndarray
+            simulated streamflow
+        etsim : np.ndarray
+            simulated evapotranspiration
+
+        Returns
+        -------
+        tuple[xr.Dataset, xr.Dataset, xr.Dataset]
+            ds_simflow, ds_obsflow, ds_et -- we use unified name for variables hence save them to different datasets
+        """
         data_type = self.data_type
         data_dir = self.data_dir
         times = test_data["time"].data
         basins = test_data["basin"].data
         flow_name = remove_unit_from_name(FLOW_NAME)
+        et_name = remove_unit_from_name(ET_NAME)
         flow_dataarray = xr.DataArray(
             qsim.squeeze(-1),
             coords=[("time", times), ("basin", basins)],
             name=flow_name,
         )
         flow_dataarray.attrs["units"] = test_data[flow_name].attrs["units"]
+        et_dataarray = xr.DataArray(
+            etsim.squeeze(-1),
+            coords=[("time", times), ("basin", basins)],
+            name=et_name,
+        )
+        # etsim's unit is same as flow's unit -- mm/time_unit(d, h, etc.)
+        et_dataarray.attrs["units"] = test_data[flow_name].attrs["units"]
+        ds_et = xr.Dataset()
+        ds_et[et_name] = et_dataarray
         ds = xr.Dataset()
         ds[flow_name] = flow_dataarray
         target_unit = "m^3/s"
@@ -126,7 +154,7 @@ class Evaluator:
         ds_obsflow = streamflow_unit_conv(
             test_data[[flow_name]], basin_area, target_unit=target_unit, inverse=True
         )
-        return ds_simflow, ds_obsflow
+        return ds_simflow, ds_obsflow, ds_et
 
     def _summarize_parameters(self, basin_ids):
         """
@@ -215,7 +243,7 @@ class Evaluator:
         metric_file_test = os.path.join(result_dir, "basins_metrics.csv")
         metric_dfs_test.to_csv(metric_file_test, sep=",", index=True, header=True)
 
-    def _save_evaluate_results(self, qsim, qobs, obs_ds):
+    def _save_evaluate_results(self, qsim, qobs, etsim, obs_ds):
         result_dir = self.save_dir
         model_name = self.model_info["name"]
         ds = xr.Dataset()
@@ -227,6 +255,7 @@ class Evaluator:
         # 添加 prcp 和 pet
         ds["prcp"] = obs_ds["prcp"]
         ds["pet"] = obs_ds["pet"]
+        ds["etsim"] = etsim["et"]
 
         # 保存为 .nc 文件
         file_path = os.path.join(result_dir, f"{model_name}_evaluation_results.nc")
@@ -282,60 +311,6 @@ def _read_all_basin_params(basins, param_dir):
         basin_params = basin_params.flatten()
         params_list.append(basin_params)
     return np.vstack(params_list)
-
-
-def read_and_save_et_ouputs(result_dir, fold: int):
-    # TODO: not finished yet after we refactor the code
-    prameter_file = os.path.join(result_dir, "basins_params.csv")
-    param_values = pd.read_csv(prameter_file, index_col=0)
-    basins_id = param_values.columns.values
-    args_file = os.path.join(result_dir, "args.json")
-    args = hydro_file.unserialize_json(args_file)
-    warmup_length = args["warmup_length"]
-    model_func_param = args["model"]
-    exp_dir = pathlib.Path(result_dir).parent
-    data_info_train = hydro_file.unserialize_json(
-        exp_dir.joinpath(f"data_info_fold{fold}_train.json")
-    )
-    data_info_test = hydro_file.unserialize_json(
-        exp_dir.joinpath(f"data_info_fold{fold}_test.json")
-    )
-    train_period = data_info_train["time"]
-    test_period = data_info_test["time"]
-    # TODO: basins_lump_p_pe_q_fold NAME need to be unified
-    train_np_file = os.path.join(exp_dir, f"data_info_fold{fold}_train.npy")
-    test_np_file = os.path.join(exp_dir, f"data_info_fold{fold}_test.npy")
-    # train_np_file = os.path.join(exp_dir, f"basins_lump_p_pe_q_fold{fold}_train.npy")
-    # test_np_file = os.path.join(exp_dir, f"basins_lump_p_pe_q_fold{fold}_test.npy")
-    train_data = np.load(train_np_file)
-    test_data = np.load(test_np_file)
-    es_test = []
-    es_train = []
-    for i in range(len(basins_id)):
-        _, e_train = xaj(
-            train_data[:, :, 0:2],
-            param_values[basins_id[i]].values.reshape(1, -1),
-            warmup_length=warmup_length,
-            **model_func_param,
-        )
-        _, e_test = xaj(
-            test_data[:, :, 0:2],
-            param_values[basins_id[i]].values.reshape(1, -1),
-            warmup_length=warmup_length,
-            **model_func_param,
-        )
-        es_train.append(e_train.flatten())
-        es_test.append(e_test.flatten())
-    df_e_train = pd.DataFrame(
-        np.array(es_train).T, columns=basins_id, index=train_period[warmup_length:]
-    )
-    df_e_test = pd.DataFrame(
-        np.array(es_test).T, columns=basins_id, index=test_period[warmup_length:]
-    )
-    etsim_train_save_path = os.path.join(result_dir, "basin_etsim_train.csv")
-    etsim_test_save_path = os.path.join(result_dir, "basin_etsim_test.csv")
-    df_e_train.to_csv(etsim_train_save_path)
-    df_e_test.to_csv(etsim_test_save_path)
 
 
 def read_yaml_config(file_path):

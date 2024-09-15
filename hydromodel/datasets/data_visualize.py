@@ -1,44 +1,97 @@
 """Show results of calibration and validation."""
 
 import os
-from matplotlib import dates, pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 
 from hydroutils import hydro_file, hydro_stat, hydro_plot
 
 
+def plot_precipitation(precipitation, ax=None):
+    """
+    Plots precipitation data from an xarray.DataArray.
+
+    Parameters
+    ----------
+    precipitation : xarray.DataArray
+        The precipitation data with time as the coordinate.
+    ax : matplotlib.axes._axes.Axes, optional
+        The matplotlib axis on which to plot. If None, a new figure and axis are created.
+
+    Returns
+    -------
+    ax : matplotlib.axes._axes.Axes
+        The axis with the plotted data.
+    """
+    # If no axis is provided, create a new figure and axis
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(20, 4))
+
+    # Extract time and precipitation values from the xarray.DataArray
+    time = precipitation.time.values
+    values = precipitation.values
+
+    # Plot the precipitation data as a bar chart
+    ax.bar(
+        time,  # Use time as the x-axis
+        values,  # Use precipitation values as the y-axis
+        color="blue",
+        label="Precipitation",
+        width=0.8,
+    )
+
+    # Set the x and y axis labels
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Precipitation (mm/d)", color="black")
+
+    # Invert the y-axis
+    ax.invert_yaxis()
+
+    # Format the x-axis to display year and month
+    ax.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter("%Y-%m"))
+
+    # Rotate the x-axis labels to avoid overlap
+    plt.xticks(rotation=45)
+
+    # Add a legend
+    ax.legend(loc="lower right")
+
+    return ax
+
+
+def plot_sim_and_obs_streamflow(
+    date, sim, obs, ax=None, xlabel="Date", ylabel="Streamflow (m³/s)"
+):
+    # If no external subplot is provided, create a new one
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(20, 4))
+    ax.plot(date, sim, color="black", linestyle="solid", label="Simulation")
+    ax.plot(date, obs, "r.", markersize=3, label="Observation")
+    ax.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter("%Y-%m"))
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.legend(loc="upper right")
+    return ax
+
+
 def plot_sim_and_obs(
     date,
+    prcp,
     sim,
     obs,
     save_fig,
     xlabel="Date",
     ylabel=None,
 ):
-    # matplotlib.use("Agg")
-    fig = plt.figure(figsize=(9, 6))
-    ax = fig.subplots()
-    ax.plot(
-        date,
-        sim,
-        color="black",
-        linestyle="solid",
-        label="Simulation",
-    )
-    ax.plot(
-        date,
-        obs,
-        "r.",
-        markersize=3,
-        label="Observation",
-    )
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    plt.legend(loc="upper right")
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 10), sharex=True)
+    # Plot precipitation data on the upper subplot
+    plot_precipitation(prcp, ax=ax1)
+
+    # Plot the comparison between simulated and observed values
+    plot_sim_and_obs_streamflow(date, sim, obs, ax=ax2, xlabel=xlabel, ylabel=ylabel)
     plt.tight_layout()
     plt.savefig(save_fig, bbox_inches="tight")
-    # plt.cla()
     plt.close()
 
 
@@ -80,6 +133,7 @@ def plot_rr_events(rr_events, rain, flow, save_dir=None):
             plt.savefig(save_fig, bbox_inches="tight")
 
 
+# TODO: Following functions are not used in the current version of the code, maybe useful in the future
 def show_events_result(
     warmup_length,
     save_dir,

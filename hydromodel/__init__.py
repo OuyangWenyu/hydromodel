@@ -15,7 +15,7 @@ import yaml
 
 __author__ = """Wenyu Ouyang"""
 __email__ = 'wenyuouyang@outlook.com'
-__version__ = '0.2.6'
+__version__ = '0.2.7'
 
 
 CACHE_DIR = hydro_file.get_cache_dir()

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-09-14 17:00:29
-LastEditTime: 2024-09-14 17:25:16
+LastEditTime: 2024-09-17 14:32:30
 LastEditors: Wenyu Ouyang
 Description: Test the evaluate module
 FilePath: \hydromodel\test\test_evaluate.py
@@ -12,7 +12,10 @@ import pandas as pd
 import pytest
 import xarray as xr
 import numpy as np
-from hydromodel.trainers.evaluate import Evaluator
+
+from spotpy.analyser import get_minlikeindex
+
+from hydromodel.trainers.evaluate import Evaluator, _get_minlikeindex_pandas
 
 
 @pytest.fixture
@@ -95,3 +98,34 @@ def test_predict(sample_dataset, evaluator, mocker):
     assert "prcp" in qsim
     assert "prcp" in qobs
     assert "prcp" in etsim
+
+
+def test_get_minlikeindex(hymod_setup):
+    filename = "test/SCEUA_hymod"
+    # Read data using np.genfromtxt (original)
+    results_np = np.genfromtxt(
+        f"{filename}.csv", delimiter=",", names=True, invalid_raise=False
+    )
+
+    # Read data using pandas (new method)
+    results_pd = pd.read_csv(f"{filename}.csv")
+
+    # Run the original get_minlikeindex function
+    original_index, original_minimum = get_minlikeindex(
+        results_np, like_index=1, verbose=False
+    )
+
+    # Run the new get_minlikeindex_pandas function
+    new_index, new_minimum = _get_minlikeindex_pandas(
+        results_pd, like_index=1, verbose=False
+    )
+
+    # Compare the results from both methods
+    assert (
+        original_index == new_index
+    ), f"Index mismatch: {original_index} != {new_index}"
+    assert np.isclose(
+        original_minimum, new_minimum
+    ), f"Minimum value mismatch: {original_minimum} != {new_minimum}"
+
+    print("Test passed! Both methods return identical results.")

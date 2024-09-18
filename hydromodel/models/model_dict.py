@@ -10,6 +10,8 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 
 import numpy as np
 from spotpy.objectivefunctions import rmse
+
+from hydromodel.models.semi_xaj import semi_xaj
 from hydromodel.models.xaj import xaj
 from hydromodel.models.gr4j import gr4j
 from hydromodel.models.hymod import hymod
@@ -56,4 +58,5 @@ MODEL_DICT = {
     "xaj": xaj,
     "gr4j": gr4j,
     "hymod": hymod,
+    "semi_xaj": semi_xaj,
 }

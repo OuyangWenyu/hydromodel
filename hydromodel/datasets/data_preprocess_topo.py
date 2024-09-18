@@ -1,12 +1,11 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-09-14 19:25:13
+LastEditTime: 2024-05-20 20:08:10
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydromodel\hydromodel\datasets\data_preprocess.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
-以前的data_preprocess文件，需保留后整合
 """
 
 import os
@@ -17,12 +16,12 @@ from pint import UnitRegistry
 from sklearn.model_selection import KFold
 import xarray as xr
 
-from hydrodataset import Camels
 from hydrodatasource.utils.utils import streamflow_unit_conv
 from hydrodatasource.cleaner.dmca_esr import rainfall_runoff_event_identify
 
 from hydromodel import CACHE_DIR, SETTING
 from hydromodel.datasets import *
+from hydromodel.datasets.read_data_from_topo import read_data_from_topo
 
 
 def check_tsdata_format(file_path):
@@ -201,11 +200,15 @@ def process_and_save_data_as_nc(
     save_folder=CACHE_DIR,
     nc_attrs_file="attributes.nc",
     nc_ts_file="timeseries.nc",
+    source='local'  # source有两种：local和sql
 ):
+    import geopandas as gpd
     # 验证文件夹内容
+    '''
     if not check_folder_contents(folder_path):
         print("Folder contents validation failed.")
         return False
+    '''
 
     # 读取流域属性
     basin_attr_file = os.path.join(folder_path, "basin_attributes.csv")
@@ -213,10 +216,11 @@ def process_and_save_data_as_nc(
     basin_attrs = pd.read_csv(basin_attr_file, dtype={ID_NAME: str})
 
     # 创建属性数据集
-    ds_attrs = xr.Dataset.from_dataframe(basin_attrs.set_index(ID_NAME))
+    # ds_attrs = xr.Dataset.from_dataframe(basin_attrs.set_index(ID_NAME))
     new_column_names = {}
     units = {}
-
+    # TODO: 去除硬编码
+    node_gdf = gpd.read_file(os.path.join(folder_path, 'station_shps', 'biliu_21401550.shp'))
     for col in basin_attrs.columns:
         new_name = remove_unit_from_name(col)
         unit = get_unit_from_name(col)
@@ -242,42 +246,67 @@ def process_and_save_data_as_nc(
     basin_ids = basin_attrs[ID_NAME].astype(str).tolist()
 
     # 为每个流域读取并处理时序数据
-    for i, basin_id in enumerate(basin_ids):
-        file_name = f"basin_{basin_id}.csv"
-        file_path = os.path.join(folder_path, file_name)
-        data = pd.read_csv(file_path)
-        for time_format in POSSIBLE_TIME_FORMATS:
-            try:
-                data[TIME_NAME] = pd.to_datetime(data[TIME_NAME], format=time_format)
-                break
-            except ValueError:
-                continue
-        # 在处理第一个流域时构建单位字典
-        if i == 0:
-            for col in data.columns:
-                new_name = remove_unit_from_name(col)
-                if unit := get_unit_from_name(col):
-                    units[new_name] = unit
+    if source=='local':
+        for i, basin_id in enumerate(basin_ids):
+            file_name = f"basin_{basin_id}.csv"
+            file_path = os.path.join(folder_path, file_name)
+            data = pd.read_csv(file_path)
+            for time_format in POSSIBLE_TIME_FORMATS:
+                try:
+                    data[TIME_NAME] = pd.to_datetime(data[TIME_NAME], format=time_format)
+                    break
+                except ValueError:
+                    continue
+            # 在处理第一个流域时构建单位字典
+            if i == 0:
+                for col in data.columns:
+                    new_name = remove_unit_from_name(col)
+                    if unit := get_unit_from_name(col):
+                        units[new_name] = unit
 
-        # 修改列名以移除单位
-        renamed_columns = {col: remove_unit_from_name(col) for col in data.columns}
-        data.rename(columns=renamed_columns, inplace=True)
+            # 修改列名以移除单位
+            renamed_columns = {col: remove_unit_from_name(col) for col in data.columns}
+            data.rename(columns=renamed_columns, inplace=True)
+
+            # 将 DataFrame 转换为 xarray Dataset
+            ds_basin = xr.Dataset.from_dataframe(data.set_index(TIME_NAME))
+
+            # 为每个变量设置单位属性
+            for var in ds_basin.data_vars:
+                if var in units:
+                    ds_basin[var].attrs["units"] = units[var]
+            # 添加 basin 坐标
+            ds_basin = ds_basin.expand_dims({"basin": [basin_id]})
+            # 合并到主数据集
+            ds_ts = xr.merge([ds_ts, ds_basin], compat="no_conflicts")
+            ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
+            ds_ts.to_netcdf(os.path.join(save_folder, nc_ts_file))
+    else:
+        basin_ids = node_gdf.index.tolist()
+        data_dict = read_data_from_topo(node_gdf, basin_ids)
+        data_df = list(data_dict.values())[0]
+        for col in data_df.columns:
+            new_name = remove_unit_from_name(col)
+            if unit := get_unit_from_name(col):
+                units[new_name] = unit
+        renamed_columns = {col: remove_unit_from_name(col) for col in data_df.columns}
+        data_df.rename(columns=renamed_columns, inplace=True)
 
         # 将 DataFrame 转换为 xarray Dataset
-        ds_basin = xr.Dataset.from_dataframe(data.set_index(TIME_NAME))
+        ds_basin = xr.Dataset.from_dataframe(data_df.set_index(TIME_NAME))
 
         # 为每个变量设置单位属性
         for var in ds_basin.data_vars:
             if var in units:
                 ds_basin[var].attrs["units"] = units[var]
         # 添加 basin 坐标
-        ds_basin = ds_basin.expand_dims({"basin": [basin_id]})
+        ds_basin = ds_basin.expand_dims({"basin": basin_ids})
         # 合并到主数据集
-        ds_ts = xr.merge([ds_ts, ds_basin], compat="no_conflicts")
+        ds_ts = xr.merge([ds_ts, ds_basin], compat="override")
 
-    # 保存为 NetCDF 文件
-    ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
-    ds_ts.to_netcdf(os.path.join(save_folder, nc_ts_file))
+        # 保存为 NetCDF 文件
+        ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
+        ds_ts.to_netcdf(os.path.join(save_folder, nc_ts_file))
 
     return True
 
@@ -394,19 +423,17 @@ def cross_valid_data(ts_data, period, warmup, cv_fold, freq="1D"):
     return train_test_data
 
 
-def get_basin_area(basin_ids, data_type, data_dir, **kwargs) -> xr.Dataset:
+def get_basin_area(data_type, data_dir, basin_ids) -> xr.Dataset:
     """_summary_
 
     Parameters
     ----------
-    basin_ids : list of str
-        all the basin ids, sorted by the order of the id
-    data_type : str
-        the type of the data source, type in datasource_dict.keys() or 'owndata'
-    data_dir : str
-        the directory of the data source
-    **kwargs
-        some optional parameters for the data source
+    data_type : _type_
+        _description_
+    data_dir : _type_
+        _description_
+    basin_ids : _type_
+        _description_
 
     Returns
     -------
@@ -414,17 +441,16 @@ def get_basin_area(basin_ids, data_type, data_dir, **kwargs) -> xr.Dataset:
         _description_
     """
     area_name = remove_unit_from_name(AREA_NAME)
-    if data_type in datasource_dict.keys():
-        datasource = datasource_dict[data_type](data_dir, **kwargs)
-        basin_area = datasource.read_area(basin_ids)
+    if data_type == "camels":
+        camels_data_dir = os.path.join(
+            SETTING["local_data_path"]["datasets-origin"], "camels", data_dir
+        )
+        camels = Camels(camels_data_dir)
+        basin_area = camels.read_area(basin_ids)
     elif data_type == "owndata":
         attr_data = xr.open_dataset(os.path.join(data_dir, "attributes.nc"))
         # to guarantee the column name is same as the column name in the time series data
         basin_area = attr_data[[area_name]].rename({"id": "basin"})
-    else:
-        raise NotImplementedError(
-            "You should set the data type as 'owndata' or type in datasource_dict.keys()"
-        )
     return basin_area
 
 
@@ -455,36 +481,30 @@ def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
     prcp_name = remove_unit_from_name(PRCP_NAME)
     pet_name = remove_unit_from_name(PET_NAME)
     flow_name = remove_unit_from_name(FLOW_NAME)
-    basin_area = get_basin_area(basin_ids, data_type, data_dir)
-    if data_type in datasource_dict.keys():
-        datasource = datasource_dict[data_type](data_dir)
-        p_pet_flow_vars = datasource_vars_dict[data_type]
-        ts_data = datasource.read_ts_xrdataset(basin_ids, periods, p_pet_flow_vars)
-        if isinstance(ts_data, dict):
-            # We only support one time-unit in the data source, we select the first
-            ts_data = ts_data[list(ts_data.keys())[0]]
-        # get streamflow and convert the unit
-        qobs_ = ts_data[p_pet_flow_vars[-1:]]
-        target_unit = ts_data[p_pet_flow_vars[0]].attrs.get("units", "unknown")
-        if qobs_[p_pet_flow_vars[-1]].attrs.get("units", "unknown") != target_unit:
-            r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
-            ts_data[flow_name] = r_mmd[p_pet_flow_vars[-1]]
-            ts_data[flow_name].attrs["units"] = target_unit
-        ts_data = ts_data.rename(
-            {
-                p_pet_flow_vars[0]: prcp_name,
-                p_pet_flow_vars[1]: pet_name,
-                p_pet_flow_vars[2]: flow_name,
-            }
+    basin_area = get_basin_area(data_type, data_dir, basin_ids)
+    if data_type == "camels":
+        camels_data_dir = os.path.join(
+            SETTING["local_data_path"]["datasets-origin"], "camels", data_dir
         )
+        camels = Camels(camels_data_dir)
+        ts_data = camels.read_ts_xrdataset(
+            basin_ids, periods, ["prcp", "PET", "streamflow"]
+        )
+        # trans unit to mm/time_interval
+        qobs_ = ts_data[["streamflow"]]
+        target_unit = ts_data["prcp"].attrs.get("units", "unknown")
+        r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
+        ts_data[flow_name] = r_mmd["streamflow"]
+        ts_data[flow_name].attrs["units"] = target_unit
+        ts_data = ts_data.rename({"PET": pet_name})
+        # ts_data = ts_data.drop_vars('streamflow')
     elif data_type == "owndata":
         ts_data = xr.open_dataset(os.path.join(data_dir, "timeseries.nc"))
         target_unit = ts_data[prcp_name].attrs.get("units", "unknown")
         qobs_ = ts_data[[flow_name]]
-        if qobs_[flow_name].attrs.get("units", "unknown") != target_unit:
-            r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
-            ts_data[flow_name] = r_mmd[flow_name]
-            ts_data[flow_name].attrs["units"] = target_unit
+        r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
+        ts_data[flow_name] = r_mmd[flow_name]
+        ts_data[flow_name].attrs["units"] = target_unit
         ts_data = ts_data.sel(time=slice(periods[0], periods[1]))
     else:
         raise NotImplementedError(
@@ -521,41 +541,17 @@ def _get_pe_q_from_ts(ts_xr_dataset):
 def cross_val_split_tsdata(
     data_type, data_dir, cv_fold, train_period, test_period, periods, warmup, basin_ids
 ):
-    """Prepare the time series data for cross-validation or no cross-validation
-
-    Parameters
-    ----------
-    data_type : str
-        The type of the data source, 'camels' or 'owndata'
-    data_dir : str
-        The directory of the data source
-    cv_fold : int
-        The number of folds for cross-validation
-    train_period : list of str
-        The training period in the format ["start_date", "end_date"]
-    test_period : list of str
-        The testing period in the format ["start_date", "end_date"]
-    periods : list of str
-        The whole period in the format ["start_date", "end_date"]
-    warmup : int
-        The warmup period length in days
-    basin_ids : list of str
-        The ids of the basins
-
-    Returns
-    -------
-    tuple of xr.Dataset
-        A tuple of xr.Dataset for training and testing data
-    """
     ts_data = get_ts_from_diffsource(data_type, data_dir, periods, basin_ids)
-    if cv_fold > 1:
+    if cv_fold <= 1:
+        # no cross validation
+        periods = np.sort(
+            [train_period[0], train_period[1], test_period[0], test_period[1]]
+        )
+        train_and_test_data = split_train_test(ts_data, train_period, test_period)
+    else:
         # cross validation
-        return cross_valid_data(ts_data, periods, warmup, cv_fold)
-    # no cross validation
-    periods = np.sort(
-        [train_period[0], train_period[1], test_period[0], test_period[1]]
-    )
-    return split_train_test(ts_data, train_period, test_period)
+        train_and_test_data = cross_valid_data(ts_data, periods, warmup, cv_fold)
+    return train_and_test_data
 
 
 def get_rr_events(rain, flow, basin_area):
@@ -566,17 +562,21 @@ def get_rr_events(rain, flow, basin_area):
         basin_area.isel(basin=0).to_array().to_numpy() * ureg.km**2,
         target_unit=flow.units,
     )
-    if not (match := re.match(r"mm/(\d+)(h|d)", flow.units)):
+    # 正则表达式匹配 mm/xh 和 mm/xd 格式
+    match = re.match(r"mm/(\d+)(h|d)", flow.units)
+
+    if match:
+        num, unit = match.groups()
+        num = int(num)
+        if unit == "h":
+            multiple = num
+        elif unit == "d":
+            multiple = num * 24
+        else:
+            raise ValueError(f"Unsupported unit: {unit}")
+    else:
         raise ValueError(f"Invalid unit format: {flow.units}")
 
-    num, unit = match.groups()
-    num = int(num)
-    if unit == "h":
-        multiple = num
-    elif unit == "d":
-        multiple = num * 24
-    else:
-        raise ValueError(f"Unsupported unit: {unit}")
     print(f"flow.units = { flow.units}, multiple = {multiple}")
     rr_events = {}
     for basin in basin_area.basin.values:

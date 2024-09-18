@@ -6,8 +6,20 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from hydroutils import hydro_file, hydro_stat, hydro_plot
+from hydrodatasource.reader.data_source import SelfMadeHydroDataset
 
+# 新增读取降雨数据的函数，根据流域 ID 读取相关 csv 文件
+def read_rainfall_data(basin_id, start_time, end_time):
+    print(f"Reading rainfall data for {basin_id} from {start_time} to {end_time}")
+    rainfall_csv_path = f"/ftproot/basins-interim/timeseries/1D/{basin_id}.csv"
+    rainfall_data = pd.read_csv(rainfall_csv_path, parse_dates=["time"])
+    rainfall_data = rainfall_data.set_index("time")
+    rainfall_filtered = rainfall_data[start_time:end_time]
+    # 检查读取的数据
+    print(rainfall_filtered["total_precipitation_hourly"].head())
+    return rainfall_filtered["total_precipitation_hourly"]
 
+  
 def plot_precipitation(precipitation, ax=None):
     """
     Plots precipitation data from an xarray.DataArray.
@@ -93,6 +105,40 @@ def plot_sim_and_obs(
     plt.tight_layout()
     plt.savefig(save_fig, bbox_inches="tight")
     plt.close()
+
+
+# def plot_sim_and_obs(
+#     date,
+#     sim,
+#     obs,
+#     save_fig,
+#     xlabel="Date",
+#     ylabel=None,
+# ):
+#     # matplotlib.use("Agg")
+#     fig = plt.figure(figsize=(9, 6))
+#     ax = fig.subplots()
+#     ax.plot(
+#         date,
+#         sim,
+#         color="black",
+#         linestyle="solid",
+#         label="Simulation",
+#     )
+#     ax.plot(
+#         date,
+#         obs,
+#         "r.",
+#         markersize=3,
+#         label="Observation",
+#     )
+#     ax.set_xlabel(xlabel)
+#     ax.set_ylabel(ylabel)
+#     plt.legend(loc="upper right")
+#     plt.tight_layout()
+#     plt.savefig(save_fig, bbox_inches="tight")
+#     # plt.cla()
+#     plt.close()
 
 
 def plot_train_iteration(likelihood, save_fig):

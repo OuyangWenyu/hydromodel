@@ -127,7 +127,17 @@ To run calibration with CAMLES dataset, you can use the following code:
 
 ```Shell
 # just an example the hyper-parameters of the model and the algorithm should be tried by yourself
-$ python calibrate_xaj.py --data_type camels --data_dir "C:/Users/wenyu/OneDrive/data/camels/camels_us" --exp expcamels001 --cv_fold 2 --warmup 365 --period 2007-01-01 2014-01-01 --calibrate_period 2007-01-01 2014-01-01 --test_period 2007-01-01 2014-01-01 --basin_id 01439500 06885500 08104900 09510200 --model "{\"name\": \"xaj\", \"source_type\": \"sources5mm\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 10, \"ngs\": 10, \"kstop\": 5, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
+$ python scripts/calibrate_xaj.py --data_type selfmadehydrodataset --data_dir "/ftproot/basins-interim" --exp changdian_61561 --cv_fold 1 --warmup 365 --period 2014-10-01 2021-09-30 --calibrate_period 2014-10-01 2019-09-30 --test_period 2019-10-01 2021-09-30 --basin_id changdian_61561 --model "{\"name\": \"xaj_mz\", \"source_type\": \"sources\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 5000, \"ngs\": 1000, \"kstop\": 50, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
+
+$ python scripts/calibrate_xaj.py --data_type selfmadehydrodataset --data_dir "/ftproot/basins-interim" --exp changdian_61561 --cv_fold 1 --warmup 365 --period 2014-10-01 2021-09-30 --calibrate_period 2014-10-01 2019-09-30 --test_period 2019-10-01 2021-09-30 --basin_id changdian_61561 --model "{\"name\": \"xaj_mz\", \"source_type\": \"sources\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 5000, \"ngs\": 1000, \"kstop\": 50, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
+
+$ python scripts/calibrate_xaj.py --data_type selfmadehydrodataset --data_dir "/ftproot/basins-interim" --exp changdian_61700 --cv_fold 1 --warmup 365 --period 2014-10-01 2021-09-30 --calibrate_period 2014-10-01 2019-09-30 --test_period 2019-10-01 2021-09-30 --basin_id changdian_61700 --model "{\"name\": \"xaj_mz\", \"source_type\": \"sources\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 5000, \"ngs\": 1000, \"kstop\": 50, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
+
+$ python scripts/calibrate_xaj.py --data_type selfmadehydrodataset --data_dir "/ftproot/basins-interim" --exp changdian_61716 --cv_fold 1 --warmup 365 --period 2014-10-01 2021-09-30 --calibrate_period 2014-10-01 2019-09-30 --test_period 2019-10-01 2021-09-30 --basin_id changdian_61716 --model "{\"name\": \"xaj_mz\", \"source_type\": \"sources\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 5000, \"ngs\": 1000, \"kstop\": 50, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
+
+$ python scripts/calibrate_xaj.py --data_type selfmadehydrodataset --data_dir "/ftproot/basins-interim" --exp changdian_62618 --cv_fold 1 --warmup 365 --period 2014-10-01 2021-09-30 --calibrate_period 2014-10-01 2019-09-30 --test_period 2019-10-01 2021-09-30 --basin_id changdian_62618 --model "{\"name\": \"xaj_mz\", \"source_type\": \"sources\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 5000, \"ngs\": 1000, \"kstop\": 50, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
+
+$ python scripts/calibrate_xaj.py --data_type selfmadehydrodataset --data_dir "/ftproot/basins-interim" --exp changdian_91000 --cv_fold 1 --warmup 365 --period 2014-10-01 2021-09-30 --calibrate_period 2014-10-01 2019-09-30 --test_period 2019-10-01 2021-09-30 --basin_id changdian_91000 --model "{\"name\": \"xaj_mz\", \"source_type\": \"sources\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 5000, \"ngs\": 1000, \"kstop\": 50, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
 ```
 
 To use your own data, run the following code:
@@ -145,7 +155,15 @@ Then you can evaluate the calibrated model with the following code:
 ```Shell
 # $ python evaluate_xaj.py --exp expcamels001
 # for your own data
-$ python evaluate_xaj.py --exp expbiliuhe001
+$ python scripts/evaluate_xaj.py --exp changdian_61561
+
+$ python scripts/evaluate_xaj.py --exp changdian_61700
+
+$ python scripts/evaluate_xaj.py --exp changdian_61716
+
+$ python scripts/evaluate_xaj.py --exp changdian_62618
+
+$ python scripts/evaluate_xaj.py --exp changdian_91000
 ```
 
 ### See the results
@@ -155,7 +173,15 @@ Run the following code to see the results of the evaluation:
 ```Shell
 # $ python visualize.py --exp expcamels001
 # for your own data
-$ python visualize.py --exp expbiliuhe001
+$ python scripts/visualize.py --exp changdian_61561
+
+$ python scripts/visualize.py --exp changdian_61700
+
+$ python scripts/visualize.py --exp changdian_61716
+
+$ python scripts/visualize.py --exp changdian_62618
+
+$ python scripts/visualize.py --exp changdian_91000
 ```
 
 You will see the results in the `example` directory.

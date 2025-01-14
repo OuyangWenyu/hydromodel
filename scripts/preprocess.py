@@ -12,15 +12,14 @@ from pathlib import Path
 import sys
 import os
 import argparse
+from hydrodatasource.processor.dmca_esr import get_rr_events, plot_rr_events
 
 current_script_path = Path(os.path.realpath(__file__))
 repo_path = current_script_path.parent.parent
 sys.path.append(str(repo_path))
-from hydromodel.datasets.data_visualize import plot_rr_events
 from hydromodel.datasets.data_preprocess import (
     get_basin_area,
     get_ts_from_diffsource,
-    get_rr_events,
 )
 
 

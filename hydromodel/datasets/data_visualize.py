@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from hydroutils import hydro_file, hydro_stat, hydro_plot
+from hydroutils import hydro_file, hydro_stat
 
 
 def plot_precipitation(precipitation, ax=None):
@@ -105,32 +105,6 @@ def plot_train_iteration(likelihood, save_fig):
     plt.savefig(save_fig, bbox_inches="tight")
     # plt.cla()
     plt.close()
-
-
-def plot_rr_events(rr_events, rain, flow, save_dir=None):
-    for i in range(len(rr_events)):
-        beginning_time = rr_events["BEGINNING_RAIN"].iloc[i]
-        end_time = rr_events["END_FLOW"].iloc[i]  # Ensure this column exists
-
-        # Filter data for the specific time period
-        filtered_rain_data = rain.sel(time=slice(beginning_time, end_time))
-        filter_flow_data = flow.sel(time=slice(beginning_time, end_time))
-
-        # Plotting
-        hydro_plot.plot_rainfall_runoff(
-            filtered_rain_data.time.values,
-            filtered_rain_data.values,
-            [filter_flow_data.values],
-            title=f"Rainfall-Runoff Event {i}",
-            leg_lst=["Flow"],
-            xlabel="Time",
-            ylabel="Flow (mm/h)",
-        )
-        if save_dir:
-            if not os.path.exists(save_dir):
-                os.makedirs(save_dir)
-            save_fig = os.path.join(save_dir, f"rr_event_{i}.png")
-            plt.savefig(save_fig, bbox_inches="tight")
 
 
 # TODO: Following functions are not used in the current version of the code, maybe useful in the future

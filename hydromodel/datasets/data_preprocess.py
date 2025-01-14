@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-09-14 19:25:13
+LastEditTime: 2025-01-14 13:16:23
 LastEditors: Wenyu Ouyang
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydromodel\hydromodel\datasets\data_preprocess.py
@@ -12,15 +12,12 @@ import os
 import re
 import numpy as np
 import pandas as pd
-from pint import UnitRegistry
-from sklearn.model_selection import KFold
 import xarray as xr
+from sklearn.model_selection import KFold
 
-from hydrodataset import Camels
 from hydrodatasource.utils.utils import streamflow_unit_conv
-from hydrodatasource.cleaner.dmca_esr import rainfall_runoff_event_identify
 
-from hydromodel import CACHE_DIR, SETTING
+from hydromodel import CACHE_DIR
 from hydromodel.datasets import *
 
 
@@ -555,36 +552,3 @@ def cross_val_split_tsdata(
         [train_period[0], train_period[1], test_period[0], test_period[1]]
     )
     return split_train_test(ts_data, train_period, test_period)
-
-
-def get_rr_events(rain, flow, basin_area):
-    ureg = UnitRegistry()
-    # trans unit to mm/time_interval
-    flow_threshold = streamflow_unit_conv(
-        np.array([100]) * ureg.m**3 / ureg.s,
-        basin_area.isel(basin=0).to_array().to_numpy() * ureg.km**2,
-        target_unit=flow.units,
-    )
-    if not (match := re.match(r"mm/(\d+)(h|d)", flow.units)):
-        raise ValueError(f"Invalid unit format: {flow.units}")
-
-    num, unit = match.groups()
-    num = int(num)
-    if unit == "h":
-        multiple = num
-    elif unit == "d":
-        multiple = num * 24
-    else:
-        raise ValueError(f"Unsupported unit: {unit}")
-    print(f"flow.units = { flow.units}, multiple = {multiple}")
-    rr_events = {}
-    for basin in basin_area.basin.values:
-        rr_event = rainfall_runoff_event_identify(
-            rain.sel(basin=basin).to_series(),
-            flow.sel(basin=basin).to_series(),
-            multiple=multiple,
-            flow_threshold=flow_threshold[0],
-            rain_min=0.02 * multiple,
-        )
-        rr_events[basin] = rr_event
-    return rr_events

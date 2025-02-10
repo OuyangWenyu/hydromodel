@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2024-09-11 21:13:55
+LastEditTime: 2025-02-10 15:31:46
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
 FilePath: /hydromodel/hydromodel/models/xaj.py
@@ -915,7 +915,8 @@ def xaj(
             else:
                 qi = linear_reservoir(ris_[i], ci, qi)
                 qg = linear_reservoir(rgs_[i], cg, qg)
-            qs_ = rss_[i]
+            # Don't forget the runoff_im
+            qs_ = rss_[i] + runoff_ims_[i]
             qt[i, :] = qs_ + qi + qg
         for j in range(len(l)):
             lag = int(l[j])

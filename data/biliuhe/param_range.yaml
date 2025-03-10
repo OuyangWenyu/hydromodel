@@ -17,10 +17,10 @@ xaj:
   - CG
   param_range:
     K:
-    - 0.1
+    - 0.9  #origion 0.1
     - 1.0
     B:
-    - 0.1
+    - 0.2
     - 0.4
     IM:
     - 0.01
@@ -53,8 +53,8 @@ xaj:
     - 0.0
     - 1.0
     L:
-    - 1.0
     - 10.0
+    - 100.0
     CI:
     - 0.0
     - 0.9
@@ -78,6 +78,7 @@ xaj_mz:
   - THETA
   - CI
   - CG
+  - KERNEL
   param_range:
     K:
     - 0.1
@@ -124,24 +125,9 @@ xaj_mz:
     CG:
     - 0.98
     - 0.998
-gr1a:
-  param_name:
-  - x
-  param_range:
-    x:
-    - 0.13
-    - 3.5
-gr2m:
-  param_name:
-  - x1
-  - x5
-  param_range:
-    x1:
-    - 140
-    - 2640
-    x5:
-    - 0.21
-    - 1.31
+    KERNEL:
+    - 1
+    - 15
 gr4j:
   param_name:
   - x1
@@ -161,56 +147,6 @@ gr4j:
     x4:
     - 1.1
     - 2.9
-gr5j:
-  param_name:
-  - x1
-  - x2
-  - x3
-  - x4
-  - x5
-  param_range:
-    x1:
-    - 100.0
-    - 1200.0
-    x2:
-    - -5.0
-    - 3.0
-    x3:
-    - 20.0
-    - 300.0
-    x4:
-    - 1.1
-    - 2.9
-    x5:
-    - 0
-    - 1
-gr6j:
-  param_name:
-  - x1
-  - x2
-  - x3
-  - x4
-  - x5
-  - x6
-  param_range:
-    x1:
-    - 100.0
-    - 1200.0
-    x2:
-    - -5.0
-    - 3.0
-    x3:
-    - 20.0
-    - 300.0
-    x4:
-    - 1.1
-    - 2.9
-    x5:
-    - 0
-    - 1
-    x6:
-    - 0
-    - 100
 hymod:
   param_name:
   - cmax

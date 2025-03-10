@@ -125,8 +125,32 @@ class SpotSetup(object):
         float
             likelihood
         """
+
+        #基于月尺度数据计算目标函数值
+        # 获取时间步长设置
+        hours_per_month = 30 * 24  # 假设每月30天
+        time_length = len(evaluation)
+        month_num = time_length // hours_per_month
+        
+        # 将观测数据转换为月尺度
+        monthly_obs = np.zeros((month_num, evaluation.shape[1], evaluation.shape[2]))
+        for m in range(month_num):
+            start_idx = m * hours_per_month
+            end_idx = (m + 1) * hours_per_month
+            if end_idx <= time_length:
+                monthly_obs[m] = np.sum(evaluation[start_idx:end_idx], axis=0)
+        
+        # 将模拟数据转换为月尺度
+        monthly_sim = np.zeros((month_num, simulation.shape[1], simulation.shape[2]))
+        for m in range(month_num):
+            start_idx = m * hours_per_month
+            end_idx = (m + 1) * hours_per_month
+            if end_idx <= time_length:
+                monthly_sim[m] = np.sum(simulation[start_idx:end_idx], axis=0)
+
         if self.loss["type"] == "time_series":
-            return LOSS_DICT[self.loss["obj_func"]](evaluation, simulation)
+            return LOSS_DICT[self.loss["obj_func"]](monthly_obs, monthly_sim)
+        
         # for events
         time = self.loss["events"]
         if time is None:
@@ -134,7 +158,7 @@ class SpotSetup(object):
                 "time should not be None since you choose events, otherwise choose time_series"
             )
         # TODO: not finished for events
-        calibrate_starttime = pd.to_datetime("2012-06-10 0:00:00")
+        calibrate_starttime = pd.to_datetime("2014-01-01 0:00:00")
         calibrate_endtime = pd.to_datetime("2019-12-31 23:00:00")
         total = 0
         count = 0
@@ -242,9 +266,15 @@ def calibrate_by_sceua(
         # 获取最佳参数组合
         best_run = df_results.loc[df_results['like1'].idxmax()]
         
-        # 获取参数值（使用 parx1, parx2 等格式的列名）
+        # 获取参数值（使用实际的参数名称）
+        # 打印列名，用于调试
+        # print("Best run data:", best_run)
+        
+        # 获取参数值（使用x0, x1等格式的列名）
+        best_params = {}
+        best_params[basins[i]] = {}
         for j, param_name in enumerate(spot_setup.parameter_names):
-            param_col = f'parx{j+1}'  # SPOTPY使用的是从1开始的索引
+            param_col = f'par{param_name}'  # SPOTPY使用parx作为参数列名
             best_params[basins[i]][param_name] = float(best_run[param_col])
         
         # 保存为JSON文件

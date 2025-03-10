@@ -125,6 +125,26 @@ class SpotSetup(object):
         float
             likelihood
         """
+
+        # 获取时间步长设置
+        days_per_year = self.model.get("days_per_year", 365)
+        time_length = len(evaluation)
+        year_num = time_length // days_per_year
+        
+        # 将观测数据转换为年尺度
+        annual_obs = np.zeros((year_num, evaluation.shape[1], evaluation.shape[2]))
+        for y in range(year_num):
+            start_idx = y * days_per_year
+            end_idx = (y + 1) * days_per_year
+            annual_obs[y] = np.sum(evaluation[start_idx:end_idx], axis=0)
+        
+        # 将模拟数据转换为年尺度
+        annual_sim = np.zeros((year_num, simulation.shape[1], simulation.shape[2]))
+        for y in range(year_num):
+            start_idx = y * days_per_year
+            end_idx = (y + 1) * days_per_year
+            annual_sim[y] = np.sum(simulation[start_idx:end_idx], axis=0)
+
         if self.loss["type"] == "time_series":
             return LOSS_DICT[self.loss["obj_func"]](evaluation, simulation)
         # for events
@@ -134,7 +154,7 @@ class SpotSetup(object):
                 "time should not be None since you choose events, otherwise choose time_series"
             )
         # TODO: not finished for events
-        calibrate_starttime = pd.to_datetime("2012-06-10 0:00:00")
+        calibrate_starttime = pd.to_datetime("2014-01-01 0:00:00")
         calibrate_endtime = pd.to_datetime("2019-12-31 23:00:00")
         total = 0
         count = 0
@@ -242,9 +262,15 @@ def calibrate_by_sceua(
         # 获取最佳参数组合
         best_run = df_results.loc[df_results['like1'].idxmax()]
         
-        # 获取参数值（使用 parx1, parx2 等格式的列名）
+        # 获取参数值（使用实际的参数名称）
+        # 打印列名，用于调试
+        # print("Best run data:", best_run)
+        
+        # 获取参数值（使用x0, x1等格式的列名）
+        best_params = {}
+        best_params[basins[i]] = {}
         for j, param_name in enumerate(spot_setup.parameter_names):
-            param_col = f'parx{j+1}'  # SPOTPY使用的是从1开始的索引
+            param_col = 'parx'  # SPOTPY使用parx作为参数列名
             best_params[basins[i]][param_name] = float(best_run[param_col])
         
         # 保存为JSON文件

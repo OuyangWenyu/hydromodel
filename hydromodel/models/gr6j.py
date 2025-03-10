@@ -1,12 +1,13 @@
 '''
-Author: Wenyu Ouyang
-Date: 2025-02-18 10:20:58
-LastEditTime: 2025-02-24 17:29:31
+Author: zhuanglaihong
+Date: 2025-02-21 14:54:24
+LastEditTime: 2025-03-10 16:18:04
 LastEditors: zhuanglaihong
-Description: Core code for GR4J model
-FilePath: /zlh/hydromodel/hydromodel/models/gr4j.py
+Description: 
+FilePath: /zlh/hydromodel/hydromodel/models/gr6j.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 '''
+
 import math
 from typing import Optional, Tuple
 import numpy as np
@@ -14,7 +15,6 @@ from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.xaj import uh_conv
-
 
 # @jit
 @jit(nopython=True)
@@ -47,7 +47,7 @@ def production(
     p_and_e: np.array, x1: np.array, s_level: Optional[np.array] = None
 ) -> Tuple[np.array, np.array]:
     """
-    an one-step calculation for production store in GR4J
+    an one-step calculation for production store in GR6j
     the dimension of the cell: [batch, feature]
     Parameters
     ----------
@@ -56,7 +56,7 @@ def production(
     x1:
         Storage reservoir parameter;
     s_level
-        s_level means S in the GR4J Model; similar with the "hx" in the RNNCell
+        s_level means S in the GR6j Model; similar with the "hx" in the RNNCell
         Initial value of storage in the storage reservoir.
     Returns
     -------
@@ -130,9 +130,9 @@ def s_curves2(t, x4):
         return 1
 
 
-def uh_gr4j(x4):
+def uh_gr6j(x4):
     """
-    Generate the convolution kernel for the convolution operation in routing module of GR4J
+    Generate the convolution kernel for the convolution operation in routing module of GR6j
 
     Parameters
     ----------
@@ -161,13 +161,13 @@ def uh_gr4j(x4):
     return uh1_ordinates, uh2_ordinates
 
 
-def routing(q9: np.array, q1: np.array, x2, x3, r_level: Optional[np.array] = None):
+def routing_store(q9: np.array, q1: np.array ,x2, x3, x5 ,SC=0.4, r1: Optional[np.array] = None):
     """
-    the GR4J routing-module unit cell for time-sequence loop
+    the GR6j routing-module unit cell for time-sequence loop
     Parameters
     ----------
     q9
-    q1
+
     x2
         Catchment water exchange parameter
     x3
@@ -177,24 +177,47 @@ def routing(q9: np.array, q1: np.array, x2, x3, r_level: Optional[np.array] = No
     Returns
     -------
     """
-    if r_level is None:
-        r_level = 0.7 * x3
+    if r1 is None:
+        r1 = 0.7 * x3
     # r_level should not be larger than self.x3
-    r_level = np.clip(r_level, a_min=np.full(r_level.shape, 0.0), a_max=x3)
-    groundwater_ex = x2 * (r_level / x3) ** 3.5
-    r_updated = np.maximum(np.full(r_level.shape, 0.0), r_level + q9 + groundwater_ex)
+    r1 = np.clip(r1, a_min=np.full(r1.shape, 0.0), a_max=x3)
+    groundwater_ex = x2 * r1 / x3 - x2 * x5
+    r1_updated = np.maximum(np.full(r1.shape, 0.0), r1 + q9*(1-SC) + groundwater_ex)
 
-    qr = r_updated * (1.0 - (1.0 + (r_updated / x3) ** 4) ** -0.25)
-    r_updated = r_updated - qr
+    qr1 = r1_updated * (1.0 - (1.0 + (r1_updated / x3) ** 4) ** -0.25)
+    r1_updated = r1_updated - qr1
 
     qd = np.maximum(np.full(groundwater_ex.shape, 0.0), q1 + groundwater_ex)
-    q = qr + qd
-    return q, r_updated
+    q = qr1 + qd
+    return q, r1_updated
 
-
-def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
+def exponential_store(q9: np.array, x3, x6 ,SC=0.4,r2: Optional[np.array] = None):
     """
-    run GR4J model
+    the GR6j exponential store module unit cell for time-sequence loop
+    Parameters
+    ----------
+    q9
+
+    x6
+        exponential reservoir parameters
+    r_2
+        Beginning value of storage in the exponential reservoir.
+    Returns
+    -------
+    """
+    if r2 is None:
+        r2 = 0.3 * x3
+    # r_level should not be larger than self.x3
+    r2 = np.clip(r2, a_min=np.full(r2.shape, 0.0), a_max=x3)
+    r2 = q9 * SC + r2
+    qr2 = x6 * np.log(1 + np.exp(r2 / x6))
+    r2_updated = r2 - qr2
+
+    return qr2, r2_updated
+
+def gr6j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
+    """
+    run GR6j model
 
     Parameters
     ----------
@@ -202,7 +225,7 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         3-dim input -- [time, basin, variable]: precipitation and potential evaporation
     parameters
         2-dim variable -- [basin, parameter]:
-        the parameters are x1, x2, x3 and x4
+        the parameters are x1, x2, x3 and x4, x5, x6
     warmup_length
         length of warmup period
     return_state
@@ -213,29 +236,33 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     Union[np.array, tuple]
         streamflow or (streamflow, states)
     """
-    model_param_dict = kwargs.get("gr4j", None)
+    model_param_dict = kwargs.get("gr6j", None)
     if model_param_dict is None:
-        model_param_dict = MODEL_PARAM_DICT["gr4j"]
+        model_param_dict = MODEL_PARAM_DICT["gr6j"]
     # params
     param_ranges = model_param_dict["param_range"]
     x1_scale = param_ranges["x1"]
     x2_sacle = param_ranges["x2"]
     x3_scale = param_ranges["x3"]
     x4_scale = param_ranges["x4"]
+    x5_scale = param_ranges["x5"]
+    x6_scale = param_ranges["x6"]
     x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
     x2 = x2_sacle[0] + parameters[:, 1] * (x2_sacle[1] - x2_sacle[0])
     x3 = x3_scale[0] + parameters[:, 2] * (x3_scale[1] - x3_scale[0])
     x4 = x4_scale[0] + parameters[:, 3] * (x4_scale[1] - x4_scale[0])
-
+    x5 = x5_scale[0] + parameters[:, 4] * (x5_scale[1] - x5_scale[0])
+    x6 = x6_scale[0] + parameters[:, 5] * (x6_scale[1] - x6_scale[0])
     if warmup_length > 0:
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
-        _, _, s0, r0 = gr4j(
+        _, _, s0, r1, r2 = gr6j(
             p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
         )
     else:
         s0 = 0.5 * x1
-        r0 = 0.5 * x3
+        r1 = 0.5 * x3
+        r2 = 0.3 * x3
     inputs = p_and_e[warmup_length:, :, :]
     streamflow_ = np.full(inputs.shape[:2], 0.0)
     prs = np.full(inputs.shape[:2], 0.0)
@@ -248,7 +275,7 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         prs[i, :] = pr
         ets[i, :] = et
     prs_x = np.expand_dims(prs, axis=2)
-    conv_q9, conv_q1 = uh_gr4j(x4)
+    conv_q9, conv_q1 = uh_gr6j(x4)
     q9 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
     q1 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
     for j in range(inputs.shape[1]):
@@ -258,11 +285,12 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         q1[:, j : j + 1, :] = uh_conv(
             prs_x[:, j : j + 1, :], conv_q1[j].reshape(-1, 1, 1)
         )
+    
+    SC = 0.4 # 分配系数
     for i in range(inputs.shape[0]):
-        if i == 0:
-            q, r = routing(q9[i, :, 0], q1[i, :, 0], x2, x3, r0)
-        else:
-            q, r = routing(q9[i, :, 0], q1[i, :, 0], x2, x3, r)
-        streamflow_[i, :] = q
+        q, r1 = routing_store(q9[i, :, 0], q1[i, :, 0], x2, x3, x5, SC, r1)
+        qr2,r2= exponential_store(q9[i, :, 0], x3, x6, SC, r2)
+
+        streamflow_[i, :] = qr2+ q
     streamflow = np.expand_dims(streamflow_, axis=2)
-    return (streamflow, ets, s, r) if return_state else (streamflow, ets)
+    return (streamflow, ets, s, r1,r2) if return_state else (streamflow, ets)

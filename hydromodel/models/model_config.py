@@ -120,6 +120,23 @@ MODEL_PARAM_DICT = {
             }
         ),
     },
+    "gr1a": {
+        "param_name": ["x"],
+        "param_range": OrderedDict(
+            {
+                "x": [0.13, 3.5],
+            }
+        ),
+    },
+    "gr2m": {
+        "param_name": ["x1", "x5"],
+        "param_range": OrderedDict(
+            {   
+                "x1": [140, 2640],
+                "x5": [0.21, 1.31],
+            }
+        ),
+    },
     "gr4j": {
         "param_name": ["x1", "x2", "x3", "x4"],
         "param_range": OrderedDict(
@@ -128,6 +145,31 @@ MODEL_PARAM_DICT = {
                 "x2": [-5.0, 3.0],
                 "x3": [20.0, 300.0],
                 "x4": [1.1, 2.9],
+            }
+        ),
+    },
+    "gr5j": {
+        "param_name": ["x1", "x2", "x3", "x4", "x5"],
+        "param_range": OrderedDict(
+            {
+                "x1": [100.0, 1200.0],
+                "x2": [-5.0, 3.0],
+                "x3": [20.0, 300.0],
+                "x4": [1.1, 2.9],
+                "x5": [0,1],
+            }
+        ),
+    },
+    "gr6j": {
+        "param_name": ["x1", "x2", "x3", "x4", "x5", "x6"],
+        "param_range": OrderedDict(
+            {
+                "x1": [100.0, 1200.0],
+                "x2": [-5.0, 3.0],
+                "x3": [20.0, 300.0],
+                "x4": [1.1, 2.9],
+                "x5": [0,1],
+                "x6": [1,100],
             }
         ),
     },

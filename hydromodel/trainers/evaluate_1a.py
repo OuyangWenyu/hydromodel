@@ -1,12 +1,13 @@
-"""
-Author: Wenyu Ouyang
-Date: 2022-10-25 21:16:22
-LastEditTime: 2024-09-17 15:13:57
-LastEditors: Wenyu Ouyang
-Description: Plots for calibration and testing results
-FilePath: \hydromodel\hydromodel\trainers\evaluate.py
-Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
-"""
+'''
+Author: zhuanglaihong
+Date: 2025-03-04 23:51:53
+LastEditTime: 2025-03-04 23:53:47
+LastEditors: zhuanglaihong
+Description: 
+FilePath: /zlh/hydromodel/hydromodel/trainers/evaluate_gr1a.py
+Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
+'''
+
 
 import os
 import yaml
@@ -27,7 +28,7 @@ from hydromodel.models.model_dict import MODEL_DICT
 
 
 class Evaluator:
-    def __init__(self, cali_dir, param_dir=None, eval_dir=None):
+    def __init__(self, cali_dir, param_dir=None, eval_dir=None, warmup_length=0):
         """_summary_
 
         Parameters
@@ -50,6 +51,7 @@ class Evaluator:
         self.model_info = cali_config["model"]
         self.save_dir = eval_dir
         self.params_dir = param_dir
+        self. warmup_length=warmup_length
         self.param_range_file = cali_config["param_range_file"]
         if not os.path.exists(param_dir):
             os.makedirs(param_dir)
@@ -57,32 +59,28 @@ class Evaluator:
             os.makedirs(eval_dir)
 
     def predict(self, ds):
-        """predict the streamflow of all basins in ds
-
-        Parameters
-        ----------
-        ds : xr.Dataset
-            the input dataset
-
-        Returns
-        -------
-        tuple
-            qsim, qobs
-        """
+        """predict the streamflow of all basins in ds"""
         model_info = self.model_info
         p_and_e, _ = _get_pe_q_from_ts(ds)
         basins = ds["basin"].data.astype(str)
         params = _read_all_basin_params(basins, self.params_dir)
-        qsim, etsim = MODEL_DICT[model_info["name"]](
+        
+        # GR1A模型只返回年径流，不返回蒸散发
+        qsim = MODEL_DICT[model_info["name"]](
             p_and_e,
             params,
-            # we set the warmup_length=0 but later we get results from warmup_length to the end to evaluate
-            warmup_length=0,
+            warmup_length=self.warmup_length,
             **model_info,
             **{"param_range_file": self.param_range_file},
         )
-        qsim, qobs, etsim = self._convert_streamflow_units(ds, qsim, etsim)
-        return qsim, qobs, etsim
+        
+        # 创建与qsim相同形状的空etsim数组
+        print(f"qsim type: {type(qsim)}")
+        print(f"qsim shape: {np.array(qsim).shape if hasattr(qsim, 'shape') else 'unknown'}")
+        
+        
+        qsim, qobs, _ = self._convert_streamflow_units(ds, qsim, None)
+        return qsim, qobs, None  # 返回None代替etsim
 
     def save_results(self, ds, qsim, qobs, etsim):
         """save the evaluation results
@@ -101,87 +99,130 @@ class Evaluator:
         basins = ds["basin"].data.astype(str)
         self._summarize_parameters(basins)
         self._renormalize_params(basins)
-        self._save_evaluate_results(qsim, qobs, etsim, ds)
+        self._save_evaluate_results(qsim, qobs, ds)  # 移除etsim参数
         self._summarize_metrics(basins)
 
     def _convert_streamflow_units(self, test_data, qsim, etsim):
-        """convert the streamflow units to m^3/s and save all variables to xr.Dataset
-
-        Parameters
-        ----------
-        test_data : xr.Dataset
-            _description_
-        qsim : np.ndarray
-            simulated streamflow
-        etsim : np.ndarray
-            simulated evapotranspiration
-
-        Returns
-        -------
-        tuple[xr.Dataset, xr.Dataset, xr.Dataset]
-            ds_simflow, ds_obsflow, ds_et -- we use unified name for variables hence save them to different datasets
-        """
+        """convert the streamflow units to m^3/s and save all variables to xr.Dataset"""
         data_type = self.data_type
         data_dir = self.data_dir
         times = test_data["time"].data
         basins = test_data["basin"].data
         flow_name = remove_unit_from_name(FLOW_NAME)
-        et_name = remove_unit_from_name(ET_NAME)
         
-        # 打印调试信息
-        # print("Data shapes before processing:")
-        # print("qsim shape:", qsim.shape)
-        # print("etsim shape:", etsim.shape)
-        # print("times shape:", times.shape)
-        # print("basins shape:", basins.shape)
+        # GR1A模型返回的是tuple，第一个元素是年径流
+        qsim = qsim[0] if isinstance(qsim, tuple) else qsim
+        qsim = np.array(qsim, dtype=float)
         
-        # 确保数据维度正确
-        qsim = qsim.squeeze()
-        etsim = etsim.squeeze()
+        # 处理多余的维度
+        qsim = qsim.squeeze()  # 移除所有长度为1的维度
         
-        # 如果数据是一维的，需要重塑成二维
-        if len(qsim.shape) == 1:
-            qsim = qsim.reshape(len(times), -1)
-        if len(etsim.shape) == 1:
-            etsim = etsim.reshape(len(times), -1)
+        # 计算年数和流域数
+        days_per_year = 365
+        n_years = len(times) // days_per_year
+        n_basins = len(basins)
         
-        # print("Data shapes after reshape:")
-        # print("qsim shape:", qsim.shape)
-        # print("etsim shape:", etsim.shape)
+        #print("Array info:")
+        #print("qsim size:", qsim.size)
+        #print("Expected size:", n_years * days_per_year * n_basins)
+        #print("n_years:", n_years)
+        #print("n_basins:", n_basins)
         
-        # 创建 DataArray，确保维度匹配
+        # 确保数据长度正确
+        if qsim.size != n_years * days_per_year * n_basins:
+            # 如果数据长度不匹配，可能需要截断或填充
+            expected_length = n_years * days_per_year * n_basins
+            if qsim.size > expected_length:
+                qsim = qsim[:expected_length]
+            else:
+                # 如果数据不够，用0填充
+                padded_qsim = np.zeros(expected_length)
+                padded_qsim[:qsim.size] = qsim
+                qsim = padded_qsim
+        
+        # 重塑数组为年尺度，注意处理流域维度
+        qsim = qsim.reshape(n_years * days_per_year, n_basins)
+        # 重塑为三维数组 (年份, 天数, 流域)
+        qsim = qsim.reshape(n_years, days_per_year, n_basins)
+        # 计算年总量
+        qsim = qsim.sum(axis=1)  # 现在形状应该是 (n_years, n_basins)
+        
+        #print("Data shapes after reshape:")
+        #print("qsim shape:", qsim.shape)
+        
+        # 创建年尺度的时间坐标
+        start_year = pd.Timestamp(times[0]).year
+        year_coords = [pd.Timestamp(f"{start_year + i}-01-01") for i in range(n_years)]
+        
+        #print("Time coordinates info:")
+        #print("Number of years:", len(year_coords))
+        #print("First year:", year_coords[0])
+        #print("Last year:", year_coords[-1])
+        
+        # 创建 DataArray
         flow_dataarray = xr.DataArray(
             qsim,
             coords={
-                'time': times,
+                'time': year_coords,
                 'basin': basins
             },
             dims=['time', 'basin'],
             name=flow_name,
         )
-        flow_dataarray.attrs["units"] = test_data[flow_name].attrs["units"]
+        # 设置正确的单位属性
+        flow_dataarray.attrs["units"] = "mm/year"  # GR1A模型输出的是年径流深度
         
-        et_dataarray = xr.DataArray(
-            etsim,
+        ds = xr.Dataset({flow_name: flow_dataarray})
+        
+        # 转换单位：从mm/year到m³/s
+        target_unit = "m^3/s"
+        basin_area = get_basin_area(basins, data_type, data_dir)  # km²
+        basin_area = np.array(basin_area)
+        conversion_factor = 0.001 * (basin_area * 1e6)  # 转换为立方米每年
+        # 首先将mm/year转换为m³/year
+        # 1 mm = 0.001 m
+        # area需要从km²转换为m²
+        # 确保conversion_factor的维度与qsim匹配
+        conversion_factor = np.array(conversion_factor).reshape(1, -1)  # 添加时间维度
+        
+        # 创建模拟流量的数据集副本
+        ds_simflow = ds.copy()
+        ds_simflow[flow_name].values = ds[flow_name].values * conversion_factor
+        
+        # 将m³/year转换为m³/s
+        seconds_per_year = 365 * 24 * 3600
+        ds_simflow[flow_name].values = ds_simflow[flow_name].values / seconds_per_year
+        ds_simflow[flow_name].attrs["units"] = "m^3/s"
+        
+        # 处理观测数据
+        obs_annual = []
+        for year_coord in year_coords:
+            year = year_coord.year
+            try:
+                year_data = test_data.sel(time=str(year), method='nearest')
+                year_sum = year_data[flow_name].sum(dim='time').values
+            except Exception as e:
+                print(f"Warning: Error processing year {year}: {str(e)}")
+                year_sum = np.zeros_like(basins, dtype=float)
+            obs_annual.append(year_sum)
+        
+        obs_annual = np.array(obs_annual)
+        #print("Observation data shape:", obs_annual.shape)
+        
+        obs_dataarray = xr.DataArray(
+            obs_annual,
             coords={
-                'time': times,
+                'time': year_coords,
                 'basin': basins
             },
             dims=['time', 'basin'],
-            name=et_name,
+            name=flow_name,
         )
-        et_dataarray.attrs["units"] = test_data[flow_name].attrs["units"]
+        obs_dataarray.attrs["units"] = "m^3/s"  # 观测数据已经是m³/s单位
         
-        # 创建数据集并进行单位转换
-        ds_et = xr.Dataset({et_name: et_dataarray})
-        ds = xr.Dataset({flow_name: flow_dataarray})
+        ds_obsflow = xr.Dataset({flow_name: obs_dataarray})
         
-        target_unit = "m^3/s"
-        basin_area = get_basin_area(basins, data_type, data_dir)
-        ds_simflow = streamflow_unit_conv(ds, basin_area, target_unit=target_unit, inverse=True)
-        ds_obsflow = streamflow_unit_conv(test_data[[flow_name]], basin_area, target_unit=target_unit, inverse=True)
-        
-        return ds_simflow, ds_obsflow, ds_et
+        return ds_simflow, ds_obsflow, None
 
     def _summarize_parameters(self, basin_ids):
         """
@@ -269,20 +310,69 @@ class Evaluator:
         metric_dfs_test = pd.DataFrame(test_metrics, index=basin_ids)
         metric_file_test = os.path.join(result_dir, "basins_metrics.csv")
         metric_dfs_test.to_csv(metric_file_test, sep=",", index=True, header=True)
-
-    def _save_evaluate_results(self, qsim, qobs, etsim, obs_ds):
+    def _save_evaluate_results(self, qsim, qobs, obs_ds):
+        """保存评估结果，将日尺度数据转换为年尺度进行对比"""
         result_dir = self.save_dir
         model_name = self.model_info["name"]
         ds = xr.Dataset()
 
-        # 添加 qsim 和 qobs
-        ds["qsim"] = qsim["flow"]
-        ds["qobs"] = qobs["flow"]
-
-        # 添加 prcp 和 pet
+        # 添加原始日尺度数据
+        ds["qsim_daily"] = qsim["flow"]
+        ds["qobs_daily"] = qobs["flow"]
         ds["prcp"] = obs_ds["prcp"]
         ds["pet"] = obs_ds["pet"]
-        ds["etsim"] = etsim["et"]
+        
+        # 将日尺度数据转换为年尺度
+        # 获取时间步长设置
+        days_per_year = self.model_info.get("days_per_year", 365)
+        
+        # 创建年份标签
+        time_coords = obs_ds.coords["time"].values
+        start_year = pd.Timestamp(time_coords[0]).year
+        years = range(start_year, start_year + len(time_coords) // days_per_year)
+        
+        # 转换为年尺度数据
+        qsim_annual = []
+        qobs_annual = []
+        prcp_annual = []
+        pet_annual = []
+        
+        for i, year in enumerate(years):
+            start_idx = i * days_per_year
+            end_idx = (i + 1) * days_per_year
+            
+            if end_idx <= len(time_coords):
+                qsim_annual.append(ds["qsim_daily"].isel(time=slice(start_idx, end_idx)).sum(dim="time").values)
+                qobs_annual.append(ds["qobs_daily"].isel(time=slice(start_idx, end_idx)).sum(dim="time").values)
+                prcp_annual.append(ds["prcp"].isel(time=slice(start_idx, end_idx)).sum(dim="time").values)
+                pet_annual.append(ds["pet"].isel(time=slice(start_idx, end_idx)).sum(dim="time").values)
+        
+        # 创建年尺度数据集
+        year_coords = [pd.Timestamp(f"{year}-01-01") for year in years]
+        
+        ds["qsim"] = xr.DataArray(
+            np.array(qsim_annual),
+            coords={"time": year_coords, "basin": obs_ds.coords["basin"].values},
+            dims=["time", "basin"]
+        )
+        
+        ds["qobs"] = xr.DataArray(
+            np.array(qobs_annual),
+            coords={"time": year_coords, "basin": obs_ds.coords["basin"].values},
+            dims=["time", "basin"]
+        )
+        
+        ds["prcp_annual"] = xr.DataArray(
+            np.array(prcp_annual),
+            coords={"time": year_coords, "basin": obs_ds.coords["basin"].values},
+            dims=["time", "basin"]
+        )
+        
+        ds["pet_annual"] = xr.DataArray(
+            np.array(pet_annual),
+            coords={"time": year_coords, "basin": obs_ds.coords["basin"].values},
+            dims=["time", "basin"]
+        )
 
         # 保存为 .nc 文件
         file_path = os.path.join(result_dir, f"{model_name}_evaluation_results.nc")

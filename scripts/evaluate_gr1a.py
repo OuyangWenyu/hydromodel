@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-04 23:35:37
-LastEditTime: 2025-03-10 16:19:57
+LastEditTime: 2025-03-17 00:39:02
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/scripts/evaluate_gr1a.py
@@ -18,7 +18,7 @@ repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 from hydromodel.datasets.data_preprocess import cross_val_split_tsdata
 from hydromodel.datasets import *
-from hydromodel.trainers.evaluate_1a import Evaluator, read_yaml_config
+from hydromodel.trainers.evaluate import Evaluator, read_yaml_config
 
 
 def evaluate(args):
@@ -75,8 +75,8 @@ def _evaluate(cali_dir, param_dir, train_data, test_data):
     warmup = cali_config["warmup"]
     
     # 创建评估器时传入预热期参数
-    train_eval = Evaluator(cali_dir, param_dir, eval_train_dir, warmup_length=warmup)
-    test_eval = Evaluator(cali_dir, param_dir, eval_test_dir, warmup_length=warmup)
+    train_eval = Evaluator(cali_dir, param_dir, eval_train_dir)
+    test_eval = Evaluator(cali_dir, param_dir, eval_test_dir)
 
     qsim_train, qobs_train, etsim_train = train_eval.predict(train_data)
     qsim_test, qobs_test, etsim_test = test_eval.predict(test_data)
@@ -109,7 +109,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to a data plan from calibrate_gr1a.py",
-        default="expbiliuhe004", # 选择对应的实验名
+        default="expbiliuhe006", # 选择对应的实验名
         # default="exp21113800test001",
         # default="expselfmadehydrodataset001",
         type=str,

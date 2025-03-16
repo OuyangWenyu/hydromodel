@@ -121,19 +121,19 @@ MODEL_PARAM_DICT = {
         ),
     },
     "gr1a": {
-        "param_name": ["x"],
+        "param_name": ["x1"],
         "param_range": OrderedDict(
             {
-                "x": [0.13, 3.5],
+                "x1": [0.13, 3.5],
             }
         ),
     },
     "gr2m": {
-        "param_name": ["x1", "x5"],
+        "param_name": ["x1", "x2"],
         "param_range": OrderedDict(
             {   
                 "x1": [140, 2640],
-                "x5": [0.21, 1.31],
+                "x2": [0.21, 1.31],
             }
         ),
     },

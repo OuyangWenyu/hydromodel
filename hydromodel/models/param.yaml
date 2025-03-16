@@ -126,20 +126,20 @@ xaj_mz:
     - 0.998
 gr1a:
   param_name:
-  - x
+  - x1
   param_range:
-    x:
+    x1:
     - 0.13
     - 3.5
 gr2m:
   param_name:
   - x1
-  - x5
+  - x2
   param_range:
     x1:
     - 140
     - 2640
-    x5:
+    x2:
     - 0.21
     - 1.31
 gr3j:

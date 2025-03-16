@@ -1,7 +1,7 @@
 '''
 Author: Wenyu Ouyang
 Date: 2025-02-18 10:20:58
-LastEditTime: 2025-02-24 17:29:31
+LastEditTime: 2025-03-16 19:35:48
 LastEditors: zhuanglaihong
 Description: Core code for GR4J model
 FilePath: /zlh/hydromodel/hydromodel/models/gr4j.py
@@ -247,10 +247,12 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
             pr, et, s = production(inputs[i, :, :], x1, s)
         prs[i, :] = pr
         ets[i, :] = et
+
     prs_x = np.expand_dims(prs, axis=2)
     conv_q9, conv_q1 = uh_gr4j(x4)
     q9 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
     q1 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
+    
     for j in range(inputs.shape[1]):
         q9[:, j : j + 1, :] = uh_conv(
             prs_x[:, j : j + 1, :], conv_q9[j].reshape(-1, 1, 1)

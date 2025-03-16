@@ -294,14 +294,14 @@ def process_and_save_data_as_nc(
         # 合并到主数据集
         ds_ts = xr.merge([ds_ts, ds_basin], compat="no_conflicts")
 
-    # 删除旧的nc文件
+    
     # attrs_path = os.path.join(save_folder, nc_attrs_file)
     ts_path = os.path.join(save_folder, nc_ts_file)
 
     if os.path.exists(ts_path):
         print("-" * 50)
         print('timeseries.nc already exists!')
-        print('If you want a new one, please remove the old file')
+        # 删除旧的nc文件
         os.remove(ts_path)
 
     # 保存为 NetCDF 文件
@@ -313,10 +313,6 @@ def process_and_save_data_as_nc(
     with xr.open_dataset(os.path.join(save_folder, nc_ts_file)) as ds:
         print(ds.head())
     
-    print("\n流域属性数据预览 (attributes.nc):")
-    print("-" * 50)
-    with xr.open_dataset(os.path.join(save_folder, nc_attrs_file)) as ds:
-        print(ds)
     return True
 
 

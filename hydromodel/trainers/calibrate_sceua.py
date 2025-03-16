@@ -234,7 +234,10 @@ def calibrate_by_sceua(
         # 修改获取最佳参数的方式
         best_params = {}
         best_params[basins[i]] = {}
-        
+        # 打印模型参数信息
+        print(f"模型名称: {model['name']}")
+        #print(f"参数名称列表: {spot_setup.parameter_names}")
+        #print(f"参数数量: {len(spot_setup.parameter_names)}")
         # 获取数据并转换为DataFrame
         results = sampler.getdata()
         df_results = pd.DataFrame(results)

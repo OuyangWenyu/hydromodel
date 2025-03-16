@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-12 13:41:30
-LastEditTime: 2025-03-12 15:56:42
+LastEditTime: 2025-03-16 20:45:06
 LastEditors: zhuanglaihong
 Description: Convert various time scales of data
 FilePath: /zlh/hydromodel/hydromodel/datasets/data_transform.py
@@ -116,6 +116,9 @@ def tran_csv_hour_to_month(data_path):
     # 重置索引，让时间成为一列
     monthly_data.reset_index(inplace=True)
 
+    # 修改时间格式为 YYYY-MM
+    monthly_data['time'] = monthly_data['time'].dt.strftime('%Y-%m-01')
+
     # 调整列顺序
     monthly_data = monthly_data[['time', 'pet(mm/month)', 'prcp(mm/month)', 'flow(m^3/s)']]
 
@@ -167,6 +170,9 @@ def tran_csv_hour_to_year(data_path):
 
     # 重置索引，让时间成为一列
     yearly_data.reset_index(inplace=True)
+
+    # 修改时间格式为 YYYY-MM
+    yearly_data['time'] = yearly_data['time'].dt.strftime('%Y-01-01')
 
     # 调整列顺序
     yearly_data = yearly_data[['time', 'pet(mm/year)', 'prcp(mm/year)', 'flow(m^3/s)']]

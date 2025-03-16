@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-13 09:35:22
-LastEditTime: 2025-03-14 09:39:42
+LastEditTime: 2025-03-16 19:45:38
 LastEditors: zhuanglaihong
 Description: Core code for GR3J model
 FilePath: /zlh/hydromodel/hydromodel/models/gr3j.py
@@ -149,36 +149,11 @@ def gr3j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     
     # 改进预热处理，避免递归调用
     if warmup_length > 0:
-        # 初始化状态
-        s_level = 0.5 * x1
-        r_level = 0.5 * x3
-        
-        # 迭代方式进行预热
-        for i in range(warmup_length):
-            pr, et, s_level = production(p_and_e[i, :, :], x1, s_level)
-            
-            # 单位线计算
-            prs_x = np.expand_dims(pr, axis=1)
-            q9_temp = np.zeros(pr.shape)
-            q1_temp = np.zeros(pr.shape)
-            
-            for j in range(pr.shape[0]):
-                q9_slice = 0.9 * uh_conv(
-                    prs_x[j:j+1, :].reshape(1, 1, 1), 
-                    conv_q9[j].reshape(-1, 1, 1)
-                )
-                q1_slice = 0.1 * uh_conv(
-                    prs_x[j:j+1, :].reshape(1, 1, 1), 
-                    conv_q1[j].reshape(-1, 1, 1)
-                )
-                q9_temp[j] = q9_slice[0, 0, 0] if q9_slice.size > 0 else 0
-                q1_temp[j] = q1_slice[0, 0, 0] if q1_slice.size > 0 else 0
-            
-            # 汇流计算
-            _, r_level = routing(q9_temp, q1_temp, x2, x3, r_level)
-        
-        s0 = s_level
-        r0 = r_level
+        # set no_grad for warmup periods
+        p_and_e_warmup = p_and_e[0:warmup_length, :, :]
+        _, _, s0, r0 = gr3j(
+            p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
+        )
     else:
         s0 = 0.5 * x1
         r0 = 0.5 * x3
@@ -197,7 +172,6 @@ def gr3j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         prs[i, :] = pr
         ets[i, :] = et
         
-    # 单位线计算
     prs_x = np.expand_dims(prs, axis=2)
     q9 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
     q1 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)

@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-01 00:13:15
-LastEditTime: 2025-03-16 19:03:12
+LastEditTime: 2025-03-17 00:40:29
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/scripts/calibrate_gr1a.py
@@ -24,7 +24,7 @@ from hydromodel.datasets.data_preprocess import (
     cross_val_split_tsdata,
 )
 from hydromodel.models.model_config import MODEL_PARAM_DICT
-from hydromodel.trainers.calibrate_sceua_gr1a import calibrate_by_sceua
+from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
 
 
 def calibrate(args):
@@ -157,7 +157,7 @@ if __name__ == "__main__":
         "--warmup",
         dest="warmup",
         help="the number of warmup periods",
-        default=365, # 这里预热期一年以上
+        default=1, # 这里预热期为年
         # default=365,
         type=int,
     )
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         "--period",
         dest="period",
         help="The whole period",
-        default=["2014-01-01", "2021-08-31"],
+        default=["2014", "2021"],
         # default=["2012-06-10 00:00", "2022-08-31 23:00"],
         # default=["2010-01-01 08:00", "2015-11-02 14:00"],
         nargs="+",
@@ -174,7 +174,7 @@ if __name__ == "__main__":
         "--calibrate_period",
         dest="calibrate_period",
         help="The training period",
-        default=["2014-01-01", "2018-12-31"],
+        default=["2014", "2018"],
         # default=["2012-06-10 00:00", "2017-08-31 23:00"],
         # default=["2010-01-01 08:00", "2014-09-14 02:00"],
         nargs="+",
@@ -183,7 +183,7 @@ if __name__ == "__main__":
         "--test_period",
         dest="test_period",
         help="The testing period",
-        default=["2019-01-01", "2020-12-31"],
+        default=["2019", "2021"],
         # default=["2017-09-01 00:00", "2022-08-31 23:00"],
         # default=["2014-09-14 08:00", "2015-11-02 14:00"],
         nargs="+",
@@ -239,7 +239,7 @@ if __name__ == "__main__":
             "name": "SCE_UA",
             "random_seed": 1234,
             # these params are just for test
-            "rep":10,
+            "rep":10000,
             "ngs": 30,
             "kstop": 5,
             "peps": 0.05,

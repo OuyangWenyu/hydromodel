@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-10 16:15:08
-LastEditTime: 2025-03-10 17:12:25
+LastEditTime: 2025-03-16 20:41:37
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/scripts/evaluate_gr2m.py
@@ -18,7 +18,7 @@ repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 from hydromodel.datasets.data_preprocess import cross_val_split_tsdata
 from hydromodel.datasets import *
-from hydromodel.trainers.evaluate_2m import Evaluator, read_yaml_config
+from hydromodel.trainers.evaluate import Evaluator, read_yaml_config
 
 
 def evaluate(args):

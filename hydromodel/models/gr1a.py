@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-21 15:36:42
-LastEditTime: 2025-03-04 22:49:24
+LastEditTime: 2025-03-17 00:35:14
 LastEditors: zhuanglaihong
 Description: Core code for GR1A model
 FilePath: /zlh/hydromodel/hydromodel/models/gr1a.py
@@ -35,12 +35,12 @@ def gr1a(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     Parameters
     ----------
     p_and_e: ndarray
-        3-dim input -- [time, basin, variable]: precipitation and potential evaporation
+        3-dim input -- [time, basin, variable]: yearly precipitation and potential evaporation
     parameters
         2-dim variable -- [basin, parameter]:
         the parameters is x
     warmup_length
-        length of warmup period
+        length of warmup period (years)
     return_state
         if True, return state values, mainly for warmup periods
 
@@ -49,91 +49,52 @@ def gr1a(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     Union[np.array, tuple]
         streamflow or (streamflow, states)
     """
-    days_per_year = kwargs.get("days_per_year", 365)
-    if warmup_length < days_per_year:
-        raise ValueError(f"GR1A模型需要至少一年({days_per_year}天)的预热期，当前预热期为{warmup_length}天")
-    
     model_param_dict = kwargs.get("gr1a", None)
     if model_param_dict is None:
         model_param_dict = MODEL_PARAM_DICT["gr1a"]
     # params
     param_ranges = model_param_dict["param_range"]
-    x_scale = param_ranges["x"]
-    x = x_scale[0] + parameters[:, 0] * (x_scale[1] - x_scale[0])
+    x1_scale = param_ranges["x1"]
+    x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
 
-    # 处理预热期数据
-    p_and_e_warmup = p_and_e[0:warmup_length, :, :]
-    warmup_time_length, basin_num, _ = p_and_e_warmup.shape
-    warmup_year_num = warmup_time_length // days_per_year
-    
-    # 计算预热期的年度数据
-    warmup_annual_p = np.zeros((warmup_year_num, basin_num))
-    warmup_annual_e = np.zeros((warmup_year_num, basin_num))
-    
-    # 聚合预热期的年数据
-    for y in range(warmup_year_num):
-        start_idx = y * days_per_year
-        end_idx = (y + 1) * days_per_year
-        warmup_annual_p[y, :] = np.sum(p_and_e_warmup[start_idx:end_idx, :, 0], axis=0)
-        warmup_annual_e[y, :] = np.sum(p_and_e_warmup[start_idx:end_idx, :, 1], axis=0)
-    
-    # 获取最后一年的数据作为初始状态
-    pk_1 = warmup_annual_p[-1, :]
-    
+    if warmup_length > 0:
+        # 使用预热期数据
+        p_and_e_warmup = p_and_e[0:warmup_length, :, :]
+        _, _, _, pk_1 = gr1a(
+            p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
+        )
+    else:
+        pk_1 = None
+
     # 获取输入数据
     inputs = p_and_e[warmup_length:, :, :]
     time_length, basin_num, _ = inputs.shape
     
-    # 假设日数据，计算每年的天数
-    days_per_year = kwargs.get("days_per_year", 365)
-    year_num = time_length // days_per_year
-    
-    # 初始化年尺度数据存储
-    annual_p = np.zeros((year_num, basin_num))
-    annual_e = np.zeros((year_num, basin_num))
-    annual_q = np.zeros((year_num, basin_num))
-    
-    # 将日数据聚合为年数据
-    for y in range(year_num):
-        start_idx = y * days_per_year
-        end_idx = (y + 1) * days_per_year
-        
-        # 计算年降水量和年蒸发量
-        annual_p[y, :] = np.sum(inputs[start_idx:end_idx, :, 0], axis=0)
-        annual_e[y, :] = np.sum(inputs[start_idx:end_idx, :, 1], axis=0)
+    # 初始化年径流数组
+    streamflow_ = np.zeros((time_length, basin_num))
     
     # 计算年径流
-    for y in range(year_num):
-        if y == 0:
-            # 第一年，使用初始值或估计值作为上一年的降水量
-            pk_1 = annual_p[0, :] * 0.8  # 假设上一年降水为当年的80%，可根据实际情况调整
+    for t in range(time_length):
+        if t == 0:
+            if pk_1 is None:
+                pk_1 = inputs[0, :, 0] * 0.8
         else:
-            pk_1 = annual_p[y-1, :]
+            pk_1 = inputs[t-1, :, 0]
         
         # 使用GR1A公式计算年径流
-        annual_q[y, :] = calculate_qk(annual_p[y, :], pk_1, annual_e[y, :], x)
-    
-    # 将年径流转换为日尺度输出（均匀分配到每一天）
-    streamflow_ = np.zeros((time_length, basin_num))
-    for y in range(year_num):
-        start_idx = y * days_per_year
-        end_idx = min((y + 1) * days_per_year, time_length)
-        daily_q = annual_q[y, :] / days_per_year
-        streamflow_[start_idx:end_idx, :] = np.tile(daily_q, (end_idx - start_idx, 1))
-    
-    # 处理可能的剩余天数
-    if time_length > year_num * days_per_year:
-        remaining_days = time_length - year_num * days_per_year
-        # 使用最后一年的日均值填充
-        streamflow_[year_num * days_per_year:, :] = np.tile(annual_q[-1, :] / days_per_year, (remaining_days, 1))
+        streamflow_[t, :] = calculate_qk(
+            inputs[t, :, 0],  # P
+            pk_1,            # P_previous
+            inputs[t, :, 1], # E
+            x1
+        )
     
     streamflow = np.expand_dims(streamflow_, axis=2)
+
+    ets = inputs[:, :, 1]  # 使用潜在蒸发作为实际蒸发
+    s = pk_1  # 使用前一年降水量作为状态变量
+    r = streamflow_  # 使用径流作为汇流库状态
+    return (streamflow, ets, s, r) if return_state else (streamflow, ets)
     
-    if return_state:
-        # 返回年径流数据和参数x
-        return streamflow, annual_p, annual_e, annual_q, pk_1, x
-    
-    # 返回日尺度径流和参数x
-    return streamflow, x
     
     

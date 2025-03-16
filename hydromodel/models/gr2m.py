@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-21 15:37:10
-LastEditTime: 2025-03-10 17:32:13
+LastEditTime: 2025-03-16 20:29:04
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/hydromodel/models/gr2m.py
@@ -68,7 +68,7 @@ def production(inputs, x1, s0):
     return p3, et, s
 
 
-def routing(p3, x5, r0):
+def routing(p3, x2, r0):
     """
     GR2M模型的汇流计算
     
@@ -77,7 +77,7 @@ def routing(p3, x5, r0):
     p3: ndarray
         1-dim -- [basin]: 产流量
     
-    x5: ndarray
+    x2: ndarray
         1-dim -- [basin]: 汇流库出流系数
     r0: ndarray
         1-dim -- [basin]: 初始汇流库状态
@@ -90,8 +90,8 @@ def routing(p3, x5, r0):
     # 计算R1 = R + P3
     r1 = r0 + p3
     
-    # 计算R2 = X5*R1
-    r2 = x5 * r1
+    # 计算R2 = x2*R1
+    r2 = x2 * r1
     
     # 计算Q 
     q = np.power(r2, 2) / (r2 + 60)
@@ -100,62 +100,20 @@ def routing(p3, x5, r0):
     r = r2 - q
     
     return q, r
-def aggregate_to_monthly(p_and_e, warmup_length):
-    """
-    将小时尺度数据聚合为月尺度
-    
-    Parameters
-    ----------
-    p_and_e: ndarray
-        3-dim input -- [time, basin, variable]: 小时尺度的降水和潜在蒸发
-    warmup_length: int
-        预热期长度（小时）
-        
-    Returns
-    -------
-    tuple
-        (monthly_data, monthly_warmup_length): 月尺度数据和对应的预热期长度
-    """
-    # 获取时间维度
-    total_hours = p_and_e.shape[0]
-    
-    # 将小时转换为天数
-    total_days = total_hours // 24
-    
-    # 计算月份数（假设每月30天）
-    n_months = (total_days + 30) // 30
-    
-    # 计算月尺度的预热期长度
-    monthly_warmup_length = (warmup_length // 24 + 30) // 30
-    
-    # 创建月尺度数据数组
-    monthly_data = np.zeros((n_months, p_and_e.shape[1], p_and_e.shape[2]))
-    
-    # 按月聚合数据
-    for i in range(n_months):
-        start_hour = i * 30 * 24  # 每月起始小时
-        end_hour = min((i + 1) * 30 * 24, total_hours)  # 每月结束小时
-        if end_hour > start_hour:
-            # 降水累加
-            monthly_data[i, :, 0] = np.sum(p_and_e[start_hour:end_hour, :, 0], axis=0)
-            # 蒸发取平均后乘以月天数
-            monthly_data[i, :, 1] = np.mean(p_and_e[start_hour:end_hour, :, 1], axis=0) * 30
-    
-    return monthly_data, monthly_warmup_length
 
 def gr2m(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     """
-    run GR2m model (simplified version)
+    run GR2m model
 
     Parameters
     ----------
     p_and_e: ndarray
-        3-dim input -- [time, basin, variable]: 日尺度的降水和潜在蒸发
+        3-dim input -- [time, basin, variable]: 月尺度的降水和潜在蒸发
     parameters
         2-dim variable -- [basin, parameter]:
-        the parameters are x1, x5 (产流库容量和汇流库系数)
+        the parameters are x1, x2 (产流库容量和汇流库系数)
     warmup_length
-        length of warmup period (days)
+        length of warmup period (months)
     return_state
         if True, return state values, mainly for warmup periods
 
@@ -164,49 +122,27 @@ def gr2m(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     Union[np.array, tuple]
         streamflow or (streamflow, states)
     """
-    
-    
     model_param_dict = kwargs.get("gr2m", None)
     if model_param_dict is None:
         model_param_dict = MODEL_PARAM_DICT["gr2m"]
     # params
     param_ranges = model_param_dict["param_range"]
     x1_scale = param_ranges["x1"]
-    x5_scale = param_ranges["x5"]
+    x2_scale = param_ranges["x2"]
     x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
-    x5 = x5_scale[0] + parameters[:, 1] * (x5_scale[1] - x5_scale[0])
+    x2 = x2_scale[0] + parameters[:, 1] * (x2_scale[1] - x2_scale[0])
     
     if warmup_length > 0:
-        # 将数据转换为月尺度
-        monthly_data, monthly_warmup_length = aggregate_to_monthly(p_and_e, warmup_length)
-        
-        
-        s0 = 0.5 * x1
-        r0 = np.zeros_like(x1)
-        
-        # 使用预热期数据进行预热
-        inputs_warmup = monthly_data[0:monthly_warmup_length, :, :]
-        for i in range(inputs_warmup.shape[0]):
-            if i == 0:
-                pr, et, s = production(inputs_warmup[i, :, :], x1, s0)
-            else:
-                pr, et, s = production(inputs_warmup[i, :, :], x1, s)
-            
-            if i == 0:
-                q, r = routing(pr, x5, r0)
-            else:
-                q, r = routing(pr, x5, r)
-            
-            # 更新状态变量
-            s0 = s
-            r0 = r
+        # 使用预热期数据
+        p_and_e_warmup = p_and_e[0:warmup_length, :, :]
+        _, _, s0, r0 = gr2m(
+            p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
+        )
     else:
-        # 将小时尺度数据转换为月尺度
-        monthly_data, monthly_warmup_length = aggregate_to_monthly(p_and_e, 0)
-        s0 = 0.5 * x1
-        r0 = np.zeros_like(x1)
+        s0 = 0.5 * x1  # 初始产流库状态
+        r0 = np.zeros_like(x1)  # 初始汇流库状态
     
-    inputs = monthly_data[monthly_warmup_length:, :, :]
+    inputs = p_and_e[warmup_length:, :, :]
     streamflow_ = np.full(inputs.shape[:2], 0.0)
     prs = np.full(inputs.shape[:2], 0.0)
     ets = np.full(inputs.shape[:2], 0.0)
@@ -222,9 +158,9 @@ def gr2m(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         ets[i, :] = et
         
         if i == 0:
-            q, r = routing(pr, x5, r0)
+            q, r = routing(pr, x2, r0)
         else:
-            q, r = routing(pr, x5, r)
+            q, r = routing(pr, x2, r)
         streamflow_[i, :] = q
     
     streamflow = np.expand_dims(streamflow_, axis=2)

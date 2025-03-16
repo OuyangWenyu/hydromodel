@@ -1,30 +1,22 @@
 '''
-Author: zhuanglaihong
+Author: Wenyu Ouyang
 Date: 2025-02-18 10:20:58
-LastEditTime: 2025-03-04 23:14:42
+LastEditTime: 2025-03-13 11:00:36
 LastEditors: zhuanglaihong
-Description: 
+Description: LOSS_DICT and MODEL_DICT
 FilePath: /zlh/hydromodel/hydromodel/models/model_dict.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 '''
-"""
-Author: Wenyu Ouyang
-Date: 2024-03-23 08:25:49
-LastEditTime: 2024-03-26 20:41:22
-LastEditors: Wenyu Ouyang
-Description: LOSS_DICT and MODEL_DICT
-FilePath: \hydro-model-xaj\hydromodel\models\model_dict.py
-Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
-"""
 
 import numpy as np
 from spotpy.objectivefunctions import rmse
 from hydromodel.models.xaj import xaj
+from hydromodel.models.gr1a import gr1a
+from hydromodel.models.gr2m import gr2m
+from hydromodel.models.gr3j import gr3j
 from hydromodel.models.gr4j import gr4j
 from hydromodel.models.gr5j import gr5j
 from hydromodel.models.gr6j import gr6j
-from hydromodel.models.gr1a import gr1a
-from hydromodel.models.gr2m import gr2m
 from hydromodel.models.hymod import hymod
 
 
@@ -72,5 +64,6 @@ MODEL_DICT = {
     "gr6j": gr6j,
     "gr1a": gr1a,
     "gr2m": gr2m,
+    "gr3j": gr3j,
     "hymod": hymod,
 }

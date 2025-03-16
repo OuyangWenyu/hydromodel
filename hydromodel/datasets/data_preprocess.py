@@ -16,6 +16,11 @@ import xarray as xr
 from sklearn.model_selection import KFold
 
 from hydrodatasource.utils.utils import streamflow_unit_conv
+from hydromodel.datasets.data_transform import (
+    tran_csv_hour_to_day,
+    tran_csv_hour_to_month,
+    tran_csv_hour_to_year
+)
 
 from hydromodel import CACHE_DIR
 from hydromodel.datasets import *
@@ -194,6 +199,8 @@ def check_folder_contents(folder_path, basin_attr_file="basin_attributes.csv"):
 
 def process_and_save_data_as_nc(
     folder_path,
+    origin_data_scale,
+    target_data_scale,
     save_folder=CACHE_DIR,
     nc_attrs_file="attributes.nc",
     nc_ts_file="timeseries.nc",
@@ -236,12 +243,28 @@ def process_and_save_data_as_nc(
 
     # id must be str
     basin_ids = basin_attrs[ID_NAME].astype(str).tolist()
+    
+    # 定义时间尺度转换函数字典
+    scale_transform_funcs = {
+    ('h', 'D'): tran_csv_hour_to_day,
+    ('h', 'h'): lambda x: x,  # 保持原样
+    ('h', 'M'): tran_csv_hour_to_month,
+    ('h', 'Y'): tran_csv_hour_to_year
+    }
 
     # 为每个流域读取并处理时序数据
     for i, basin_id in enumerate(basin_ids):
         file_name = f"basin_{basin_id}.csv"
         file_path = os.path.join(folder_path, file_name)
-        data = pd.read_csv(file_path)
+        # 处理各种时间尺度转化
+        transform_func = scale_transform_funcs.get((origin_data_scale, target_data_scale))
+        if transform_func:
+            processed_file_path = transform_func(file_path)
+        else:
+            raise ValueError(f"Unsupported scale transformation: {origin_data_scale} -> {target_data_scale}")
+        
+        data = pd.read_csv(processed_file_path)
+        
         for time_format in POSSIBLE_TIME_FORMATS:
             try:
                 data[TIME_NAME] = pd.to_datetime(data[TIME_NAME], format=time_format)
@@ -271,10 +294,29 @@ def process_and_save_data_as_nc(
         # 合并到主数据集
         ds_ts = xr.merge([ds_ts, ds_basin], compat="no_conflicts")
 
+    # 删除旧的nc文件
+    # attrs_path = os.path.join(save_folder, nc_attrs_file)
+    ts_path = os.path.join(save_folder, nc_ts_file)
+
+    if os.path.exists(ts_path):
+        print("-" * 50)
+        print('timeseries.nc already exists!')
+        print('If you want a new one, please remove the old file')
+        os.remove(ts_path)
+
     # 保存为 NetCDF 文件
     ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
     ds_ts.to_netcdf(os.path.join(save_folder, nc_ts_file))
-
+    # 预览生成的 NetCDF 文件内容
+    print("\n时间序列数据预览 (timeseries.nc):")
+    print("-" * 50)
+    with xr.open_dataset(os.path.join(save_folder, nc_ts_file)) as ds:
+        print(ds.head())
+    
+    print("\n流域属性数据预览 (attributes.nc):")
+    print("-" * 50)
+    with xr.open_dataset(os.path.join(save_folder, nc_attrs_file)) as ds:
+        print(ds)
     return True
 
 

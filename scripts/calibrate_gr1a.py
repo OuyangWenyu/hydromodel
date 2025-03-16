@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-01 00:13:15
-LastEditTime: 2025-03-04 23:10:37
+LastEditTime: 2025-03-16 19:03:12
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/scripts/calibrate_gr1a.py
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="expbiliuhe004", # 实验4
+        default="expbiliuhe006", # 实验名更改
         # default="exp21113800test001",
         # default="expselfmadehydrodataset001",
         type=str,

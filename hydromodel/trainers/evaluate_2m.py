@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-10 16:20:16
-LastEditTime: 2025-03-10 16:20:43
+LastEditTime: 2025-03-10 18:01:53
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/hydromodel/trainers/evaluate_2m.py
@@ -25,7 +25,6 @@ from hydromodel.datasets.data_preprocess import (
 )
 from hydromodel.models.model_config import read_model_param_dict
 from hydromodel.models.model_dict import MODEL_DICT
-
 
 class Evaluator:
     def __init__(self, cali_dir, param_dir=None, eval_dir=None):
@@ -129,6 +128,9 @@ class Evaluator:
         flow_name = remove_unit_from_name(FLOW_NAME)
         et_name = remove_unit_from_name(ET_NAME)
         
+        # 转换成月尺度的时间向量
+        times = np.array([np.datetime64(str(t)[:7]) for t in times])
+
         # 打印调试信息
         # print("Data shapes before processing:")
         # print("qsim shape:", qsim.shape)
@@ -142,9 +144,9 @@ class Evaluator:
         
         # 如果数据是一维的，需要重塑成二维
         if len(qsim.shape) == 1:
-            qsim = qsim.reshape(len(times), -1)
+            qsim = qsim.reshape(int(len(times)/720), -1)
         if len(etsim.shape) == 1:
-            etsim = etsim.reshape(len(times), -1)
+            etsim = etsim.reshape(int(len(times)/720), -1)
         
         # print("Data shapes after reshape:")
         # print("qsim shape:", qsim.shape)

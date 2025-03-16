@@ -1,10 +1,10 @@
 '''
 Author: zhuanglaihong
-Date: 2025-02-26 16:11:14
-LastEditTime: 2025-03-16 18:57:43
+Date: 2025-02-20 10:12:57
+LastEditTime: 2025-03-16 19:01:14
 LastEditors: zhuanglaihong
 Description: 
-FilePath: /zlh/hydromodel/scripts/calibrate_gr6j.py
+FilePath: /zlh/hydromodel/scripts/calibrate_gr3j.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 '''
 
@@ -66,7 +66,7 @@ def calibrate(args):
             basin_ids,
             p_and_e,
             qobs,
-            os.path.join(where_save, "sceua_gr6j"),
+            os.path.join(where_save, "sceua_gr3j"),
             warmup,
             model=model_info,
             algorithm=algo_info,
@@ -81,7 +81,7 @@ def calibrate(args):
                 basin_ids,
                 p_and_e_cv,
                 qobs_cv,
-                os.path.join(where_save, f"sceua_gr6j_cv{i+1}"),
+                os.path.join(where_save, f"sceua_gr3j_cv{i+1}"),
                 warmup,
                 model=model_info,
                 algorithm=algo_info,
@@ -108,7 +108,7 @@ def calibrate(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Run hydro-model-gr6j models with the CAMELS dataset"
+        description="Run hydro-model-gr3j models with the CAMELS dataset"
     )
     parser.add_argument(
         "--data_type",
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="expbiliuhe003", # 实验3
+        default="expbiliuhe004", # 实验名
         # default="exp21113800test001",
         # default="expselfmadehydrodataset001",
         type=str,
@@ -209,7 +209,7 @@ if __name__ == "__main__":
         + " source_type is the type of the source data, it can be 'sources' or 'sources5mm'; "
         + " kernel_size is the size of the convolutional kernel; time_interval_hours is the time interval of the input data",
         default={
-            "name": "gr6j",
+            "name": "gr3j",
             "source_type": "sources",
             "source_book": "HF",
             "kernel_size": 15,

@@ -1,10 +1,10 @@
 '''
 Author: zhuanglaihong
-Date: 2025-03-10 16:15:08
-LastEditTime: 2025-03-10 17:12:25
+Date: 2025-02-20 16:25:43
+LastEditTime: 2025-03-16 19:12:11
 LastEditors: zhuanglaihong
-Description: 
-FilePath: /zlh/hydromodel/scripts/evaluate_gr2m.py
+Description: evaluate a calibrated GR3j model
+FilePath: /zlh/hydromodel/scripts/evaluate_gr3j.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 '''
 
@@ -18,7 +18,7 @@ repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 from hydromodel.datasets.data_preprocess import cross_val_split_tsdata
 from hydromodel.datasets import *
-from hydromodel.trainers.evaluate_2m import Evaluator, read_yaml_config
+from hydromodel.trainers.evaluate import Evaluator, read_yaml_config
 
 
 def evaluate(args):
@@ -34,7 +34,6 @@ def evaluate(args):
     train_period = cali_config["calibrate_period"]
     test_period = cali_config["test_period"]
     periods = cali_config["period"]
-    
     train_and_test_data = cross_val_split_tsdata(
         data_type,
         data_dir,
@@ -63,7 +62,7 @@ def _evaluate_1fold(train_and_test_data, cali_dir):
     # evaluate both train and test period for all basins
     train_data = train_and_test_data[0]
     test_data = train_and_test_data[1]
-    param_dir = os.path.join(cali_dir, "sceua_gr2m")
+    param_dir = os.path.join(cali_dir, "sceua_gr3j")
     _evaluate(cali_dir, param_dir, train_data, test_data)
     print("Finish evaluating")
 
@@ -103,8 +102,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--exp",
         dest="exp",
-        help="An exp is corresponding to a data plan from calibrate_gr2m.py",
-        default="expbiliuhe005",
+        help="An exp is corresponding to a data plan from calibrate_gr3j.py",
+        default="expbiliuhe004", # 更改对应的实验序号
         # default="exp21113800test001",
         # default="expselfmadehydrodataset001",
         type=str,

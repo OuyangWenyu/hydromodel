@@ -137,6 +137,16 @@ MODEL_PARAM_DICT = {
             }
         ),
     },
+    "gr3j": {
+        "param_name": ["x1", "x2", "x3"],
+        "param_range": OrderedDict(
+            {   
+                "x1": [-1, 1],
+                "x2": [0, 10],
+                "x3": [0, 1],
+            }
+        ),
+    },
     "gr4j": {
         "param_name": ["x1", "x2", "x3", "x4"],
         "param_range": OrderedDict(

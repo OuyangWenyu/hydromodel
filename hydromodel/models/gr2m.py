@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-21 15:37:10
-LastEditTime: 2025-03-10 16:14:51
+LastEditTime: 2025-03-10 17:32:13
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/hydromodel/models/gr2m.py
@@ -201,8 +201,8 @@ def gr2m(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
             s0 = s
             r0 = r
     else:
-        # 将日尺度数据转换为月尺度
-        monthly_data, _ = aggregate_to_monthly(p_and_e, 0)
+        # 将小时尺度数据转换为月尺度
+        monthly_data, monthly_warmup_length = aggregate_to_monthly(p_and_e, 0)
         s0 = 0.5 * x1
         r0 = np.zeros_like(x1)
     

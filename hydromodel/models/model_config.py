@@ -141,8 +141,8 @@ MODEL_PARAM_DICT = {
         "param_name": ["x1", "x2", "x3"],
         "param_range": OrderedDict(
             {   
-                "x1": [-1, 1],
-                "x2": [0, 10],
+                "x1": [-5, 5],
+                "x2": [50, 1200],
                 "x3": [0, 1],
             }
         ),

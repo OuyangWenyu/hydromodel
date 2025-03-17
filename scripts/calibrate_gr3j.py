@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-20 10:12:57
-LastEditTime: 2025-03-17 14:08:15
+LastEditTime: 2025-03-17 17:11:39
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/scripts/calibrate_gr3j.py
@@ -157,7 +157,7 @@ if __name__ == "__main__":
         "--warmup",
         dest="warmup",
         help="the number of warmup periods",
-        default=720,
+        default=365,
         # default=365,
         type=int,
     )
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         "--period",
         dest="period",
         help="The whole period",
-        default=["2014-10-01", "2021-09-30"],
+        default=["2012-10-01", "2022-08-30"],
         # default=["2012-06-10 00:00", "2022-08-31 23:00"],
         # default=["2010-01-01 08:00", "2015-11-02 14:00"],
         nargs="+",
@@ -174,7 +174,7 @@ if __name__ == "__main__":
         "--calibrate_period",
         dest="calibrate_period",
         help="The training period",
-        default=["2014-10-01", "2019-09-30"],
+        default=["2012-10-01", "2019-09-30"],
         # default=["2012-06-10 00:00", "2017-08-31 23:00"],
         # default=["2010-01-01 08:00", "2014-09-14 02:00"],
         nargs="+",
@@ -183,7 +183,7 @@ if __name__ == "__main__":
         "--test_period",
         dest="test_period",
         help="The testing period",
-        default=["2019-10-01", "2021-09-30"],
+        default=["2019-10-01", "2022-08-30"],
         # default=["2017-09-01 00:00", "2022-08-31 23:00"],
         # default=["2014-09-14 08:00", "2015-11-02 14:00"],
         nargs="+",
@@ -240,8 +240,8 @@ if __name__ == "__main__":
             "random_seed": 1234,
             # these params are just for test
             "rep":1000,
-            "ngs": 300,
-            "kstop": 50,
+            "ngs": 30,
+            "kstop": 5,
             "peps": 0.05,
             "pcento": 0.05,
         },

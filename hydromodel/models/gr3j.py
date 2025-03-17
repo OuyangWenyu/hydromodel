@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-13 09:35:22
-LastEditTime: 2025-03-17 16:15:39
+LastEditTime: 2025-03-17 17:12:12
 LastEditors: zhuanglaihong
 Description: Core code for GR3J model
 FilePath: /zlh/hydromodel/hydromodel/models/gr3j.py
@@ -39,7 +39,7 @@ def production(p_and_e: np.array, x2: np.array, s_level: Optional[np.array] = No
     
     # s_level 是产流水库蓄水量
     if s_level is None:
-        s_level = np.full_like(x2, 330)
+        s_level = np.full_like(x2, 330*0.65)
 
     # A 固定参数 330mm
     A = np.full_like(x2, 330) 
@@ -99,7 +99,7 @@ def routing(q9: np.array, q1: np.array, x1, x2, r_level: Optional[np.array] = No
         r_level = np.full_like(x2, 0.4*x2)
     
     r_level = np.clip(r_level, a_min=np.full(r_level.shape, 0.0), a_max=x2)
-    f = x2 * (r_level / x2) ** 4 # 地下水交换量F
+    f = x2 * (r_level / x2) ** 4
     r_star = np.maximum(np.full(r_level.shape, 0.0), r_level + q9 + f)
     
     qr = r_star - (r_star ** -4 + x2 ** -4) ** (-1/4)
@@ -144,8 +144,6 @@ def gr3j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     x2 = x2_scale[0] + parameters[:, 1] * (x2_scale[1] - x2_scale[0]) 
     x3 = x3_scale[0] + parameters[:, 2] * (x3_scale[1] - x3_scale[0])
     
-    # 生成单位线核
-    conv_q9, conv_q1 = uh_gr3j(x3)
     
     # 改进预热处理，避免递归调用
     if warmup_length > 0:
@@ -155,8 +153,9 @@ def gr3j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
             p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
         )
     else:
-        s0 = np.full_like(x2, 330 * 0.65)  # 产流水库初始状态
-        r0 = np.full_like(x2, x2*0.4) # 汇流水库初始状态
+        m = 10 # 最开始的月份
+        r0 = x2* (0.40 + 0.20 * np.sin(np.pi / 6 * (5 - m))) # 产流水库初始状态
+        s0 = 330 * (0.65 + 0.20 * np.sin(np.pi / 6 * (5 - m))) # 汇流水库初始状态
         
     inputs = p_and_e[warmup_length:, :, :]
     streamflow_ = np.full(inputs.shape[:2], 0.0)
@@ -176,6 +175,9 @@ def gr3j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     q9 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
     q1 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
     
+    # 生成单位线核
+    conv_q9, conv_q1 = uh_gr3j(x3)
+
     # 分别计算90%和10%的产流部分
     for j in range(inputs.shape[1]):
         q9[:, j:j+1, :] = 0.9 * uh_conv(

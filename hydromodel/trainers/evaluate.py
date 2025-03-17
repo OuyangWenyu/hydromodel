@@ -178,7 +178,7 @@ class Evaluator:
         
         target_unit = "m^3/s"
         basin_area = get_basin_area(basins, data_type, data_dir)
-        ds_simflow = streamflow_unit_conv(ds, basin_area, target_unit=target_unit, inverse=True)
+        ds_simflow = streamflow_unit_conv(ds, basin_area, target_unit=target_unit, inverse=True) # TODO
         ds_obsflow = streamflow_unit_conv(test_data[[flow_name]], basin_area, target_unit=target_unit, inverse=True)
         
         return ds_simflow, ds_obsflow, ds_et
@@ -211,6 +211,8 @@ class Evaluator:
             params.append(params_df)
         params_dfs = pd.concat(params, axis=0)
         params_dfs.index = basin_ids
+        print("-" * 50)
+        print('basins_norm_params:')
         print(params_dfs)
         params_csv_file = os.path.join(param_dir, "basins_norm_params.csv")
         params_dfs.to_csv(params_csv_file, sep=",", index=True, header=True)
@@ -235,6 +237,8 @@ class Evaluator:
         renormalization_params_dfs = pd.concat(renormalization_params, axis=1)
         renormalization_params_dfs.index = model_param_dict[model_name]["param_name"]
         renormalization_params_dfs.columns = basin_ids
+        print("-" * 50)
+        print('basins_denorm_params:')
         print(renormalization_params_dfs)
         params_csv_file = os.path.join(param_dir, "basins_denorm_params.csv")
         renormalization_params_dfs.transpose().to_csv(

@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-12 13:41:30
-LastEditTime: 2025-03-16 20:45:06
+LastEditTime: 2025-03-17 10:20:51
 LastEditors: zhuanglaihong
 Description: Convert various time scales of data
 FilePath: /zlh/hydromodel/hydromodel/datasets/data_transform.py
@@ -65,7 +65,7 @@ def tran_csv_hour_to_day(data_path):
     daily_data.reset_index(inplace=True)
 
     # 调整列顺序
-    daily_data = daily_data[['time', 'pet(mm/day)', 'prcp(mm/day)', 'flow(m^3/s)']]
+    daily_data = daily_data[['time',  'prcp(mm/day)','pet(mm/day)', 'flow(m^3/s)']]
 
     # 保存结果
     daily_data.to_csv(output_path, index=False)
@@ -120,7 +120,7 @@ def tran_csv_hour_to_month(data_path):
     monthly_data['time'] = monthly_data['time'].dt.strftime('%Y-%m-01')
 
     # 调整列顺序
-    monthly_data = monthly_data[['time', 'pet(mm/month)', 'prcp(mm/month)', 'flow(m^3/s)']]
+    monthly_data = monthly_data[['time',  'prcp(mm/month)','pet(mm/month)', 'flow(m^3/s)']]
 
     # 保存结果
     monthly_data.to_csv(output_path, index=False)
@@ -163,10 +163,10 @@ def tran_csv_hour_to_year(data_path):
     # 重采样到年尺度
     yearly_data = pd.DataFrame()
     # 降水和蒸散发累加
-    yearly_data['prcp(mm/year)'] = df['prcp(mm/hour)'].resample('Y').sum()
-    yearly_data['pet(mm/year)'] = df['pet(mm/hour)'].resample('Y').sum()
+    yearly_data['prcp(mm/year)'] = df['prcp(mm/hour)'].resample('YE').sum()
+    yearly_data['pet(mm/year)'] = df['pet(mm/hour)'].resample('YE').sum()
     # 流量取平均
-    yearly_data['flow(m^3/s)'] = df['flow(m^3/s)'].resample('Y').mean()
+    yearly_data['flow(m^3/s)'] = df['flow(m^3/s)'].resample('YE').mean()
 
     # 重置索引，让时间成为一列
     yearly_data.reset_index(inplace=True)
@@ -175,7 +175,7 @@ def tran_csv_hour_to_year(data_path):
     yearly_data['time'] = yearly_data['time'].dt.strftime('%Y-01-01')
 
     # 调整列顺序
-    yearly_data = yearly_data[['time', 'pet(mm/year)', 'prcp(mm/year)', 'flow(m^3/s)']]
+    yearly_data = yearly_data[['time', 'prcp(mm/year)', 'pet(mm/year)', 'flow(m^3/s)']]
 
     # 保存结果
     yearly_data.to_csv(output_path, index=False)

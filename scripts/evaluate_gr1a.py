@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-04 23:35:37
-LastEditTime: 2025-03-17 00:39:02
+LastEditTime: 2025-03-17 01:16:13
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/scripts/evaluate_gr1a.py
@@ -12,7 +12,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
-
+import numpy as np
 
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
@@ -70,16 +70,12 @@ def _evaluate_1fold(train_and_test_data, cali_dir):
 def _evaluate(cali_dir, param_dir, train_data, test_data):
     eval_train_dir = os.path.join(param_dir, "train")
     eval_test_dir = os.path.join(param_dir, "test")
-    # 从配置文件中读取预热期参数
-    cali_config = read_yaml_config(os.path.join(cali_dir, "config.yaml"))
-    warmup = cali_config["warmup"]
-    
-    # 创建评估器时传入预热期参数
     train_eval = Evaluator(cali_dir, param_dir, eval_train_dir)
     test_eval = Evaluator(cali_dir, param_dir, eval_test_dir)
-
+    
     qsim_train, qobs_train, etsim_train = train_eval.predict(train_data)
     qsim_test, qobs_test, etsim_test = test_eval.predict(test_data)
+
     train_eval.save_results(
         train_data,
         qsim_train,

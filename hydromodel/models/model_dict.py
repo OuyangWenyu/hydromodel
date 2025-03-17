@@ -1,7 +1,7 @@
 '''
 Author: Wenyu Ouyang
 Date: 2025-02-18 10:20:58
-LastEditTime: 2025-03-13 11:00:36
+LastEditTime: 2025-03-17 11:59:09
 LastEditors: zhuanglaihong
 Description: LOSS_DICT and MODEL_DICT
 FilePath: /zlh/hydromodel/hydromodel/models/model_dict.py
@@ -50,10 +50,44 @@ def rmse43darr(obs, sim):
     # otherwise the print will incur to an issue https://github.com/thouska/spotpy/issues/319
     return rmse.tolist()
 
+def nse43darr(obs, sim):
+    """NSE for 3D array
+
+    Parameters
+    ----------
+    obs : np.ndarray
+        observation data
+    sim : np.ndarray
+        simulation data
+
+    Returns
+    -------
+    float
+        Nash-Sutcliffe Efficiency coefficient
+    """
+    # 计算分子：模拟值与观测值的差的平方和
+    numerator = np.nanmean((sim - obs) ** 2, axis=0)
+    
+    # 计算分母：观测值与观测均值的差的平方和
+    obs_mean = np.nanmean(obs, axis=0)
+    denominator = np.nanmean((obs - obs_mean) ** 2, axis=0)
+    
+    # 计算NSE
+    nses = 1 - numerator / denominator
+    nse = nses.mean(axis=0)
+    
+    if np.isnan(nse) or any(np.isnan(sim)):
+        raise ValueError(
+            "NSE is nan or there are nan values in the simulation data, please check the input data."
+        )
+    
+    return nse.tolist()
 
 LOSS_DICT = {
     "RMSE": rmse43darr,
     "spotpy_rmse": rmse,
+    'NSE':nse43darr,
+    
 }
 
 MODEL_DICT = {

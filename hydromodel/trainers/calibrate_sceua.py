@@ -243,7 +243,7 @@ def calibrate_by_sceua(
         df_results = pd.DataFrame(results)
         
         # 获取最佳参数组合
-        best_run = df_results.loc[df_results['like1'].idxmax()]
+        best_run = df_results.loc[df_results['like1'].idxmin()] # 目标函数最小值
         
         # 获取参数值（使用 parx1, parx2 等格式的列名）
         for j, param_name in enumerate(spot_setup.parameter_names):

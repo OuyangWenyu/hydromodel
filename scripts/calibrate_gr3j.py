@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-20 10:12:57
-LastEditTime: 2025-03-16 19:45:50
+LastEditTime: 2025-03-17 12:37:58
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/scripts/calibrate_gr3j.py
@@ -239,9 +239,9 @@ if __name__ == "__main__":
             "name": "SCE_UA",
             "random_seed": 1234,
             # these params are just for test
-            "rep":1000,
-            "ngs": 30,
-            "kstop": 5,
+            "rep":3000,
+            "ngs": 300,
+            "kstop": 50,
             "peps": 0.05,
             "pcento": 0.05,
         },

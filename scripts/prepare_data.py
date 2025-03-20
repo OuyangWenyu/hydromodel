@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-18 10:20:58
-LastEditTime: 2025-03-20 00:58:57
+LastEditTime: 2025-03-20 10:15:20
 LastEditors: zhuanglaihong
 Description: Script for preparing data
 FilePath: /zlh/hydromodel/scripts/prepare_data.py
@@ -49,7 +49,7 @@ if __name__ == "__main__":
         "--target_data_scale",
         type=str,
         help="your input data time scale",
-        default="Y",
+        default="D",
         # default="D"or"M"or"Y"
     )
     args = parser.parse_args()

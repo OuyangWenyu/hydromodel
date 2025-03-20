@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-18 10:20:58
-LastEditTime: 2025-03-17 10:19:39
+LastEditTime: 2025-03-20 00:58:57
 LastEditors: zhuanglaihong
 Description: Script for preparing data
 FilePath: /zlh/hydromodel/scripts/prepare_data.py
@@ -35,21 +35,21 @@ if __name__ == "__main__":
         "--origin_data_dir",
         type=str,
         help="Path to your hydrological data foler",
-        default="/home/zlh/hydromodel/data/biliuhe",
+        default="/home/zlh/hydromodel/data/camels_11532500",
         # default="C:\\Users\\wenyu\\Downloads\\biliuhe",
     )
     parser.add_argument(
         "--origin_data_scale",
         type=str,
         help="your origin data time scale",
-        default="h",
-        # default="D",
+        default="D",
+        # default="D"or"h"
     )
     parser.add_argument(
         "--target_data_scale",
         type=str,
         help="your input data time scale",
-        default="D",
+        default="Y",
         # default="D"or"M"or"Y"
     )
     args = parser.parse_args()

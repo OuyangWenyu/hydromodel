@@ -19,7 +19,9 @@ from hydrodatasource.utils.utils import streamflow_unit_conv
 from hydromodel.datasets.data_transform import (
     tran_csv_hour_to_day,
     tran_csv_hour_to_month,
-    tran_csv_hour_to_year
+    tran_csv_hour_to_year,
+    tran_csv_day_to_month,
+    tran_csv_day_to_year,
 )
 
 from hydromodel import CACHE_DIR
@@ -249,7 +251,10 @@ def process_and_save_data_as_nc(
     ('h', 'D'): tran_csv_hour_to_day,
     ('h', 'h'): lambda x: x,  # 保持原样
     ('h', 'M'): tran_csv_hour_to_month,
-    ('h', 'Y'): tran_csv_hour_to_year
+    ('h', 'Y'): tran_csv_hour_to_year,
+    ('D', 'D'): lambda x: x,
+    ('D', 'M'): tran_csv_day_to_month,
+    ('D', 'Y'): tran_csv_day_to_year,
     }
 
     # 为每个流域读取并处理时序数据

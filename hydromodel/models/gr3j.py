@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-13 09:35:22
-LastEditTime: 2025-03-17 17:12:12
+LastEditTime: 2025-03-19 20:51:22
 LastEditors: zhuanglaihong
 Description: Core code for GR3J model
 FilePath: /zlh/hydromodel/hydromodel/models/gr3j.py
@@ -153,7 +153,7 @@ def gr3j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
             p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
         )
     else:
-        m = 10 # 最开始的月份
+        m = 1 # 最开始的月份
         r0 = x2* (0.40 + 0.20 * np.sin(np.pi / 6 * (5 - m))) # 产流水库初始状态
         s0 = 330 * (0.65 + 0.20 * np.sin(np.pi / 6 * (5 - m))) # 汇流水库初始状态
         

@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-21 15:36:42
-LastEditTime: 2025-03-17 10:33:45
+LastEditTime: 2025-03-20 10:10:08
 LastEditors: zhuanglaihong
 Description: Core code for GR1A model
 FilePath: /zlh/hydromodel/hydromodel/models/gr1a.py
@@ -52,7 +52,7 @@ def gr1a(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     model_param_dict = kwargs.get("gr1a", None)
     if model_param_dict is None:
         model_param_dict = MODEL_PARAM_DICT["gr1a"]
-    # params
+    
     param_ranges = model_param_dict["param_range"]
     x1_scale = param_ranges["x1"]
     x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
@@ -77,7 +77,7 @@ def gr1a(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     for t in range(time_length):
         if t == 0:
             if pk_1 is None:
-                pk_1 = np.mean(inputs[:, :, 0], axis=0) * 0.8 # 使用年均流量作为前一年流量
+                pk_1 = inputs[0, :, 0] * 0.8  # 使用当年降水量的80%作为前一年降水量 TODO
         else:
             pk_1 = inputs[t-1, :, 0]
         
@@ -92,7 +92,7 @@ def gr1a(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     streamflow = np.expand_dims(streamflow_, axis=2)
 
     ets = inputs[:, :, 1]  # 使用潜在蒸发作为实际蒸发
-    s = pk_1  # 使用前一年降水量作为状态变量
+    s = pk_1  # 使用前一年降水量作为产流库状态
     r = streamflow_  # 使用径流作为汇流库状态
     return (streamflow, ets, s, r) if return_state else (streamflow, ets)
     

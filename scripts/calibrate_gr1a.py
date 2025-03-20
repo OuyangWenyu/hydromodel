@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-01 00:13:15
-LastEditTime: 2025-03-17 00:58:01
+LastEditTime: 2025-03-19 20:54:58
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/scripts/calibrate_gr1a.py
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         + " for your own data, you should set the absolute path of your data directory",
         # default="camels_us",
         # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
-        default="/home/zlh/hydromodel/data/biliuhe",
+        default="/home/zlh/hydromodel/data/camels_11532500", # 数据路径
         type=str,
     )
     parser.add_argument(
@@ -157,7 +157,7 @@ if __name__ == "__main__":
         "--warmup",
         dest="warmup",
         help="the number of warmup periods",
-        default=2, # 这里预热期为年
+        default=5, # 这里预热期为年
         # default=365,
         type=int,
     )
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         "--period",
         dest="period",
         help="The whole period",
-        default=["2013", "2021"],
+        default=["1980", "2023"],
         # default=["2012-06-10 00:00", "2022-08-31 23:00"],
         # default=["2010-01-01 08:00", "2015-11-02 14:00"],
         nargs="+",
@@ -174,7 +174,7 @@ if __name__ == "__main__":
         "--calibrate_period",
         dest="calibrate_period",
         help="The training period",
-        default=["2013", "2017"],
+        default=["1980", "2015"],
         # default=["2012-06-10 00:00", "2017-08-31 23:00"],
         # default=["2010-01-01 08:00", "2014-09-14 02:00"],
         nargs="+",
@@ -183,7 +183,7 @@ if __name__ == "__main__":
         "--test_period",
         dest="test_period",
         help="The testing period",
-        default=["2018", "2021"],
+        default=["2015", "2023"],
         # default=["2017-09-01 00:00", "2022-08-31 23:00"],
         # default=["2014-09-14 08:00", "2015-11-02 14:00"],
         nargs="+",
@@ -193,7 +193,7 @@ if __name__ == "__main__":
         dest="basin_id",
         help="The basins' ids",
         # default=["changdian_61561", "changdian_62618"],
-        default=["21401550"],
+        default=["11532500"],
         # default=["songliao_21401550"],
         nargs="+",
     )

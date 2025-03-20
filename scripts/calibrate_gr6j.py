@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-26 16:11:14
-LastEditTime: 2025-03-16 18:57:43
+LastEditTime: 2025-03-19 16:37:05
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/scripts/calibrate_gr6j.py
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         + " for your own data, you should set the absolute path of your data directory",
         # default="camels_us",
         # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
-        default="/home/zlh/hydromodel/data/biliuhe",
+        default="/home/zlh/hydromodel/data/camels_11532500",
         type=str,
     )
     parser.add_argument(
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         "--period",
         dest="period",
         help="The whole period",
-        default=["2014-10-01", "2021-09-30"],
+        default=["2000-01-01", "2023-12-31"],
         # default=["2012-06-10 00:00", "2022-08-31 23:00"],
         # default=["2010-01-01 08:00", "2015-11-02 14:00"],
         nargs="+",
@@ -174,7 +174,7 @@ if __name__ == "__main__":
         "--calibrate_period",
         dest="calibrate_period",
         help="The training period",
-        default=["2014-10-01", "2019-09-30"],
+        default=["2000-01-01", "2018-12-31"],
         # default=["2012-06-10 00:00", "2017-08-31 23:00"],
         # default=["2010-01-01 08:00", "2014-09-14 02:00"],
         nargs="+",
@@ -183,7 +183,7 @@ if __name__ == "__main__":
         "--test_period",
         dest="test_period",
         help="The testing period",
-        default=["2019-10-01", "2021-09-30"],
+        default=["2019-01-01", "2023-12-31"],
         # default=["2017-09-01 00:00", "2022-08-31 23:00"],
         # default=["2014-09-14 08:00", "2015-11-02 14:00"],
         nargs="+",
@@ -193,7 +193,7 @@ if __name__ == "__main__":
         dest="basin_id",
         help="The basins' ids",
         # default=["changdian_61561", "changdian_62618"],
-        default=["21401550"],
+        default=["11532500"],
         # default=["songliao_21401550"],
         nargs="+",
     )
@@ -239,7 +239,7 @@ if __name__ == "__main__":
             "name": "SCE_UA",
             "random_seed": 1234,
             # these params are just for test
-            "rep":100,
+            "rep":1000,
             "ngs": 30,
             "kstop": 5,
             "peps": 0.05,

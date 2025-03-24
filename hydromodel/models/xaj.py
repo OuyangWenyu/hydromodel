@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2024-09-11 21:13:55
+LastEditTime: 2025-02-10 15:31:46
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
 FilePath: /hydromodel/hydromodel/models/xaj.py
@@ -705,7 +705,7 @@ def uh_gamma(a, theta, len_uh=15):
 
 def xaj(
     p_and_e,
-    params: Union[np.ndarray, list],
+    params: np.ndarray,
     return_state=False,
     warmup_length=365,
     **kwargs,
@@ -771,38 +771,56 @@ def xaj(
         raise ValueError(
             "Parameters contain NaN values. Please check your opt algorithm"
         )
-    xaj_params = [
-        (value[1] - value[0]) * params[:, i] + value[0]
-        for i, (key, value) in enumerate(param_ranges.items())
-    ]
+    # xaj_params = [
+    #     (value[1] - value[0]) * params[:, i] + value[0]
+    #     for i, (key, value) in enumerate(param_ranges.items())
+    # ]  # the sequence of parameters is important but this loop may lead to error
+    # Hence, we use a seemingly clumsy but correct method
+    k_scale = param_ranges["K"]
+    b_scale = param_ranges["B"]
+    im_scale = param_ranges["IM"]
+    um_scale = param_ranges["UM"]
+    lm_scale = param_ranges["LM"]
+    dm_scale = param_ranges["DM"]
+    c_scale = param_ranges["C"]
+    sm_scale = param_ranges["SM"]
+    ex_scale = param_ranges["EX"]
+    ki_scale = param_ranges["KI"]
+    kg_scale = param_ranges["KG"]
 
-    k = xaj_params[0]
-    b = xaj_params[1]
-    im = xaj_params[2]
-    um = xaj_params[3]
-    lm = xaj_params[4]
-    dm = xaj_params[5]
-    c = xaj_params[6]
-    sm = xaj_params[7]
-    ex = xaj_params[8]
-    ki_ = xaj_params[9]
-    kg_ = xaj_params[10]
+    k = k_scale[0] + params[:, 0] * (k_scale[1] - k_scale[0])
+    b = b_scale[0] + params[:, 1] * (b_scale[1] - b_scale[0])
+    im = im_scale[0] + params[:, 2] * (im_scale[1] - im_scale[0])
+    um = um_scale[0] + params[:, 3] * (um_scale[1] - um_scale[0])
+    lm = lm_scale[0] + params[:, 4] * (lm_scale[1] - lm_scale[0])
+    dm = dm_scale[0] + params[:, 5] * (dm_scale[1] - dm_scale[0])
+    c = c_scale[0] + params[:, 6] * (c_scale[1] - c_scale[0])
+    sm = sm_scale[0] + params[:, 7] * (sm_scale[1] - sm_scale[0])
+    ex = ex_scale[0] + params[:, 8] * (ex_scale[1] - ex_scale[0])
+    ki_ = ki_scale[0] + params[:, 9] * (ki_scale[1] - ki_scale[0])
+    kg_ = kg_scale[0] + params[:, 10] * (kg_scale[1] - kg_scale[0])
     # ki+kg should be smaller than 1; if not, we scale them
     ki = np.where(ki_ + kg_ < 1.0, ki_, (1.0 - PRECISION) / (ki_ + kg_) * ki_)
     kg = np.where(ki_ + kg_ < 1.0, kg_, (1.0 - PRECISION) / (ki_ + kg_) * kg_)
     if route_method == "CSL":
-        cs = xaj_params[11]
-        l = xaj_params[12]
+        cs_scale = param_ranges["CS"]
+        l_scale = param_ranges["L"]
+        cs = cs_scale[0] + params[:, 11] * (cs_scale[1] - cs_scale[0])
+        l = l_scale[0] + params[:, 12] * (l_scale[1] - l_scale[0])
     elif route_method == "MZ":
         # we will use routing method from mizuRoute -- http://www.geosci-model-dev.net/9/2223/2016/
-        a = xaj_params[11]
-        theta = xaj_params[12]
+        a_scale = param_ranges["A"]
+        theta_scale = param_ranges["THETA"]
+        a = a_scale[0] + params[:, 11] * (a_scale[1] - a_scale[0])
+        theta = theta_scale[0] + params[:, 12] * (theta_scale[1] - theta_scale[0])
     else:
         raise NotImplementedError(
             "We don't provide this route method now! Please use 'CSL' or 'MZ'!"
         )
-    ci = xaj_params[13]
-    cg = xaj_params[14]
+    ci_scale = param_ranges["CI"]
+    cg_scale = param_ranges["CG"]
+    ci = ci_scale[0] + params[:, 13] * (ci_scale[1] - ci_scale[0])
+    cg = cg_scale[0] + params[:, 14] * (cg_scale[1] - cg_scale[0])
 
     # initialize state values
     if warmup_length > 0:
@@ -897,7 +915,8 @@ def xaj(
             else:
                 qi = linear_reservoir(ris_[i], ci, qi)
                 qg = linear_reservoir(rgs_[i], cg, qg)
-            qs_ = rss_[i]
+            # Don't forget the runoff_im
+            qs_ = rss_[i] + runoff_ims_[i]
             qt[i, :] = qs_ + qi + qg
         for j in range(len(l)):
             lag = int(l[j])

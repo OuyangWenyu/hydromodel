@@ -32,7 +32,7 @@ def visualize(args):
     else:
         for fold in range(kfold):
             print(f"Start to visualize the {fold+1}-th fold")
-            param_dir = os.path.join(cali_dir, f"sceua_xaj_cv{fold+1}")
+            param_dir = os.path.join(cali_dir, f"sceua_gr4j_cv{fold+1}")
             eval_train_dir = os.path.join(param_dir, "train")
             eval_test_dir = os.path.join(param_dir, "test")
             _visualize(
@@ -67,7 +67,7 @@ def visualize(args):
 
 def _visualize_1fold(cali_dir, basins, warmup):
     print("Start to visualize the results")
-    param_dir = os.path.join(cali_dir, "sceua_xaj")
+    param_dir = os.path.join(cali_dir, "sceua_gr4j")
     eval_train_dir = os.path.join(param_dir, "train")
     eval_test_dir = os.path.join(param_dir, "test")
     _visualize(cali_dir, basins, warmup, param_dir, eval_train_dir, eval_test_dir)
@@ -150,7 +150,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="expselfmadehydrodataset001",
+        default="expbiliuhe001",
         type=str,
     )
     the_args = parser.parse_args()

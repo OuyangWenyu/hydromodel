@@ -127,31 +127,60 @@ class Evaluator:
         basins = test_data["basin"].data
         flow_name = remove_unit_from_name(FLOW_NAME)
         et_name = remove_unit_from_name(ET_NAME)
+        
+        # 打印调试信息
+        # print("Data shapes before processing:")
+        # print("qsim shape:", qsim.shape)
+        # print("etsim shape:", etsim.shape)
+        # print("times shape:", times.shape)
+        # print("basins shape:", basins.shape)
+        
+        # 确保数据维度正确
+        qsim = qsim.squeeze()
+        etsim = etsim.squeeze()
+        
+        # 如果数据是一维的，需要重塑成二维
+        if len(qsim.shape) == 1:
+            qsim = qsim.reshape(len(times), -1)
+        if len(etsim.shape) == 1:
+            etsim = etsim.reshape(len(times), -1)
+        
+        # print("Data shapes after reshape:")
+        # print("qsim shape:", qsim.shape)
+        # print("etsim shape:", etsim.shape)
+        
+        # 创建 DataArray，确保维度匹配
         flow_dataarray = xr.DataArray(
-            qsim.squeeze(-1),
-            coords=[("time", times), ("basin", basins)],
+            qsim,
+            coords={
+                'time': times,
+                'basin': basins
+            },
+            dims=['time', 'basin'],
             name=flow_name,
         )
         flow_dataarray.attrs["units"] = test_data[flow_name].attrs["units"]
+        
         et_dataarray = xr.DataArray(
-            etsim.squeeze(-1),
-            coords=[("time", times), ("basin", basins)],
+            etsim,
+            coords={
+                'time': times,
+                'basin': basins
+            },
+            dims=['time', 'basin'],
             name=et_name,
         )
-        # etsim's unit is same as flow's unit -- mm/time_unit(d, h, etc.)
         et_dataarray.attrs["units"] = test_data[flow_name].attrs["units"]
-        ds_et = xr.Dataset()
-        ds_et[et_name] = et_dataarray
-        ds = xr.Dataset()
-        ds[flow_name] = flow_dataarray
+        
+        # 创建数据集并进行单位转换
+        ds_et = xr.Dataset({et_name: et_dataarray})
+        ds = xr.Dataset({flow_name: flow_dataarray})
+        
         target_unit = "m^3/s"
         basin_area = get_basin_area(basins, data_type, data_dir)
-        ds_simflow = streamflow_unit_conv(
-            ds, basin_area, target_unit=target_unit, inverse=True
-        )
-        ds_obsflow = streamflow_unit_conv(
-            test_data[[flow_name]], basin_area, target_unit=target_unit, inverse=True
-        )
+        ds_simflow = streamflow_unit_conv(ds, basin_area, target_unit=target_unit, inverse=True) # TODO
+        ds_obsflow = streamflow_unit_conv(test_data[[flow_name]], basin_area, target_unit=target_unit, inverse=True)
+        
         return ds_simflow, ds_obsflow, ds_et
 
     def _summarize_parameters(self, basin_ids):
@@ -182,6 +211,8 @@ class Evaluator:
             params.append(params_df)
         params_dfs = pd.concat(params, axis=0)
         params_dfs.index = basin_ids
+        print("-" * 50)
+        print('basins_norm_params:')
         print(params_dfs)
         params_csv_file = os.path.join(param_dir, "basins_norm_params.csv")
         params_dfs.to_csv(params_csv_file, sep=",", index=True, header=True)
@@ -206,6 +237,8 @@ class Evaluator:
         renormalization_params_dfs = pd.concat(renormalization_params, axis=1)
         renormalization_params_dfs.index = model_param_dict[model_name]["param_name"]
         renormalization_params_dfs.columns = basin_ids
+        print("-" * 50)
+        print('basins_denorm_params:')
         print(renormalization_params_dfs)
         params_csv_file = os.path.join(param_dir, "basins_denorm_params.csv")
         renormalization_params_dfs.transpose().to_csv(

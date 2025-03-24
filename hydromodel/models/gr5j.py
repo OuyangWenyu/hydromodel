@@ -1,12 +1,13 @@
 '''
-Author: Wenyu Ouyang
-Date: 2025-02-18 10:20:58
-LastEditTime: 2025-03-16 19:35:48
+Author: zhuanglaihong
+Date: 2025-02-21 14:54:24
+LastEditTime: 2025-02-26 16:24:08
 LastEditors: zhuanglaihong
-Description: Core code for GR4J model
-FilePath: /zlh/hydromodel/hydromodel/models/gr4j.py
+Description: Core code for GR5J model
+FilePath: /zlh/hydromodel/hydromodel/models/gr5j.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 '''
+
 import math
 from typing import Optional, Tuple
 import numpy as np
@@ -14,7 +15,6 @@ from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.xaj import uh_conv
-
 
 # @jit
 @jit(nopython=True)
@@ -47,7 +47,7 @@ def production(
     p_and_e: np.array, x1: np.array, s_level: Optional[np.array] = None
 ) -> Tuple[np.array, np.array]:
     """
-    an one-step calculation for production store in GR4J
+    an one-step calculation for production store in GR5j
     the dimension of the cell: [batch, feature]
     Parameters
     ----------
@@ -56,7 +56,7 @@ def production(
     x1:
         Storage reservoir parameter;
     s_level
-        s_level means S in the GR4J Model; similar with the "hx" in the RNNCell
+        s_level means S in the GR5j Model; similar with the "hx" in the RNNCell
         Initial value of storage in the storage reservoir.
     Returns
     -------
@@ -130,9 +130,9 @@ def s_curves2(t, x4):
         return 1
 
 
-def uh_gr4j(x4):
+def uh_gr5j(x4):
     """
-    Generate the convolution kernel for the convolution operation in routing module of GR4J
+    Generate the convolution kernel for the convolution operation in routing module of GR5j
 
     Parameters
     ----------
@@ -161,9 +161,9 @@ def uh_gr4j(x4):
     return uh1_ordinates, uh2_ordinates
 
 
-def routing(q9: np.array, q1: np.array, x2, x3, r_level: Optional[np.array] = None):
+def routing(q9: np.array, q1: np.array, x2, x3, x5,r_level: Optional[np.array] = None):
     """
-    the GR4J routing-module unit cell for time-sequence loop
+    the GR5j routing-module unit cell for time-sequence loop
     Parameters
     ----------
     q9
@@ -181,7 +181,7 @@ def routing(q9: np.array, q1: np.array, x2, x3, r_level: Optional[np.array] = No
         r_level = 0.7 * x3
     # r_level should not be larger than self.x3
     r_level = np.clip(r_level, a_min=np.full(r_level.shape, 0.0), a_max=x3)
-    groundwater_ex = x2 * (r_level / x3) ** 3.5
+    groundwater_ex = x2 * r_level / x3 - x2 * x5
     r_updated = np.maximum(np.full(r_level.shape, 0.0), r_level + q9 + groundwater_ex)
 
     qr = r_updated * (1.0 - (1.0 + (r_updated / x3) ** 4) ** -0.25)
@@ -192,9 +192,9 @@ def routing(q9: np.array, q1: np.array, x2, x3, r_level: Optional[np.array] = No
     return q, r_updated
 
 
-def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
+def gr5j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     """
-    run GR4J model
+    run GR5J model
 
     Parameters
     ----------
@@ -213,24 +213,25 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     Union[np.array, tuple]
         streamflow or (streamflow, states)
     """
-    model_param_dict = kwargs.get("gr4j", None)
+    model_param_dict = kwargs.get("gr5j", None)
     if model_param_dict is None:
-        model_param_dict = MODEL_PARAM_DICT["gr4j"]
+        model_param_dict = MODEL_PARAM_DICT["gr5j"]
     # params
     param_ranges = model_param_dict["param_range"]
     x1_scale = param_ranges["x1"]
     x2_sacle = param_ranges["x2"]
     x3_scale = param_ranges["x3"]
     x4_scale = param_ranges["x4"]
+    x5_scale = param_ranges["x5"]
     x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
     x2 = x2_sacle[0] + parameters[:, 1] * (x2_sacle[1] - x2_sacle[0])
     x3 = x3_scale[0] + parameters[:, 2] * (x3_scale[1] - x3_scale[0])
     x4 = x4_scale[0] + parameters[:, 3] * (x4_scale[1] - x4_scale[0])
-
+    x5 = x5_scale[0] + parameters[:, 4] * (x5_scale[1] - x5_scale[0])
     if warmup_length > 0:
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
-        _, _, s0, r0 = gr4j(
+        _, _, s0, r0 = gr5j(
             p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
         )
     else:
@@ -247,12 +248,10 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
             pr, et, s = production(inputs[i, :, :], x1, s)
         prs[i, :] = pr
         ets[i, :] = et
-
     prs_x = np.expand_dims(prs, axis=2)
-    conv_q9, conv_q1 = uh_gr4j(x4)
+    conv_q9, conv_q1 = uh_gr5j(x4)
     q9 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
     q1 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
-    
     for j in range(inputs.shape[1]):
         q9[:, j : j + 1, :] = uh_conv(
             prs_x[:, j : j + 1, :], conv_q9[j].reshape(-1, 1, 1)
@@ -262,9 +261,9 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         )
     for i in range(inputs.shape[0]):
         if i == 0:
-            q, r = routing(q9[i, :, 0], q1[i, :, 0], x2, x3, r0)
+            q, r = routing(q9[i, :, 0], q1[i, :, 0], x2, x3, x5, r0)
         else:
-            q, r = routing(q9[i, :, 0], q1[i, :, 0], x2, x3, r)
+            q, r = routing(q9[i, :, 0], q1[i, :, 0], x2, x3, x5, r)
         streamflow_[i, :] = q
     streamflow = np.expand_dims(streamflow_, axis=2)
     return (streamflow, ets, s, r) if return_state else (streamflow, ets)

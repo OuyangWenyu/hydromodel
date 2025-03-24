@@ -170,40 +170,11 @@ def calibrate_by_sceua(
 ):
     """
     Function for calibrating model by SCE-UA
-
     Now we only support one basin's calibration in one sampler
-
-    Parameters
-    ----------
-    basins
-        basin ids
-    p_and_e
-        inputs of model
-    qobs
-        observation data
-    dbname
-        where save the result file of sampler
-    warmup_length
-        the length of warmup period
-    model
-        we support "gr4j", "hymod", and "xaj", parameters for hydro model
-    algorithm
-        calibrate algorithm. For example, if you want to calibrate xaj model,
-        and use sce-ua algorithm -- random seed=2000, rep=5000, ngs=7, kstop=3, peps=0.1, pcento=0.1
-    loss
-        loss configs for events calculation or
-        just one long time-series calculation
-        with an objective function, typically RMSE
-    param_file
-        the file of the parameter range, yaml file
-
-    Returns
-    -------
-    None
     """
     if model is None:
         model = {
-            "name": "xaj_mz",  # 模型
+            "name": "xaj_mz",
             "source_type": "sources5mm",
             "source_book": "HF",
             "kernel_size": 15,
@@ -223,7 +194,6 @@ def calibrate_by_sceua(
         loss = {
             "type": "time_series",
             "obj_func": "RMSE",
-            # when "type" is "events", this is not None, but idxs of events in time series
             "events": None,
         }
     random_seed = algorithm["random_seed"]
@@ -233,6 +203,8 @@ def calibrate_by_sceua(
     peps = algorithm["peps"]
     pcento = algorithm["pcento"]
     np.random.seed(random_seed)  # Makes the results reproduceable
+    
+    samplers = []
     for i in range(len(basins)):
         # Initialize the xaj example
         # In this case, we tell the setup which algorithm we want to use, so
@@ -258,4 +230,32 @@ def calibrate_by_sceua(
         # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
         sampler.sample(rep, ngs=ngs, kstop=kstop, peps=peps, pcento=pcento)
         print("Calibrate Finished!")
-    return sampler
+        
+        # 修改获取最佳参数的方式
+        best_params = {}
+        best_params[basins[i]] = {}
+        # 打印模型参数信息
+        print(f"模型名称: {model['name']}")
+        #print(f"参数名称列表: {spot_setup.parameter_names}")
+        #print(f"参数数量: {len(spot_setup.parameter_names)}")
+        # 获取数据并转换为DataFrame
+        results = sampler.getdata()
+        df_results = pd.DataFrame(results)
+        
+        # 获取最佳参数组合
+        best_run = df_results.loc[df_results['like1'].idxmin()] # 目标函数最小值
+        
+        # 获取参数值（使用 parx1, parx2 等格式的列名）
+        for j, param_name in enumerate(spot_setup.parameter_names):
+            param_col = f'parx{j+1}'  # SPOTPY使用的是从1开始的索引
+            best_params[basins[i]][param_name] = float(best_run[param_col])
+        
+        # 保存为JSON文件
+        import json
+        best_params_file = os.path.join(dbname, "best_params.json")
+        with open(best_params_file, "w") as f:
+            json.dump(best_params, f, indent=4)
+        
+        samplers.append(sampler)
+    
+    return samplers

@@ -1,12 +1,13 @@
-'''
+"""
 Author: Wenyu Ouyang
 Date: 2025-02-18 10:20:58
-LastEditTime: 2025-03-16 19:35:48
-LastEditors: zhuanglaihong
+LastEditTime: 2025-03-24 11:04:45
+LastEditors: Wenyu Ouyang
 Description: Core code for GR4J model
-FilePath: /zlh/hydromodel/hydromodel/models/gr4j.py
+FilePath: \hydromodel\hydromodel\models\gr4j.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
-'''
+"""
+
 import math
 from typing import Optional, Tuple
 import numpy as np
@@ -252,7 +253,7 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     conv_q9, conv_q1 = uh_gr4j(x4)
     q9 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
     q1 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
-    
+
     for j in range(inputs.shape[1]):
         q9[:, j : j + 1, :] = uh_conv(
             prs_x[:, j : j + 1, :], conv_q9[j].reshape(-1, 1, 1)

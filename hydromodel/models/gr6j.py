@@ -1,12 +1,12 @@
-'''
+"""
 Author: zhuanglaihong
 Date: 2025-02-21 14:54:24
-LastEditTime: 2025-03-10 16:18:04
-LastEditors: zhuanglaihong
-Description: 
-FilePath: /zlh/hydromodel/hydromodel/models/gr6j.py
+LastEditTime: 2025-03-24 11:05:11
+LastEditors: Wenyu Ouyang
+Description:
+FilePath: \hydromodel\hydromodel\models\gr6j.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
-'''
+"""
 
 import math
 from typing import Optional, Tuple
@@ -15,6 +15,7 @@ from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.xaj import uh_conv
+
 
 # @jit
 @jit(nopython=True)
@@ -161,7 +162,9 @@ def uh_gr6j(x4):
     return uh1_ordinates, uh2_ordinates
 
 
-def routing_store(q9: np.array, q1: np.array ,x2, x3, x5 ,SC=0.4, r1: Optional[np.array] = None):
+def routing_store(
+    q9: np.array, q1: np.array, x2, x3, x5, SC=0.4, r1: Optional[np.array] = None
+):
     """
     the GR6j routing-module unit cell for time-sequence loop
     Parameters
@@ -182,7 +185,7 @@ def routing_store(q9: np.array, q1: np.array ,x2, x3, x5 ,SC=0.4, r1: Optional[n
     # r_level should not be larger than self.x3
     r1 = np.clip(r1, a_min=np.full(r1.shape, 0.0), a_max=x3)
     groundwater_ex = x2 * r1 / x3 - x2 * x5
-    r1_updated = np.maximum(np.full(r1.shape, 0.0), r1 + q9*(1-SC) + groundwater_ex)
+    r1_updated = np.maximum(np.full(r1.shape, 0.0), r1 + q9 * (1 - SC) + groundwater_ex)
 
     qr1 = r1_updated * (1.0 - (1.0 + (r1_updated / x3) ** 4) ** -0.25)
     r1_updated = r1_updated - qr1
@@ -191,7 +194,8 @@ def routing_store(q9: np.array, q1: np.array ,x2, x3, x5 ,SC=0.4, r1: Optional[n
     q = qr1 + qd
     return q, r1_updated
 
-def exponential_store(q9: np.array, x3, x6 ,SC=0.4,r2: Optional[np.array] = None):
+
+def exponential_store(q9: np.array, x3, x6, SC=0.4, r2: Optional[np.array] = None):
     """
     the GR6j exponential store module unit cell for time-sequence loop
     Parameters
@@ -214,6 +218,7 @@ def exponential_store(q9: np.array, x3, x6 ,SC=0.4,r2: Optional[np.array] = None
     r2_updated = r2 - qr2
 
     return qr2, r2_updated
+
 
 def gr6j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     """
@@ -285,12 +290,12 @@ def gr6j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         q1[:, j : j + 1, :] = uh_conv(
             prs_x[:, j : j + 1, :], conv_q1[j].reshape(-1, 1, 1)
         )
-    
-    SC = 0.4 # 分配系数
+
+    SC = 0.4  # 分配系数
     for i in range(inputs.shape[0]):
         q, r1 = routing_store(q9[i, :, 0], q1[i, :, 0], x2, x3, x5, SC, r1)
-        qr2,r2= exponential_store(q9[i, :, 0], x3, x6, SC, r2)
+        qr2, r2 = exponential_store(q9[i, :, 0], x3, x6, SC, r2)
 
-        streamflow_[i, :] = qr2+ q
+        streamflow_[i, :] = qr2 + q
     streamflow = np.expand_dims(streamflow_, axis=2)
-    return (streamflow, ets, s, r1,r2) if return_state else (streamflow, ets)
+    return (streamflow, ets, s, r1, r2) if return_state else (streamflow, ets)

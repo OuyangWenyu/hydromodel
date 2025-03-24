@@ -1,4 +1,4 @@
-'''
+"""
 Author: zhuanglaihong
 Date: 2025-02-21 14:54:24
 LastEditTime: 2025-02-26 16:24:08
@@ -6,7 +6,7 @@ LastEditors: zhuanglaihong
 Description: Core code for GR5J model
 FilePath: /zlh/hydromodel/hydromodel/models/gr5j.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
-'''
+"""
 
 import math
 from typing import Optional, Tuple
@@ -15,6 +15,7 @@ from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.xaj import uh_conv
+
 
 # @jit
 @jit(nopython=True)
@@ -161,7 +162,7 @@ def uh_gr5j(x4):
     return uh1_ordinates, uh2_ordinates
 
 
-def routing(q9: np.array, q1: np.array, x2, x3, x5,r_level: Optional[np.array] = None):
+def routing(q9: np.array, q1: np.array, x2, x3, x5, r_level: Optional[np.array] = None):
     """
     the GR5j routing-module unit cell for time-sequence loop
     Parameters

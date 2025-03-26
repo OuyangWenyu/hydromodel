@@ -1,10 +1,10 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-20 16:25:43
-LastEditTime: 2025-03-16 19:12:11
+LastEditTime: 2025-03-26 09:22:29
 LastEditors: zhuanglaihong
-Description: evaluate a calibrated GR3j model
-FilePath: /zlh/hydromodel/scripts/evaluate_gr3j.py
+Description: evaluate a calibrated GR4J model
+FilePath: /zlh/hydromodel/scripts/evaluate_gr.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 '''
 
@@ -62,7 +62,7 @@ def _evaluate_1fold(train_and_test_data, cali_dir):
     # evaluate both train and test period for all basins
     train_data = train_and_test_data[0]
     test_data = train_and_test_data[1]
-    param_dir = os.path.join(cali_dir, "sceua_gr3j")
+    param_dir = os.path.join(cali_dir, "sceua_gr_model")
     _evaluate(cali_dir, param_dir, train_data, test_data)
     print("Finish evaluating")
 
@@ -102,8 +102,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--exp",
         dest="exp",
-        help="An exp is corresponding to a data plan from calibrate_gr3j.py",
-        default="expbiliuhe004", # 更改对应的实验序号
+        help="An exp is corresponding to a data plan from calibrate_gr4j.py",
+        default="expbiliuhe001",
         # default="exp21113800test001",
         # default="expselfmadehydrodataset001",
         type=str,

@@ -740,7 +740,7 @@ def params_dict_xaj(
         streamflow or (streamflow, states)
     """
     # default values for some function parameters
-    model_name =  "xaj"
+    model_name = "xaj"
     source_type = kwargs.get("source_type", "sources")
     source_book = kwargs.get("source_book", "HF")
     time_interval_hours = kwargs.get("time_interval_hours", 1)
@@ -826,7 +826,16 @@ def params_dict_xaj(
                 )
             elif source_type == "sources5mm":
                 (rs, ri, rg), (s, fr) = sources5mm(
-                    pe, r, sm, ex, ki, kg, s0, fr0, time_interval_hours=time_interval_hours, book=source_book
+                    pe,
+                    r,
+                    sm,
+                    ex,
+                    ki,
+                    kg,
+                    s0,
+                    fr0,
+                    time_interval_hours=time_interval_hours,
+                    book=source_book,
                 )
             else:
                 raise NotImplementedError("No such divide-sources method")
@@ -840,7 +849,16 @@ def params_dict_xaj(
                 )
             elif source_type == "sources5mm":
                 (rs, ri, rg), (s, fr) = sources5mm(
-                    pe, r, sm, ex, ki, kg, s, fr, time_interval_hours=time_interval_hours, book=source_book
+                    pe,
+                    r,
+                    sm,
+                    ex,
+                    ki,
+                    kg,
+                    s,
+                    fr,
+                    time_interval_hours=time_interval_hours,
+                    book=source_book,
                 )
             else:
                 raise NotImplementedError("No such divide-sources method")

@@ -2,7 +2,7 @@
 Author: Wenyu Ouyang
 Date: 2023-06-02 09:30:36
 LastEditTime: 2024-03-22 20:21:30
-LastEditors: Wenyu Ouyang
+LastEditors: zhuanlaihong
 Description: Test case for GR4J model
 FilePath: \hydro-model-xaj\test\test_gr4j.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.

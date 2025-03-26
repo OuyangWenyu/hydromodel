@@ -2,7 +2,7 @@
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
 LastEditTime: 2025-01-14 13:16:23
-LastEditors: Wenyu Ouyang
+LastEditors: zhuanglaihong
 Description: preprocess data for models in hydro-model-xaj
 FilePath: \hydromodel\hydromodel\datasets\data_preprocess.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
@@ -17,13 +17,6 @@ import xarray as xr
 from sklearn.model_selection import KFold
 
 from hydrodatasource.utils.utils import streamflow_unit_conv
-from hydromodel.datasets.data_transform import (
-    tran_csv_hour_to_day,
-    tran_csv_hour_to_month,
-    tran_csv_hour_to_year,
-    tran_csv_day_to_month,
-    tran_csv_day_to_year,
-)
 
 from hydromodel import CACHE_DIR
 from hydromodel.datasets import *
@@ -200,126 +193,158 @@ def check_folder_contents(folder_path, basin_attr_file="basin_attributes.csv"):
     return True
 
 
+def _transform_timescale(df, target_scale="D"):
+    """Transforms the timescale of the input DataFrame.
+
+    Args:
+        df: pandas.DataFrame, input data.
+        target_scale: Target timescale ('D', 'M', 'YE').
+        hour_source: Whether the source data is hourly.
+
+    Returns:
+        pandas.DataFrame: Transformed data.
+
+    Raises:
+        ValueError: If the time column cannot be parsed or the target scale is unsupported.
+    """
+    for time_format in POSSIBLE_TIME_FORMATS:
+        try:
+            df["time"] = pd.to_datetime(df["time"], format=time_format)
+            break
+        except ValueError:
+            continue
+    else:
+        raise ValueError("Could not parse time column. Please check the time format.")
+
+    df.set_index("time", inplace=True)
+
+    result_data = pd.DataFrame()
+
+    result_data["prcp"] = df["prcp"].resample(target_scale).sum()
+    result_data["pet"] = df["pet"].resample(target_scale).sum()
+    result_data["flow"] = df["flow"].resample(target_scale).mean()
+
+    result_data.reset_index(inplace=True)
+
+    if target_scale == "M":
+        result_data["time"] = result_data["time"].dt.strftime("%Y-%m-01")
+    elif target_scale == "YE":
+        result_data["time"] = result_data["time"].dt.strftime("%Y-01-01")
+
+    return result_data[
+        [
+            "time",
+            "prcp",
+            "pet",
+            "flow",
+        ]
+    ]
+
+
 def process_and_save_data_as_nc(
     folder_path,
-    origin_data_scale,
     target_data_scale,
     save_folder=CACHE_DIR,
     nc_attrs_file="attributes.nc",
     nc_ts_file="timeseries.nc",
 ):
-    # 验证文件夹内容
+    """Processes data from a folder and saves it as NetCDF files.
+
+    Args:
+        folder_path (str): Path to the folder containing the data.
+        target_data_scale (str): Target data timescale ('D', 'M', 'YE').
+        save_folder (str, optional): Folder to save NetCDF files. Defaults to CACHE_DIR.
+        nc_attrs_file (str, optional): Filename for attributes NetCDF. Defaults to "attributes.nc".
+        nc_ts_file (str, optional): Filename for timeseries NetCDF. Defaults to "timeseries.nc".
+
+    Returns:
+        bool: True if successful, False otherwise.
+    """
     if not check_folder_contents(folder_path):
         print("Folder contents validation failed.")
         return False
 
-    # 读取流域属性
+    basin_attrs, ds_attrs = _process_basin_attributes(folder_path)
+    ds_ts = _process_timeseries_data(folder_path, target_data_scale, basin_attrs)
+
+    ts_path = os.path.join(save_folder, nc_ts_file)
+    if os.path.exists(ts_path):
+        print("-" * 50)
+        print("Found existing timeseries.nc file. Removing and creating a new one...")
+        os.remove(ts_path)
+
+    ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
+    ds_ts.to_netcdf(os.path.join(save_folder, nc_ts_file))
+    print(ds_ts.head())
+    print("-" * 50)
+    return True
+
+
+def _process_basin_attributes(folder_path):
+    """Processes basin attributes and creates an xarray Dataset."""
     basin_attr_file = os.path.join(folder_path, "basin_attributes.csv")
-    # id must be str
     basin_attrs = pd.read_csv(basin_attr_file, dtype={ID_NAME: str})
 
-    # 创建属性数据集
-    ds_attrs = xr.Dataset.from_dataframe(basin_attrs.set_index(ID_NAME))
     new_column_names = {}
     units = {}
-
     for col in basin_attrs.columns:
         new_name = remove_unit_from_name(col)
         unit = get_unit_from_name(col)
         new_column_names[col] = new_name
         if unit:
             units[new_name] = unit
-
     basin_attrs.rename(columns=new_column_names, inplace=True)
 
-    # 创建不带单位的数据集
     ds_attrs = xr.Dataset.from_dataframe(basin_attrs.set_index(ID_NAME))
-
-    # 为有单位的变量添加单位属性
     for var_name, unit in units.items():
         ds_attrs[var_name].attrs["units"] = unit
-    # 初始化时序数据集
+    return basin_attrs, ds_attrs
+
+
+def _process_timeseries_data(folder_path, target_data_scale, basin_attrs):
+    """Processes timeseries data for each basin and creates an xarray Dataset."""
     ds_ts = xr.Dataset()
-
-    # 初始化用于保存单位的字典
     units = {}
-
-    # id must be str
     basin_ids = basin_attrs[ID_NAME].astype(str).tolist()
-    
-    # 定义时间尺度转换函数字典
-    scale_transform_funcs = {
-    ('h', 'D'): tran_csv_hour_to_day,
-    ('h', 'h'): lambda x: x,  # 保持原样
-    ('h', 'M'): tran_csv_hour_to_month,
-    ('h', 'Y'): tran_csv_hour_to_year,
-    ('D', 'D'): lambda x: x,
-    ('D', 'M'): tran_csv_day_to_month,
-    ('D', 'Y'): tran_csv_day_to_year,
-    }
 
-    # 为每个流域读取并处理时序数据
     for i, basin_id in enumerate(basin_ids):
-        file_name = f"basin_{basin_id}.csv"
-        file_path = os.path.join(folder_path, file_name)
-        # 处理各种时间尺度转化
-        transform_func = scale_transform_funcs.get((origin_data_scale, target_data_scale))
-        if transform_func:
-            processed_file_path = transform_func(file_path)
-        else:
-            raise ValueError(f"Unsupported scale transformation: {origin_data_scale} -> {target_data_scale}")
-        
-        data = pd.read_csv(processed_file_path)
-        
+        file_path = os.path.join(folder_path, f"basin_{basin_id}.csv")
+        df = pd.read_csv(file_path)
+
+        if i == 0:
+            renamed_columns = {}
+            for col in df.columns:
+                name = remove_unit_from_name(col)
+                unit = get_unit_from_name(col)
+                renamed_columns[col] = name
+                if unit:
+                    units[name] = unit
+
+        df.rename(columns=renamed_columns, inplace=True)
+
+        try:
+            data = _transform_timescale(df, target_data_scale)
+        except Exception as e:
+            print(f"Error transforming timescale for basin {basin_id}: {e}")
+            raise ValueError(
+                f"Unsupported scale transformation: {target_data_scale}"
+            ) from e
+
         for time_format in POSSIBLE_TIME_FORMATS:
             try:
                 data[TIME_NAME] = pd.to_datetime(data[TIME_NAME], format=time_format)
                 break
             except ValueError:
                 continue
-        # 在处理第一个流域时构建单位字典
-        if i == 0:
-            for col in data.columns:
-                new_name = remove_unit_from_name(col)
-                if unit := get_unit_from_name(col):
-                    units[new_name] = unit
 
-        # 修改列名以移除单位
-        renamed_columns = {col: remove_unit_from_name(col) for col in data.columns}
-        data.rename(columns=renamed_columns, inplace=True)
-
-        # 将 DataFrame 转换为 xarray Dataset
         ds_basin = xr.Dataset.from_dataframe(data.set_index(TIME_NAME))
-
-        # 为每个变量设置单位属性
         for var in ds_basin.data_vars:
             if var in units:
                 ds_basin[var].attrs["units"] = units[var]
-        # 添加 basin 坐标
         ds_basin = ds_basin.expand_dims({"basin": [basin_id]})
-        # 合并到主数据集
         ds_ts = xr.merge([ds_ts, ds_basin], compat="no_conflicts")
 
-    
-    # attrs_path = os.path.join(save_folder, nc_attrs_file)
-    ts_path = os.path.join(save_folder, nc_ts_file)
-
-    if os.path.exists(ts_path):
-        print("-" * 50)
-        print('timeseries.nc already exists!')
-        # 删除旧的nc文件
-        os.remove(ts_path)
-
-    # 保存为 NetCDF 文件
-    ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
-    ds_ts.to_netcdf(os.path.join(save_folder, nc_ts_file))
-    # 预览生成的 NetCDF 文件内容
-    print("\n时间序列数据预览 (timeseries.nc):")
-    print("-" * 50)
-    with xr.open_dataset(os.path.join(save_folder, nc_ts_file)) as ds:
-        print(ds.head())
-    
-    return True
+    return ds_ts
 
 
 def split_train_test(ts_data, train_period, test_period):
@@ -523,7 +548,9 @@ def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
         qobs_ = ts_data[[flow_name]]
 
         if qobs_[flow_name].attrs.get("units", "unknown") != target_unit:
-            r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit) # 流量单位从 m³/s 转换为 mm/d
+            r_mmd = streamflow_unit_conv(
+                qobs_, basin_area, target_unit=target_unit
+            )  # 流量单位从 m³/s 转换为 mm/d
             ts_data[flow_name] = r_mmd[flow_name]
             ts_data[flow_name].attrs["units"] = target_unit
         ts_data = ts_data.sel(time=slice(periods[0], periods[1]))

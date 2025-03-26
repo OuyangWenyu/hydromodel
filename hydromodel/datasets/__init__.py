@@ -1,3 +1,4 @@
+
 """
 Author: Wenyu Ouyang
 Date: 2024-08-14 16:34:32
@@ -17,14 +18,16 @@ ET_NAME = "et(mm/day)"
 FLOW_NAME = "flow(m^3/s)"
 NODE_FLOW_NAME = "node1_flow(m^3/s)"
 AREA_NAME = "area(km^2)"
-TIME_NAME = "tm"
+TIME_NAME = "time"
 POSSIBLE_TIME_FORMATS = [
     "%Y-%m-%d %H:%M:%S",  # 完整的日期和时间
-    "%Y-%m-%d",  # 只有日期
-    "%d/%m/%Y",  # 不同的日期格式
     "%m/%d/%Y %H:%M",  # 月/日/年 小时:分钟
     "%d/%m/%Y %H:%M",  # 日/月/年 小时:分钟
-    "%Y/%m/%d"
+    "%Y-%m-%d %H:%M",  # 年/月/日 小时:分钟
+    "%Y/%m/%d %H:%M",  # 年/月/日 小时:分钟
+    "%Y-%m-%d",  # 只有日期
+    "%Y/%m/%d",   # 年/月/日
+    "%d/%m/%Y",  # 不同的日期格式
     # ... 可以根据需要添加更多格式 ...
 ]
 ID_NAME = "id"

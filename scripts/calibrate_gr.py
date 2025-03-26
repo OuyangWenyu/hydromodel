@@ -1,9 +1,9 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-20 10:12:57
-LastEditTime: 2025-03-26 09:16:57
+LastEditTime: 2025-03-26 21:39:53
 LastEditors: zhuanglaihong
-Description: 
+Description: the script to calibrate GR model for CAMELS basin
 FilePath: /zlh/hydromodel/scripts/calibrate_gr.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 '''
@@ -66,7 +66,7 @@ def calibrate(args):
             basin_ids,
             p_and_e,
             qobs,
-            os.path.join(where_save, "sceua_gr4j"),
+            os.path.join(where_save, "sceua_gr_model"),
             warmup,
             model=model_info,
             algorithm=algo_info,
@@ -81,7 +81,7 @@ def calibrate(args):
                 basin_ids,
                 p_and_e_cv,
                 qobs_cv,
-                os.path.join(where_save, f"sceua_gr4j_cv{i+1}"),
+                os.path.join(where_save, f"sceua_gr_model_cv{i+1}"),
                 warmup,
                 model=model_info,
                 algorithm=algo_info,
@@ -108,7 +108,7 @@ def calibrate(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Run hydro-model-gr4j models with the CAMELS dataset"
+        description="Run hydro-model-gr models with the CAMELS dataset"
     )
     parser.add_argument(
         "--data_type",

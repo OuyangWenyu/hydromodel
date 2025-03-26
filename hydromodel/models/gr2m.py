@@ -3,7 +3,7 @@ Author: zhuanglaihong
 Date: 2025-02-21 15:37:10
 LastEditTime: 2025-03-24 11:02:52
 LastEditors: Wenyu Ouyang
-Description:
+Description: Core code for GR2M model
 FilePath: \hydromodel\hydromodel\models\gr2m.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 """
@@ -19,50 +19,33 @@ from hydromodel.models.xaj import uh_conv
 
 def production(inputs, x1, s0):
     """
-    GR2M模型的产流计算
+    Calculates the production component of the GR2M model.
 
     Parameters
     ----------
-    inputs: ndarray
-        2-dim input -- [basin, variable]: 降水和潜在蒸发
-    x1: ndarray
-        1-dim -- [basin]: 产流参数，表示产流库容量
-    s0: ndarray
-        1-dim -- [basin]: 初始产流库状态
+    inputs : ndarray
+        2D input array - [basin, variable]: Precipitation and potential evaporation.
+    x1 : ndarray
+        1D array - [basin]: Production store capacity.
+    s0 : ndarray
+        1D array - [basin]: Initial production store state.
 
     Returns
     -------
     tuple
-        (pr, et, s): 产流量、蒸发量和产流库状态
+        (pr, et, s): Production, actual evapotranspiration, and updated production store state.
     """
     p = inputs[:, 0]  # 降水
     e = inputs[:, 1]  # 潜在蒸发
 
-    # 计算φ = tanh(P/X1)
     phi = np.tanh(p / x1)
-
-    # 计算S1 = (S + X1*φ) / (1 + φ*S/X1)
     s1 = (s0 + x1 * phi) / (1 + phi * s0 / x1)
-
-    # 计算P1 = P + S - S1
     p1 = p + s0 - s1
-
-    # 计算ψ = tanh(E/X1)
     psi = np.tanh(e / x1)
-
-    # 计算S2 = S1(1-ψ) / (1 + ψ(1-S1/X1))
     s2 = s1 * (1 - psi) / (1 + psi * (1 - s1 / x1))
-
-    # 计算实际蒸发量
     et = s1 - s2
-
-    # 计算S = S2 / [1 + (S2/X1)^3]^(1/3)
     s = s2 / np.power(1 + np.power(s2 / x1, 3), 1 / 3)
-
-    # 计算P2 = S2 - S
     p2 = s2 - s
-
-    # 计算P3 = P1 + P2
     p3 = p1 + p2
 
     return p3, et, s
@@ -70,33 +53,25 @@ def production(inputs, x1, s0):
 
 def routing(p3, x2, r0):
     """
-    GR2M模型的汇流计算
+    Calculates the routing component of the GR2M model.
 
     Parameters
     ----------
-    p3: ndarray
-        1-dim -- [basin]: 产流量
-
-    x2: ndarray
-        1-dim -- [basin]: 汇流库出流系数
-    r0: ndarray
-        1-dim -- [basin]: 初始汇流库状态
+    p3 : ndarray
+        1D array - [basin]: Production.
+    x2 : ndarray
+        1D array - [basin]: Routing store coefficient.
+    r0 : ndarray
+        1D array - [basin]: Initial routing store state.
 
     Returns
     -------
     tuple
-        (q, r): 流量和汇流库状态
+        (q, r): Streamflow and updated routing store state.
     """
-    # 计算R1 = R + P3
     r1 = r0 + p3
-
-    # 计算R2 = x2*R1
     r2 = x2 * r1
-
-    # 计算Q
     q = np.power(r2, 2) / (r2 + 60)
-
-    # 计算R = R2 - Q
     r = r2 - q
 
     return q, r
@@ -108,15 +83,14 @@ def gr2m(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
 
     Parameters
     ----------
-    p_and_e: ndarray
-        3-dim input -- [time, basin, variable]: 月尺度的降水和潜在蒸发
-    parameters
-        2-dim variable -- [basin, parameter]:
-        the parameters are x1, x2 (产流库容量和汇流库系数)
-    warmup_length
-        length of warmup period (months)
-    return_state
-        if True, return state values, mainly for warmup periods
+    p_and_e : ndarray
+        3D input array - [time, basin, variable]: Time series of precipitation and potential evaporation.
+    parameters : ndarray
+        2D parameter array - [basin, parameter]: Model parameters (x1, x2).
+    warmup_length : int
+        Length of the warmup period (in months).
+    return_state : bool, optional
+        Whether to return state variables, by default False.
 
     Returns
     -------
@@ -134,21 +108,19 @@ def gr2m(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
     x2 = x2_scale[0] + parameters[:, 1] * (x2_scale[1] - x2_scale[0])
 
     if warmup_length > 0:
-        # 使用预热期数据
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
         _, _, s0, r0 = gr2m(
             p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
         )
     else:
-        s0 = 0.5 * x1  # 初始产流库状态
-        r0 = np.zeros_like(x1)  # 初始汇流库状态
+        s0 = 0.5 * x1
+        r0 = np.zeros_like(x1)
 
     inputs = p_and_e[warmup_length:, :, :]
     streamflow_ = np.full(inputs.shape[:2], 0.0)
     prs = np.full(inputs.shape[:2], 0.0)
     ets = np.full(inputs.shape[:2], 0.0)
 
-    # 逐月计算
     for i in range(inputs.shape[0]):
         if i == 0:
             pr, et, s = production(inputs[i, :, :], x1, s0)

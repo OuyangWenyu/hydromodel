@@ -1,9 +1,9 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-20 16:25:43
-LastEditTime: 2025-03-26 09:22:29
+LastEditTime: 2025-03-26 21:40:47
 LastEditors: zhuanglaihong
-Description: evaluate a calibrated GR4J model
+Description: evaluate a calibrated GR model
 FilePath: /zlh/hydromodel/scripts/evaluate_gr.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 '''
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--exp",
         dest="exp",
-        help="An exp is corresponding to a data plan from calibrate_gr4j.py",
+        help="An exp is corresponding to a data plan from calibrate_gr.py",
         default="expbiliuhe001",
         # default="exp21113800test001",
         # default="expselfmadehydrodataset001",

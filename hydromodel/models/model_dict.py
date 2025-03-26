@@ -16,11 +16,14 @@ from hydromodel.models.xaj import xaj
 from hydromodel.models.gr1a import gr1a
 from hydromodel.models.gr2m import gr2m
 from hydromodel.models.gr3j import gr3j
-from hydromodel.models.gr4j import gr4j
-from hydromodel.models.gr5j import gr5j
-from hydromodel.models.gr6j import gr6j
+#from hydromodel.models.gr5j import gr5j
+#from hydromodel.models.gr6j import gr6j
+from hydromodel.models.gr_model import GRModel
 from hydromodel.models.hymod import hymod
 
+gr4j_model = GRModel(model_type="gr4j")
+gr5j_model = GRModel(model_type="gr5j")
+gr6j_model = GRModel(model_type="gr6j")
 
 def rmse43darr(obs, sim):
     """RMSE for 3D array
@@ -53,52 +56,29 @@ def rmse43darr(obs, sim):
     return rmse.tolist()
 
 
-def nse43darr(obs, sim):
-    """NSE for 3D array
+def gr4j_wrapper(p_and_e, parameters, warmup_length=0, return_state=False, **kwargs):
+    '''包装GR模型的run方法,使其与其他模型函数签名一致'''
+    return gr4j_model.run(p_and_e, parameters, warmup_length, return_state, **kwargs)
 
-    Parameters
-    ----------
-    obs : np.ndarray
-        observation data
-    sim : np.ndarray
-        simulation data
+def gr5j_wrapper(p_and_e, parameters, warmup_length=0, return_state=False, **kwargs):
+    '''包装GR模型的run方法,使其与其他模型函数签名一致'''
+    return gr5j_model.run(p_and_e, parameters, warmup_length, return_state, **kwargs)
 
-    Returns
-    -------
-    float
-        Nash-Sutcliffe Efficiency coefficient
-    """
-    # 计算分子：模拟值与观测值的差的平方和
-    numerator = np.nanmean((sim - obs) ** 2, axis=0)
-
-    # 计算分母：观测值与观测均值的差的平方和
-    obs_mean = np.nanmean(obs, axis=0)
-    denominator = np.nanmean((obs - obs_mean) ** 2, axis=0)
-
-    # 计算NSE
-    nses = 1 - numerator / denominator
-    nse = nses.mean(axis=0)
-
-    if np.isnan(nse) or any(np.isnan(sim)):
-        raise ValueError(
-            "NSE is nan or there are nan values in the simulation data, please check the input data."
-        )
-
-    return nse.tolist()
-
+def gr6j_wrapper(p_and_e, parameters, warmup_length=0, return_state=False, **kwargs):
+    '''包装GR模型的run方法,使其与其他模型函数签名一致'''
+    return gr6j_model.run(p_and_e, parameters, warmup_length, return_state, **kwargs)
 
 LOSS_DICT = {
     "RMSE": rmse43darr,
     "spotpy_rmse": rmse,
-    "NSE": nse43darr,
 }
 
 MODEL_DICT = {
     "xaj_mz": xaj,
     "xaj": xaj,
-    "gr4j": gr4j,
-    "gr5j": gr5j,
-    "gr6j": gr6j,
+    "gr4j": gr4j_wrapper,
+    "gr5j": gr5j_wrapper,
+    "gr6j": gr6j_wrapper,
     "gr1a": gr1a,
     "gr2m": gr2m,
     "gr3j": gr3j,

@@ -1,8 +1,12 @@
-"""
+'''
 Author: zhuanglaihong
-Date: 2025-03-24
+Date: 2025-03-26 18:26:28
+LastEditTime: 2025-03-27 09:48:04
+LastEditors: zhuanglaihong
 Description: GR series hydrological models (GR4J, GR5J, GR6J)
-"""
+FilePath: /zlh/hydromodel/hydromodel/models/gr_model.py
+Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
+'''
 
 import math
 from typing import Optional, Tuple, Dict, List
@@ -182,7 +186,7 @@ class GRModel:
 
         r_updated = np.maximum(
             np.full(r_level.shape, 0.0),
-            r_level + q9 + groundwater_ex ,
+            r_level + q9 + groundwater_ex,
         )
 
         qr = r_updated * (1.0 - (1.0 + (r_updated / x3) ** 4) ** -0.25)
@@ -216,7 +220,7 @@ class GRModel:
         SC = 0.4
         r_updated = np.maximum(
             np.full(r_level.shape, 0.0),
-            r_level + q9 * (1 - SC) + groundwater_ex ,
+            r_level + q9 * (1 - SC) + groundwater_ex,
         )
 
         qr = r_updated * (1.0 - (1.0 + (r_updated / x3) ** 4) ** -0.25)
@@ -272,12 +276,9 @@ class GRModel:
         if warmup_length > 0:
             p_and_e_warmup = p_and_e[0:warmup_length, :, :]
             if self.model_type == "gr6j":
-                
-                result = self.run(
+                _, _, s0, r0, n0 = self.run(
                     p_and_e_warmup, parameters, warmup_length=0, return_state=True
                 )
-                _, _, s0, r0, n0 = result
-                # 初始化n0
                 n0 = 0.3 * model_params["x3"]  # 使用x3参数的一部分作为n0的初始值
             else:
                 _, _, s0, r0 = self.run(
@@ -322,9 +323,9 @@ class GRModel:
             n = n0
 
         for i in range(inputs.shape[0]):
-            if i == 0:
-                if self.model_type == "gr6j":
-                    q, r, n = self.routing_gr6j(
+            if self.model_type == "gr6j":
+                q, r, n = (
+                    self.routing_gr6j(
                         q9[i, :, 0],
                         q1[i, :, 0],
                         model_params["x2"],
@@ -334,7 +335,20 @@ class GRModel:
                         r0,
                         n0,
                     )
-                elif self.model_type == "gr5j":
+                    if i == 0
+                    else self.routing_gr6j(
+                        q9[i, :, 0],
+                        q1[i, :, 0],
+                        model_params["x2"],
+                        model_params["x3"],
+                        model_params["x5"],
+                        model_params["x6"],
+                        r,
+                        n,
+                    )
+                )
+            elif self.model_type == "gr5j":
+                if i == 0:
                     q, r = self.routing_gr5j(
                         q9[i, :, 0],
                         q1[i, :, 0],
@@ -344,32 +358,17 @@ class GRModel:
                         r0,
                     )
                 else:
-                    q, r = self.routing_gr4j(
+                    q, r = self.routing_gr5j(
                         q9[i, :, 0],
                         q1[i, :, 0],
                         model_params["x2"],
                         model_params["x3"],
-                        r0,
+                        model_params["x5"],
+                        r,
                     )
-            elif self.model_type == "gr6j":
-                q, r, n = self.routing_gr6j(
-                    q9[i, :, 0],
-                    q1[i, :, 0],
-                    model_params["x2"],
-                    model_params["x3"],
-                    model_params["x5"],
-                    model_params["x6"],
-                    r,
-                    n,
-                )
-            elif self.model_type == "gr5j":
-                q, r = self.routing_gr5j(
-                    q9[i, :, 0],
-                    q1[i, :, 0],
-                    model_params["x2"],
-                    model_params["x3"],
-                    model_params["x5"],
-                    r,
+            elif i == 0:
+                q, r = self.routing_gr4j(
+                    q9[i, :, 0], q1[i, :, 0], model_params["x2"], model_params["x3"], r0
                 )
             else:
                 q, r = self.routing_gr4j(
@@ -382,4 +381,3 @@ class GRModel:
             return (streamflow, ets, s, r, n)
         else:
             return (streamflow, ets, s, r) if return_state else (streamflow, ets)
-        

@@ -1,3 +1,12 @@
+'''
+Author: zhuanglaihong
+Date: 2025-03-24 13:43:14
+LastEditTime: 2025-03-27 11:16:28
+LastEditors: zhuanglaihong
+Description: 
+FilePath: /zlh/hydromodel/hydromodel/models/model_dict.py
+Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
+'''
 """
 Author: Wenyu Ouyang
 Date: 2025-02-18 10:20:58
@@ -16,14 +25,13 @@ from hydromodel.models.xaj import xaj
 from hydromodel.models.gr1a import gr1a
 from hydromodel.models.gr2m import gr2m
 from hydromodel.models.gr3j import gr3j
-#from hydromodel.models.gr5j import gr5j
-#from hydromodel.models.gr6j import gr6j
+from hydromodel.models.gr4j import gr4j
+from hydromodel.models.gr5j import gr5j
+from hydromodel.models.gr6j import gr6j
 from hydromodel.models.gr_model import GRModel
 from hydromodel.models.hymod import hymod
 
-gr4j_model = GRModel(model_type="gr4j")
-gr5j_model = GRModel(model_type="gr5j")
-gr6j_model = GRModel(model_type="gr6j")
+
 
 def rmse43darr(obs, sim):
     """RMSE for 3D array
@@ -56,17 +64,6 @@ def rmse43darr(obs, sim):
     return rmse.tolist()
 
 
-def gr4j_wrapper(p_and_e, parameters, warmup_length=0, return_state=False, **kwargs):
-    '''包装GR模型的run方法,使其与其他模型函数签名一致'''
-    return gr4j_model.run(p_and_e, parameters, warmup_length, return_state, **kwargs)
-
-def gr5j_wrapper(p_and_e, parameters, warmup_length=0, return_state=False, **kwargs):
-    '''包装GR模型的run方法,使其与其他模型函数签名一致'''
-    return gr5j_model.run(p_and_e, parameters, warmup_length, return_state, **kwargs)
-
-def gr6j_wrapper(p_and_e, parameters, warmup_length=0, return_state=False, **kwargs):
-    '''包装GR模型的run方法,使其与其他模型函数签名一致'''
-    return gr6j_model.run(p_and_e, parameters, warmup_length, return_state, **kwargs)
 
 LOSS_DICT = {
     "RMSE": rmse43darr,
@@ -76,9 +73,9 @@ LOSS_DICT = {
 MODEL_DICT = {
     "xaj_mz": xaj,
     "xaj": xaj,
-    "gr4j": gr4j_wrapper,
-    "gr5j": gr5j_wrapper,
-    "gr6j": gr6j_wrapper,
+    "gr4j": gr4j,
+    "gr5j": gr5j,
+    "gr6j": gr6j,
     "gr1a": gr1a,
     "gr2m": gr2m,
     "gr3j": gr3j,

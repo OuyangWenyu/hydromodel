@@ -168,6 +168,7 @@ fabric.properties
 /test/test_data_camels_cc.py
 /hydromodel/example/*
 /result/
+/data/
 # sample data
 !/hydromodel/example/example
 hydromodel/example/example/*
@@ -177,4 +178,4 @@ hydromodel/example/example/*
 !/hydromodel/example/daily_rainfall_27071.txt
 outputs/
 result_old/
-data/biliuhe/
+data/

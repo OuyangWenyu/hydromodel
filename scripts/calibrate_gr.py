@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-02-20 10:12:57
-LastEditTime: 2025-03-26 21:39:53
+LastEditTime: 2025-03-30 16:04:57
 LastEditors: zhuanglaihong
 Description: the script to calibrate GR model for CAMELS basin
 FilePath: /zlh/hydromodel/scripts/calibrate_gr.py
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         "--exp",
         dest="exp",
         help="An exp is corresponding to one data setting",
-        default="expbiliuhe001", # 实验名
+        default="expbiliuhe002", # 实验名
         # default="exp21113800test001",
         # default="expselfmadehydrodataset001",
         type=str,
@@ -157,7 +157,7 @@ if __name__ == "__main__":
         "--warmup",
         dest="warmup",
         help="the number of warmup periods",
-        default=720, # daily, mounthly or yearly
+        default=720*3, # daily, mounthly or yearly
         # default=365, 
         type=int,
     )
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         "--period",
         dest="period",
         help="The whole period",
-        default=["2000-01-01", "2023-12-31"],
+        default=["2012-01-01", "2023-12-31"],
         # default=["2012-06-10 00:00", "2022-08-31 23:00"],
         # default=["2010-01-01 08:00", "2015-11-02 14:00"],
         nargs="+",
@@ -174,7 +174,7 @@ if __name__ == "__main__":
         "--calibrate_period",
         dest="calibrate_period",
         help="The training period",
-        default=["2000-01-01", "2018-12-31"],
+        default=["2012-01-01", "2018-12-31"],
         # default=["2012-06-10 00:00", "2017-08-31 23:00"],
         # default=["2010-01-01 08:00", "2014-09-14 02:00"],
         nargs="+",
@@ -209,7 +209,7 @@ if __name__ == "__main__":
         + " source_type is the type of the source data, it can be 'sources' or 'sources5mm'; "
         + " kernel_size is the size of the convolutional kernel; time_interval_hours is the time interval of the input data",
         default={
-            "name": "gr4j",
+            "name": "gr5j",
             "source_type": "sources",
             "source_book": "HF",
             "kernel_size": 15,

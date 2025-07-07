@@ -216,6 +216,8 @@ def exponential_store(q9: np.array, x3, x6, SC=0.4, r2: Optional[np.array] = Non
     r2 = q9 * SC + r2
     qr2 = x6 * np.log(1 + np.exp(r2 / x6))
     r2_updated = r2 - qr2
+    
+    r2_updated = np.maximum(r2_updated, np.zeros_like(r2_updated))
 
     return qr2, r2_updated
 

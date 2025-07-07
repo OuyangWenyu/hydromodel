@@ -198,7 +198,7 @@ def _transform_timescale(df, target_scale="D"):
 
     Args:
         df: pandas.DataFrame, input data.
-        target_scale: Target timescale ('D', 'M', 'YE').
+        target_scale: Target timescale ('D', 'M', 'YE', 'H').
         hour_source: Whether the source data is hourly.
 
     Returns:
@@ -218,6 +218,10 @@ def _transform_timescale(df, target_scale="D"):
 
     df.set_index("time", inplace=True)
 
+    if target_scale == "H" or "3H":
+        df.reset_index(inplace=True)
+        return df[["time", "prcp", "pet", "flow"]]
+
     result_data = pd.DataFrame()
 
     result_data["prcp"] = df["prcp"].resample(target_scale).sum()
@@ -231,14 +235,7 @@ def _transform_timescale(df, target_scale="D"):
     elif target_scale == "YE":
         result_data["time"] = result_data["time"].dt.strftime("%Y-01-01")
 
-    return result_data[
-        [
-            "time",
-            "prcp",
-            "pet",
-            "flow",
-        ]
-    ]
+    return result_data[["time", "prcp", "pet", "flow"]]
 
 
 def process_and_save_data_as_nc(

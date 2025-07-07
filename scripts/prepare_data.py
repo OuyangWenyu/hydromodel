@@ -42,8 +42,8 @@ if __name__ == "__main__":
         "--target_data_scale",
         type=str,
         help="your input data time scale",
-        default="D",
-        # default="D"or"M"or"Y"
+        default="H",
+        # default="D"or"M"or"Y"or"H"
     )
     args = parser.parse_args()
     main(args)

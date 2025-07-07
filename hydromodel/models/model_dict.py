@@ -1,7 +1,7 @@
 '''
 Author: zhuanglaihong
 Date: 2025-03-24 13:43:14
-LastEditTime: 2025-03-27 11:16:28
+LastEditTime: 2025-03-29 01:03:48
 LastEditors: zhuanglaihong
 Description: 
 FilePath: /zlh/hydromodel/hydromodel/models/model_dict.py
@@ -28,7 +28,6 @@ from hydromodel.models.gr3j import gr3j
 from hydromodel.models.gr4j import gr4j
 from hydromodel.models.gr5j import gr5j
 from hydromodel.models.gr6j import gr6j
-from hydromodel.models.gr_model import GRModel
 from hydromodel.models.hymod import hymod
 
 

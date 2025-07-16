@@ -1,7 +1,7 @@
 """
 Author: zhuanglaihong
 Date: 2025-02-21 15:37:10
-LastEditTime: 2025-03-24 11:02:52
+LastEditTime: 2025-07-08 19:03:43
 LastEditors: Wenyu Ouyang
 Description: Core code for GR2M model
 FilePath: \hydromodel\hydromodel\models\gr2m.py
@@ -14,7 +14,7 @@ import numpy as np
 from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
-from hydromodel.models.xaj import uh_conv
+from hydromodel.models.unit_hydrograph import uh_conv
 
 
 def production(inputs, x1, s0):

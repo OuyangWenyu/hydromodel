@@ -1,20 +1,20 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2025-02-10 15:31:46
+LastEditTime: 2025-07-08 19:04:49
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
 FilePath: /hydromodel/hydromodel/models/xaj.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
-import logging
 from typing import Union
 import numpy as np
 from numba import jit
 from scipy.special import gamma
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.unit_hydrograph import uh_conv
 
 PRECISION = 1e-5
 
@@ -633,35 +633,6 @@ def linear_reservoir(x, weight, last_y=None) -> np.array:
     if last_y is None:
         last_y = np.full(weight.shape, 0.001)
     return weight * last_y + weight1 * x
-
-
-def uh_conv(x, uh_from_gamma):
-    """
-    Function for 1d-convolution calculation
-
-    Parameters
-    ----------
-    x
-        x is a sequence-first variable; the dim of x is [seq, batch, feature=1];
-        feature must be 1
-    uh_from_gamma
-        unit hydrograph from uh_gamma; the dim: [len_uh, batch, feature=1];
-        feature must be 1
-
-    Returns
-    -------
-    np.array
-        convolution
-    """
-    outputs = np.full(x.shape, 0.0)
-    time_length, batch_size, feature_size = x.shape
-    if feature_size > 1:
-        logging.error("We only support one-dim convolution now!!!")
-    for i in range(batch_size):
-        uh = uh_from_gamma[:, i, 0]
-        inputs = x[:, i, 0]
-        outputs[:, i, 0] = np.convolve(inputs, uh)[:time_length]
-    return outputs
 
 
 def uh_gamma(a, theta, len_uh=15):

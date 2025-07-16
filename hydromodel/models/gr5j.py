@@ -14,7 +14,7 @@ import numpy as np
 from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
-from hydromodel.models.xaj import uh_conv
+from hydromodel.models.unit_hydrograph import uh_conv
 
 
 # @jit

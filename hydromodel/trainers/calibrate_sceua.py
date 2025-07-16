@@ -242,13 +242,86 @@ def calibrate_by_sceua(
         results = sampler.getdata()
         df_results = pd.DataFrame(results)
         
+        # 调试：打印DataFrame的列名
+        # print(f"📊 SPOTPY返回的数据列名: {list(df_results.columns)}")
+        print(f"🔢 参数名称: {spot_setup.parameter_names}")
+        
         # 获取最佳参数组合
         best_run = df_results.loc[df_results['like1'].idxmin()] # 目标函数最小值
         
-        # 获取参数值（使用 parx1, parx2 等格式的列名）
+        # 获取参数值 - 智能检测列名格式
+        param_columns = []
+        
+        # 方法1: 尝试使用 parx1, parx2 格式
+        for j in range(len(spot_setup.parameter_names)):
+            param_col = f'parx{j+1}'
+            if param_col in df_results.columns:
+                param_columns.append(param_col)
+        
+        # 方法2: 如果方法1失败，尝试使用 par{param_name} 格式
+        if len(param_columns) != len(spot_setup.parameter_names):
+            param_columns = []
+            for param_name in spot_setup.parameter_names:
+                param_col = f'par{param_name}'
+                if param_col in df_results.columns:
+                    param_columns.append(param_col)
+        
+        # 方法3: 如果前面都失败，尝试直接使用参数名
+        if len(param_columns) != len(spot_setup.parameter_names):
+            param_columns = []
+            for param_name in spot_setup.parameter_names:
+                if param_name in df_results.columns:
+                    param_columns.append(param_name)
+        
+        # 方法4: 如果还是失败，使用数字索引查找包含参数相关的列
+        if len(param_columns) != len(spot_setup.parameter_names):
+            param_columns = []
+            # 查找所有以'par'开头的列
+            par_cols = [col for col in df_results.columns if str(col).startswith('par')]
+            if len(par_cols) >= len(spot_setup.parameter_names):
+                param_columns = sorted(par_cols)[:len(spot_setup.parameter_names)]
+        
+        print(f"🎯 检测到的参数列: {param_columns}")
+        
+        # 验证参数列数量
+        if len(param_columns) != len(spot_setup.parameter_names):
+            print(f"❌ 错误：参数列数量({len(param_columns)})与参数名称数量({len(spot_setup.parameter_names)})不匹配")
+            print(f"   可用列名: {list(df_results.columns)}")
+            # 使用前N列作为参数（排除目标函数列）
+            exclude_cols = ['like1', 'chain', 'simulation', 'chain1']  # 常见的非参数列
+            available_cols = [col for col in df_results.columns if col not in exclude_cols]
+            
+            # 进一步过滤：只保留数值型列
+            numeric_cols = []
+            for col in available_cols:
+                try:
+                    pd.to_numeric(df_results[col])
+                    numeric_cols.append(col)
+                except:
+                    continue
+                    
+            param_columns = numeric_cols[:len(spot_setup.parameter_names)]
+            print(f"   使用备用方案（数值型列）：{param_columns}")
+            
+            # 最后的备用方案：如果还是不够，使用前几列
+            if len(param_columns) < len(spot_setup.parameter_names):
+                all_cols = list(df_results.columns)
+                param_columns = all_cols[:len(spot_setup.parameter_names)]
+                print(f"   使用最终备用方案（前几列）：{param_columns}")
+        
+        # 获取参数值
         for j, param_name in enumerate(spot_setup.parameter_names):
-            param_col = f'parx{j+1}'  # SPOTPY使用的是从1开始的索引
-            best_params[basins[i]][param_name] = float(best_run[param_col])
+            if j < len(param_columns):
+                param_col = param_columns[j]
+                try:
+                    best_params[basins[i]][param_name] = float(best_run[param_col])
+                    print(f"   ✅ {param_name} = {best_run[param_col]} (来自列: {param_col})")
+                except Exception as e:
+                    print(f"   ❌ 获取参数 {param_name} 失败: {e}")
+                    best_params[basins[i]][param_name] = 0.0  # 设置默认值
+            else:
+                print(f"   ⚠️  参数 {param_name} 没有对应的列，使用默认值")
+                best_params[basins[i]][param_name] = 0.0
         
         # 保存为JSON文件
         import json

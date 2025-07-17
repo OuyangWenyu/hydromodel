@@ -24,7 +24,7 @@ class SpotSetup(object):
         qobs
             observation data
         warmup_length
-            GR4J model need warmup period
+            models need warmup period
         model
             we support "gr4j", "hymod", and "xaj"
         param_range
@@ -89,7 +89,7 @@ class SpotSetup(object):
             params,
             warmup_length=self.warmup_length,
             **self.model,
-            **self.param_range
+            **self.param_range,
         )
         return sim
 
@@ -203,7 +203,7 @@ def calibrate_by_sceua(
     peps = algorithm["peps"]
     pcento = algorithm["pcento"]
     np.random.seed(random_seed)  # Makes the results reproduceable
-    
+
     samplers = []
     for i in range(len(basins)):
         # Initialize the xaj example
@@ -230,32 +230,32 @@ def calibrate_by_sceua(
         # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
         sampler.sample(rep, ngs=ngs, kstop=kstop, peps=peps, pcento=pcento)
         print("Calibrate Finished!")
-        
+
         # 修改获取最佳参数的方式
-        best_params = {}
-        best_params[basins[i]] = {}
+        best_params = {basins[i]: {}}
         # 打印模型参数信息
         print(f"模型名称: {model['name']}")
-        #print(f"参数名称列表: {spot_setup.parameter_names}")
-        #print(f"参数数量: {len(spot_setup.parameter_names)}")
+        # print(f"参数名称列表: {spot_setup.parameter_names}")
+        # print(f"参数数量: {len(spot_setup.parameter_names)}")
         # 获取数据并转换为DataFrame
         results = sampler.getdata()
         df_results = pd.DataFrame(results)
-        
+
         # 获取最佳参数组合
-        best_run = df_results.loc[df_results['like1'].idxmin()] # 目标函数最小值
-        
+        best_run = df_results.loc[df_results["like1"].idxmin()]  # 目标函数最小值
+
         # 获取参数值（使用 parx1, parx2 等格式的列名）
         for j, param_name in enumerate(spot_setup.parameter_names):
-            param_col = f'parx{j+1}'  # SPOTPY使用的是从1开始的索引
+            param_col = f"parx{j+1}"  # SPOTPY使用的是从1开始的索引
             best_params[basins[i]][param_name] = float(best_run[param_col])
-        
+
         # 保存为JSON文件
         import json
+
         best_params_file = os.path.join(dbname, "best_params.json")
         with open(best_params_file, "w") as f:
             json.dump(best_params, f, indent=4)
-        
+
         samplers.append(sampler)
-    
+
     return samplers

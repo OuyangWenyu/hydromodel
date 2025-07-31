@@ -8,21 +8,17 @@ FilePath: \hydromodel_dev\scripts\run_three_class_uh_optimization.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
-import sys
 import os
 import argparse
 import json
 from hydrodatasource.configs.config import SETTING
-from plot_rrevents import plot_unit_hydrograph
-
-# 添加项目根目录到Python路径，以便导入自定义模块
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# 导入自定义模块
-from hydromodel_dev import (
-    optimize_uh_for_group,
-    setup_matplotlib,
+from hydromodel.models.floodevent import (
     load_and_preprocess_events_unified,
+)
+from hydromodel.models.plot_rrevents import plot_unit_hydrograph
+from hydromodel.models.unit_hydrograph import optimize_uh_for_group
+from hydromodel.models.uh_utils import (
+    setup_matplotlib,
     categorize_floods_by_peak,
     evaluate_single_event,
     save_results_to_csv,

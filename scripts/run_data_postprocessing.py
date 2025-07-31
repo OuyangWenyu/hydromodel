@@ -1,18 +1,17 @@
 """
-Author: AI Assistant
-Date: 2025-01-20
+Author: Wenyu Ouyang
+Date: 2025-07-31 16:25:50
+LastEditTime: 2025-07-31 16:25:50
+LastEditors: Wenyu Ouyang
 Description: 数据后处理示例 - 将增强数据与预热期数据拼接成长时间序列
+FilePath: \hydromodel\scripts\run_data_postprocessing.py
+Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
 import os
-import sys
-from pathlib import Path
-
-# Add the hydromodel_dev package to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from hydrodatasource.configs.config import SETTING
-from hydromodel_dev.floodevent import FloodEventDatasource
+from hydromodel.models.floodevent import FloodEventDatasource
 
 
 def main():

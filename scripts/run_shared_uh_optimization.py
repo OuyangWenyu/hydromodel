@@ -1,28 +1,24 @@
 """
 Author: Zheng Zhang, supervised by Heng Lv
 Date: 2025-07-08 18:05:00
-LastEditTime: 2025-07-16 16:36:39
+LastEditTime: 2025-07-31 16:18:45
 LastEditors: Wenyu Ouyang
 Description: 使用洪水事件数据生成唯一的共享单位线的执行脚本（支持CSV和Excel数据源）
-FilePath: \hydromodel_dev\scripts\run_shared_uh_optimization.py
+FilePath: \hydromodel\scripts\run_shared_uh_optimization.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
-import sys
 import os
 import argparse
 from hydrodatasource.configs.config import SETTING
-from hydromodel_dev.floodevent import check_event_data_nan
-from hydromodel_dev.unit_hydrograph import optimize_shared_unit_hydrograph
-from plot_rrevents import plot_unit_hydrograph
-
-# 添加项目根目录到Python路径，以便导入自定义模块
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# 导入自定义模块
-from hydromodel_dev import (
-    setup_matplotlib,
+from hydromodel.models.floodevent import (
+    check_event_data_nan,
     load_and_preprocess_events_unified,
+)
+from hydromodel.models.unit_hydrograph import optimize_shared_unit_hydrograph
+from hydromodel.models.plot_rrevents import plot_unit_hydrograph
+from hydromodel.models.uh_utils import (
+    setup_matplotlib,
     evaluate_single_event,
     save_results_to_csv,
     print_report_preview,

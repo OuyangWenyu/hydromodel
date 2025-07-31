@@ -1,29 +1,22 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-16 17:14:24
-LastEditTime: 2025-07-27 14:08:11
+LastEditTime: 2025-07-31 16:25:03
 LastEditors: Wenyu Ouyang
 Description: Real Data Augmentation Script for Hydrological Data
-FilePath: \hydromodel_dev\scripts\run_data_augmentation.py
+FilePath: \hydromodel\scripts\run_data_augmentation.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
 import os
-import sys
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from pathlib import Path
 
-# Add the hydromodel_dev package to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from hydromodel_dev.consts import OBS_FLOW, NET_RAIN
-from hydromodel_dev.data_augment import (
+from hydromodel.models.consts import OBS_FLOW, NET_RAIN
+from hydromodel.models.data_augment import (
     create_real_data_augmenter,
     load_real_hydrological_data,
-    load_from_results_file,
 )
+from hydromodel.models.data_augment import HydrologicalDataAugmenter
 
 
 def create_sample_data():
@@ -297,9 +290,6 @@ def demo_manual_data_loading():
             uh_length=20,
             verbose=True,
         )
-
-        # Create augmenter with manual data
-        from hydromodel_dev.data_augment import HydrologicalDataAugmenter
 
         augmenter = HydrologicalDataAugmenter(
             scaling_factors=[0.8, 1.2], verbose=True

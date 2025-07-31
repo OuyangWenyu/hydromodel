@@ -34,9 +34,7 @@ jobs:
                   gdalinfo --version
             - name: Install dependencies
               run: |
-                  pip install --user -r requirements.txt
-                  pip install --user -r requirements_dev.txt
-                  pip install .
+                  pip install --user -e .[dev]
             - name: Create hydro_setting.yml
               run: |
                   echo 'local_data_path:' > hydro_setting.yml

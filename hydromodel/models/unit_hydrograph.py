@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-08 19:01:27
-LastEditTime: 2025-07-09 09:18:21
+LastEditTime: 2025-07-31 15:43:08
 LastEditors: Wenyu Ouyang
 Description: Unit hydrograph functions
 FilePath: /hydromodel/hydromodel/models/unit_hydrograph.py
@@ -11,6 +11,10 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 import itertools
 import logging
 import numpy as np
+import pandas as pd
+from scipy.optimize import minimize
+from scipy.stats import gamma
+from hydromodel.models.consts import OBS_FLOW, NET_RAIN
 
 
 def uh_conv(x, uh, truncate=True):
@@ -70,7 +74,9 @@ def _uh_conv_2d(x, uh, truncate=True):
     """2D case: [seq, batch]"""
     seq_length, batch_size = x.shape
     if uh.ndim != 2 or uh.shape[1] != batch_size:
-        logging.error("For 2D input x [seq, batch], uh should be [len_uh, batch]")
+        logging.error(
+            "For 2D input x [seq, batch], uh should be [len_uh, batch]"
+        )
         return np.zeros_like(x)
 
     # Handle empty arrays
@@ -117,5 +123,208 @@ def _uh_conv_3d(x, uh, truncate=True):
 
     for i, j in itertools.product(range(batch_size), range(feature_size)):
         conv_result = np.convolve(x[:, i, j], uh[:, i, j])
-        outputs[:, i, j] = conv_result[:seq_length] if truncate else conv_result
+        outputs[:, i, j] = (
+            conv_result[:seq_length] if truncate else conv_result
+        )
     return outputs
+
+
+# --- 核心计算函数 ---
+def objective_function_multi_event(
+    U_params,
+    list_of_event_data_for_opt,
+    lambda_smooth,
+    lambda_peak_violation,
+    apply_peak_penalty_flag,
+    common_n_uh,
+):
+    """
+    多事件单位线优化的目标函数
+
+    Args:
+        U_params: 单位线参数
+        list_of_event_data_for_opt: 用于优化的事件数据列表
+        lambda_smooth: 平滑性惩罚权重
+        lambda_peak_violation: 单峰违反惩罚权重
+        apply_peak_penalty_flag: 是否应用单峰惩罚
+        common_n_uh: 单位线长度
+
+    Returns:
+        float: 目标函数值
+    """
+    total_fit_loss = 0  # 总拟合损失
+    if len(U_params) != common_n_uh:
+        return 1e18
+    for event_data in list_of_event_data_for_opt:
+        P_event, Q_event_obs = (
+            event_data[NET_RAIN],
+            event_data[OBS_FLOW],
+        )  # 场次降雨和观测径流
+        Q_sim_full_event = uh_conv(
+            P_event, U_params, truncate=False
+        )  # 模拟径流
+        Q_sim_compare_event = Q_sim_full_event[
+            : len(Q_event_obs)
+        ]  # 用于比较的模拟径流
+        total_fit_loss += np.sum(
+            (Q_sim_compare_event - Q_event_obs) ** 2
+        )  # 累加均方误差
+    loss_smooth_val = (
+        np.sum(np.diff(U_params) ** 2) if len(U_params) > 1 else 0
+    )  # 平滑性惩罚项
+    peak_violation_penalty_val = 0  # 单峰违反惩罚项
+    if apply_peak_penalty_flag and len(U_params) > 2:
+        actual_k_peak = np.argmax(U_params)  # 单位线峰值位置
+        for j in range(actual_k_peak):
+            if U_params[j + 1] < U_params[j] - 1e-6:
+                peak_violation_penalty_val += (
+                    U_params[j] - U_params[j + 1]
+                ) ** 2
+        for j in range(actual_k_peak, len(U_params) - 1):
+            if U_params[j + 1] > U_params[j] + 1e-6:
+                peak_violation_penalty_val += (
+                    U_params[j + 1] - U_params[j]
+                ) ** 2
+    return (
+        total_fit_loss
+        + lambda_smooth * loss_smooth_val
+        + lambda_peak_violation * peak_violation_penalty_val
+    )
+
+
+def _internal_optimize_unit_hydrograph(
+    event_data_list,
+    n_uh,
+    smoothing_factor,
+    peak_violation_weight,
+    apply_peak_penalty,
+    max_iterations=500,
+    verbose=False,
+):
+    """
+    内部通用单位线优化函数，供不同优化场景调用。
+    增加单位线和为1的等式约束，使用SLSQP方法。
+    """
+    U_initial_guess = init_unit_hydrograph(n_uh)
+    bounds = [(0, 1) for _ in range(n_uh)]
+    constraints = {"type": "eq", "fun": lambda U: np.sum(U) - 1}
+    result = minimize(
+        objective_function_multi_event,
+        U_initial_guess,
+        args=(
+            event_data_list,
+            smoothing_factor,
+            peak_violation_weight,
+            apply_peak_penalty,
+            n_uh,
+        ),
+        # method="L-BFGS-B",
+        method="SLSQP",
+        bounds=bounds,
+        constraints=constraints,
+        options={"disp": verbose, "maxiter": max_iterations},
+    )
+    if result.success or result.status in [0, 2]:
+        return result.x
+    else:
+        return None
+
+
+def optimize_shared_unit_hydrograph(
+    all_event_data,
+    common_n_uh,
+    smoothing_factor,
+    peak_violation_weight,
+    apply_peak_penalty,
+    max_iterations=500,
+    verbose=True,
+):
+    """
+    优化共享单位线参数，适用于多事件数据。
+    返回最优单位线参数数组，失败则返回None。
+    """
+    return _internal_optimize_unit_hydrograph(
+        all_event_data,
+        common_n_uh,
+        smoothing_factor,
+        peak_violation_weight,
+        apply_peak_penalty,
+        max_iterations=max_iterations,
+        verbose=verbose,
+    )
+
+
+def optimize_uh_for_group(events_in_group, group_name, weights, n_uh_group):
+    """
+    对指定事件组进行单位线优化
+
+    Args:
+        events_in_group: 事件组列表
+        group_name: 组名
+        weights: 权重字典，包含smoothing_factor和peak_violation_weight
+        n_uh_group: 单位线长度
+    Returns:
+        numpy.ndarray: 优化得到的单位线参数，失败则返回None
+    """
+    print(
+        f"\n--- 正在为组 '{group_name}' 优化特征单位线 ({len(events_in_group)} 场) ---"
+    )
+    if len(events_in_group) < 3:
+        print("事件数量过少，跳过优化。")
+        return None
+
+    smoothing, peak_penalty = (
+        weights["smoothing_factor"],
+        weights["peak_violation_weight"],
+    )
+    apply_penalty = n_uh_group > 2  # 是否应用单峰惩罚
+    print(
+        f"  使用权重: 平滑={smoothing}, 单峰罚={peak_penalty if apply_penalty else 'N/A'}"
+    )
+    U_optimized = _internal_optimize_unit_hydrograph(
+        events_in_group,
+        n_uh_group,
+        smoothing,
+        peak_penalty,
+        apply_penalty,
+        max_iterations=500,
+        verbose=False,
+    )
+    status_message = "成功" if U_optimized is not None else "可能未收敛"
+    print(f"  优化{status_message}")
+    return U_optimized
+
+
+def init_unit_hydrograph(length, method="gamma", **kwargs):
+    """
+    初始化一个单峰且归一化的单位线。
+
+    Parameters
+    ----------
+    length : int
+        单位线长度。
+    method : str, optional
+        初始化方法，'gamma'（默认，偏态）或'gaussian'（对称）。
+    **kwargs :
+        gamma分布参数：shape, scale
+        gaussian分布参数：peak_pos, std_ratio
+
+    Returns
+    -------
+    uh : np.ndarray
+        归一化的单位线数组。
+    """
+    if method == "gaussian":
+        peak_pos = kwargs.get("peak_pos", length // 2)
+        std_ratio = kwargs.get("std_ratio", 0.15)
+        std = length * std_ratio
+        x = np.arange(length)
+        uh = np.exp(-0.5 * ((x - peak_pos) / std) ** 2)
+    else:  # 默认gamma
+        shape = kwargs.get("shape", 2.0)
+        scale = kwargs.get("scale", 2.0)
+        x = np.arange(length)
+        uh = gamma.pdf(x, a=shape, scale=scale)
+    uh = np.maximum(uh, 0)
+    uh /= uh.sum()
+    return uh

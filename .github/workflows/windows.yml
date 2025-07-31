@@ -27,8 +27,7 @@ jobs:
               run: |
                   python -m pip install --upgrade pip
                   pip install --no-cache-dir Cython
-                  pip install -r requirements.txt
-                  pip install .
+                  pip install -e .[dev]
             # - name: PKG-TEST
             #   run: |
                 #   python -m pytest test/test_data_preprocess.py

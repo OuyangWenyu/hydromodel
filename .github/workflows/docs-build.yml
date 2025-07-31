@@ -25,8 +25,7 @@ jobs:
             - name: Install dependencies
               run: |
                   pip install --no-cache-dir Cython
-                  pip install -r requirements.txt -r requirements_dev.txt  -r requirements_docs.txt
-                  pip install .
+                  pip install -e .[dev,docs]
             - name: Discover typos with codespell
               run: codespell --skip="*.csv,*.geojson,*.json,*.js,*.html,*cff,*.pdf,./.git" --ignore-words-list="aci,acount,acounts,fallow,hart,hist,nd,ned,ois,wqs"
             - name: PKG-TEST

@@ -1,10 +1,10 @@
 """
 Author: Zheng Zhang, supervised by Heng Lv
 Date: 2025-07-08 18:30:00
-LastEditTime: 2025-07-17 09:11:22
+LastEditTime: 2025-08-01 10:46:57
 LastEditors: Wenyu Ouyang
 Description: 水文模型工具模块 -- 包含脚本中公共功能的工具函数
-FilePath: /hydromodel_dev/hydromodel_dev/utils.py
+FilePath: /hydromodel/hydromodel/models/uh_utils.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -17,13 +17,12 @@ from hydromodel.models.consts import OBS_FLOW, NET_RAIN, DELTA_T_SECONDS
 
 
 # --- 图表配置 ---
+from hydromodel.models.common_utils import setup_matplotlib_chinese
+
+
 def setup_matplotlib():
     """设置matplotlib的中文字体和样式"""
-    try:
-        plt.rcParams["font.sans-serif"] = ["SimHei"]
-        plt.rcParams["axes.unicode_minus"] = False
-    except Exception:
-        print("中文字体 SimHei 未找到，请确保已安装或修改字体设置。")
+    setup_matplotlib_chinese()
     plt.rcParams["mathtext.fontset"] = "stix"
     plt.rcParams["font.family"] = "sans-serif"
 
@@ -174,14 +173,12 @@ def save_results_to_csv(report_data, output_filename, sort_columns=None):
 
     # 保存文件
     try:
-        # 确保输出目录存在
-        output_dir = os.path.dirname(output_filename)
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        # Use common utility for CSV saving
+        from hydromodel.models.common_utils import save_dataframe_to_csv
 
-        report_df_sorted.to_csv(
+        save_dataframe_to_csv(
+            report_df_sorted,
             output_filename,
-            index=False,
             encoding="utf-8-sig",
             float_format="%.4f",
         )

@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-01-20 10:00:00
-LastEditTime: 2025-07-27 14:13:39
+LastEditTime: 2025-08-01 10:00:57
 LastEditors: Wenyu Ouyang
 Description: Hydrological Data Augmentation Module - Generate synthetic flood events based on unit hydrograph and net rainfall
-FilePath: \hydromodel_dev\hydromodel_dev\data_augment.py
+FilePath: /hydromodel/hydromodel/models/data_augment.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -22,34 +22,31 @@ from hydrodatasource.configs.config import SETTING
 from hydrodatasource.utils.utils import streamflow_unit_conv
 from hydromodel.models.unit_hydrograph import uh_conv
 from hydromodel.models.consts import OBS_FLOW, NET_RAIN, DELTA_T_HOURS
-from .floodevent import load_and_preprocess_events_unified
-from .unit_hydrograph import optimize_shared_unit_hydrograph
-from . import (
+from hydromodel.models.common_utils import read_basin_area_safe
+from hydromodel.models.floodevent import load_and_preprocess_events_unified
+from hydromodel.models.unit_hydrograph import optimize_shared_unit_hydrograph
+from hydromodel.models import (
     categorize_floods_by_peak,
     optimize_uh_for_group,
     evaluate_single_event,
 )
+from hydromodel.models.floodevent import FloodEventDatasource
 
 
 class BaseDataAugmenter(ABC):
     """
-    Abstract base class for data augmentation following common ML patterns
+    Abstract base class for hydrological data augmentation.
     """
 
     @abstractmethod
-    def fit(self, data):
-        """Fit the augmenter with training data"""
+    def validate_data(self, data):
+        """Validate input data format and content."""
         pass
 
     @abstractmethod
-    def transform(self, data, n_samples: int = 1):
-        """Transform data by generating augmented samples"""
+    def augment_data(self, data, n_samples_per_event: int = None):
+        """Generate augmented flood events from input data."""
         pass
-
-    def fit_transform(self, data, n_samples: int = 1):
-        """Fit and transform in one step"""
-        self.fit(data)
-        return self.transform(data, n_samples)
 
 
 class HydrologicalDataAugmenter(BaseDataAugmenter):
@@ -66,8 +63,6 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
     - Automatic time assignment with preserved month/day/hour but incremented years
     - Multi-watershed support
     - Unit hydrograph convolution for flow generation
-
-    Design Pattern: Strategy + Builder + Template Method patterns inspired by sklearn and imgaug
     """
 
     def __init__(
@@ -84,7 +79,6 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
         top_n_events: int = 10,
         min_nse_threshold: float = 0.7,
         uh_length: int = 24,
-        results_file: str = None,
         verbose: bool = True,
         # Unit conversion options
         flow_unit: str = "mm/3h",
@@ -108,7 +102,6 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
             top_n_events: Number of top events to extract for augmentation (default: 10)
             min_nse_threshold: Minimum NSE threshold for selecting events (default: 0.7)
             uh_length: Unit hydrograph length for shared mode (default: 24)
-            results_file: Path to existing results file to load from (optional)
             verbose: Whether to print detailed information during real data loading (default: True)
 
             # Unit conversion options
@@ -147,45 +140,34 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
                 print("🚀 Auto-loading real hydrological data...")
 
             try:
-                if results_file:
-                    # Load from existing results file
-                    data = load_from_results_file(
-                        results_file=results_file,
-                        data_path=data_path,
-                        station_id=station_id,
-                        top_n_events=top_n_events,
-                        min_nse_threshold=min_nse_threshold,
-                        verbose=verbose,
-                    )
-                else:
-                    # Load and optimize from scratch
-                    data = load_real_hydrological_data(
-                        data_path=data_path,
-                        station_id=station_id,
-                        optimization_mode=optimization_mode,
-                        top_n_events=top_n_events,
-                        min_nse_threshold=min_nse_threshold,
-                        uh_length=uh_length,
-                        verbose=verbose,
-                    )
+                # Load and optimize from scratch (results_file option removed)
+                data = load_real_hydrological_data(
+                    data_path=data_path,
+                    station_id=station_id,
+                    optimization_mode=optimization_mode,
+                    top_n_events=top_n_events,
+                    min_nse_threshold=min_nse_threshold,
+                    uh_length=uh_length,
+                    verbose=verbose,
+                )
 
-                # Auto-fit with loaded data
-                self.fit(data)
+                # Auto-initialize with loaded data
+                self._initialize_with_data(data)
 
                 if verbose:
-                    print("✅ Auto-loading and fitting completed!")
+                    print("✅ Auto-loading and initialization completed!")
 
             except Exception as e:
                 if verbose:
                     print(f"❌ Failed to auto-load real data: {e}")
                     print(
-                        "💡 You can still manually load data using the fit() method"
+                        "💡 You can still manually initialize data using augment_data() method"
                     )
-                # Don't raise the exception, allow manual fitting later
+                # Don't raise the exception, allow manual initialization later
 
-    def fit(self, data: Dict):
+    def validate_data(self, data: Dict):
         """
-        Fit the augmenter with optimal flood events and their unit hydrographs
+        Validate input data format and content.
 
         Parameters
         ----------
@@ -195,11 +177,31 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
                 - 'unit_hydrographs': Dict mapping event names to unit hydrograph arrays
                 - 'watershed_info': Optional dict with watershed metadata.
                 - 'basin_area_km2': Basin area in km² (for unit conversion, optional)
+
+        Raises
+        ------
+        ValueError
+            If required keys are missing or data format is invalid.
         """
         required_keys = ["optimal_events", "unit_hydrographs"]
         for key in required_keys:
             if key not in data:
                 raise ValueError(f"Missing required key in data: {key}")
+
+        # Validate data consistency
+        self._validate_input_data_format(data)
+
+    def _initialize_with_data(self, data: Dict):
+        """
+        Initialize augmenter with validated data.
+
+        Parameters
+        ----------
+        data : dict
+            Validated data dictionary.
+        """
+        # Validate first
+        self.validate_data(data)
 
         self.optimal_events_ = data["optimal_events"]
         self.unit_hydrographs_ = data["unit_hydrographs"]
@@ -216,23 +218,23 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
                 "⚠️ Warning: convert_to_cms is enabled but basin_area_km2 is not available from datasource"
             )
 
-        # Validate data consistency
-        self._validate_input_data()
-
         self.is_fitted_ = True
 
         print(
-            f"✅ Augmenter fitted successfully with {len(self.optimal_events_)} events"
+            f"✅ Augmenter initialized successfully with {len(self.optimal_events_)} events"
         )
         if self.basin_area_km2 is not None:
             print(f"📊 Basin area available: {self.basin_area_km2} km²")
 
-    def _validate_input_data(self):
+    def _validate_input_data_format(self, data: Dict):
         """Validate input data consistency"""
-        if not self.optimal_events_:
+        optimal_events = data["optimal_events"]
+        unit_hydrographs = data["unit_hydrographs"]
+
+        if not optimal_events:
             raise ValueError("No optimal events provided")
 
-        for i, event in enumerate(self.optimal_events_):
+        for i, event in enumerate(optimal_events):
             required_fields = [NET_RAIN, OBS_FLOW, "filepath"]
             for field in required_fields:
                 if field not in event:
@@ -241,26 +243,32 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
                     )
 
             event_name = event["filepath"]
-            if event_name not in self.unit_hydrographs_:
+            if event_name not in unit_hydrographs:
                 raise ValueError(
                     f"No unit hydrograph found for event: {event_name}"
                 )
 
-    def transform(
-        self, data: Optional[Dict] = None, n_samples_per_event: int = None
+    def augment_data(
+        self, data: Dict, n_samples_per_event: int = None
     ) -> List[Dict]:
         """
-        Generate augmented flood events
+        Generate augmented flood events from input data.
 
-        Args:
-            data: Optional additional data (not used in current implementation)
-            n_samples_per_event: Number of samples per event. If None, auto-calculated based on scaling factors
+        Parameters
+        ----------
+        data : dict
+            Dictionary containing optimal events and unit hydrographs.
+        n_samples_per_event : int, optional
+            Number of samples per event. If None, auto-calculated based on scaling factors.
 
-        Returns:
-            List of augmented event dictionaries with generated synthetic data
+        Returns
+        -------
+        list of dict
+            List of augmented event dictionaries with generated synthetic data.
         """
+        # Initialize with data if not already done
         if not self.is_fitted_:
-            raise ValueError("Augmenter must be fitted before transform")
+            self._initialize_with_data(data)
 
         augmented_events = []
         current_year = datetime.now().year + self.start_year_offset
@@ -745,10 +753,10 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
 
             filepath = os.path.join(output_dir, event["filepath"])
 
-            # Write metadata comments and data
-            with open(filepath, "w", encoding="utf-8", newline="") as f:
-                f.write("\n".join(metadata_lines) + "\n")
-                df.to_csv(f, index=False, float_format="%.6f", header=True)
+            # Write metadata comments and data using common utility
+            from hydromodel.models.common_utils import save_dataframe_to_csv
+
+            save_dataframe_to_csv(df, filepath, metadata_lines=metadata_lines)
 
         print(
             f"✅ Saved {len(augmented_events)} augmented events to {output_dir}"
@@ -848,8 +856,6 @@ def load_real_hydrological_data(
         print(f"🏭 Station ID: {station_id}")
 
     # Create datasource instance to read basin area
-    from hydromodel_dev.floodevent import FloodEventDatasource
-
     dataset = FloodEventDatasource(
         data_path,
         flow_unit="mm/3h",
@@ -859,15 +865,7 @@ def load_real_hydrological_data(
     # Get basin area from datasource
     basin_area_km2 = None
     if station_id:
-        try:
-            basin_area_km2 = dataset.read_area([station_id])
-            if verbose:
-                print(
-                    f"📊 Basin area read from datasource: {basin_area_km2} km²"
-                )
-        except Exception as e:
-            if verbose:
-                print(f"⚠️ Unable to read basin area: {str(e)}")
+        basin_area_km2 = read_basin_area_safe(dataset, station_id, verbose)
 
     all_event_data = load_and_preprocess_events_unified(
         data_dir=data_path,
@@ -1069,266 +1067,6 @@ def load_real_hydrological_data(
     }
 
 
-def load_from_results_file(
-    results_file: str,
-    data_path: str = None,
-    station_id: str = "songliao_21401550",
-    top_n_events: int = 10,
-    min_nse_threshold: float = 0.7,
-    verbose: bool = True,
-) -> Dict:
-    """
-    Load optimal events from existing results file
-
-    Args:
-        results_file: Path to CSV results file (e.g., UH_shared_eva_output.csv)
-        data_path: Path to original data directory
-        station_id: Station ID for data loading
-        top_n_events: Number of top events to extract
-        min_nse_threshold: Minimum NSE threshold
-        verbose: Whether to print detailed information
-
-    Returns:
-        Dict containing optimal events and unit hydrographs ready for augmentation
-    """
-    if verbose:
-        print(f"📂 Loading optimal events from results file: {results_file}")
-
-    # Read results file
-    if not os.path.exists(results_file):
-        raise FileNotFoundError(f"Results file not found: {results_file}")
-
-    results_df = pd.read_csv(results_file)
-
-    # Filter by NSE threshold and get top events
-    good_events = results_df[results_df["NSE"] >= min_nse_threshold]
-    good_events = good_events.sort_values("NSE", ascending=False).head(
-        top_n_events
-    )
-
-    if len(good_events) == 0:
-        raise ValueError(
-            f"No events in results file meet NSE threshold of {min_nse_threshold}"
-        )
-
-    # Use default data path if not provided
-    if data_path is None:
-        data_path = os.path.join(
-            SETTING["local_data_path"]["datasets-interim"], "songliaorrevent"
-        )
-
-    # Get basin area from datasource
-    basin_area_km2 = None
-    if station_id:
-        try:
-            from hydromodel_dev.floodevent import FloodEventDatasource
-
-            dataset = FloodEventDatasource(
-                data_path,
-                flow_unit="mm/3h",
-                trange4cache=["1960-01-01 02", "2024-12-31 23"],
-            )
-            basin_area_km2 = dataset.read_area([station_id])
-            if verbose:
-                print(
-                    f"📊 Basin area read from datasource: {basin_area_km2} km²"
-                )
-        except Exception as e:
-            if verbose:
-                print(f"⚠️ Unable to read basin area: {str(e)}")
-
-    # Extract event names - try different possible column names
-    event_column = None
-    possible_columns = [
-        "洪水事件",
-        "event_name",
-        "Event",
-        "filepath",
-        "洪水场次",
-    ]
-
-    for col in possible_columns:
-        if col in results_df.columns:
-            event_column = col
-            break
-
-    if event_column is None:
-        available_cols = ", ".join(results_df.columns.tolist())
-        raise ValueError(
-            f"No recognized event column found. Available columns: {available_cols}"
-        )
-
-    # Extract event names
-    event_names = good_events[event_column].tolist()
-
-    if verbose:
-        print(f"📊 Found {len(event_names)} events meeting criteria")
-        print(
-            f"   NSE range: {good_events['NSE'].min():.3f} - {good_events['NSE'].max():.3f}"
-        )
-
-    # Load original event data to get P_eff and Q_obs_eff
-    all_event_data = load_and_preprocess_events_unified(
-        data_dir=data_path,
-        station_id=station_id,
-        include_peak_obs=True,
-        verbose=False,
-    )
-
-    # Create lookup dictionary
-    event_lookup = {
-        event.get("filepath", ""): event for event in all_event_data
-    }
-
-    # Extract optimal events
-    optimal_events = []
-    for event_name in event_names:
-        if event_name in event_lookup:
-            optimal_events.append(event_lookup[event_name])
-        else:
-            if verbose:
-                print(
-                    f"⚠️ Warning: Event {event_name} not found in original data"
-                )
-
-    # For this mode, we'll need to infer or regenerate unit hydrographs
-    # This is a simplified approach - in practice, you might want to store UH in results
-    if verbose:
-        print(
-            "⚠️ Note: Unit hydrographs will be regenerated using shared optimization"
-        )
-
-    # Re-optimize with selected events only
-    if len(optimal_events) >= 3:
-        U_optimized = optimize_shared_unit_hydrograph(
-            optimal_events,
-            24,  # Default length
-            0.1,  # Default smoothing
-            10000.0,  # Default peak penalty
-            True,  # Apply peak penalty
-            max_iterations=500,
-            verbose=verbose,
-        )
-    else:
-        raise ValueError(
-            "Insufficient optimal events for unit hydrograph optimization"
-        )
-
-    # Create unit hydrographs dictionary
-    unit_hydrographs = {}
-    for event in optimal_events:
-        event_name = event.get(
-            "filepath", f"event_{len(unit_hydrographs):04d}.csv"
-        )
-        unit_hydrographs[event_name] = U_optimized.copy()
-
-    watershed_info = {
-        "name": f"Station_{station_id}",
-        "station_id": station_id,
-        "data_source": "results_file",
-        "results_file": results_file,
-        "optimal_events_selected": len(optimal_events),
-        "basin_area_km2": basin_area_km2,  # Add basin area to watershed info
-    }
-
-    if verbose:
-        print("✅ Data loading from results file completed!")
-
-    return {
-        "optimal_events": optimal_events,
-        "unit_hydrographs": unit_hydrographs,
-        "watershed_info": watershed_info,
-        "basin_area_km2": basin_area_km2,  # Return basin area directly
-    }
-
-
-# Factory functions for easy instantiation
-def create_hydrological_augmenter(
-    config: Dict = None,
-) -> HydrologicalDataAugmenter:
-    """
-    Factory function to create HydrologicalDataAugmenter with configuration
-
-    Args:
-        config: Configuration dictionary
-
-    Returns:
-        Configured HydrologicalDataAugmenter instance
-    """
-    config = config or {}
-
-    return HydrologicalDataAugmenter(
-        scaling_factors=config.get(
-            "scaling_factors", [0.5, 0.8, 1.2, 1.5, 2.0]
-        ),
-        start_year_offset=config.get("start_year_offset", 1),
-        preserve_temporal_structure=config.get(
-            "preserve_temporal_structure", True
-        ),
-        random_state=config.get("random_state", None),
-    )
-
-
-def create_real_data_augmenter(
-    station_id: str = "songliao_21401550",
-    optimization_mode: str = "shared",
-    scaling_factors: List[float] = None,
-    top_n_events: int = 10,
-    min_nse_threshold: float = 0.7,
-    uh_length: int = 24,
-    results_file: str = None,
-    data_path: str = None,
-    verbose: bool = True,
-    **kwargs,
-) -> HydrologicalDataAugmenter:
-    """
-    Convenient factory function to create HydrologicalDataAugmenter with real data
-
-    Args:
-        station_id: Station ID for data loading (default: "songliao_21401550")
-        optimization_mode: "shared" or "categorized" optimization (default: "shared")
-        scaling_factors: List of scaling factors (default: [0.5, 0.8, 1.2, 1.5, 2.0])
-        top_n_events: Number of top events to extract (default: 10)
-        min_nse_threshold: Minimum NSE threshold (default: 0.7)
-        uh_length: Unit hydrograph length for shared mode (default: 24)
-        results_file: Path to existing results file (optional)
-        data_path: Path to data directory (optional, uses default if None)
-        verbose: Whether to print detailed information (default: True)
-        **kwargs: Additional parameters for HydrologicalDataAugmenter
-
-    Returns:
-        Configured and fitted HydrologicalDataAugmenter instance with real data
-
-    Example:
-        # Create augmenter with shared optimization
-        augmenter = create_real_data_augmenter(
-            station_id="songliao_21401550",
-            optimization_mode="shared",
-            top_n_events=5,
-            min_nse_threshold=0.8
-        )
-
-        # Create augmenter from existing results
-        augmenter = create_real_data_augmenter(
-            results_file="results/UH_shared_eva_output_songliao_21401550.csv",
-            top_n_events=8
-        )
-    """
-    return HydrologicalDataAugmenter(
-        scaling_factors=scaling_factors,
-        use_real_data=True,
-        data_path=data_path,
-        station_id=station_id,
-        optimization_mode=optimization_mode,
-        top_n_events=top_n_events,
-        min_nse_threshold=min_nse_threshold,
-        uh_length=uh_length,
-        results_file=results_file,
-        verbose=verbose,
-        **kwargs,
-    )
-
-
 # Example usage and convenience functions
 def augment_multiple_watersheds(
     watershed_data: Dict[str, Dict], config: Dict = None
@@ -1348,8 +1086,19 @@ def augment_multiple_watersheds(
     for watershed_name, data in watershed_data.items():
         print(f"\n🏞️ Processing watershed: {watershed_name}")
 
-        augmenter = create_hydrological_augmenter(config)
-        augmented_events = augmenter.fit_transform(data)
+        # Create augmenter with config parameters
+        config = config or {}
+        augmenter = HydrologicalDataAugmenter(
+            scaling_factors=config.get(
+                "scaling_factors", [0.5, 0.8, 1.2, 1.5, 2.0]
+            ),
+            start_year_offset=config.get("start_year_offset", 1),
+            preserve_temporal_structure=config.get(
+                "preserve_temporal_structure", True
+            ),
+            random_state=config.get("random_state", None),
+        )
+        augmented_events = augmenter.augment_data(data)
 
         results[watershed_name] = augmented_events
 

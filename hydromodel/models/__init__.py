@@ -4,7 +4,7 @@ Date: 2025-01-19 18:05:00
 LastEditTime: 2025-07-31 08:33:19
 LastEditors: Wenyu Ouyang
 Description: hydromodel models
-FilePath: \hydromodel\hydromodel\__init__.py
+FilePath: /hydromodel/hydromodel/models/__init__.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 

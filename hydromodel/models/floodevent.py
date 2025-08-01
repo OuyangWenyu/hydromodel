@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-01-19 18:05:00
-LastEditTime: 2025-07-17 15:25:35
+LastEditTime: 2025-08-01 14:26:02
 LastEditors: Wenyu Ouyang
 Description: 流域场次数据处理类 - 继承自SelfMadeHydroDataset
-FilePath: /hydromodel_dev/hydromodel_dev/floodevent.py
+FilePath: \hydromodel\hydromodel\models\floodevent.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -18,14 +18,17 @@ from hydrodatasource.utils.utils import streamflow_unit_conv
 from hydrodatasource.reader.data_source import SelfMadeHydroDataset
 from hydrodatasource.configs.config import CACHE_DIR
 from hydromodel.models.consts import OBS_FLOW, NET_RAIN
+from hydromodel.models.common_utils import (
+    read_basin_area_safe,
+)
 
 
 class FloodEventDatasource(SelfMadeHydroDataset):
     """
-    流域场次数据处理类
+    Flood event dataset processing class
 
-    继承自SelfMadeHydroDataset，专门用于处理到逐个洪水场次数据，
-    包括读取流域面积、单位转换、场次提取等功能。
+    Inherits from SelfMadeHydroDataset, specifically designed for
+    processing individual flood event data, including event extraction functions.
     """
 
     def __init__(
@@ -33,24 +36,24 @@ class FloodEventDatasource(SelfMadeHydroDataset):
         data_path: str,
         dataset_name: str = "songliaorrevents",
         time_unit: Optional[List[str]] = None,
-        flow_unit: str = "mm/3h",
         **kwargs,
     ):
         """
-        初始化流域场次数据集
+        Initialize the flood event dataset.
 
-        Args:
-            data_path: 数据路径
-            dataset_name: 数据集名称
-            time_unit: 时间单位列表，默认为["3h"]
-            flow_unit: 径流单位，默认为"mm/3h"
-            **kwargs: 其他参数传递给父类
+        Parameters
+        ----------
+        data_path : str
+            Path to the data.
+        dataset_name : str, optional
+            Name of the dataset.
+        time_unit : list of str, optional
+            List of time units, default is ["3h"].
+        **kwargs
+            Additional keyword arguments passed to the parent class.
         """
         if time_unit is None:
             time_unit = ["3h"]
-        # sometimes we load the data with different flow unit
-        # so we need to store the flow unit
-        self.flow_unit = flow_unit
         super().__init__(
             data_path=data_path,
             download=False,
@@ -206,6 +209,7 @@ class FloodEventDatasource(SelfMadeHydroDataset):
     def _load_1basin_flood_events(
         self,
         station_id: Optional[str] = None,
+        flow_unit: str = "mm/3h",
         include_peak_obs: bool = True,
         verbose: bool = True,
     ) -> Optional[List[Dict]]:
@@ -216,6 +220,8 @@ class FloodEventDatasource(SelfMadeHydroDataset):
         ----------
         station_id:
             指定站点ID，如果为None则处理所有站点
+        flow_unit
+            Unit of streamflow, default is "mm/3h".
         include_peak_obs:
             是否包含洪峰观测值
         verbose:
@@ -227,14 +233,11 @@ class FloodEventDatasource(SelfMadeHydroDataset):
         """
         # 获取流域面积
         basin_area_km2 = None
+
         if station_id:
-            try:
-                basin_area_km2 = self.read_area([station_id])
-                if verbose:
-                    print(f"📊 读取到流域面积: {basin_area_km2} km²")
-            except Exception as e:
-                if verbose:
-                    print(f"⚠️ 无法读取流域面积: {str(e)}")
+            basin_area_km2 = read_basin_area_safe(self, station_id, verbose)
+        else:
+            basin_area_km2 = None
 
         try:
             if verbose:
@@ -251,14 +254,12 @@ class FloodEventDatasource(SelfMadeHydroDataset):
                 var_lst=["inflow", "net_rain", "flood_event"],
                 # recache=True,
             )["3h"]
-            if self.flow_unit == "mm/3h":
-                xr_ds["inflow"] = streamflow_unit_conv(
-                    xr_ds[["inflow"]], basin_area_km2, target_unit="mm/3h"
-                )["inflow"]
-            elif self.flow_unit == "m^3/s":
-                pass
-            else:
-                raise ValueError(f"Unsupported flow unit: {self.flow_unit}")
+
+            xr_ds["inflow"] = streamflow_unit_conv(
+                xr_ds[["inflow"]],
+                target_unit=flow_unit,
+                area=basin_area_km2,
+            )["inflow"]
             df = xr_ds.to_dataframe()
             if df is None:
                 return None
@@ -884,17 +885,25 @@ def load_and_preprocess_events_unified(
     flow_unit: str = "mm/3h",
 ) -> Optional[List[Dict]]:
     """
-    向后兼容的统一接口函数
+    Unified backward-compatible interface function.
 
-    Args:
-        data_source: 数据文件夹路径
-        station_id: 流域站点ID（可选）
-        include_peak_obs: 是否包含洪峰观测值
-        verbose: 是否打印详细信息
-        recache: 是否重新缓存数据，默认为False
+    Parameters
+    ----------
+    data_dir : str
+        Path to the data directory.
+    station_id : Optional[str], optional
+        Basin station ID (default is None).
+    include_peak_obs : bool, optional
+        Whether to include observed flood peak values (default is True).
+    verbose : bool, optional
+        Whether to print detailed information (default is True).
+    flow_unit : str, optional
+        Unit of flow data (default is "mm/3h").
 
-    Returns:
-        List[Dict]: 标准格式的事件字典列表，与现有单位线算法完全兼容
+    Returns
+    -------
+    Optional[List[Dict]]
+        List of event dictionaries in standard format, fully compatible with existing unit hydrograph algorithms.
     """
     # 创建数据集实例
     dataset = FloodEventDatasource(
@@ -903,7 +912,7 @@ def load_and_preprocess_events_unified(
         trange4cache=["1960-01-01 02", "2024-12-31 23"],
     )
     return dataset._load_1basin_flood_events(
-        station_id, include_peak_obs, verbose
+        station_id, flow_unit, include_peak_obs, verbose
     )
 
 

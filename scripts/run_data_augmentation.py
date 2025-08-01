@@ -13,10 +13,9 @@ import numpy as np
 
 from hydromodel.models.consts import OBS_FLOW, NET_RAIN
 from hydromodel.models.data_augment import (
-    create_real_data_augmenter,
+    HydrologicalDataAugmenter,
     load_real_hydrological_data,
 )
-from hydromodel.models.data_augment import HydrologicalDataAugmenter
 
 
 def create_sample_data():
@@ -89,7 +88,8 @@ def real_data_shared_optimization():
 
     try:
         # Create augmenter with real data using shared optimization
-        augmenter = create_real_data_augmenter(
+        augmenter = HydrologicalDataAugmenter(
+            use_real_data=True,
             station_id="songliao_21401550",
             optimization_mode="shared",
             top_n_events=5,
@@ -99,9 +99,9 @@ def real_data_shared_optimization():
             verbose=True,
         )
 
-        # Generate augmented events (data already loaded and fitted)
+        # Generate augmented events (data already loaded and initialized)
         print("\n🔄 Generating augmented events...")
-        augmented_events = augmenter.transform()
+        augmented_events = augmenter.augment_data({})
 
         # Show results
         print(f"\n✅ Generated {len(augmented_events)} augmented events")
@@ -137,7 +137,8 @@ def real_data_categorized_optimization():
 
     try:
         # Create augmenter with real data using categorized optimization
-        augmenter = create_real_data_augmenter(
+        augmenter = HydrologicalDataAugmenter(
+            use_real_data=True,
             station_id="songliao_21401550",
             optimization_mode="categorized",
             top_n_events=6,  # 2 per category
@@ -149,7 +150,7 @@ def real_data_categorized_optimization():
 
         # Generate augmented events
         print("\n🔄 Generating augmented events...")
-        augmented_events = augmenter.transform()
+        augmented_events = augmenter.augment_data({})
 
         # Show results
         print(f"\n✅ Generated {len(augmented_events)} augmented events")
@@ -222,9 +223,11 @@ def demo_load_from_results_file():
     try:
         print(f"📂 Using results file: {results_file}")
 
-        # Create augmenter from results file
-        augmenter = create_real_data_augmenter(
-            results_file=results_file,
+        # Create augmenter with real data (results_file functionality removed)
+        augmenter = HydrologicalDataAugmenter(
+            use_real_data=True,
+            station_id="songliao_21401550",
+            optimization_mode="shared",
             top_n_events=5,
             min_nse_threshold=0.8,
             scaling_factors=[0.8, 1.2, 1.5],
@@ -233,7 +236,7 @@ def demo_load_from_results_file():
 
         # Generate augmented events
         print("\n🔄 Generating augmented events...")
-        augmented_events = augmenter.transform()
+        augmented_events = augmenter.augment_data({})
 
         # Show results
         print(

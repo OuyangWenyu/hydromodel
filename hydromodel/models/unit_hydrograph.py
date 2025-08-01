@@ -192,31 +192,52 @@ def objective_function_multi_event(
     )
 
 
-def _internal_optimize_unit_hydrograph(
-    event_data_list,
-    n_uh,
+def optimize_shared_unit_hydrograph(
+    all_event_data,
+    common_n_uh,
     smoothing_factor,
     peak_violation_weight,
     apply_peak_penalty,
     max_iterations=500,
-    verbose=False,
+    verbose=True,
 ):
     """
-    内部通用单位线优化函数，供不同优化场景调用。
-    增加单位线和为1的等式约束，使用SLSQP方法。
+    Optimize shared unit hydrograph parameters for multi-event data.
+
+    Parameters
+    ----------
+    all_event_data : list
+        List of event data dictionaries.
+    common_n_uh : int
+        Length of the unit hydrograph.
+    smoothing_factor : float
+        Smoothing factor for regularization.
+    peak_violation_weight : float
+        Weight for peak violation penalty.
+    apply_peak_penalty : bool
+        Whether to apply peak penalty.
+    max_iterations : int, optional
+        Maximum number of optimization iterations (default is 500).
+    verbose : bool, optional
+        Whether to display optimization progress (default is True).
+
+    Returns
+    -------
+    np.ndarray or None
+        Optimized unit hydrograph parameters array, or None if optimization fails.
     """
-    U_initial_guess = init_unit_hydrograph(n_uh)
-    bounds = [(0, 1) for _ in range(n_uh)]
+    U_initial_guess = init_unit_hydrograph(common_n_uh)
+    bounds = [(0, 1) for _ in range(common_n_uh)]
     constraints = {"type": "eq", "fun": lambda U: np.sum(U) - 1}
     result = minimize(
         objective_function_multi_event,
         U_initial_guess,
         args=(
-            event_data_list,
+            all_event_data,
             smoothing_factor,
             peak_violation_weight,
             apply_peak_penalty,
-            n_uh,
+            common_n_uh,
         ),
         # method="L-BFGS-B",
         method="SLSQP",
@@ -230,41 +251,25 @@ def _internal_optimize_unit_hydrograph(
         return None
 
 
-def optimize_shared_unit_hydrograph(
-    all_event_data,
-    common_n_uh,
-    smoothing_factor,
-    peak_violation_weight,
-    apply_peak_penalty,
-    max_iterations=500,
-    verbose=True,
-):
-    """
-    优化共享单位线参数，适用于多事件数据。
-    返回最优单位线参数数组，失败则返回None。
-    """
-    return _internal_optimize_unit_hydrograph(
-        all_event_data,
-        common_n_uh,
-        smoothing_factor,
-        peak_violation_weight,
-        apply_peak_penalty,
-        max_iterations=max_iterations,
-        verbose=verbose,
-    )
-
-
 def optimize_uh_for_group(events_in_group, group_name, weights, n_uh_group):
     """
-    对指定事件组进行单位线优化
+    Optimize unit hydrograph for a specific event group.
 
-    Args:
-        events_in_group: 事件组列表
-        group_name: 组名
-        weights: 权重字典，包含smoothing_factor和peak_violation_weight
-        n_uh_group: 单位线长度
-    Returns:
-        numpy.ndarray: 优化得到的单位线参数，失败则返回None
+    Parameters
+    ----------
+    events_in_group : list
+        List of events in the group.
+    group_name : str
+        Name of the group.
+    weights : dict
+        Weight dictionary containing 'smoothing_factor' and 'peak_violation_weight'.
+    n_uh_group : int
+        Length of the unit hydrograph.
+
+    Returns
+    -------
+    np.ndarray or None
+        Optimized unit hydrograph parameters, or None if optimization fails.
     """
     print(
         f"\n--- 正在为组 '{group_name}' 优化特征单位线 ({len(events_in_group)} 场) ---"
@@ -281,14 +286,27 @@ def optimize_uh_for_group(events_in_group, group_name, weights, n_uh_group):
     print(
         f"  使用权重: 平滑={smoothing}, 单峰罚={peak_penalty if apply_penalty else 'N/A'}"
     )
-    U_optimized = _internal_optimize_unit_hydrograph(
-        events_in_group,
-        n_uh_group,
-        smoothing,
-        peak_penalty,
-        apply_penalty,
-        max_iterations=500,
-        verbose=False,
+    # Direct optimization logic (previously in _internal_optimize_unit_hydrograph)
+    U_initial_guess = init_unit_hydrograph(n_uh_group)
+    bounds = [(0, 1) for _ in range(n_uh_group)]
+    constraints = {"type": "eq", "fun": lambda U: np.sum(U) - 1}
+    result = minimize(
+        objective_function_multi_event,
+        U_initial_guess,
+        args=(
+            events_in_group,
+            smoothing,
+            peak_penalty,
+            apply_penalty,
+            n_uh_group,
+        ),
+        method="SLSQP",
+        bounds=bounds,
+        constraints=constraints,
+        options={"disp": False, "maxiter": 500},
+    )
+    U_optimized = (
+        result.x if (result.success or result.status in [0, 2]) else None
     )
     status_message = "成功" if U_optimized is not None else "可能未收敛"
     print(f"  优化{status_message}")

@@ -10,12 +10,9 @@ from hydromodel.models.floodevent import (
     calculate_events_characteristics,
     load_and_preprocess_events_unified,
 )
+from hydromodel.models.common_utils import setup_matplotlib_chinese
 
-try:
-    plt.rcParams["font.sans-serif"] = ["SimHei"]
-    plt.rcParams["axes.unicode_minus"] = False
-except Exception:
-    print("警告: 中文字体'SimHei'未找到，图表中的中文可能无法正确显示。")
+setup_matplotlib_chinese()
 
 # --- 新增：为LaTeX数学公式渲染配置字体 ---
 # 这可以帮助确保数学符号和中文字体看起来更和谐

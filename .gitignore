@@ -180,3 +180,5 @@ outputs/
 result_old/
 results/*
 data/
+CLAUDE.md
+.claude/*

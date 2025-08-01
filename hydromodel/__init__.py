@@ -4,7 +4,7 @@ Date: 2024-02-09 15:56:48
 LastEditTime: 2024-03-28 11:18:55
 LastEditors: Wenyu Ouyang
 Description: Top-level package for hydromodel
-FilePath: \hydromodel\hydromodel\__init__.py
+FilePath: /hydromodel/hydromodel/__init__.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 

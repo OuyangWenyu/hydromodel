@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-01-20 10:00:00
-LastEditTime: 2025-08-01 10:00:57
+LastEditTime: 2025-08-01 14:31:34
 LastEditors: Wenyu Ouyang
 Description: Hydrological Data Augmentation Module - Generate synthetic flood events based on unit hydrograph and net rainfall
-FilePath: /hydromodel/hydromodel/models/data_augment.py
+FilePath: \hydromodel\hydromodel\models\data_augment.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -23,14 +23,13 @@ from hydrodatasource.utils.utils import streamflow_unit_conv
 from hydromodel.models.unit_hydrograph import uh_conv
 from hydromodel.models.consts import OBS_FLOW, NET_RAIN, DELTA_T_HOURS
 from hydromodel.models.common_utils import read_basin_area_safe
-from hydromodel.models.floodevent import load_and_preprocess_events_unified
+from hydromodel.models.floodevent import FloodEventDatasource
 from hydromodel.models.unit_hydrograph import optimize_shared_unit_hydrograph
 from hydromodel.models import (
     categorize_floods_by_peak,
     optimize_uh_for_group,
     evaluate_single_event,
 )
-from hydromodel.models.floodevent import FloodEventDatasource
 
 
 class BaseDataAugmenter(ABC):
@@ -858,18 +857,16 @@ def load_real_hydrological_data(
     # Create datasource instance to read basin area
     dataset = FloodEventDatasource(
         data_path,
-        flow_unit="mm/3h",
         trange4cache=["1960-01-01 02", "2024-12-31 23"],
     )
-
     # Get basin area from datasource
     basin_area_km2 = None
     if station_id:
         basin_area_km2 = read_basin_area_safe(dataset, station_id, verbose)
 
-    all_event_data = load_and_preprocess_events_unified(
-        data_dir=data_path,
+    all_event_data = dataset.load_1basin_flood_events(
         station_id=station_id,
+        flow_unit="mm/3h",
         include_peak_obs=True,
         verbose=verbose,
     )

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-01-19 18:05:00
-LastEditTime: 2025-08-01 14:26:02
+LastEditTime: 2025-08-01 16:06:40
 LastEditors: Wenyu Ouyang
 Description: 流域场次数据处理类 - 继承自SelfMadeHydroDataset
 FilePath: \hydromodel\hydromodel\models\floodevent.py
@@ -206,7 +206,7 @@ class FloodEventDatasource(SelfMadeHydroDataset):
         except Exception:
             return {}
 
-    def _load_1basin_flood_events(
+    def load_1basin_flood_events(
         self,
         station_id: Optional[str] = None,
         flow_unit: str = "mm/3h",
@@ -877,43 +877,6 @@ def calculate_events_characteristics(
     return enhanced_events
 
 
-def load_and_preprocess_events_unified(
-    data_dir: str,
-    station_id: Optional[str] = None,
-    include_peak_obs: bool = True,
-    verbose: bool = True,
-    flow_unit: str = "mm/3h",
-) -> Optional[List[Dict]]:
-    """
-    Unified backward-compatible interface function.
-
-    Parameters
-    ----------
-    data_dir : str
-        Path to the data directory.
-    station_id : Optional[str], optional
-        Basin station ID (default is None).
-    include_peak_obs : bool, optional
-        Whether to include observed flood peak values (default is True).
-    verbose : bool, optional
-        Whether to print detailed information (default is True).
-    flow_unit : str, optional
-        Unit of flow data (default is "mm/3h").
-
-    Returns
-    -------
-    Optional[List[Dict]]
-        List of event dictionaries in standard format, fully compatible with existing unit hydrograph algorithms.
-    """
-    # 创建数据集实例
-    dataset = FloodEventDatasource(
-        data_dir,
-        flow_unit=flow_unit,
-        trange4cache=["1960-01-01 02", "2024-12-31 23"],
-    )
-    return dataset._load_1basin_flood_events(
-        station_id, flow_unit, include_peak_obs, verbose
-    )
 
 
 def check_event_data_nan(all_event_data: List[Dict]):

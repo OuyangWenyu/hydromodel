@@ -19,7 +19,6 @@ from .unit_hydrograph import (
 # 流域场次数据处理类
 from .floodevent import (
     FloodEventDatasource,  # 主要的场次数据处理类
-    load_and_preprocess_events_unified,  # 向后兼容的统一接口函数
 )
 
 # 水文模型
@@ -54,7 +53,6 @@ __all__ = [
     "DELTA_T_SECONDS",
     # 流域场次数据处理类
     "FloodEventDatasource",
-    "load_and_preprocess_events_unified",
     # 水文模型
     "dhf",
     # 工具函数

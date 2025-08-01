@@ -8,7 +8,7 @@ from hydromodel.models.consts import OBS_FLOW, NET_RAIN, DELTA_T_HOURS
 from hydrodatasource.configs.config import SETTING
 from hydromodel.models.floodevent import (
     calculate_events_characteristics,
-    load_and_preprocess_events_unified,
+    FloodEventDatasource,
 )
 from hydromodel.models.common_utils import setup_matplotlib_chinese
 
@@ -187,12 +187,15 @@ if __name__ == "__main__":
         SETTING["local_data_path"]["datasets-interim"],
         "songliaorrevent",
     )
-    events = load_and_preprocess_events_unified(
-        data_dir=data_folder,
+    dataset = FloodEventDatasource(
+        data_folder,
+        trange4cache=["1960-01-01 02", "2024-12-31 23"],
+    )
+    events = dataset.load_1basin_flood_events(
         station_id="songliao_21401550",
+        flow_unit="m^3/s",
         include_peak_obs=True,
         verbose=True,
-        flow_unit="m^3/s",
     )
     enhanced_events = calculate_events_characteristics(events)
     output_plot_folder = "results/event_characteristic_plots"

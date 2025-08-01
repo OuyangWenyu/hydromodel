@@ -13,7 +13,7 @@ import argparse
 import json
 from hydrodatasource.configs.config import SETTING
 from hydromodel.models.floodevent import (
-    load_and_preprocess_events_unified,
+    FloodEventDatasource,
 )
 from hydromodel.models.plot_rrevents import plot_unit_hydrograph
 from hydromodel.models.unit_hydrograph import optimize_uh_for_group
@@ -167,9 +167,13 @@ def main():
         print("-" * 60)
     # 确保输出目录存在
     os.makedirs(args.output_dir, exist_ok=True)
-    all_events_data = load_and_preprocess_events_unified(
-        data_dir=args.data_path,
+    dataset = FloodEventDatasource(
+        args.data_path,
+        trange4cache=["1960-01-01 02", "2024-12-31 23"],
+    )
+    all_events_data = dataset.load_1basin_flood_events(
         station_id=args.station_id,
+        flow_unit="mm/3h",
         include_peak_obs=True,  # 三类别分析需要洪峰观测值
         verbose=verbose,
     )

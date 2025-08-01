@@ -13,7 +13,7 @@ import argparse
 from hydrodatasource.configs.config import SETTING
 from hydromodel.models.floodevent import (
     check_event_data_nan,
-    load_and_preprocess_events_unified,
+    FloodEventDatasource,
 )
 from hydromodel.models.unit_hydrograph import optimize_shared_unit_hydrograph
 from hydromodel.models.plot_rrevents import plot_unit_hydrograph
@@ -121,9 +121,13 @@ def main():
         print(f"🔄 最大迭代次数: {args.max_iterations}")
         print(f"📈 包含洪峰观测值: {include_peak_obs}")
         print("-" * 60)
-    all_event_data = load_and_preprocess_events_unified(
-        data_dir=args.data_path,
+    dataset = FloodEventDatasource(
+        args.data_path,
+        trange4cache=["1960-01-01 02", "2024-12-31 23"],
+    )
+    all_event_data = dataset.load_1basin_flood_events(
         station_id=args.station_id,
+        flow_unit="mm/3h",
         include_peak_obs=include_peak_obs,
         verbose=verbose,
     )

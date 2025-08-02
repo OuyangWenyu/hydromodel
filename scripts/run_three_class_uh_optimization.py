@@ -12,9 +12,7 @@ import os
 import argparse
 import json
 from hydrodatasource.configs.config import SETTING
-from hydromodel.models.floodevent import (
-    FloodEventDatasource,
-)
+from hydrodatasource.reader.floodevent import FloodEventDatasource
 from hydromodel.models.plot_rrevents import plot_unit_hydrograph
 from hydromodel.models.unit_hydrograph import optimize_uh_for_group
 from hydromodel.models.uh_utils import (

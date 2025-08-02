@@ -11,7 +11,7 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 import os
 
 from hydrodatasource.configs.config import SETTING
-from hydromodel.models.floodevent import FloodEventDatasource
+from hydrodatasource.reader.floodevent import FloodEventDatasource
 
 
 def main():

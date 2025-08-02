@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-01-20 10:00:00
-LastEditTime: 2025-08-01 14:31:34
+LastEditTime: 2025-08-02 11:30:08
 LastEditors: Wenyu Ouyang
 Description: Hydrological Data Augmentation Module - Generate synthetic flood events based on unit hydrograph and net rainfall
 FilePath: \hydromodel\hydromodel\models\data_augment.py
@@ -17,19 +17,21 @@ from typing import List, Dict, Optional, Union, Tuple
 import copy
 from abc import ABC, abstractmethod
 
-# Import hydromodel_dev functions for real data loading
 from hydrodatasource.configs.config import SETTING
+from hydrodatasource.reader.floodevent import FloodEventDatasource
 from hydrodatasource.utils.utils import streamflow_unit_conv
 from hydromodel.models.unit_hydrograph import uh_conv
-from hydromodel.models.consts import OBS_FLOW, NET_RAIN, DELTA_T_HOURS
-from hydromodel.models.common_utils import read_basin_area_safe
-from hydromodel.models.floodevent import FloodEventDatasource
 from hydromodel.models.unit_hydrograph import optimize_shared_unit_hydrograph
 from hydromodel.models import (
     categorize_floods_by_peak,
     optimize_uh_for_group,
     evaluate_single_event,
 )
+
+# Use string constants directly instead of importing from consts
+NET_RAIN = "P_eff"
+OBS_FLOW = "Q_obs_eff"
+DELTA_T_HOURS = 3.0
 
 
 class BaseDataAugmenter(ABC):
@@ -68,10 +70,6 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
         self,
         scaling_factors: List[float] = None,
         start_year_offset: int = 1,
-        preserve_temporal_structure: bool = True,
-        random_state: Optional[int] = None,
-        # Real data loading options
-        use_real_data: bool = False,
         data_path: str = None,
         station_id: str = "songliao_21401550",
         optimization_mode: str = "shared",
@@ -79,9 +77,7 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
         min_nse_threshold: float = 0.7,
         uh_length: int = 24,
         verbose: bool = True,
-        # Unit conversion options
-        flow_unit: str = "mm/3h",
-        convert_to_cms: bool = True,
+        random_state: Optional[int] = None,
     ):
         """
         Initialize the HydrologicalDataAugmenter
@@ -90,22 +86,15 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
         ----------
             scaling_factors: List of scaling factors for rainfall intensity (default: [0.5, 0.8, 1.2, 1.5, 2.0])
             start_year_offset: Years to add to current year for starting augmented data (default: 1)
-            preserve_temporal_structure: Whether to preserve month/day/hour structure (default: True)
-            random_state: Random seed for reproducibility
 
-            # Real data loading options
-            use_real_data: Whether to automatically load real hydrological data (default: False)
-            data_path: Path to data directory (defaults to SETTING path if use_real_data=True)
+            data_path: Path to data directory (defaults to SETTING path)
             station_id: Station ID for data loading (default: "songliao_21401550")
             optimization_mode: "shared" or "categorized" unit hydrograph optimization (default: "shared")
             top_n_events: Number of top events to extract for augmentation (default: 10)
             min_nse_threshold: Minimum NSE threshold for selecting events (default: 0.7)
             uh_length: Unit hydrograph length for shared mode (default: 24)
             verbose: Whether to print detailed information during real data loading (default: True)
-
-            # Unit conversion options
-            flow_unit: Current flow unit (default: "mm/3h")
-            convert_to_cms: Whether to convert flow units to m³/s (default: False)
+            random_state: Random seed for reproducibility (default: None)
         """
         self.scaling_factors = scaling_factors or [
             0.5,
@@ -116,13 +105,9 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
             2.0,
         ]
         self.start_year_offset = start_year_offset
-        self.preserve_temporal_structure = preserve_temporal_structure
-        self.random_state = random_state
 
-        # Unit conversion parameters (basin_area_km2 will be set in fit method)
+        # Basin area will be set during data initialization
         self.basin_area_km2 = None
-        self.flow_unit = flow_unit
-        self.convert_to_cms = convert_to_cms
 
         # Internal state
         self.optimal_events_ = None
@@ -133,36 +118,35 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
         if random_state is not None:
             np.random.seed(random_state)
 
-        # Auto-load real data if requested
-        if use_real_data:
+        # Auto-load real data
+        if verbose:
+            print("🚀 Auto-loading real hydrological data...")
+
+        try:
+            # Load and optimize from scratch (results_file option removed)
+            data = load_real_hydrological_data(
+                data_path=data_path,
+                station_id=station_id,
+                optimization_mode=optimization_mode,
+                top_n_events=top_n_events,
+                min_nse_threshold=min_nse_threshold,
+                uh_length=uh_length,
+                verbose=verbose,
+            )
+
+            # Auto-initialize with loaded data
+            self._initialize_with_data(data)
+
             if verbose:
-                print("🚀 Auto-loading real hydrological data...")
+                print("✅ Auto-loading and initialization completed!")
 
-            try:
-                # Load and optimize from scratch (results_file option removed)
-                data = load_real_hydrological_data(
-                    data_path=data_path,
-                    station_id=station_id,
-                    optimization_mode=optimization_mode,
-                    top_n_events=top_n_events,
-                    min_nse_threshold=min_nse_threshold,
-                    uh_length=uh_length,
-                    verbose=verbose,
+        except Exception as e:
+            if verbose:
+                print(f"❌ Failed to auto-load real data: {e}")
+                print(
+                    "💡 You can still manually initialize data using augment_data() method"
                 )
-
-                # Auto-initialize with loaded data
-                self._initialize_with_data(data)
-
-                if verbose:
-                    print("✅ Auto-loading and initialization completed!")
-
-            except Exception as e:
-                if verbose:
-                    print(f"❌ Failed to auto-load real data: {e}")
-                    print(
-                        "💡 You can still manually initialize data using augment_data() method"
-                    )
-                # Don't raise the exception, allow manual initialization later
+            # Don't raise the exception, allow manual initialization later
 
     def validate_data(self, data: Dict):
         """
@@ -212,10 +196,8 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
             # Try to get it from watershed_info as fallback
             self.basin_area_km2 = self.watershed_info_.get("basin_area_km2")
 
-        if self.convert_to_cms and self.basin_area_km2 is None:
-            print(
-                "⚠️ Warning: convert_to_cms is enabled but basin_area_km2 is not available from datasource"
-            )
+        if self.basin_area_km2 is None:
+            print("⚠️ Warning: basin_area_km2 is not available from datasource")
 
         self.is_fitted_ = True
 
@@ -297,18 +279,15 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
 
         print(f"✅ Generated {len(augmented_events)} augmented flood events")
 
-        # Convert flow units if requested
-        if self.convert_to_cms:
-            if self.basin_area_km2 is None:
-                raise ValueError(
-                    "Basin area (basin_area_km2) could not be read from datasource, required for unit conversion to m³/s"
-                )
-
-            print(f"🔄 Converting flow units from {self.flow_unit} to m³/s...")
-            augmented_events = self._convert_flow_units_to_cms(
-                augmented_events
+        # Convert flow units from mm/3h to m³/s (always required)
+        if self.basin_area_km2 is None:
+            raise ValueError(
+                "Basin area (basin_area_km2) could not be read from datasource, required for unit conversion to m³/s"
             )
-            print("✅ Unit conversion completed")
+
+        print("🔄 Converting flow units from mm/3h to m³/s...")
+        augmented_events = self._convert_flow_units_to_cms(augmented_events)
+        print("✅ Unit conversion completed")
 
         return augmented_events
 
@@ -419,9 +398,8 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
         new_name = f"{original_name}_aug_{sample_id:04d}"
         new_event["filepath"] = f"{new_name}.csv"
 
-        # Update time information if available
-        if self.preserve_temporal_structure:
-            new_event = self._update_temporal_info(new_event, new_year)
+        # Update time information (always preserve temporal structure)
+        new_event = self._update_temporal_info(new_event, new_year)
 
         # Update peak observation
         if len(aug_data["Q_sim"]) > 0:
@@ -572,13 +550,13 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
         """
         area_quantity = self.basin_area_km2["area"].values
 
-        # Convert using streamflow_unit_conv with inverse=True
+        # Convert using streamflow_unit_conv with inverse=True (from mm/3h to m³/s)
         converted_quantity = streamflow_unit_conv(
             streamflow=flow_array,
             area=area_quantity,
             target_unit="m^3/s",
             inverse=True,
-            source_unit=self.flow_unit,
+            source_unit="mm/3h",
         )
 
         return converted_quantity
@@ -862,7 +840,7 @@ def load_real_hydrological_data(
     # Get basin area from datasource
     basin_area_km2 = None
     if station_id:
-        basin_area_km2 = read_basin_area_safe(dataset, station_id, verbose)
+        basin_area_km2 = dataset.read_area([station_id])
 
     all_event_data = dataset.load_1basin_flood_events(
         station_id=station_id,
@@ -1090,9 +1068,6 @@ def augment_multiple_watersheds(
                 "scaling_factors", [0.5, 0.8, 1.2, 1.5, 2.0]
             ),
             start_year_offset=config.get("start_year_offset", 1),
-            preserve_temporal_structure=config.get(
-                "preserve_temporal_structure", True
-            ),
             random_state=config.get("random_state", None),
         )
         augmented_events = augmenter.augment_data(data)

@@ -14,7 +14,10 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 from scipy.stats import gamma
-from hydromodel.models.consts import OBS_FLOW, NET_RAIN
+
+# Use string constants directly instead of importing from consts
+NET_RAIN = "P_eff"
+OBS_FLOW = "Q_obs_eff"
 
 
 def uh_conv(x, uh, truncate=True):
@@ -139,18 +142,28 @@ def objective_function_multi_event(
     common_n_uh,
 ):
     """
-    多事件单位线优化的目标函数
+    Objective function for multi-event unit hydrograph optimization.
 
-    Args:
-        U_params: 单位线参数
-        list_of_event_data_for_opt: 用于优化的事件数据列表
-        lambda_smooth: 平滑性惩罚权重
-        lambda_peak_violation: 单峰违反惩罚权重
-        apply_peak_penalty_flag: 是否应用单峰惩罚
-        common_n_uh: 单位线长度
+    Parameters
+    ----------
+    U_params : np.ndarray
+        Unit hydrograph parameters (array of length common_n_uh).
+    list_of_event_data_for_opt : list of dict
+        List of event data dictionaries for optimization. Each dict should contain
+        NET_RAIN (effective rainfall) and OBS_FLOW (observed flow).
+    lambda_smooth : float
+        Weight for the smoothness penalty term.
+    lambda_peak_violation : float
+        Weight for the unimodality (single-peak) violation penalty.
+    apply_peak_penalty_flag : bool
+        Whether to apply the unimodality penalty.
+    common_n_uh : int
+        Length of the unit hydrograph.
 
-    Returns:
-        float: 目标函数值
+    Returns
+    -------
+    float
+        Value of the objective function (to be minimized).
     """
     total_fit_loss = 0  # 总拟合损失
     if len(U_params) != common_n_uh:

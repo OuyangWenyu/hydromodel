@@ -9,16 +9,13 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
 # 核心单位线分析模块
-from .consts import DELTA_T_HOURS, DELTA_T_SECONDS
+# Define constants directly for backward compatibility
+DELTA_T_HOURS = 3.0
+DELTA_T_SECONDS = 10800.0
 from .plot_rrevents import plot_unit_hydrograph
 from .unit_hydrograph import (
     objective_function_multi_event,
     optimize_uh_for_group,
-)
-
-# 流域场次数据处理类
-from .floodevent import (
-    FloodEventDatasource,  # 主要的场次数据处理类
 )
 
 # 水文模型
@@ -51,8 +48,6 @@ __all__ = [
     "optimize_uh_for_group",
     "DELTA_T_HOURS",
     "DELTA_T_SECONDS",
-    # 流域场次数据处理类
-    "FloodEventDatasource",
     # 水文模型
     "dhf",
     # 工具函数

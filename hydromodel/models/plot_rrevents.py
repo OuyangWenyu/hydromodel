@@ -2,14 +2,13 @@ from typing import Dict
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.font_manager import FontProperties
 import os
-from hydromodel.models.consts import OBS_FLOW, NET_RAIN, DELTA_T_HOURS
 from hydrodatasource.configs.config import SETTING
-from hydromodel.models.floodevent import (
-    calculate_events_characteristics,
+from hydrodatasource.reader.floodevent import (
     FloodEventDatasource,
+    calculate_events_characteristics,
 )
+
 from hydromodel.models.common_utils import setup_matplotlib_chinese
 
 setup_matplotlib_chinese()
@@ -26,10 +25,12 @@ def plot_event_characteristics(
     event_analysis: Dict,
     output_folder: str,
     delta_t_hours: float = 3.0,
+    net_rain_key: str = "P_eff",
+    obs_flow_key: str = "Q_obs_eff",
 ):
     """为单个洪水事件绘制特征图并保存，确保径流曲线在柱状图上层。@author: Zheng Zhang"""
-    net_rain = event_analysis[NET_RAIN]
-    direct_runoff = event_analysis[OBS_FLOW]
+    net_rain = event_analysis[net_rain_key]
+    direct_runoff = event_analysis[obs_flow_key]
     event_filename = os.path.basename(event_analysis["filepath"])
 
     fig, ax1 = plt.subplots(figsize=(15, 7))
@@ -146,7 +147,11 @@ def plot_event_characteristics(
 
 
 def plot_unit_hydrograph(
-    U_optimized, title, smoothing_factor=None, peak_violation_weight=None
+    U_optimized,
+    title,
+    smoothing_factor=None,
+    peak_violation_weight=None,
+    delta_t_hours=3.0,
 ):
     """
     绘制单位线图
@@ -161,7 +166,7 @@ def plot_unit_hydrograph(
         print(f"⚠️ 无法绘制单位线：{title} - 优化失败")
         return
 
-    time_axis_uh = np.arange(1, len(U_optimized) + 1) * DELTA_T_HOURS
+    time_axis_uh = np.arange(1, len(U_optimized) + 1) * delta_t_hours
 
     plt.figure(figsize=(12, 6))
     plt.plot(time_axis_uh, U_optimized, marker="o", linestyle="-")
@@ -174,7 +179,7 @@ def plot_unit_hydrograph(
         )
 
     plt.title(full_title)
-    plt.xlabel(f"时间 (小时, Δt={DELTA_T_HOURS}h)")
+    plt.xlabel(f"时间 (小时, Δt={delta_t_hours}h)")
     plt.ylabel("1mm净雨单位线纵坐标 (mm/3h)")
     plt.grid(True, linestyle="--", alpha=0.7)
     plt.tight_layout()

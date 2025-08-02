@@ -31,37 +31,6 @@ def setup_matplotlib_chinese():
         return False
 
 
-def read_basin_area_safe(
-    dataset, station_id: str, verbose: bool = True
-) -> Optional[float]:
-    """
-    Safely read basin area from dataset.
-
-    Parameters
-    ----------
-    dataset : object
-        Data source object with read_area method.
-    station_id : str
-        Station identifier.
-    verbose : bool, optional
-        Whether to print information messages (default is True).
-
-    Returns
-    -------
-    float or None
-        Basin area in km², or None if reading fails.
-    """
-    try:
-        basin_area_km2 = dataset.read_area([station_id])
-        if verbose:
-            print(f"📊 Basin area read from datasource: {basin_area_km2} km²")
-        return basin_area_km2
-    except Exception as e:
-        if verbose:
-            print(f"⚠️ Unable to read basin area: {str(e)}")
-        return None
-
-
 def save_dataframe_to_csv(
     df: pd.DataFrame,
     filepath: str,

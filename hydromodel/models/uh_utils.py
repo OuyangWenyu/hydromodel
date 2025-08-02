@@ -13,7 +13,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from hydromodel.models.unit_hydrograph import uh_conv
-from hydromodel.models.consts import OBS_FLOW, NET_RAIN, DELTA_T_SECONDS
+# Use string constants directly instead of importing from consts
+NET_RAIN = "P_eff"
+OBS_FLOW = "Q_obs_eff"
+DELTA_T_SECONDS = 10800.0  # 3.0 * 3600.0
 
 
 # --- 图表配置 ---

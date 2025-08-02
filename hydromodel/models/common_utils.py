@@ -6,29 +6,7 @@ This module contains shared functionality used across multiple model modules.
 import os
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from typing import Optional, Dict, Any, List, Union
-import warnings
-
-
-def setup_matplotlib_chinese():
-    """
-    Configure matplotlib for Chinese font support.
-
-    Returns
-    -------
-    bool
-        True if successful, False otherwise.
-    """
-    try:
-        plt.rcParams["font.sans-serif"] = ["SimHei"]
-        plt.rcParams["axes.unicode_minus"] = False
-        return True
-    except Exception as e:
-        warnings.warn(
-            f"Warning: Chinese font 'SimHei' not found, Chinese text may not display correctly. Error: {e}"
-        )
-        return False
 
 
 def save_dataframe_to_csv(

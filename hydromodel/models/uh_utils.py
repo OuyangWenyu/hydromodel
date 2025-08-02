@@ -1,7 +1,7 @@
 """
 Author: Zheng Zhang, supervised by Heng Lv
 Date: 2025-07-08 18:30:00
-LastEditTime: 2025-08-01 10:46:57
+LastEditTime: 2025-08-02 11:58:41
 LastEditors: Wenyu Ouyang
 Description: 水文模型工具模块 -- 包含脚本中公共功能的工具函数
 FilePath: /hydromodel/hydromodel/models/uh_utils.py
@@ -11,23 +11,11 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 import os
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from hydromodel.models.unit_hydrograph import uh_conv
 # Use string constants directly instead of importing from consts
 NET_RAIN = "P_eff"
 OBS_FLOW = "Q_obs_eff"
 DELTA_T_SECONDS = 10800.0  # 3.0 * 3600.0
-
-
-# --- 图表配置 ---
-from hydromodel.models.common_utils import setup_matplotlib_chinese
-
-
-def setup_matplotlib():
-    """设置matplotlib的中文字体和样式"""
-    setup_matplotlib_chinese()
-    plt.rcParams["mathtext.fontset"] = "stix"
-    plt.rcParams["font.family"] = "sans-serif"
 
 
 # --- 评估指标计算功能 ---

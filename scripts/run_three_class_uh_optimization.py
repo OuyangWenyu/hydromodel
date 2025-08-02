@@ -11,12 +11,14 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 import os
 import argparse
 import json
+from hydroutils.hydro_plot import (
+    plot_unit_hydrograph,
+    setup_matplotlib_chinese,
+)
 from hydrodatasource.configs.config import SETTING
 from hydrodatasource.reader.floodevent import FloodEventDatasource
-from hydromodel.models.plot_rrevents import plot_unit_hydrograph
 from hydromodel.models.unit_hydrograph import optimize_uh_for_group
 from hydromodel.models.uh_utils import (
-    setup_matplotlib,
     categorize_floods_by_peak,
     evaluate_single_event,
     save_results_to_csv,
@@ -152,7 +154,7 @@ def main():
     args = parse_arguments()
 
     # 初始化图表设置
-    setup_matplotlib()
+    setup_matplotlib_chinese()
     # 1. 数据加载和预处理
     verbose = not args.quiet
     if verbose:

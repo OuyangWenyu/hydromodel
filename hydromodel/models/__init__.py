@@ -12,7 +12,6 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 # Define constants directly for backward compatibility
 DELTA_T_HOURS = 3.0
 DELTA_T_SECONDS = 10800.0
-from .plot_rrevents import plot_unit_hydrograph
 from .unit_hydrograph import (
     objective_function_multi_event,
     optimize_uh_for_group,
@@ -30,8 +29,6 @@ from .uh_utils import (
     calculate_peak_error,
     # 分类工具
     categorize_floods_by_peak,
-    # 可视化工具
-    setup_matplotlib,
     save_results_to_csv,
     print_report_preview,
     print_category_statistics,
@@ -57,7 +54,6 @@ __all__ = [
     "calculate_peak_error",
     "categorize_floods_by_peak",
     "setup_matplotlib",
-    "plot_unit_hydrograph",
     "save_results_to_csv",
     "print_report_preview",
     "print_category_statistics",

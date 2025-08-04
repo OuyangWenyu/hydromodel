@@ -1,0 +1,23 @@
+[project]
+description = "UV configuration for hydromodel project"
+
+[project.environments]
+default = {}
+
+[tool.uv]
+dev-dependencies = [
+    "pytest",
+    "pytest-cov", 
+    "black",
+    "flake8",
+    "sphinx",
+    "mkdocs",
+    "mkdocs-material",
+]
+
+# Use Python 3.11+ as specified in pyproject.toml
+python-version = ">=3.11"
+
+# Better caching and linking
+link-mode = "copy"  # Avoid hardlink issues on Windows
+cache-keys = ["python_version", "platform"]

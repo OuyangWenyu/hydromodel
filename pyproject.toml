@@ -82,7 +82,7 @@ Issues = "https://github.com/yourusername/hydromodel/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["hydromodel_dev*"]
+include = ["hydromodel*"]
 
 [tool.black]
 line-length = 79

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-01-20 10:00:00
-LastEditTime: 2025-08-02 11:30:08
+LastEditTime: 2025-08-04 08:46:59
 LastEditors: Wenyu Ouyang
 Description: Hydrological Data Augmentation Module - Generate synthetic flood events based on unit hydrograph and net rainfall
 FilePath: \hydromodel\hydromodel\models\data_augment.py
@@ -20,18 +20,14 @@ from abc import ABC, abstractmethod
 from hydrodatasource.configs.config import SETTING
 from hydrodatasource.reader.floodevent import FloodEventDatasource
 from hydrodatasource.utils.utils import streamflow_unit_conv
-from hydromodel.models.unit_hydrograph import uh_conv
-from hydromodel.models.unit_hydrograph import optimize_shared_unit_hydrograph
-from hydromodel.models import (
-    categorize_floods_by_peak,
+from hydromodel.models.unit_hydrograph import (
+    save_dataframe_to_csv,
+    uh_conv,
+    evaluate_single_event_from_uh,
+    optimize_shared_unit_hydrograph,
     optimize_uh_for_group,
-    evaluate_single_event,
+    categorize_floods_by_peak,
 )
-
-# Use string constants directly instead of importing from consts
-NET_RAIN = "P_eff"
-OBS_FLOW = "Q_obs_eff"
-DELTA_T_HOURS = 3.0
 
 
 class BaseDataAugmenter(ABC):
@@ -65,6 +61,11 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
     - Multi-watershed support
     - Unit hydrograph convolution for flow generation
     """
+
+    # Constants for data column names and time step
+    NET_RAIN = "P_eff"
+    OBS_FLOW = "Q_obs_eff"
+    DELTA_T_HOURS = 3.0
 
     def __init__(
         self,
@@ -216,7 +217,7 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
             raise ValueError("No optimal events provided")
 
         for i, event in enumerate(optimal_events):
-            required_fields = [NET_RAIN, OBS_FLOW, "filepath"]
+            required_fields = [self.NET_RAIN, self.OBS_FLOW, "filepath"]
             for field in required_fields:
                 if field not in event:
                     raise ValueError(
@@ -304,7 +305,7 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
             List of variation dictionaries with P_eff and generated Q_sim
         """
         variations = []
-        original_rain = original_event[NET_RAIN]
+        original_rain = original_event[self.NET_RAIN]
         unit_hydrograph = self.unit_hydrographs_[original_event["filepath"]]
 
         # Find effective rainfall periods
@@ -334,7 +335,7 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
                 )
 
                 variation = {
-                    NET_RAIN: scaled_rain,
+                    self.NET_RAIN: scaled_rain,
                     "Q_sim": generated_flow,
                     "scale_factor": scale_factor,
                     "periods_used": period_end,
@@ -373,12 +374,12 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
         new_event = copy.deepcopy(original_event)
 
         # Update with augmented data
-        new_event[NET_RAIN] = aug_data[NET_RAIN]
+        new_event[self.NET_RAIN] = aug_data[self.NET_RAIN]
         # Keep original observed flow separate from generated flow
         new_event["Q_obs_original"] = original_event[
-            OBS_FLOW
+            self.OBS_FLOW
         ]  # Store original observed flow
-        new_event[OBS_FLOW] = aug_data[
+        new_event[self.OBS_FLOW] = aug_data[
             "Q_sim"
         ]  # Generated flow becomes "observed"
         new_event["Q_sim"] = aug_data["Q_sim"]  # Also keep as simulated
@@ -511,9 +512,11 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
             converted_event = copy.deepcopy(event)
 
             # Convert OBS_FLOW (observed flow)
-            if OBS_FLOW in converted_event:
-                converted_event[OBS_FLOW] = self._convert_single_flow_array(
-                    converted_event[OBS_FLOW]
+            if self.OBS_FLOW in converted_event:
+                converted_event[self.OBS_FLOW] = (
+                    self._convert_single_flow_array(
+                        converted_event[self.OBS_FLOW]
+                    )
                 )
 
             # Convert Q_sim (simulated flow) if present
@@ -531,8 +534,13 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
                 )
 
             # Update peak_obs if present
-            if "peak_obs" in converted_event and OBS_FLOW in converted_event:
-                converted_event["peak_obs"] = np.max(converted_event[OBS_FLOW])
+            if (
+                "peak_obs" in converted_event
+                and self.OBS_FLOW in converted_event
+            ):
+                converted_event["peak_obs"] = np.max(
+                    converted_event[self.OBS_FLOW]
+                )
 
             converted_events.append(converted_event)
 
@@ -642,8 +650,8 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
                     current_datetime += timedelta(hours=3)  # 3-hour intervals
 
                 # Get the original data
-                original_rain = event[NET_RAIN]
-                original_flow = event[OBS_FLOW]
+                original_rain = event[self.NET_RAIN]
+                original_flow = event[self.OBS_FLOW]
 
                 # Truncate data to match the time range
                 data_length = len(timestamps)
@@ -666,16 +674,18 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
 
             else:
                 # Fallback: use original data without temporal truncation
-                max_length = max(len(event[NET_RAIN]), len(event[OBS_FLOW]))
+                max_length = max(
+                    len(event[self.NET_RAIN]), len(event[self.OBS_FLOW])
+                )
                 timestamps = [f"T{i * 3:06.1f}h" for i in range(max_length)]
                 truncated_rain = np.pad(
-                    event[NET_RAIN],
-                    (0, max_length - len(event[NET_RAIN])),
+                    event[self.NET_RAIN],
+                    (0, max_length - len(event[self.NET_RAIN])),
                     "constant",
                 )
                 truncated_flow = np.pad(
-                    event[OBS_FLOW],
-                    (0, max_length - len(event[OBS_FLOW])),
+                    event[self.OBS_FLOW],
+                    (0, max_length - len(event[self.OBS_FLOW])),
                     "constant",
                 )
 
@@ -730,9 +740,6 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
 
             filepath = os.path.join(output_dir, event["filepath"])
 
-            # Write metadata comments and data using common utility
-            from hydromodel.models.common_utils import save_dataframe_to_csv
-
             save_dataframe_to_csv(df, filepath, metadata_lines=metadata_lines)
 
         print(
@@ -776,8 +783,8 @@ class HydrologicalDataAugmenter(BaseDataAugmenter):
                     "periods_used": metadata["periods_used"],
                     "sample_id": metadata["sample_id"],
                     "peak_flow": event.get("peak_obs", 0),
-                    "total_rainfall": np.sum(event[NET_RAIN]),
-                    "total_flow": np.sum(event[OBS_FLOW]),
+                    "total_rainfall": np.sum(event[self.NET_RAIN]),
+                    "total_flow": np.sum(event[self.OBS_FLOW]),
                     "start_time": temporal_info.get(
                         "start_time_string", "Unknown"
                     ),
@@ -882,7 +889,7 @@ def load_real_hydrological_data(
         # Evaluate all events with the shared UH
         event_evaluations = []
         for event in all_event_data:
-            result = evaluate_single_event(event, U_optimized)
+            result = evaluate_single_event_from_uh(event, U_optimized)
             if result["NSE"] >= min_nse_threshold:
                 event_evaluations.append((event, result["NSE"]))
 
@@ -968,7 +975,7 @@ def load_real_hydrological_data(
             # Evaluate events in this category
             category_evaluations = []
             for event in events:
-                result = evaluate_single_event(event, U_optimized_cat)
+                result = evaluate_single_event_from_uh(event, U_optimized_cat)
                 if result["NSE"] >= min_nse_threshold:
                     category_evaluations.append((event, result["NSE"]))
 
@@ -1023,7 +1030,7 @@ def load_real_hydrological_data(
             for event in optimal_events:
                 event_name = event.get("filepath", "unknown")
                 if event_name in unit_hydrographs:
-                    result = evaluate_single_event(
+                    result = evaluate_single_event_from_uh(
                         event, unit_hydrographs[event_name]
                     )
                     nse_values.append(result["NSE"])

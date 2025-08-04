@@ -1,10 +1,10 @@
 """
 Author: Zheng Zhang, supervised by Heng Lv
 Date: 2025-07-08 17:56:32
-LastEditTime: 2025-07-16 16:31:53
+LastEditTime: 2025-08-03 11:00:55
 LastEditors: Wenyu Ouyang
 Description: 三类别单位线优化脚本（支持CSV和Excel数据源）-- 将洪水数据根据其洪峰大小分为三类（小、中、大），分别推求特征单位线
-FilePath: \hydromodel_dev\scripts\run_three_class_uh_optimization.py
+FilePath: \hydromodel\scripts\run_three_class_uh_optimization.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -18,13 +18,11 @@ from hydroutils.hydro_plot import (
 from hydrodatasource.configs.config import SETTING
 from hydrodatasource.reader.floodevent import FloodEventDatasource
 from hydromodel.models.unit_hydrograph import optimize_uh_for_group
-from hydromodel.models.uh_utils import (
-    categorize_floods_by_peak,
-    evaluate_single_event,
-    save_results_to_csv,
-    print_report_preview,
+from models.unit_hydrograph import (
     print_category_statistics,
 )
+from hydromodel.models.unit_hydrograph import evaluate_single_event_from_uh
+from models.unit_hydrograph import categorize_floods_by_peak, print_report_preview, save_results_to_csv
 
 
 def parse_arguments():
@@ -239,7 +237,7 @@ def main():
 
         # 使用该类别的特征单位线评估其内部所有事件
         for event_data in events_in_category:
-            result = evaluate_single_event(
+            result = evaluate_single_event_from_uh(
                 event_data, U_optimized_cat, category_name
             )
             final_report_data.append(result)

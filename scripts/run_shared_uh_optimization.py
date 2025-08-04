@@ -1,7 +1,7 @@
 """
 Author: Zheng Zhang, supervised by Heng Lv
 Date: 2025-07-08 18:05:00
-LastEditTime: 2025-08-02 11:23:48
+LastEditTime: 2025-08-03 11:30:04
 LastEditors: Wenyu Ouyang
 Description: 使用洪水事件数据生成唯一的共享单位线的执行脚本（支持CSV和Excel数据源）
 FilePath: \hydromodel\scripts\run_shared_uh_optimization.py
@@ -19,11 +19,11 @@ from hydrodatasource.reader.floodevent import (
     FloodEventDatasource,
     check_event_data_nan,
 )
-from hydromodel.models.unit_hydrograph import optimize_shared_unit_hydrograph
-from hydromodel.models.uh_utils import (
-    evaluate_single_event,
-    save_results_to_csv,
+from hydromodel.models.unit_hydrograph import (
+    optimize_shared_unit_hydrograph,
+    evaluate_single_event_from_uh,
     print_report_preview,
+    save_results_to_csv
 )
 
 
@@ -181,7 +181,7 @@ def main():
     final_report_data = []
 
     for event_data in all_event_data:
-        result = evaluate_single_event(event_data, U_optimized_shared)
+        result = evaluate_single_event_from_uh(event_data, U_optimized_shared)
         final_report_data.append(result)
 
     # 5. 保存和显示结果

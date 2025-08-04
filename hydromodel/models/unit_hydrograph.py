@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-08 19:01:27
-LastEditTime: 2025-07-31 15:43:08
+LastEditTime: 2025-08-04 08:59:00
 LastEditors: Wenyu Ouyang
 Description: Unit hydrograph functions
 FilePath: /hydromodel/hydromodel/models/unit_hydrograph.py
@@ -11,13 +11,12 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 import itertools
 import logging
 import numpy as np
+import os
+from typing import Optional, List
 import pandas as pd
 from scipy.optimize import minimize
 from scipy.stats import gamma
-
-# Use string constants directly instead of importing from consts
-NET_RAIN = "P_eff"
-OBS_FLOW = "Q_obs_eff"
+from hydroutils.hydro_stat import nse, flood_peak_error, flood_volume_error
 
 
 def uh_conv(x, uh, truncate=True):
@@ -140,6 +139,8 @@ def objective_function_multi_event(
     lambda_peak_violation,
     apply_peak_penalty_flag,
     common_n_uh,
+    net_rain_name="P_eff",
+    obs_flow_name="Q_obs_eff",
 ):
     """
     Objective function for multi-event unit hydrograph optimization.
@@ -150,7 +151,6 @@ def objective_function_multi_event(
         Unit hydrograph parameters (array of length common_n_uh).
     list_of_event_data_for_opt : list of dict
         List of event data dictionaries for optimization. Each dict should contain
-        NET_RAIN (effective rainfall) and OBS_FLOW (observed flow).
     lambda_smooth : float
         Weight for the smoothness penalty term.
     lambda_peak_violation : float
@@ -159,6 +159,10 @@ def objective_function_multi_event(
         Whether to apply the unimodality penalty.
     common_n_uh : int
         Length of the unit hydrograph.
+    net_rain_name : str, optional
+        Name of the effective rainfall column in event data.
+    obs_flow_name : str, optional
+        Name of the observed flow column in event data.
 
     Returns
     -------
@@ -170,8 +174,8 @@ def objective_function_multi_event(
         return 1e18
     for event_data in list_of_event_data_for_opt:
         P_event, Q_event_obs = (
-            event_data[NET_RAIN],
-            event_data[OBS_FLOW],
+            event_data[net_rain_name],
+            event_data[obs_flow_name],
         )  # 场次降雨和观测径流
         Q_sim_full_event = uh_conv(
             P_event, U_params, truncate=False
@@ -359,3 +363,225 @@ def init_unit_hydrograph(length, method="gamma", **kwargs):
     uh = np.maximum(uh, 0)
     uh /= uh.sum()
     return uh
+
+
+def evaluate_single_event_from_uh(
+    event_data,
+    U_optimized,
+    category_name=None,
+    net_rain_name="P_eff",
+    obs_flow_name="Q_obs_eff",
+):
+    """
+    评估单个洪水事件的性能指标
+
+    Parameters:
+    ----------
+        event_data: 事件数据字典
+        U_optimized: 优化的单位线参数
+        category_name: 类别名称（可选）
+
+    Returns
+    -------
+        dict: 包含评估结果的字典
+    """
+    P_event = event_data[net_rain_name]
+    Q_obs_event_full = event_data[obs_flow_name]
+    event_filename = os.path.basename(event_data["filepath"])
+
+    # 初始化指标
+    result = {
+        "文件名": event_filename,
+        "NSE": np.nan,
+        "洪量相误(%)": np.nan,
+        "洪峰相误(%)": np.nan,
+    }
+
+    # 如果指定了类别，添加到结果中
+    if category_name is not None:
+        result["所属类别"] = category_name
+
+    if U_optimized is not None:
+        Q_sim_event_full = uh_conv(P_event, U_optimized, truncate=False)
+        Q_sim_event_compare = Q_sim_event_full[: len(Q_obs_event_full)]
+
+        if len(Q_obs_event_full) > 0 and len(Q_sim_event_compare) == len(
+            Q_obs_event_full
+        ):
+            result["NSE"] = nse(Q_obs_event_full, Q_sim_event_compare)
+            result["洪量相误(%)"] = flood_volume_error(
+                Q_obs_event_full, Q_sim_event_compare
+            )
+            result["洪峰相误(%)"] = flood_peak_error(
+                Q_obs_event_full, Q_sim_event_compare
+            )
+
+    return result
+
+
+def categorize_floods_by_peak(all_events_data):
+    """
+    根据洪峰将洪水事件分为三类
+
+    Args:
+        all_events_data: 包含peak_obs的事件数据列表
+
+    Returns:
+        dict: 分类后的事件字典
+        tuple: (threshold_low, threshold_high) 分类阈值
+    """
+    event_peaks = [
+        data["peak_obs"] for data in all_events_data if data["peak_obs"] > 0
+    ]
+
+    if not event_peaks:
+        print("❌ 没有有效的洪峰数据")
+        return None, (None, None)
+
+    threshold_low = np.percentile(event_peaks, 33.3)  # 33.3%分位数
+    threshold_high = np.percentile(event_peaks, 66.6)  # 66.6%分位数
+
+    categorized_events = {"small": [], "medium": [], "large": []}
+
+    for event_data in all_events_data:
+        peak = event_data["peak_obs"]
+        if peak <= threshold_low:
+            categorized_events["small"].append(event_data)
+        elif peak <= threshold_high:
+            categorized_events["medium"].append(event_data)
+        else:
+            categorized_events["large"].append(event_data)
+
+    return categorized_events, (threshold_low, threshold_high)
+
+
+# --- 结果保存和输出功能 ---
+def save_results_to_csv(report_data, output_filename, sort_columns=None):
+    """
+    保存结果到CSV文件
+
+    Args:
+        report_data: 报告数据列表
+        output_filename: 输出文件名
+        sort_columns: 排序列名列表
+
+    Returns:
+        pd.DataFrame: 排序后的DataFrame
+    """
+    if not report_data:
+        print("❌ 没有数据可以保存")
+        return None
+
+    report_df = pd.DataFrame(report_data)
+
+    # 排序
+    if sort_columns:
+        ascending = [True] * len(sort_columns)  # 默认升序
+        if "NSE" in sort_columns:
+            # NSE列按降序排列
+            nse_idx = sort_columns.index("NSE")
+            ascending[nse_idx] = False
+        report_df_sorted = report_df.sort_values(
+            by=sort_columns, ascending=ascending
+        ).reset_index(drop=True)
+    else:
+        report_df_sorted = report_df.copy()
+
+    # 保存文件
+    try:
+        save_dataframe_to_csv(
+            report_df_sorted,
+            output_filename,
+            encoding="utf-8-sig",
+            float_format="%.4f",
+        )
+        print(f"\n✅ 评估报告已成功保存到文件: {output_filename}")
+    except Exception as e:
+        print(f"\n❌ 保存报告到文件失败: {e}")
+
+    return report_df_sorted
+
+
+def print_report_preview(report_df_sorted, title="评估报告预览"):
+    """
+    打印报告预览
+
+    Args:
+        report_df_sorted: 排序后的DataFrame
+        title: 预览标题
+    """
+    print(f"\n📊 --- {title} ---")
+    pd.set_option("display.max_rows", 50)
+    pd.set_option("display.width", 120)
+    print(report_df_sorted)
+    pd.reset_option("display.max_rows")
+    pd.reset_option("display.width")
+
+
+def print_category_statistics(report_df_sorted):
+    """
+    打印各类别性能统计信息
+
+    Args:
+        report_df_sorted: 包含类别信息的DataFrame
+    """
+    if "所属类别" not in report_df_sorted.columns:
+        return
+
+    print("\n📈 --- 各类别性能统计 ---")
+    for category in ["small", "medium", "large"]:
+        cat_data = report_df_sorted[report_df_sorted["所属类别"] == category]
+        if len(cat_data) > 0:
+            mean_nse = cat_data["NSE"].mean()
+            mean_vol_err = cat_data["洪量相误(%)"].mean()
+            mean_peak_err = cat_data["洪峰相误(%)"].mean()
+            print(f"🏷️ {category.capitalize()} 类别 ({len(cat_data)} 场):")
+            print(f"   平均NSE: {mean_nse:.4f}")
+            print(f"   平均洪量误差: {mean_vol_err:.2f}%")
+            print(f"   平均洪峰误差: {mean_peak_err:.2f}%")
+
+
+def save_dataframe_to_csv(
+    df: pd.DataFrame,
+    filepath: str,
+    metadata_lines: Optional[List[str]] = None,
+    encoding: str = "utf-8",
+    float_format: str = "%.6f",
+    **kwargs,
+) -> None:
+    """
+    Save DataFrame to CSV file with optional metadata header.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame to save.
+    filepath : str
+        Output file path.
+    metadata_lines : list of str, optional
+        Optional metadata lines to write before CSV data.
+    encoding : str, optional
+        File encoding (default is "utf-8").
+    float_format : str, optional
+        Float formatting string (default is "%.6f").
+    **kwargs
+        Additional arguments passed to DataFrame.to_csv().
+    """
+    # Ensure output directory exists
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+    # Default CSV parameters
+    csv_kwargs = {
+        "index": False,
+        "encoding": encoding,
+        "float_format": float_format,
+        "header": True,
+    }
+    csv_kwargs.update(kwargs)
+
+    if metadata_lines:
+        with open(filepath, "w", encoding=encoding, newline="") as f:
+            f.write("\n".join(metadata_lines) + "\n")
+            df.to_csv(f, **csv_kwargs)
+    else:
+        df.to_csv(filepath, **csv_kwargs)

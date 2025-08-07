@@ -16,7 +16,11 @@ from typing import Optional, List
 import pandas as pd
 from scipy.optimize import minimize
 from scipy.stats import gamma
-from hydroutils.hydro_stat import nse, flood_peak_error, flood_volume_error
+from hydroutils.hydro_stat import (
+    nse,
+    flood_peak_error,
+    flood_volume_error,
+)
 
 
 def uh_conv(x, uh, truncate=True):
@@ -502,18 +506,28 @@ def save_results_to_csv(report_data, output_filename, sort_columns=None):
     return report_df_sorted
 
 
-def print_report_preview(report_df_sorted, title="评估报告预览"):
+def print_report_preview(report_df_sorted, title="评估报告预览", top_n=None):
     """
     打印报告预览
 
     Args:
         report_df_sorted: 排序后的DataFrame
         title: 预览标题
+        top_n: 显示前n个最佳事件，如果为None则显示所有事件
     """
     print(f"\n📊 --- {title} ---")
+    
+    # 根据top_n参数决定显示的数据
+    if top_n is not None and top_n > 0:
+        display_df = report_df_sorted.head(top_n)
+        print(f"显示前 {min(top_n, len(report_df_sorted))} 个最佳事件：")
+    else:
+        display_df = report_df_sorted
+        print(f"显示全部 {len(report_df_sorted)} 个事件：")
+    
     pd.set_option("display.max_rows", 50)
     pd.set_option("display.width", 120)
-    print(report_df_sorted)
+    print(display_df)
     pd.reset_option("display.max_rows")
     pd.reset_option("display.width")
 

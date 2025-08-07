@@ -20,8 +20,14 @@ from tqdm import tqdm
 from hydroutils import hydro_file, hydro_stat
 
 
-from hydromodel.datasets.data_visualize import plot_sim_and_obs, plot_train_iteration
-from hydromodel.models.model_config import MODEL_PARAM_DICT, read_model_param_dict
+from hydromodel.datasets.data_visualize import (
+    plot_sim_and_obs,
+    plot_train_iteration,
+)
+from hydromodel.models.model_config import (
+    MODEL_PARAM_DICT,
+    read_model_param_dict,
+)
 from hydromodel.models.model_dict import MODEL_DICT, rmse43darr
 
 
@@ -293,7 +299,9 @@ def show_ga_result(
     pop = cp["population"]
     logbook = cp["logbook"]
     halloffame = cp["halloffame"]
-    print(f"Best individual is: {halloffame[0]}, {halloffame[0].fitness.values}")
+    print(
+        f"Best individual is: {halloffame[0]}, {halloffame[0].fitness.values}"
+    )
     train_test_flag = "train" if train_mode else "test"
     best_simulation, _ = MODEL_DICT[model_info["name"]](
         the_data[:, :, 0:2],
@@ -316,7 +324,11 @@ def show_ga_result(
     # save calibrated results of calibration period
     the_result_file = os.path.join(
         deap_dir,
-        f"{train_test_flag}_qsim_" + model_info["name"] + "_" + str(basin_id) + ".csv",
+        f"{train_test_flag}_qsim_"
+        + model_info["name"]
+        + "_"
+        + str(basin_id)
+        + ".csv",
     )
     pd.DataFrame(convert_unit_sim.reshape(-1, 1)).to_csv(
         the_result_file,
@@ -333,15 +345,21 @@ def show_ga_result(
     hydro_file.serialize_json_np(
         stat_error, os.path.join(deap_dir, f"{train_test_flag}_metrics.json")
     )
-    t_range = pd.to_datetime(the_period[warmup_length:]).values.astype("datetime64[D]")
+    t_range = pd.to_datetime(the_period[warmup_length:]).values.astype(
+        "datetime64[D]"
+    )
     save_fig = os.path.join(deap_dir, f"{train_test_flag}_results.png")
     if train_mode:
-        save_param_file = os.path.join(deap_dir, basin_id + "_calibrate_params.txt")
+        save_param_file = os.path.join(
+            deap_dir, basin_id + "_calibrate_params.txt"
+        )
         pd.DataFrame(list(halloffame[0])).to_csv(
             save_param_file, sep=",", index=False, header=True
         )
         fit_mins = logbook.select("min")
-        plot_train_iteration(fit_mins, os.path.join(deap_dir, "train_iteration.png"))
+        plot_train_iteration(
+            fit_mins, os.path.join(deap_dir, "train_iteration.png")
+        )
     plot_sim_and_obs(
         t_range,
         convert_unit_sim.flatten(),
@@ -363,7 +381,9 @@ if __name__ == "__main__":
         "60668",
     )
     train_data_info_file = os.path.join(data_dir, "data_info_fold0_train.json")
-    train_data_file = os.path.join(data_dir, "basins_lump_p_pe_q_fold0_train.npy")
+    train_data_file = os.path.join(
+        data_dir, "basins_lump_p_pe_q_fold0_train.npy"
+    )
     data_train = hydro_file.unserialize_numpy(train_data_file)
     data_info_train = hydro_file.unserialize_json_ordered(train_data_info_file)
     model_info = {

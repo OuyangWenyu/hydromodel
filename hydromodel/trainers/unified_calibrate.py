@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-08-07
-LastEditTime: 2025-08-07 15:53:18
+LastEditTime: 2025-08-07 16:49:35
 LastEditors: Wenyu Ouyang
 Description: Simplified unified calibration interface for all hydrological models
-FilePath: \hydromodel\hydromodel\trainers\unified_calibrate.py
+FilePath: /hydromodel/hydromodel/trainers/unified_calibrate.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -16,7 +16,7 @@ import spotpy
 import pickle
 import random
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Union, Any, Tuple
 from scipy.optimize import minimize
 from spotpy.parameter import Uniform, ParameterSet
 from tqdm import tqdm
@@ -33,6 +33,7 @@ except ImportError:
 from hydromodel.models.model_config import read_model_param_dict
 from hydromodel.models.model_dict import LOSS_DICT, MODEL_DICT
 from hydromodel.configs.unified_config import UnifiedConfig
+from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
 
 
 class ModelSetupBase(ABC):
@@ -88,19 +89,34 @@ class UnifiedModelSetup(ModelSetupBase):
 
     def __init__(
         self,
-        p_and_e,
-        qobs,
+        data_config,
         model_config,
         loss_config,
-        warmup_length=365,
-        param_file=None,
+        training_config=None,
         **kwargs,
     ):
+        # Get warmup length from data config
+        warmup_length = data_config.get("warmup_length", 365)
+
         super().__init__(
             None, model_config, loss_config, warmup_length, **kwargs
         )
 
         self.model_name = model_config["name"]
+        self.data_config = data_config
+        self.training_config = training_config or {}
+
+        # Load data using unified data loader
+        self.data_loader = UnifiedDataLoader(data_config)
+        self.p_and_e, qobs = self.data_loader.load_data()
+
+        # Store observation data (remove warmup period)
+        self.true_obs = qobs[
+            warmup_length:, :, :
+        ]  # Remove warmup period from observation
+
+        # Store whether this is event data for special handling
+        self.is_event_data = self.data_loader.is_event_data()
 
         # Handle unit hydrograph models with legacy parameter configuration
         if self.model_name in [
@@ -112,13 +128,8 @@ class UnifiedModelSetup(ModelSetupBase):
             self.param_range = {}
         else:
             # Traditional models (XAJ, GR series, etc.)
+            param_file = self.training_config.get("param_range_file")
             self._setup_traditional_model_params(param_file)
-
-        # Store data
-        self.p_and_e = p_and_e
-        self.true_obs = qobs[
-            warmup_length:, :, :
-        ]  # Remove warmup period from observation
 
         # Create spotpy parameters
         self.params = []
@@ -164,6 +175,19 @@ class UnifiedModelSetup(ModelSetupBase):
 
     def simulate(self, params: np.ndarray) -> np.ndarray:
         """Run model simulation using unified MODEL_DICT interface."""
+        # Handle event data vs continuous data
+        if self.is_event_data and self.model_name not in [
+            "unit_hydrograph",
+            "categorized_unit_hydrograph",
+        ]:
+            # For traditional models (like XAJ) with event data, we need special handling
+            return self._simulate_event_data(params)
+        else:
+            # Standard simulation for continuous data or unit hydrograph models
+            return self._simulate_continuous_data(params)
+
+    def _simulate_continuous_data(self, params: np.ndarray) -> np.ndarray:
+        """Standard simulation for continuous data."""
         # Reshape parameters for model input
         params_reshaped = params.reshape(1, -1)
 
@@ -220,6 +244,121 @@ class UnifiedModelSetup(ModelSetupBase):
 
         return sim_output
 
+    def _simulate_event_data(self, params: np.ndarray) -> np.ndarray:
+        """
+        Special simulation for event data with traditional models like XAJ.
+
+        For event data, we need to:
+        1. Identify event segments (non-zero periods)
+        2. Run model on each event separately
+        3. Combine results while maintaining timeline
+
+        This handles the fact that traditional models expect continuous data
+        but event data has gaps between events.
+        """
+        # Reshape parameters for model input
+        params_reshaped = params.reshape(1, -1)
+
+        # Get model function
+        model_function = MODEL_DICT[self.model_name]
+
+        # Extract precipitation data to identify events
+        # For event data, precipitation is in first channel (net rain)
+        net_rain = self.p_and_e[:, :, 0]  # [time, basin]
+
+        # Initialize output array
+        output_shape = (self.p_and_e.shape[0], self.p_and_e.shape[1], 1)
+        sim_output = np.zeros(output_shape)
+
+        # Process each basin separately
+        for basin_idx in range(self.p_and_e.shape[1]):
+            basin_rain = net_rain[:, basin_idx]
+
+            # Find event segments (continuous non-zero periods)
+            event_segments = self._find_event_segments(basin_rain)
+
+            # Process each event segment
+            for start_idx, end_idx in event_segments:
+                # Extract event data
+                event_p_and_e = self.p_and_e[
+                    start_idx : end_idx + 1, basin_idx : basin_idx + 1, :
+                ]
+
+                # Run model on this event segment
+                try:
+                    event_result = model_function(
+                        event_p_and_e,
+                        params_reshaped,
+                        warmup_length=0,  # No warmup for event segments
+                        **self.model_config,
+                        **self.param_range,
+                    )
+
+                    # Extract simulation output
+                    if isinstance(event_result, tuple):
+                        event_sim = event_result[0]
+                    else:
+                        event_sim = event_result
+
+                    # Store in output array
+                    sim_output[
+                        start_idx : end_idx + 1, basin_idx : basin_idx + 1, :
+                    ] = event_sim
+
+                except Exception as e:
+                    print(
+                        f"Warning: Event simulation failed for basin {basin_idx}, "
+                        f"segment {start_idx}-{end_idx}: {e}"
+                    )
+                    # Fill with zeros on failure
+                    sim_output[
+                        start_idx : end_idx + 1, basin_idx : basin_idx + 1, :
+                    ] = 0.0
+
+        return sim_output
+
+    def _find_event_segments(
+        self, rain_series: np.ndarray, min_gap_length: int = 1
+    ) -> List[Tuple[int, int]]:
+        """
+        Find continuous event segments in rain time series.
+
+        Parameters
+        ----------
+        rain_series : np.ndarray
+            1D array of precipitation values
+        min_gap_length : int
+            Minimum gap length to consider as event separation
+
+        Returns
+        -------
+        List[Tuple[int, int]]
+            List of (start_idx, end_idx) tuples for each event segment
+        """
+        # Find non-zero indices
+        non_zero_indices = np.where(rain_series > 0)[0]
+
+        if len(non_zero_indices) == 0:
+            return []
+
+        # Find gaps in the indices
+        gaps = np.diff(non_zero_indices) > min_gap_length
+
+        # Split indices by gaps
+        split_points = np.where(gaps)[0] + 1
+        split_indices = np.split(non_zero_indices, split_points)
+
+        # Convert to start-end pairs
+        segments = []
+        for indices in split_indices:
+            if len(indices) > 0:
+                # Expand segment to include some context if possible
+                start_idx = max(0, indices[0])
+                end_idx = min(len(rain_series) - 1, indices[-1])
+                segments.append((start_idx, end_idx))
+
+        return segments
+
     def calculate_objective(
         self, simulation: np.ndarray, observation: np.ndarray
     ) -> float:
@@ -235,89 +374,16 @@ class UnifiedModelSetup(ModelSetupBase):
             )
 
 
-def calibrate_with_config(
-    config: UnifiedConfig,
-    data: Union[np.ndarray, List[Dict]],
-    **kwargs,
-) -> Dict[str, Any]:
+def calibrate(config, **kwargs) -> Dict[str, Any]:
     """
-    Unified calibration interface using UnifiedConfig.
+    Unified calibration interface for all hydrological models.
 
     Parameters
     ----------
-    config : UnifiedConfig
-        Unified configuration object containing all settings
-    data : Union[np.ndarray, List[Dict]]
-        Input data. For traditional models: (p_and_e, qobs) tuple.
-        For unit hydrograph: List of event data dictionaries.
-    **kwargs
-        Additional arguments
-
-    Returns
-    -------
-    Dict[str, Any]
-        Calibration results dictionary
-    """
-    # Extract configurations
-    model_config = config.get_model_config()
-    algorithm_config = config.get_algorithm_config()
-    loss_config = config.get_loss_config()
-
-    # Extract other parameters from config
-    data_cfgs = config.data_cfgs
-    training_cfgs = config.training_cfgs
-
-    output_dir = os.path.join(
-        training_cfgs.get("output_dir", "results"),
-        training_cfgs.get("experiment_name", "experiment"),
-    )
-
-    return calibrate(
-        data=data,
-        model_config=model_config,
-        algorithm_config=algorithm_config,
-        loss_config=loss_config,
-        output_dir=output_dir,
-        warmup_length=data_cfgs.get("warmup_length", 0),
-        param_file=data_cfgs.get("param_range_file"),
-        basin_ids=data_cfgs.get("basin_ids", []),
-        **kwargs,
-    )
-
-
-def calibrate(
-    data: Union[np.ndarray, List[Dict]],
-    model_config: Dict,
-    algorithm_config: Dict,
-    loss_config: Dict,
-    output_dir: str,
-    warmup_length: int = 0,
-    param_file: Optional[str] = None,
-    basin_ids: Optional[List[str]] = None,
-    **kwargs,
-) -> Dict[str, Any]:
-    """
-    Simplified unified calibration interface for all hydrological models.
-
-    Parameters
-    ----------
-    data : Union[np.ndarray, List[Dict]]
-        Input data. For traditional models: (p_and_e, qobs) tuple.
-        For unit hydrograph: List of event data dictionaries.
-    model_config : Dict
-        Model configuration including name and parameters.
-    algorithm_config : Dict
-        Algorithm configuration: {"name": "SCE_UA", "rep": 1000, ...}
-    loss_config : Dict
-        Loss function configuration: {"type": "time_series", "obj_func": "RMSE", ...}
-    output_dir : str
-        Directory to save calibration results
-    warmup_length : int, default=0
-        Warmup period length
-    param_file : str, optional
-        Parameter range file for traditional models
-    basin_ids : List[str], optional
-        Basin identifiers for multi-basin calibration
+    config : UnifiedConfig or Dict
+        Configuration object or dictionary containing all settings.
+        If UnifiedConfig object: Uses the structured configuration
+        If Dict: Should contain 'data_cfgs', 'model_cfgs', 'training_cfgs' keys
     **kwargs
         Additional arguments
 
@@ -327,64 +393,77 @@ def calibrate(
         Dictionary containing calibration results
     """
 
+    # Handle different config types
+    if hasattr(config, 'data_cfgs'):
+        # UnifiedConfig object
+        data_config = config.data_cfgs
+        model_config = config.get_model_config()
+        training_config = config.training_cfgs
+    elif isinstance(config, dict):
+        # Dictionary with expected structure
+        if 'data_cfgs' not in config or 'model_cfgs' not in config or 'training_cfgs' not in config:
+            raise ValueError(
+                "Config dictionary must contain 'data_cfgs', 'model_cfgs', and 'training_cfgs' keys"
+            )
+        data_config = config['data_cfgs']
+        # Extract model config
+        model_cfgs = config['model_cfgs']
+        model_config = {
+            "name": model_cfgs.get("model_name"),
+            **model_cfgs.get("model_params", {})
+        }
+        training_config = config['training_cfgs']
+    else:
+        raise ValueError(
+            "Config must be either a UnifiedConfig object or a dictionary with "
+            "'data_cfgs', 'model_cfgs', 'training_cfgs' keys"
+        )
+
+    # Extract components from training_config
+    algorithm_config = {
+        "name": training_config.get("algorithm_name", "SCE_UA"),
+        **training_config.get("algorithm_params", {})
+    }
+    loss_config = training_config.get("loss_config", {"type": "time_series", "obj_func": "RMSE"})
+    
     # Create output directory
+    output_dir = os.path.join(
+        training_config.get("output_dir", "results"),
+        training_config.get("experiment_name", "experiment"),
+    )
     os.makedirs(output_dir, exist_ok=True)
 
-    # Convert event data to standard format if needed
-    if isinstance(data, list):
-        # Convert event data to standard (p_and_e, qobs) format
-        p_and_e, qobs = _convert_event_data_to_standard_format(data)
-    else:
-        p_and_e, qobs = data
+    # Create unified model setup
+    model_setup = UnifiedModelSetup(
+        data_config=data_config,
+        model_config=model_config,
+        loss_config=loss_config,
+        training_config=training_config,
+        **kwargs,
+    )
 
     results = {}
-    if basin_ids is None:
-        basin_ids = [f"basin_{i}" for i in range(p_and_e.shape[1])]
+    basin_ids = data_config.get(
+        "basin_ids",
+        [f"basin_{i}" for i in range(model_setup.p_and_e.shape[1])],
+    )
 
-    for i, basin_id in enumerate(basin_ids):
-        model_setup = UnifiedModelSetup(
-            p_and_e=p_and_e[:, i : i + 1, :],
-            qobs=qobs[:, i : i + 1, :],
-            model_config=model_config,
-            loss_config=loss_config,
-            warmup_length=warmup_length,
-            param_file=param_file,
-            **kwargs,
-        )
+    # For multi-basin calibration, we can either:
+    # 1. Calibrate all basins together (current implementation)
+    # 2. Calibrate each basin separately (loop approach)
 
-        basin_result = _calibrate_model(
-            model_setup, algorithm_config, output_dir, basin_id, **kwargs
-        )
+    # Currently using approach 1 - calibrate all basins together
+    # This is more efficient and allows for shared parameters
+
+    basin_result = _calibrate_model(
+        model_setup, algorithm_config, output_dir, "multi_basin", **kwargs
+    )
+
+    # Store results for all basins
+    for basin_id in basin_ids:
         results[basin_id] = basin_result
 
     return results
-
-
-def _convert_event_data_to_standard_format(event_data: List[Dict]) -> tuple:
-    """
-    Convert event data list to standard (p_and_e, qobs) format for unified interface.
-
-    This helper function bridges the gap between event-based unit hydrograph data
-    and the standard model interface format used by traditional models.
-    """
-    if not event_data:
-        raise ValueError("Event data list is empty")
-
-    # For now, use the first event as a representative
-    # TODO: Implement proper multi-event handling
-    event = event_data[0]
-
-    net_rain = np.array(event.get("P_eff", event.get("net_rain", [])))
-    obs_flow = np.array(event.get("Q_obs_eff", event.get("obs_discharge", [])))
-
-    if len(net_rain) == 0 or len(obs_flow) == 0:
-        raise ValueError("Event data does not contain required time series")
-
-    # Convert to standard format: [time, basin=1, features]
-    p_and_e = net_rain.reshape(-1, 1, 1)  # Only net rain for unit hydrograph
-    qobs = obs_flow.reshape(-1, 1, 1)
-
-    return p_and_e, qobs
 
 
 def _calibrate_model(

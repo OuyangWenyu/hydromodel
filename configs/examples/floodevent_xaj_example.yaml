@@ -1,10 +1,10 @@
-# Example configuration for Unit Hydrograph model with flood event data
-# This demonstrates how unit hydrograph models work with the new unified interface
+# Example configuration for XAJ model with flood event data
+# This demonstrates the new unified data configuration approach
 
 data_cfgs:
   data_type: "floodevent"
   data_path: "path/to/flood/events/data"
-  dataset_name: "uh_events"
+  dataset_name: "songliao_events"
   basin_ids: ["21401550"]
   time_unit: ["3h"]
   warmup_length: 0  # No warmup for event data
@@ -21,17 +21,19 @@ data_cfgs:
   rain_key: "rain"
   net_rain_key: "P_eff"
   obs_flow_key: "Q_obs_eff"
+  
+  # Additional datasource parameters
+  datasource_kwargs: {}
+  read_kwargs: {}
 
 model_cfgs:
-  model_name: "unit_hydrograph"
+  model_name: "xaj"
   model_params:
-    # Unit hydrograph specific parameters
-    n_uh: 24  # Length of unit hydrograph
-    smoothing_factor: 0.1
-    peak_violation_weight: 10000.0
-    apply_peak_penalty: true
-    net_rain_name: "P_eff"
-    obs_flow_name: "Q_obs_eff"
+    # XAJ specific parameters
+    source_type: "sources"
+    source_book: "HF"
+    kernel_size: 15
+    time_interval_hours: 3  # 3-hour time step for flood events
 
 training_cfgs:
   algorithm_name: "SCE_UA"
@@ -46,10 +48,10 @@ training_cfgs:
   loss_config:
     type: "time_series"
     obj_func: "RMSE"
-  # No parameter range file needed for unit hydrograph models
+  # Parameter range file for traditional models (not needed for unit hydrograph)
   param_range_file: null
-  output_dir: "results/unit_hydrograph"
-  experiment_name: "uh_calibration"
+  output_dir: "results/floodevent_xaj"
+  experiment_name: "xaj_floodevent_calibration"
 
 evaluation_cfgs:
   # Final evaluation metrics (calculated after training)

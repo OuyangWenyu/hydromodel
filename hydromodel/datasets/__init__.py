@@ -12,6 +12,13 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 from hydrodataset import Camels
 from hydrodatasource.reader.data_source import SelfMadeHydroDataset
 
+# Import new unified data loader
+try:
+    from .unified_data_loader import UnifiedDataLoader, create_data_loader, load_data_from_config
+    UNIFIED_LOADER_AVAILABLE = True
+except ImportError:
+    UNIFIED_LOADER_AVAILABLE = False
+
 PRCP_NAME = "prcp(mm/day)"
 PET_NAME = "pet(mm/day)"
 ET_NAME = "et(mm/day)"

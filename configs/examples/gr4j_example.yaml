@@ -1,0 +1,48 @@
+# GR4J Model Configuration Example
+# This configuration demonstrates GR4J model calibration with different algorithms
+
+data_cfgs:
+  data_type: "camels"  # CAMELS dataset
+  data_dir: "camels_us"
+  basin_ids: 
+    - "01013500"
+    - "01022500"
+  warmup_length: 365
+  time_periods:
+    overall: ["1990-10-01", "2010-09-30"]
+    calibration: ["1990-10-01", "2000-09-30"]
+    testing: ["2000-10-01", "2010-09-30"]
+  cross_validation:
+    enabled: true
+    folds: 3
+  param_range_file: null
+  random_seed: 1234
+
+model_cfgs:
+  model_name: "gr4j"
+  model_params:
+    # GR4J doesn't need many additional parameters
+    # Parameters are managed by the model internally
+
+training_cfgs:
+  algorithm_name: "SCE_UA"
+  algorithm_params:
+    random_seed: 1234
+    rep: 5000
+    ngs: 1000
+    kstop: 100
+    peps: 0.01
+    pcento: 0.01
+  output_dir: "results"
+  experiment_name: "gr4j_sceua_experiment"
+
+evaluation_cfgs:
+  loss_type: "time_series"
+  objective_function: "KGE"  # Kling-Gupta Efficiency
+  metrics: 
+    - "RMSE"
+    - "NSE"
+    - "KGE"
+    - "PBIAS"
+  events_config: null
+  evaluation_period: "testing"

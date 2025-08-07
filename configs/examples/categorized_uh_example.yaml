@@ -1,0 +1,64 @@
+# Categorized Unit Hydrograph Model Configuration Example
+# This configuration demonstrates categorized unit hydrograph calibration
+
+data_cfgs:
+  data_type: "flood_events"
+  data_dir: "D:\\data\\waterism\\datasets-interim\\songliaorrevent"
+  basin_ids: 
+    - "songliao_21401550"
+  warmup_length: 480
+  time_periods:
+    overall: ["1960-01-01", "2024-12-31"]
+    calibration: ["1960-01-01", "2020-12-31"]
+    testing: ["2021-01-01", "2024-12-31"]
+  cross_validation:
+    enabled: false
+    folds: 1
+  param_range_file: null
+  random_seed: 1234
+
+model_cfgs:
+  model_name: "categorized_unit_hydrograph"
+  model_params:
+    net_rain_name: "P_eff"
+    obs_flow_name: "Q_obs_eff"
+    category_weights:
+      small: 
+        smoothing_factor: 0.1
+        peak_violation_weight: 100.0
+      medium:
+        smoothing_factor: 0.5
+        peak_violation_weight: 500.0
+      large:
+        smoothing_factor: 1.0
+        peak_violation_weight: 1000.0
+    uh_lengths:
+      small: 8
+      medium: 16
+      large: 24
+
+training_cfgs:
+  algorithm_name: "genetic_algorithm"
+  algorithm_params:
+    random_seed: 1234
+    pop_size: 80
+    n_generations: 50
+    cx_prob: 0.7
+    mut_prob: 0.2
+    save_freq: 5
+  output_dir: "results"
+  experiment_name: "categorized_uh_ga_experiment"
+
+evaluation_cfgs:
+  loss_type: "event_based"
+  objective_function: "multi_category_loss"
+  metrics: 
+    - "RMSE"
+    - "NSE"
+    - "flood_peak_error"
+    - "flood_volume_error"
+    - "category_performance"
+  events_config:
+    include_peak_obs: true
+    categorization_method: "peak_magnitude"
+  evaluation_period: "testing"

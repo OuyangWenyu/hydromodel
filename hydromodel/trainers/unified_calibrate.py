@@ -32,6 +32,7 @@ except ImportError:
 
 from hydromodel.models.model_config import read_model_param_dict
 from hydromodel.models.model_dict import LOSS_DICT, MODEL_DICT
+from hydromodel.configs.unified_config import UnifiedConfig
 from hydromodel.models.unit_hydrograph import (
     objective_function_multi_event,
     init_unit_hydrograph,
@@ -455,6 +456,56 @@ class SpotpyAdapter:
             return self.model_setup.calculate_objective(simulation)
         else:
             return self.model_setup.calculate_objective(simulation, evaluation)
+
+
+def calibrate_with_config(
+    config: UnifiedConfig,
+    data: Union[np.ndarray, List[Dict]],
+    **kwargs,
+) -> Dict[str, Any]:
+    """
+    Unified calibration interface using UnifiedConfig.
+    
+    Parameters
+    ----------
+    config : UnifiedConfig
+        Unified configuration object containing all settings
+    data : Union[np.ndarray, List[Dict]]
+        Input data. For traditional models: (p_and_e, qobs) tuple.
+        For unit hydrograph: List of event data dictionaries.
+    **kwargs
+        Additional arguments
+        
+    Returns
+    -------
+    Dict[str, Any]
+        Calibration results dictionary
+    """
+    # Extract configurations
+    model_config = config.get_model_config()
+    algorithm_config = config.get_algorithm_config()
+    loss_config = config.get_loss_config()
+    
+    # Extract other parameters from config
+    data_cfgs = config.data_cfgs
+    training_cfgs = config.training_cfgs
+    
+    output_dir = os.path.join(
+        training_cfgs.get("output_dir", "results"),
+        training_cfgs.get("experiment_name", "experiment")
+    )
+    
+    return calibrate(
+        data=data,
+        model_config=model_config,
+        algorithm_config=algorithm_config,
+        loss_config=loss_config,
+        output_dir=output_dir,
+        warmup_length=data_cfgs.get("warmup_length", 0),
+        param_file=data_cfgs.get("param_range_file"),
+        basin_ids=data_cfgs.get("basin_ids", []),
+        **kwargs,
+    )
 
 
 def calibrate(

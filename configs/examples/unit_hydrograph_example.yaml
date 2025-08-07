@@ -1,0 +1,48 @@
+# Unit Hydrograph Model Configuration Example
+# This configuration demonstrates unit hydrograph calibration
+
+data_cfgs:
+  data_type: "flood_events"
+  data_dir: "D:\\data\\waterism\\datasets-interim\\songliaorrevent"
+  basin_ids: 
+    - "songliao_21401550"
+  warmup_length: 480  # 8 hours * 60 minutes / 3 hours = 160 steps
+  time_periods:
+    overall: ["1960-01-01", "2024-12-31"]
+    calibration: ["1960-01-01", "2020-12-31"]
+    testing: ["2021-01-01", "2024-12-31"]
+  cross_validation:
+    enabled: false
+    folds: 1
+  param_range_file: null
+  random_seed: 1234
+
+model_cfgs:
+  model_name: "unit_hydrograph"
+  model_params:
+    n_uh: 24
+    smoothing_factor: 0.1
+    peak_violation_weight: 10000.0
+    apply_peak_penalty: true
+    net_rain_name: "P_eff"
+    obs_flow_name: "Q_obs_eff"
+
+training_cfgs:
+  algorithm_name: "scipy_minimize"
+  algorithm_params:
+    method: "SLSQP"
+    max_iterations: 500
+  output_dir: "results"
+  experiment_name: "uh_scipy_experiment"
+
+evaluation_cfgs:
+  loss_type: "event_based"
+  objective_function: "RMSE"
+  metrics: 
+    - "RMSE"
+    - "NSE"
+    - "flood_peak_error"
+    - "flood_volume_error"
+  events_config:
+    include_peak_obs: true
+  evaluation_period: "testing"

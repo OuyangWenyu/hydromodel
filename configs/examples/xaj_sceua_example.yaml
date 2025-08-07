@@ -1,0 +1,49 @@
+# XAJ Model with SCE-UA Algorithm Configuration Example
+# This configuration demonstrates how to set up XAJ model calibration using SCE-UA
+
+data_cfgs:
+  data_type: "selfmadehydrodataset"
+  data_dir: "C:\\Users\\wenyu\\OneDrive\\data\\FD_sources"
+  basin_ids: 
+    - "changdian_61561"
+    - "changdian_62618"
+  warmup_length: 365
+  time_periods:
+    overall: ["2014-10-01", "2021-09-30"]
+    calibration: ["2014-10-01", "2019-09-30"]
+    testing: ["2019-10-01", "2021-09-30"]
+  cross_validation:
+    enabled: false
+    folds: 1
+  param_range_file: null  # Use default parameter ranges
+  random_seed: 1234
+
+model_cfgs:
+  model_name: "xaj_mz"
+  model_params:
+    source_type: "sources"
+    source_book: "HF"  # Hydrological Forecast method
+    kernel_size: 15
+    time_interval_hours: 24
+
+training_cfgs:
+  algorithm_name: "SCE_UA"
+  algorithm_params:
+    random_seed: 1234
+    rep: 1000          # Maximum number of model evaluations
+    ngs: 1000          # Number of complexes
+    kstop: 50          # Maximum number of evolution loops
+    peps: 0.1          # Convergence criterion (relative change)
+    pcento: 0.1        # Convergence criterion (percentage)
+  output_dir: "results"
+  experiment_name: "xaj_sceua_experiment"
+
+evaluation_cfgs:
+  loss_type: "time_series"
+  objective_function: "RMSE"
+  metrics: 
+    - "RMSE"
+    - "NSE" 
+    - "KGE"
+  events_config: null
+  evaluation_period: "testing"

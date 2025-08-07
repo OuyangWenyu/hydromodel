@@ -394,25 +394,29 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
     """
 
     # Handle different config types
-    if hasattr(config, 'data_cfgs'):
+    if hasattr(config, "data_cfgs"):
         # UnifiedConfig object
         data_config = config.data_cfgs
         model_config = config.get_model_config()
         training_config = config.training_cfgs
     elif isinstance(config, dict):
         # Dictionary with expected structure
-        if 'data_cfgs' not in config or 'model_cfgs' not in config or 'training_cfgs' not in config:
+        if (
+            "data_cfgs" not in config
+            or "model_cfgs" not in config
+            or "training_cfgs" not in config
+        ):
             raise ValueError(
                 "Config dictionary must contain 'data_cfgs', 'model_cfgs', and 'training_cfgs' keys"
             )
-        data_config = config['data_cfgs']
+        data_config = config["data_cfgs"]
         # Extract model config
-        model_cfgs = config['model_cfgs']
+        model_cfgs = config["model_cfgs"]
         model_config = {
             "name": model_cfgs.get("model_name"),
-            **model_cfgs.get("model_params", {})
+            **model_cfgs.get("model_params", {}),
         }
-        training_config = config['training_cfgs']
+        training_config = config["training_cfgs"]
     else:
         raise ValueError(
             "Config must be either a UnifiedConfig object or a dictionary with "
@@ -422,10 +426,12 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
     # Extract components from training_config
     algorithm_config = {
         "name": training_config.get("algorithm_name", "SCE_UA"),
-        **training_config.get("algorithm_params", {})
+        **training_config.get("algorithm_params", {}),
     }
-    loss_config = training_config.get("loss_config", {"type": "time_series", "obj_func": "RMSE"})
-    
+    loss_config = training_config.get(
+        "loss_config", {"type": "time_series", "obj_func": "RMSE"}
+    )
+
     # Create output directory
     output_dir = os.path.join(
         training_config.get("output_dir", "results"),

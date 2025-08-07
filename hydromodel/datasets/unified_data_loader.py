@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-01-22
-LastEditTime: 2025-08-07 16:48:21
+LastEditTime: 2025-08-07 20:44:23
 LastEditors: Wenyu Ouyang
 Description: Unified data loading interface for all hydrological models
 FilePath: /hydromodel/hydromodel/datasets/unified_data_loader.py
@@ -75,8 +75,9 @@ class UnifiedDataLoader:
             - **kwargs: Additional datasource-specific parameters
         """
         self.config = data_config
-        self.data_type = data_config.get("data_type", "selfmade")
-        self.data_path = data_config.get("data_path")
+        # Support both naming conventions for backward compatibility
+        self.data_type = data_config.get("data_source_type") or data_config.get("data_type", "selfmade")
+        self.data_path = data_config.get("data_source_path") or data_config.get("data_path")
         self.basin_ids = data_config.get("basin_ids", [])
         self.warmup_length = data_config.get("warmup_length", 365)
 
@@ -88,7 +89,7 @@ class UnifiedDataLoader:
 
         # Get variable names
         self.variables = data_config.get(
-            "variables", ["prcp", "PET", "streamflow"]
+            "variables", ["prcp", "PET", "usgsFlow"]
         )
 
         # Initialize the appropriate datasource
@@ -124,7 +125,7 @@ class UnifiedDataLoader:
                     "Camels not available. Please install hydrodatasource."
                 )
             return Camels(self.data_path)
-        elif self.data_type == "selfmade":
+        elif self.data_type in ["selfmade", "selfmadehydrodataset"]:
             # Self-made hydro dataset
             if not SELFMADE_AVAILABLE:
                 raise ImportError(

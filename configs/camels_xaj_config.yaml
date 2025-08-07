@@ -1,0 +1,55 @@
+# CAMELS Dataset XAJ Model Calibration Configuration
+# This configuration uses the hydro_setting.yml paths for CAMELS dataset
+
+data_cfgs:
+  # CAMELS dataset configuration
+  data_source_type: "camels"
+  # Use the datasets-origin path from hydro_setting.yml
+  data_source_path: "E:\\data\\ClassA\\1st_origin\\hydrodatasets\\camels"
+  basin_ids: ["01013500"]  # Example CAMELS basin ID
+  warmup_length: 365       # Warmup period in days
+  
+  # Time range configuration (optional)
+  # time_range: ["1999-10-01", "2014-09-30"]
+  # train_period: ["1999-10-01", "2009-09-30"]
+  # test_period: ["2009-10-01", "2014-09-30"]
+
+model_cfgs:
+  # XAJ model configuration
+  model_name: "xaj_mz"                      # XAJ model variant with mizuRoute
+  model_params:
+    source_type: "sources"                  # XAJ source type
+    source_book: "HF"                       # HF (Hydrological Forecast) computation method
+    kernel_size: 15                         # Convolutional kernel size
+
+training_cfgs:
+  # SCE-UA algorithm configuration
+  algorithm_name: "SCE_UA"                  # Primary optimization algorithm
+  algorithm_params:
+    rep: 1000                               # Reduced for testing (normally 5000+)
+    ngs: 100                                # Number of complexes
+    # kstop: 50                             # Evolution loops before convergence check
+    # peps: 0.001                           # Convergence criterion for parameters
+    # pcento: 0.001                         # Convergence criterion for objective
+    
+  # Loss function configuration
+  loss_config:
+    type: "time_series"                     # Time series loss function
+    obj_func: "NSE"                         # Nash-Sutcliffe Efficiency (better for hydrology)
+    
+  # Output configuration
+  output_dir: "results"                     # Results directory
+  experiment_name: "camels_xaj_test"       # Experiment identifier
+  param_range_file: null                   # Uses default XAJ parameter ranges
+  random_seed: 1234                        # For reproducibility
+
+evaluation_cfgs:
+  # Post-calibration evaluation
+  metrics: ["NSE", "RMSE", "KGE", "PBIAS"]  # Comprehensive evaluation metrics
+  save_results: true                        # Save detailed results
+  plot_results: true                        # Generate visualization plots
+  
+  # Additional evaluation options
+  # validation_split: 0.2                   # Hold-out validation fraction
+  # cross_validation: false                 # K-fold cross validation
+  # bootstrap_samples: 100                  # Bootstrap confidence intervals

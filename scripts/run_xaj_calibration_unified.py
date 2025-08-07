@@ -1,91 +1,107 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-08-07
-LastEditTime: 2025-08-07 11:46:00
+LastEditTime: 2025-08-07 20:35:52
 LastEditors: Wenyu Ouyang
-Description: Unified interface script for XAJ model calibration using different algorithms
+Description: XAJ model calibration script using the latest unified architecture
 FilePath: \hydromodel\scripts\run_xaj_calibration_unified.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
-import json
 import argparse
-import shutil
 import sys
 import os
 from pathlib import Path
 import yaml
 import numpy as np
+from datetime import datetime
 
 # Add hydromodel to path
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 
-from hydromodel.datasets.data_preprocess import (
-    _get_pe_q_from_ts,
-    cross_val_split_tsdata,
-)
-from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.trainers.unified_calibrate import calibrate, DEAP_AVAILABLE
 
 
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="XAJ Model Calibration using Unified Interface",
+        description="XAJ Model Calibration using Latest Unified Architecture",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Model Types Supported:
+XAJ Model Types Supported:
   - xaj: XinAnJiang model (original version with routing)
-  - xaj_mz: XinAnJiang model (with mizuroute routing)
+  - xaj_mz: XinAnJiang model (with mizuRoute routing)
 
 Algorithm Types Supported:
-  - SCE_UA: Shuffled Complex Evolution via spotpy  
+  - SCE_UA: Shuffled Complex Evolution via spotpy (default)
   - genetic_algorithm: Genetic algorithm via DEAP (if installed)
   - scipy_minimize: SciPy optimization methods
 
+Data Source Types:
+  - camels: CAMELS dataset
+  - selfmadehydrodataset: Custom hydrological datasets
+  - owndata: User-defined data format
+
 Usage Examples:
-  # XAJ model with SCE-UA (default)
+  # Basic XAJ calibration with default settings
   python run_xaj_calibration_unified.py --model-type xaj_mz --algorithm SCE_UA
-  
-  # XAJ model with Genetic Algorithm
+
+  # XAJ with genetic algorithm (requires DEAP)
   python run_xaj_calibration_unified.py --model-type xaj_mz --algorithm genetic_algorithm
-  
-  # XAJ model with scipy optimization
-  python run_xaj_calibration_unified.py --model-type xaj_mz --algorithm scipy_minimize
+
+  # Custom data directory and basin
+  python run_xaj_calibration_unified.py --data-dir /path/to/data --basin-id basin_001
+
+  # Configuration file approach (recommended)
+  python run_xaj_calibration_unified.py --config config.yaml
         """,
+    )
+
+    # Configuration file option
+    parser.add_argument(
+        "--config",
+        "-c",
+        type=str,
+        default=None,
+        help="Configuration file path (YAML format). If provided, overrides other arguments.",
     )
 
     # Data configuration
     parser.add_argument(
-        "--data-type",
+        "--data-source-type",
         type=str,
-        default="selfmadehydrodataset",
+        default="camels",
         choices=["camels", "selfmadehydrodataset", "owndata"],
         help="Dataset type (default: selfmadehydrodataset)",
     )
 
     parser.add_argument(
-        "--data-dir",
+        "--data-source-path",
         type=str,
-        default="C:\\Users\\wenyu\\OneDrive\\data\\FD_sources",
-        help="Data directory path",
+        default=None,
+        help="Data directory path (uses default if not specified)",
     )
 
     parser.add_argument(
-        "--result-dir",
-        type=str,
-        default=os.path.join(repo_path, "result"),
-        help="Results directory path",
+        "--basin-ids",
+        nargs="+",
+        default=["01013500"],
+        help="Basin IDs to calibrate (default: basin_001)",
     )
 
     parser.add_argument(
-        "--exp",
-        type=str,
-        default="exp_xaj_unified_001",
-        help="Experiment name for result organization",
+        "--warmup-length",
+        type=int,
+        default=365,
+        help="Warmup period length in days (default: 365)",
     )
-
+    parser.add_argument(
+        "--variables",
+        nargs="+",
+        default=["prcp", "pet", "usgsFlow"],
+        help="Variables to calibrate (default: prcp, pet, usgsFlow)",
+    )
     # Model configuration
     parser.add_argument(
         "--model-type",
@@ -100,7 +116,7 @@ Usage Examples:
         type=str,
         default="sources",
         choices=["sources", "sources5mm"],
-        help="Source data type (default: sources)",
+        help="XAJ source data type (default: sources)",
     )
 
     parser.add_argument(
@@ -108,21 +124,14 @@ Usage Examples:
         type=str,
         default="HF",
         choices=["HF", "EH"],
-        help="Source computation method: HF=Hydrological Forecast, EH=Engineering Hydrology (default: HF)",
+        help="XAJ computation method: HF=Hydrological Forecast, EH=Engineering Hydrology (default: HF)",
     )
 
     parser.add_argument(
         "--kernel-size",
         type=int,
         default=15,
-        help="Convolutional kernel size (default: 15)",
-    )
-
-    parser.add_argument(
-        "--time-interval-hours",
-        type=int,
-        default=24,
-        help="Time interval in hours (default: 24)",
+        help="XAJ convolutional kernel size (default: 15)",
     )
 
     # Algorithm configuration
@@ -134,12 +143,12 @@ Usage Examples:
         help="Optimization algorithm (default: SCE_UA)",
     )
 
-    # SCE-UA parameters
+    # SCE-UA specific parameters
     parser.add_argument(
         "--rep",
         type=int,
-        default=1000,
-        help="SCE-UA repetitions (default: 1000)",
+        default=5000,
+        help="SCE-UA repetitions (default: 5000)",
     )
 
     parser.add_argument(
@@ -147,27 +156,6 @@ Usage Examples:
         type=int,
         default=1000,
         help="SCE-UA number of complexes (default: 1000)",
-    )
-
-    parser.add_argument(
-        "--kstop",
-        type=int,
-        default=50,
-        help="SCE-UA evolution loops (default: 50)",
-    )
-
-    parser.add_argument(
-        "--peps",
-        type=float,
-        default=0.1,
-        help="SCE-UA convergence criterion (default: 0.1)",
-    )
-
-    parser.add_argument(
-        "--pcento",
-        type=float,
-        default=0.1,
-        help="SCE-UA convergence criterion (default: 0.1)",
     )
 
     # Genetic Algorithm parameters
@@ -185,76 +173,43 @@ Usage Examples:
         help="GA number of generations (default: 50)",
     )
 
+    # SciPy parameters
     parser.add_argument(
-        "--cx-prob",
-        type=float,
-        default=0.7,
-        help="GA crossover probability (default: 0.7)",
-    )
-
-    parser.add_argument(
-        "--mut-prob",
-        type=float,
-        default=0.2,
-        help="GA mutation probability (default: 0.2)",
-    )
-
-    # Scipy parameters
-    parser.add_argument(
-        "--method",
+        "--scipy-method",
         type=str,
         default="L-BFGS-B",
-        help="Scipy optimization method (default: L-BFGS-B)",
+        help="SciPy optimization method (default: L-BFGS-B)",
     )
 
     parser.add_argument(
         "--max-iterations",
         type=int,
         default=1000,
-        help="Scipy maximum iterations (default: 1000)",
+        help="Maximum iterations for scipy (default: 1000)",
     )
 
-    # Time period configuration
+    # Loss function configuration
     parser.add_argument(
-        "--cv-fold",
-        type=int,
-        default=1,
-        help="Cross-validation fold number (default: 1)",
+        "--obj-func",
+        type=str,
+        default="RMSE",
+        choices=["RMSE", "NSE", "KGE"],
+        help="Objective function (default: RMSE)",
     )
 
+    # Output configuration
     parser.add_argument(
-        "--warmup",
-        type=int,
-        default=365,
-        help="Warmup period length in days (default: 365)",
-    )
-
-    parser.add_argument(
-        "--period",
-        nargs="+",
-        default=["2014-10-01", "2021-09-30"],
-        help="Overall time period (default: 2014-10-01 2021-09-30)",
+        "--output-dir",
+        type=str,
+        default="results",
+        help="Output directory (default: results)",
     )
 
     parser.add_argument(
-        "--calibrate-period",
-        nargs="+",
-        default=["2014-10-01", "2019-09-30"],
-        help="Calibration period (default: 2014-10-01 2019-09-30)",
-    )
-
-    parser.add_argument(
-        "--test-period",
-        nargs="+",
-        default=["2019-10-01", "2021-09-30"],
-        help="Testing period (default: 2019-10-01 2021-09-30)",
-    )
-
-    parser.add_argument(
-        "--basin-id",
-        nargs="+",
-        default=["changdian_61561", "changdian_62618"],
-        help="Basin IDs to calibrate",
+        "--experiment-name",
+        type=str,
+        default=None,
+        help="Experiment name (auto-generated if not provided)",
     )
 
     # Parameter range file
@@ -263,15 +218,6 @@ Usage Examples:
         type=str,
         default=None,
         help="Parameter range file path (uses default if not specified)",
-    )
-
-    # Loss function configuration
-    parser.add_argument(
-        "--obj-func",
-        type=str,
-        default="RMSE",
-        choices=["RMSE", "NSE", "KGE", "MAE"],
-        help="Objective function (default: RMSE)",
     )
 
     # Other options
@@ -283,291 +229,389 @@ Usage Examples:
     )
 
     parser.add_argument(
-        "--quiet", "-q", action="store_true", help="Quiet mode"
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Quiet mode - minimal output",
+    )
+
+    parser.add_argument(
+        "--save-config",
+        action="store_true",
+        help="Save configuration to file after run",
     )
 
     return parser.parse_args()
 
 
-def create_model_config(args):
-    """Create model configuration dictionary"""
-    return {
-        "name": args.model_type,
-        "source_type": args.source_type,
-        "source_book": args.source_book,
-        "kernel_size": args.kernel_size,
-        "time_interval_hours": args.time_interval_hours,
+def load_config_file(config_path: str) -> dict:
+    """Load configuration from YAML file"""
+    try:
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+        return config
+    except Exception as e:
+        raise ValueError(f"Failed to load config file {config_path}: {e}")
+
+
+def load_hydro_settings() -> dict:
+    """Load hydro_setting.yml from user's home directory"""
+    try:
+        setting_path = os.path.join(
+            os.path.expanduser("~"), "hydro_setting.yml"
+        )
+        if os.path.exists(setting_path):
+            with open(setting_path, "r", encoding="utf-8") as f:
+                settings = yaml.safe_load(f)
+            return settings
+        else:
+            return {}
+    except Exception as e:
+        print(f"Warning: Could not load hydro_setting.yml: {e}")
+        return {}
+
+
+def create_config_from_args(args) -> dict:
+    """Create unified configuration dictionary from command line arguments"""
+
+    # Auto-generate experiment name if not provided
+    if args.experiment_name is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        args.experiment_name = (
+            f"xaj_{args.model_type}_{args.algorithm}_{timestamp}"
+        )
+
+    # Load hydro settings for proper data paths
+    hydro_settings = load_hydro_settings()
+
+    # Set default data path if not provided using hydro_setting.yml paths
+    if args.data_source_path is None:
+        local_data_path = hydro_settings.get("local_data_path", {})
+        datasets_origin = local_data_path.get("datasets-origin")
+        datasets_interim = local_data_path.get("datasets-interim")
+        if args.data_source_type == "camels" and datasets_origin:
+            # Use the datasets-origin path for CAMELS data
+            args.data_source_path = os.path.join(
+                datasets_origin, "camels", "camels_us"
+            )
+        elif args.data_source_type == "selfmadehydrodataset":
+            args.data_source_path = os.path.join(
+                datasets_interim, "songliaorrevents"
+            )
+        else:
+            args.data_source_path = "data"
+
+    # Create unified configuration structure
+    config = {
+        "data_cfgs": {
+            "data_source_type": args.data_source_type,
+            "data_source_path": args.data_source_path,
+            "basin_ids": args.basin_ids,
+            "warmup_length": args.warmup_length,
+            "variables": args.variables,
+        },
+        "model_cfgs": {
+            "model_name": args.model_type,
+            "model_params": {
+                "source_type": args.source_type,
+                "source_book": args.source_book,
+                "kernel_size": args.kernel_size,
+            },
+        },
+        "training_cfgs": {
+            "algorithm_name": args.algorithm,
+            "algorithm_params": _create_algorithm_params(args),
+            "loss_config": {"type": "time_series", "obj_func": args.obj_func},
+            "output_dir": args.output_dir,
+            "experiment_name": args.experiment_name,
+            "param_range_file": args.param_range_file,
+            "random_seed": args.random_seed,
+        },
+        "evaluation_cfgs": {
+            "metrics": ["NSE", "RMSE", "KGE"],
+            "save_results": True,
+            "plot_results": not args.quiet,
+        },
     }
 
+    return config
 
-def create_algorithm_config(args):
-    """Create algorithm configuration dictionary"""
+
+def _create_algorithm_params(args) -> dict:
+    """Create algorithm-specific parameters"""
     if args.algorithm == "SCE_UA":
         return {
-            "name": "SCE_UA",
-            "random_seed": args.random_seed,
             "rep": args.rep,
             "ngs": args.ngs,
-            "kstop": args.kstop,
-            "peps": args.peps,
-            "pcento": args.pcento,
         }
     elif args.algorithm == "genetic_algorithm":
         return {
-            "name": "genetic_algorithm",
-            "random_seed": args.random_seed,
             "pop_size": args.pop_size,
             "n_generations": args.n_generations,
-            "cx_prob": args.cx_prob,
-            "mut_prob": args.mut_prob,
+            "random_seed": args.random_seed,
         }
     elif args.algorithm == "scipy_minimize":
         return {
-            "name": "scipy_minimize",
-            "method": args.method,
+            "method": args.scipy_method,
             "max_iterations": args.max_iterations,
         }
     else:
-        raise ValueError(f"Unsupported algorithm: {args.algorithm}")
+        return {}
 
 
-def create_loss_config(args):
-    """Create loss function configuration dictionary"""
-    return {
-        "type": "time_series",
-        "obj_func": args.obj_func,
-        "events": None,
-    }
+def validate_config(config: dict) -> bool:
+    """Validate configuration structure"""
+    required_sections = ["data_cfgs", "model_cfgs", "training_cfgs"]
+
+    for section in required_sections:
+        if section not in config:
+            raise ValueError(
+                f"Missing required configuration section: {section}"
+            )
+
+    # Validate data configuration
+    data_cfg = config["data_cfgs"]
+    if "data_source_type" not in data_cfg:
+        raise ValueError("data_cfgs missing 'data_source_type'")
+    if "basin_ids" not in data_cfg:
+        raise ValueError("data_cfgs missing 'basin_ids'")
+
+    # Validate model configuration
+    model_cfg = config["model_cfgs"]
+    if "model_name" not in model_cfg:
+        raise ValueError("model_cfgs missing 'model_name'")
+
+    # Validate training configuration
+    training_cfg = config["training_cfgs"]
+    if "algorithm_name" not in training_cfg:
+        raise ValueError("training_cfgs missing 'algorithm_name'")
+    if "loss_config" not in training_cfg:
+        raise ValueError("training_cfgs missing 'loss_config'")
+
+    return True
 
 
-def calibrate_xaj_unified(args):
-    """Main calibration function using unified interface"""
-    verbose = not args.quiet
-
-    # Setup output directory
-    where_save = Path(os.path.join(args.result_dir, args.exp))
-    if not os.path.exists(where_save):
-        os.makedirs(where_save)
-
-    if verbose:
-        print("=" * 80)
-        print("🚀 XAJ Model Calibration - Unified Interface")
-        print("=" * 80)
-        print(f"📁 Data path: {args.data_dir}")
-        print(f"💾 Results: {where_save}")
-        print(f"🤖 Model: {args.model_type}")
-        print(f"🔧 Algorithm: {args.algorithm}")
-        print(f"📊 Objective function: {args.obj_func}")
-        print(f"🏭 Basins: {', '.join(args.basin_id)}")
-        print(f"⏱️ Warmup: {args.warmup} days")
-        if args.algorithm == "genetic_algorithm":
-            print(f"🧬 DEAP available: {DEAP_AVAILABLE}")
-        print("-" * 80)
-
-    # Check GA availability
-    if args.algorithm == "genetic_algorithm" and not DEAP_AVAILABLE:
-        print("❌ Genetic algorithm requested but DEAP is not available")
-        print("💡 Install DEAP with: pip install deap")
+def print_config_summary(config: dict, verbose: bool = True):
+    """Print configuration summary"""
+    if not verbose:
         return
 
-    # Prepare data
-    if verbose:
-        print("🔄 Preparing training and testing data...")
+    print("=" * 80)
+    print("🚀 XAJ Model Calibration - Latest Unified Architecture")
+    print("=" * 80)
 
-    train_and_test_data = cross_val_split_tsdata(
-        args.data_type,
-        args.data_dir,
-        args.cv_fold,
-        args.calibrate_period,
-        args.test_period,
-        args.period,
-        args.warmup,
-        args.basin_id,
-    )
+    # Data configuration
+    data_cfg = config["data_cfgs"]
+    print(f"📁 Data Source: {data_cfg['data_source_type']}")
+    print(f"📂 Data Path: {data_cfg.get('data_source_path', 'default')}")
+    print(f"🏭 Basins: {', '.join(data_cfg['basin_ids'])}")
+    print(f"⏱️ Warmup: {data_cfg.get('warmup_length', 365)} days")
 
-    # Create configurations
-    model_config = create_model_config(args)
-    algorithm_config = create_algorithm_config(args)
-    loss_config = create_loss_config(args)
+    # Model configuration
+    model_cfg = config["model_cfgs"]
+    print(f"🤖 Model: {model_cfg['model_name']}")
+    model_params = model_cfg.get("model_params", {})
+    if model_params:
+        print(f"   📋 Parameters: {model_params}")
 
-    if verbose:
-        print("✅ Configuration created:")
-        print(f"   📊 Model: {model_config}")
-        print(f"   🔧 Algorithm: {algorithm_config['name']}")
-        print(f"   📉 Loss: {loss_config['obj_func']}")
+    # Training configuration
+    training_cfg = config["training_cfgs"]
+    print(f"🔧 Algorithm: {training_cfg['algorithm_name']}")
+    print(f"📊 Objective: {training_cfg['loss_config']['obj_func']}")
+    print(f"🎯 Experiment: {training_cfg.get('experiment_name', 'default')}")
 
-    # Handle parameter range file
-    param_range_file = args.param_range_file
-    if param_range_file is None:
-        param_range_file = os.path.join(where_save, "param_range.yaml")
-        if verbose:
-            print(f"   📋 Creating default parameter file: {param_range_file}")
-        yaml.dump(MODEL_PARAM_DICT, open(param_range_file, "w"))
-    else:
-        # Copy user-provided parameter file to results directory
-        dest_param_file = os.path.join(
-            where_save, os.path.basename(param_range_file)
-        )
-        shutil.copy(param_range_file, dest_param_file)
-        param_range_file = dest_param_file
-        if verbose:
-            print(f"   📋 Using parameter file: {param_range_file}")
+    # Algorithm parameters
+    algo_params = training_cfg.get("algorithm_params", {})
+    if algo_params:
+        print(f"⚙️ Algorithm Parameters:")
+        for key, value in algo_params.items():
+            print(f"   {key}: {value}")
 
-    print(
-        f"\n🚀 Starting {args.algorithm} calibration with unified interface..."
-    )
+    # Special warnings/info
+    if training_cfg["algorithm_name"] == "genetic_algorithm":
+        print(f"🧬 DEAP Available: {DEAP_AVAILABLE}")
+        if not DEAP_AVAILABLE:
+            print("⚠️ Genetic algorithm requires DEAP: pip install deap")
 
-    # Calibration
-    if args.cv_fold <= 1:
-        # Single fold calibration
-        p_and_e, qobs = _get_pe_q_from_ts(train_and_test_data[0])
-
-        results = calibrate(
-            data=(p_and_e, qobs),
-            model_config=model_config,
-            algorithm_config=algorithm_config,
-            loss_config=loss_config,
-            output_dir=os.path.join(
-                where_save, f"{args.algorithm.lower()}_xaj"
-            ),
-            warmup_length=args.warmup,
-            param_file=param_range_file,
-            basin_ids=args.basin_id,
-        )
-
-        # Process results
-        process_calibration_results(results, args, verbose)
-
-    else:
-        # Cross-validation calibration
-        cv_results = {}
-        for i in range(args.cv_fold):
-            if verbose:
-                print(f"\n📊 Cross-validation fold {i+1}/{args.cv_fold}")
-
-            train_data, _ = train_and_test_data[i]
-            p_and_e_cv, qobs_cv = _get_pe_q_from_ts(train_data)
-
-            fold_results = calibrate(
-                data=(p_and_e_cv, qobs_cv),
-                model_config=model_config,
-                algorithm_config=algorithm_config,
-                loss_config=loss_config,
-                output_dir=os.path.join(
-                    where_save, f"{args.algorithm.lower()}_xaj_cv{i+1}"
-                ),
-                warmup_length=args.warmup,
-                param_file=param_range_file,
-                basin_ids=args.basin_id,
-            )
-
-            cv_results[f"cv_{i+1}"] = fold_results
-
-        # Process cross-validation results
-        process_cv_results(cv_results, args, verbose)
-
-    # Save configuration
-    save_experiment_config(args, where_save, param_range_file)
-
-    print(f"\n🎉 XAJ calibration completed using unified interface!")
-    print(f"✨ Used unified calibrate() function")
-    print(f"🔧 Model: {args.model_type} | Algorithm: {args.algorithm}")
-    print(f"💾 Results saved to: {where_save}")
+    print("-" * 80)
 
 
-def process_calibration_results(results, args, verbose=True):
+def save_config_file(config: dict, output_path: str):
+    """Save configuration to YAML file"""
+    try:
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        with open(output_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, indent=2)
+        print(f"💾 Configuration saved: {output_path}")
+    except Exception as e:
+        print(f"⚠️ Warning: Could not save config file: {e}")
+
+
+def process_results(results: dict, config: dict, verbose: bool = True):
     """Process and display calibration results"""
-    if verbose:
-        print(f"\n📈 Calibration Results Summary:")
+    if not verbose:
+        return
 
-    for basin_id, basin_result in results.items():
-        if verbose:
-            print(f"\n🏭 Basin: {basin_id}")
+    print("\n" + "=" * 80)
+    print("📈 CALIBRATION RESULTS SUMMARY")
+    print("=" * 80)
 
-        convergence = basin_result.get("convergence", "unknown")
-        objective_value = basin_result.get("objective_value", float("inf"))
-        best_params = basin_result.get("best_params", {})
+    training_cfg = config["training_cfgs"]
+    algorithm_name = training_cfg["algorithm_name"]
+    obj_func = training_cfg["loss_config"]["obj_func"]
 
-        if verbose:
-            print(f"   ✅ Convergence: {convergence}")
-            print(f"   🎯 Best {args.obj_func}: {objective_value:.6f}")
+    successful_basins = 0
+    total_basins = len(config["data_cfgs"]["basin_ids"])
+    objective_values = []
+
+    for basin_id, result in results.items():
+        print(f"\n🏭 Basin: {basin_id}")
+        print("-" * 40)
+
+        convergence = result.get("convergence", "unknown")
+        objective_value = result.get("objective_value", float("inf"))
+        best_params = result.get("best_params", {})
+        algorithm_info = result.get("algorithm_info", {})
+
+        # Convergence status
+        if convergence == "success":
+            print(f"✅ Convergence: SUCCESS")
+            successful_basins += 1
+            objective_values.append(objective_value)
+        else:
+            print(f"❌ Convergence: FAILED")
+
+        # Objective value
+        print(f"🎯 Best {obj_func}: {objective_value:.6f}")
+
+        # Algorithm info
+        if algorithm_info:
+            if algorithm_name == "SCE_UA":
+                iterations = algorithm_info.get("rep", "N/A")
+                print(f"🔄 Iterations: {iterations}")
+            elif algorithm_name == "genetic_algorithm":
+                generations = algorithm_info.get("generations", "N/A")
+                pop_size = algorithm_info.get("population_size", "N/A")
+                print(f"🧬 Generations: {generations}, Population: {pop_size}")
+            elif algorithm_name == "scipy_minimize":
+                iterations = algorithm_info.get("iterations", "N/A")
+                message = algorithm_info.get("message", "")
+                print(f"🔄 Iterations: {iterations}")
+                if message:
+                    print(f"💬 Message: {message}")
+
+        # Parameter summary
+        if best_params and basin_id in best_params:
+            basin_params = best_params[basin_id]
+            print(f"📋 Parameters: {len(basin_params)} optimized")
+
+            # Show first few parameters as example
+            param_items = list(basin_params.items())[:5]
+            for param_name, param_value in param_items:
+                print(f"   {param_name}: {param_value:.6f}")
+            if len(basin_params) > 5:
+                print(f"   ... and {len(basin_params) - 5} more parameters")
+
+    # Overall summary
+    print(f"\n" + "=" * 80)
+    print("📊 OVERALL SUMMARY")
+    print("=" * 80)
+    print(f"✅ Successful basins: {successful_basins}/{total_basins}")
+    print(f"🔧 Algorithm used: {algorithm_name}")
+    print(f"📊 Objective function: {obj_func}")
+
+    if objective_values:
+        print(f"🎯 Best {obj_func}: {min(objective_values):.6f}")
+        print(f"📈 Average {obj_func}: {np.mean(objective_values):.6f}")
+        print(f"📊 Std {obj_func}: {np.std(objective_values):.6f}")
+
+    # Save location
+    output_dir = training_cfg.get("output_dir", "results")
+    experiment_name = training_cfg.get("experiment_name", "experiment")
+    result_path = os.path.join(output_dir, experiment_name)
+    print(f"💾 Results saved to: {result_path}")
+
+
+def main():
+    """Main execution function"""
+    args = parse_arguments()
+    verbose = not args.quiet
+
+    try:
+        # Load configuration
+        if args.config:
+            # Load from configuration file
+            if verbose:
+                print(f"📋 Loading configuration from: {args.config}")
+            config = load_config_file(args.config)
+        else:
+            # Create from command line arguments
+            if verbose:
+                print("📋 Creating configuration from command line arguments")
+            config = create_config_from_args(args)
+
+        # Validate configuration
+        validate_config(config)
+
+        # Print configuration summary
+        print_config_summary(config, verbose)
+
+        # Check algorithm availability
+        training_cfg = config["training_cfgs"]
+        if (
+            training_cfg["algorithm_name"] == "genetic_algorithm"
+            and not DEAP_AVAILABLE
+        ):
             print(
-                f"   📋 Parameters: {len(best_params.get(basin_id, {}))} optimized"
+                "❌ ERROR: Genetic algorithm requested but DEAP is not available"
+            )
+            print("💡 Install DEAP with: pip install deap")
+            return 1
+
+        # Run calibration using unified interface
+        if verbose:
+            print(f"\n🚀 Starting calibration with unified architecture...")
+            print(
+                f"📦 Using: hydromodel.trainers.unified_calibrate.calibrate()"
             )
 
-        # Display parameter values if convergence was successful
-        if convergence == "success" and basin_id in best_params:
-            if verbose:
-                print(f"   📊 Optimized Parameters:")
-            for param_name, param_value in best_params[basin_id].items():
-                if verbose:
-                    print(f"      {param_name}: {param_value:.6f}")
+        # The new unified calibration call - single function, single parameter!
+        results = calibrate(config)
 
+        # Process and display results
+        process_results(results, config, verbose)
 
-def process_cv_results(cv_results, args, verbose=True):
-    """Process cross-validation results"""
-    if verbose:
-        print(f"\n📈 Cross-Validation Results Summary:")
+        # Save configuration file if requested
+        if args.save_config or args.config is None:
+            output_dir = training_cfg.get("output_dir", "results")
+            experiment_name = training_cfg.get("experiment_name", "experiment")
+            config_output_path = os.path.join(
+                output_dir, experiment_name, "calibration_config.yaml"
+            )
+            save_config_file(config, config_output_path)
 
-    all_objectives = []
-    successful_folds = 0
-
-    for fold_name, fold_results in cv_results.items():
-        if verbose:
-            print(f"\n📊 {fold_name.upper()}:")
-
-        for basin_id, basin_result in fold_results.items():
-            convergence = basin_result.get("convergence", "unknown")
-            objective_value = basin_result.get("objective_value", float("inf"))
-
-            if verbose:
-                print(
-                    f"   🏭 {basin_id}: {convergence}, {args.obj_func}={objective_value:.6f}"
-                )
-
-            if convergence == "success":
-                all_objectives.append(objective_value)
-                successful_folds += 1
-
-    if all_objectives and verbose:
-        print(f"\n📊 Cross-Validation Statistics:")
+        print(f"\n🎉 XAJ calibration completed successfully!")
+        print(f"✨ Used latest unified architecture: calibrate(config)")
         print(
-            f"   ✅ Successful folds: {successful_folds}/{len(cv_results) * len(args.basin_id)}"
+            f"🔧 Model: {config['model_cfgs']['model_name']} | Algorithm: {training_cfg['algorithm_name']}"
         )
-        print(f"   🎯 Mean {args.obj_func}: {np.mean(all_objectives):.6f}")
-        print(f"   📊 Std {args.obj_func}: {np.std(all_objectives):.6f}")
-        print(f"   📈 Best {args.obj_func}: {np.min(all_objectives):.6f}")
-        print(f"   📉 Worst {args.obj_func}: {np.max(all_objectives):.6f}")
 
+        return 0
 
-def save_experiment_config(args, where_save, param_range_file):
-    """Save experiment configuration for reproducibility"""
-    config = {
-        "experiment_name": args.exp,
-        "model_config": create_model_config(args),
-        "algorithm_config": create_algorithm_config(args),
-        "loss_config": create_loss_config(args),
-        "data_config": {
-            "data_type": args.data_type,
-            "data_dir": args.data_dir,
-            "basin_ids": args.basin_id,
-            "cv_fold": args.cv_fold,
-            "warmup": args.warmup,
-            "period": args.period,
-            "calibrate_period": args.calibrate_period,
-            "test_period": args.test_period,
-        },
-        "param_range_file": param_range_file,
-        "random_seed": args.random_seed,
-    }
+    except KeyboardInterrupt:
+        print("\nCalibration interrupted by user")
+        return 1
+    except Exception as e:
+        print(f"\nERROR: Calibration failed: {e}")
+        if verbose:
+            import traceback
 
-    config_file = os.path.join(where_save, "unified_calibration_config.yaml")
-    with open(config_file, "w") as f:
-        yaml.dump(config, f, default_flow_style=False)
-
-    print(f"💾 Configuration saved: {config_file}")
+            traceback.print_exc()
+        return 1
 
 
 if __name__ == "__main__":
-    args = parse_arguments()
-    calibrate_xaj_unified(args)
+    exit_code = main()
+    sys.exit(exit_code)

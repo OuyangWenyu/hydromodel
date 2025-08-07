@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-08-06
-LastEditTime: 2025-08-07 11:04:01
+LastEditTime: 2025-08-07 14:23:19
 LastEditors: Wenyu Ouyang
 Description: Unified calibration interface for all hydrological models
 FilePath: /hydromodel/hydromodel/trainers/unified_calibrate.py
@@ -465,7 +465,7 @@ def calibrate_with_config(
 ) -> Dict[str, Any]:
     """
     Unified calibration interface using UnifiedConfig.
-    
+
     Parameters
     ----------
     config : UnifiedConfig
@@ -475,7 +475,7 @@ def calibrate_with_config(
         For unit hydrograph: List of event data dictionaries.
     **kwargs
         Additional arguments
-        
+
     Returns
     -------
     Dict[str, Any]
@@ -485,16 +485,16 @@ def calibrate_with_config(
     model_config = config.get_model_config()
     algorithm_config = config.get_algorithm_config()
     loss_config = config.get_loss_config()
-    
+
     # Extract other parameters from config
     data_cfgs = config.data_cfgs
     training_cfgs = config.training_cfgs
-    
+
     output_dir = os.path.join(
         training_cfgs.get("output_dir", "results"),
-        training_cfgs.get("experiment_name", "experiment")
+        training_cfgs.get("experiment_name", "experiment"),
     )
-    
+
     return calibrate(
         data=data,
         model_config=model_config,

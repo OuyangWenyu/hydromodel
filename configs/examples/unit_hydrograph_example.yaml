@@ -1,12 +1,14 @@
 # Unit Hydrograph Model Configuration Example
-# This configuration demonstrates unit hydrograph calibration
+# This configuration demonstrates unit hydrograph calibration using scipy optimization
+# 
+# Usage: python run_unit_hydrograph_with_config.py --config configs/examples/unit_hydrograph_example.yaml
 
 data_cfgs:
   data_type: "flood_events"
   data_dir: "D:\\data\\waterism\\datasets-interim\\songliaorrevent"
   basin_ids: 
     - "songliao_21401550"
-  warmup_length: 480  # 8 hours * 60 minutes / 3 hours = 160 steps
+  warmup_length: 480  # 8 hours * 60 minutes / 3 hours = 160 steps for 3h data
   time_periods:
     overall: ["1960-01-01", "2024-12-31"]
     calibration: ["1960-01-01", "2020-12-31"]

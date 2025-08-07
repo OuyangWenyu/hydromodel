@@ -89,7 +89,7 @@ class UnifiedDataLoader:
 
         # Get variable names
         self.variables = data_config.get(
-            "variables", ["prcp", "PET", "usgsFlow"]
+            "variables", ["prcp", "PET", "streamflow"]
         )
 
         # Initialize the appropriate datasource

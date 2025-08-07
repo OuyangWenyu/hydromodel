@@ -15,11 +15,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 
-from hydroutils.hydro_stat import (
-    nse,
-    flood_peak_error,
-    flood_volume_error,
-)
+from hydroutils.hydro_stat import stat_error
 
 
 # =============================================================================
@@ -338,10 +334,11 @@ def evaluate_single_event_from_uh(
             return None
 
         # Calculate performance metrics
-        nse_value = nse(obs_flow, sim_flow)
+        nse_value = stat_error(sim_flow, obs_flow, ["NSE"])["NSE"]
         rmse_value = np.sqrt(np.mean((sim_flow - obs_flow) ** 2))
-        peak_error = flood_peak_error(obs_flow, sim_flow)
-        volume_error = flood_volume_error(obs_flow, sim_flow)
+        # Calculate peak and volume errors manually since they're not in stat_error
+        peak_error = abs(obs_flow.max() - sim_flow.max()) / obs_flow.max() * 100 if obs_flow.max() > 0 else 0
+        volume_error = abs(obs_flow.sum() - sim_flow.sum()) / obs_flow.sum() * 100 if obs_flow.sum() > 0 else 0
 
         # Prepare result dictionary
         result = {

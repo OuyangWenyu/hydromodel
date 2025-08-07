@@ -22,6 +22,7 @@ repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 
 from hydromodel.core.unified_simulate import simulate
+from hydromodel.configs.config_manager import ConfigManager
 
 
 def parse_arguments():
@@ -154,26 +155,12 @@ Usage Examples:
     return parser.parse_args()
 
 
-def load_config_file(config_path: str) -> dict:
-    """Load configuration from YAML file"""
-    try:
-        with open(config_path, "r") as f:
-            config = yaml.safe_load(f)
-        return config
-    except Exception as e:
-        raise ValueError(f"Failed to load config file {config_path}: {e}")
 
 
 def load_parameters_from_file(params_file: str) -> dict:
     """Load parameters from file"""
     try:
-        with open(params_file, "r") as f:
-            if params_file.endswith('.json'):
-                import json
-                params = json.load(f)
-            else:
-                params = yaml.safe_load(f)
-        return params
+        return ConfigManager.load_config_from_file(params_file)
     except Exception as e:
         raise ValueError(f"Failed to load parameters from {params_file}: {e}")
 
@@ -209,76 +196,9 @@ def load_parameters_from_calibration(results_file: str, model_name: str, basin_i
 
 def get_default_parameters(model_name: str) -> dict:
     """Get default parameters for quick testing"""
-    defaults = {
-        "xaj": {
-            "K": 0.5, "B": 0.3, "IM": 0.01, "UM": 20, "LM": 80, "DM": 120,
-            "C": 0.15, "SM": 50, "EX": 1.0, "KI": 0.3, "KG": 0.2,
-            "A": 0.8, "THETA": 0.2, "CI": 0.8, "CG": 0.15
-        },
-        "xaj_mz": {
-            "K": 0.5, "B": 0.3, "IM": 0.01, "UM": 20, "LM": 80, "DM": 120,
-            "C": 0.15, "SM": 50, "EX": 1.0, "KI": 0.3, "KG": 0.2,
-            "A": 0.8, "THETA": 0.2, "CI": 0.8, "CG": 0.15
-        },
-        "unit_hydrograph": {
-            "uh_values": [0.01, 0.05, 0.12, 0.18, 0.22, 0.20, 0.15, 0.10, 
-                         0.08, 0.06, 0.05, 0.04, 0.03, 0.02, 0.02, 0.01,
-                         0.01, 0.01, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00]
-        },
-        "gr4j": {
-            "X1": 350, "X2": 0.0, "X3": 90, "X4": 1.2
-        },
-        "gr6j": {
-            "X1": 350, "X2": 0.0, "X3": 90, "X4": 1.2, "X5": 0.5, "X6": 3.0
-        }
-    }
-    
-    return defaults.get(model_name, {})
+    return ConfigManager.get_model_default_parameters(model_name)
 
 
-def create_config_from_args(args) -> dict:
-    """Create simulation configuration from command line arguments"""
-    
-    # Auto-generate experiment name if not provided
-    if args.experiment_name is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        args.experiment_name = f"{args.model}_simulation_{timestamp}"
-
-    # Load parameters
-    if args.params_file:
-        parameters = load_parameters_from_file(args.params_file)
-    elif args.calibration_results:
-        basin_id = args.basin_ids[0] if args.basin_ids else None
-        parameters = load_parameters_from_calibration(args.calibration_results, args.model, basin_id)
-    else:
-        # Use default parameters
-        parameters = get_default_parameters(args.model)
-        if not parameters:
-            raise ValueError(f"No default parameters available for model {args.model}. "
-                           "Please provide --params-file or --calibration-results")
-
-    # Create configuration
-    config = {
-        "data_cfgs": {
-            "data_source_type": args.data_source_type,
-            "data_source_path": args.data_path,
-            "basin_ids": args.basin_ids,
-            "warmup_length": args.warmup_length,
-        },
-        "model_cfgs": {
-            "model_name": args.model,
-            "model_params": {},  # Model-specific configuration
-            "parameters": parameters,
-        },
-        "simulation_cfgs": {
-            "output_dir": args.output_dir,
-            "experiment_name": args.experiment_name,
-            "save_results": args.save_results,
-            "plot_results": args.plot_results,
-        },
-    }
-
-    return config
 
 
 def save_simulation_results(results: dict, config: dict, output_dir: str):
@@ -359,15 +279,33 @@ def main():
     verbose = not args.quiet
 
     try:
-        # Load configuration
-        if args.config:
-            if verbose:
+        # Load configuration using ConfigManager
+        if verbose:
+            if args.config:
                 print(f"Loading configuration from: {args.config}")
-            config = load_config_file(args.config)
-        else:
-            if verbose:
+            else:
                 print("Creating configuration from command line arguments")
-            config = create_config_from_args(args)
+        
+        # Add parameter handling to args namespace for ConfigManager
+        if args.params_file:
+            parameters = load_parameters_from_file(args.params_file)
+            args.model_parameters = parameters
+        elif args.calibration_results:
+            basin_id = args.basin_ids[0] if args.basin_ids else None
+            parameters = load_parameters_from_calibration(args.calibration_results, args.model, basin_id)
+            args.model_parameters = parameters
+        else:
+            # Use default parameters
+            parameters = get_default_parameters(args.model)
+            if not parameters:
+                raise ValueError(f"No default parameters available for model {args.model}. "
+                               "Please provide --params-file or --calibration-results")
+            args.model_parameters = parameters
+        
+        config = ConfigManager.create_simulation_config(
+            config_file=args.config,
+            args=args
+        )
 
         # Print configuration summary
         if verbose:

@@ -21,6 +21,7 @@ repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 
 from hydromodel.trainers.unified_calibrate import calibrate, DEAP_AVAILABLE
+from hydromodel.configs.config_manager import ConfigManager
 
 
 def parse_arguments():
@@ -99,8 +100,8 @@ Usage Examples:
     parser.add_argument(
         "--variables",
         nargs="+",
-        default=["prcp", "pet", "usgsFlow"],
-        help="Variables to calibrate (default: prcp, pet, usgsFlow)",
+        default=["prcp", "pet", "streamflow"],
+        help="Variables to calibrate (default: prcp, pet, streamflow)",
     )
     # Model configuration
     parser.add_argument(
@@ -244,151 +245,10 @@ Usage Examples:
     return parser.parse_args()
 
 
-def load_config_file(config_path: str) -> dict:
-    """Load configuration from YAML file"""
-    try:
-        with open(config_path, "r") as f:
-            config = yaml.safe_load(f)
-        return config
-    except Exception as e:
-        raise ValueError(f"Failed to load config file {config_path}: {e}")
+# This function is now replaced by ConfigManager.create_calibration_config
 
 
-def load_hydro_settings() -> dict:
-    """Load hydro_setting.yml from user's home directory"""
-    try:
-        setting_path = os.path.join(
-            os.path.expanduser("~"), "hydro_setting.yml"
-        )
-        if os.path.exists(setting_path):
-            with open(setting_path, "r", encoding="utf-8") as f:
-                settings = yaml.safe_load(f)
-            return settings
-        else:
-            return {}
-    except Exception as e:
-        print(f"Warning: Could not load hydro_setting.yml: {e}")
-        return {}
-
-
-def create_config_from_args(args) -> dict:
-    """Create unified configuration dictionary from command line arguments"""
-
-    # Auto-generate experiment name if not provided
-    if args.experiment_name is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        args.experiment_name = (
-            f"xaj_{args.model_type}_{args.algorithm}_{timestamp}"
-        )
-
-    # Load hydro settings for proper data paths
-    hydro_settings = load_hydro_settings()
-
-    # Set default data path if not provided using hydro_setting.yml paths
-    if args.data_source_path is None:
-        local_data_path = hydro_settings.get("local_data_path", {})
-        datasets_origin = local_data_path.get("datasets-origin")
-        datasets_interim = local_data_path.get("datasets-interim")
-        if args.data_source_type == "camels" and datasets_origin:
-            # Use the datasets-origin path for CAMELS data
-            args.data_source_path = os.path.join(
-                datasets_origin, "camels", "camels_us"
-            )
-        elif args.data_source_type == "selfmadehydrodataset":
-            args.data_source_path = os.path.join(
-                datasets_interim, "songliaorrevents"
-            )
-        else:
-            args.data_source_path = "data"
-
-    # Create unified configuration structure
-    config = {
-        "data_cfgs": {
-            "data_source_type": args.data_source_type,
-            "data_source_path": args.data_source_path,
-            "basin_ids": args.basin_ids,
-            "warmup_length": args.warmup_length,
-            "variables": args.variables,
-        },
-        "model_cfgs": {
-            "model_name": args.model_type,
-            "model_params": {
-                "source_type": args.source_type,
-                "source_book": args.source_book,
-                "kernel_size": args.kernel_size,
-            },
-        },
-        "training_cfgs": {
-            "algorithm_name": args.algorithm,
-            "algorithm_params": _create_algorithm_params(args),
-            "loss_config": {"type": "time_series", "obj_func": args.obj_func},
-            "output_dir": args.output_dir,
-            "experiment_name": args.experiment_name,
-            "param_range_file": args.param_range_file,
-            "random_seed": args.random_seed,
-        },
-        "evaluation_cfgs": {
-            "metrics": ["NSE", "RMSE", "KGE"],
-            "save_results": True,
-            "plot_results": not args.quiet,
-        },
-    }
-
-    return config
-
-
-def _create_algorithm_params(args) -> dict:
-    """Create algorithm-specific parameters"""
-    if args.algorithm == "SCE_UA":
-        return {
-            "rep": args.rep,
-            "ngs": args.ngs,
-        }
-    elif args.algorithm == "genetic_algorithm":
-        return {
-            "pop_size": args.pop_size,
-            "n_generations": args.n_generations,
-            "random_seed": args.random_seed,
-        }
-    elif args.algorithm == "scipy_minimize":
-        return {
-            "method": args.scipy_method,
-            "max_iterations": args.max_iterations,
-        }
-    else:
-        return {}
-
-
-def validate_config(config: dict) -> bool:
-    """Validate configuration structure"""
-    required_sections = ["data_cfgs", "model_cfgs", "training_cfgs"]
-
-    for section in required_sections:
-        if section not in config:
-            raise ValueError(
-                f"Missing required configuration section: {section}"
-            )
-
-    # Validate data configuration
-    data_cfg = config["data_cfgs"]
-    if "data_source_type" not in data_cfg:
-        raise ValueError("data_cfgs missing 'data_source_type'")
-    if "basin_ids" not in data_cfg:
-        raise ValueError("data_cfgs missing 'basin_ids'")
-
-    # Validate model configuration
-    model_cfg = config["model_cfgs"]
-    if "model_name" not in model_cfg:
-        raise ValueError("model_cfgs missing 'model_name'")
-
-    # Validate training configuration
-    training_cfg = config["training_cfgs"]
-    if "algorithm_name" not in training_cfg:
-        raise ValueError("training_cfgs missing 'algorithm_name'")
-    if "loss_config" not in training_cfg:
-        raise ValueError("training_cfgs missing 'loss_config'")
-
-    return True
+# Configuration validation is now handled by ConfigManager
 
 
 def print_config_summary(config: dict, verbose: bool = True):
@@ -540,20 +400,17 @@ def main():
     verbose = not args.quiet
 
     try:
-        # Load configuration
-        if args.config:
-            # Load from configuration file
-            if verbose:
-                print(f"📋 Loading configuration from: {args.config}")
-            config = load_config_file(args.config)
-        else:
-            # Create from command line arguments
-            if verbose:
-                print("📋 Creating configuration from command line arguments")
-            config = create_config_from_args(args)
-
-        # Validate configuration
-        validate_config(config)
+        # Load configuration using ConfigManager
+        if verbose:
+            if args.config:
+                print(f"Loading configuration from: {args.config}")
+            else:
+                print("Creating configuration from command line arguments")
+        
+        config = ConfigManager.create_calibration_config(
+            config_file=args.config,
+            args=args
+        )
 
         # Print configuration summary
         print_config_summary(config, verbose)

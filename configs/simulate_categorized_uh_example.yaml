@@ -1,0 +1,47 @@
+# Categorized Unit Hydrograph Simulation Configuration Example
+# This demonstrates simulation with different UH for different flood magnitudes
+
+data_cfgs:
+  # Event data configuration
+  data_source_type: "floodevent"
+  data_source_path: "/path/to/event/data"
+  basin_ids: ["categorized_basin"]
+  warmup_length: 0
+
+model_cfgs:
+  # Categorized unit hydrograph model
+  model_name: "categorized_unit_hydrograph"
+  
+  # Model configuration
+  model_params:
+    # Unit hydrograph lengths for each category
+    uh_lengths:
+      small: 8                              # Small floods: 8 time steps
+      medium: 16                            # Medium floods: 16 time steps  
+      large: 24                             # Large floods: 24 time steps
+  
+  # Category-specific unit hydrograph values
+  parameters:
+    # Unit hydrograph for each flood category
+    uh_categories:
+      small: [0.1, 0.3, 0.4, 0.15, 0.03, 0.01, 0.005, 0.005]
+      medium: [0.02, 0.08, 0.15, 0.20, 0.22, 0.18, 0.10, 0.06,
+               0.04, 0.03, 0.02, 0.01, 0.01, 0.005, 0.003, 0.002]
+      large: [0.01, 0.03, 0.08, 0.12, 0.16, 0.18, 0.15, 0.12,
+              0.08, 0.06, 0.05, 0.04, 0.03, 0.02, 0.015, 0.01,
+              0.008, 0.006, 0.004, 0.003, 0.002, 0.001, 0.001, 0.001]
+    
+    # Thresholds for flood categorization (mm/h or m³/s depending on data)
+    thresholds:
+      small_medium: 10.0                    # Threshold between small and medium
+      medium_large: 25.0                    # Threshold between medium and large
+
+simulation_cfgs:
+  # Categorization settings
+  peak_flow_calculation: "maximum"          # How to determine flood magnitude
+  categorization_variable: "peak_flow"      # Variable used for categorization
+  
+  # Output configuration
+  output_dir: "results/categorized_uh"
+  experiment_name: "categorized_uh_test"
+  save_results: true

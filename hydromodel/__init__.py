@@ -1,9 +1,9 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-02-09 15:56:48
-LastEditTime: 2024-03-28 11:18:55
+LastEditTime: 2025-08-07 21:00:00
 LastEditors: Wenyu Ouyang
-Description: Top-level package for hydromodel
+Description: Top-level package for hydromodel with unified interfaces
 FilePath: /hydromodel/hydromodel/__init__.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
@@ -12,6 +12,15 @@ import os
 from pathlib import Path
 from hydroutils import hydro_file
 import yaml
+
+# Import unified interfaces for easy access
+try:
+    from .trainers.unified_calibrate import calibrate
+    from .core.unified_simulate import simulate
+    __all__ = ['calibrate', 'simulate', 'SETTING', 'CACHE_DIR']
+except ImportError:
+    # Fallback if unified interfaces are not available
+    __all__ = ['SETTING', 'CACHE_DIR']
 
 __author__ = """Wenyu Ouyang"""
 __email__ = 'wenyuouyang@outlook.com'

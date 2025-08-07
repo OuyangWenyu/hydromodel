@@ -29,6 +29,7 @@ from hydromodel.models.gr4j import gr4j
 from hydromodel.models.gr5j import gr5j
 from hydromodel.models.gr6j import gr6j
 from hydromodel.models.hymod import hymod
+from hydromodel.models.unit_hydrograph import unit_hydrograph, categorized_unit_hydrograph
 
 
 
@@ -80,4 +81,6 @@ MODEL_DICT = {
     "gr3j": gr3j,
     "hymod": hymod,
     "semi_xaj": semi_xaj,
+    "unit_hydrograph": unit_hydrograph,
+    "categorized_unit_hydrograph": categorized_unit_hydrograph,
 }

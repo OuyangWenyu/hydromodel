@@ -19,7 +19,7 @@ from hydrodatasource.configs.config import SETTING
 from hydrodatasource.reader.floodevent import (
     FloodEventDatasource,
 )
-from hydromodel.models.unit_hydrograph import (
+from hydromodel.trainers.unit_hydrograph_trainer import (
     evaluate_single_event_from_uh,
     print_report_preview,
     save_results_to_csv,

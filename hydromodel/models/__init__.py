@@ -12,10 +12,20 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 # Define constants directly for backward compatibility
 DELTA_T_HOURS = 3.0
 DELTA_T_SECONDS = 10800.0
-from .unit_hydrograph import (
-    objective_function_multi_event,
-    optimize_uh_for_group,
-)
+
+# Import optimization functions from the new trainer location
+try:
+    from hydromodel.trainers.unit_hydrograph_trainer import (
+        objective_function_multi_event,
+        optimize_uh_for_group,
+    )
+except ImportError:
+    # Fallback for missing functions - provide dummy implementations
+    def objective_function_multi_event(*args, **kwargs):
+        raise NotImplementedError("Unit hydrograph optimization functions moved to trainers module")
+    
+    def optimize_uh_for_group(*args, **kwargs):
+        raise NotImplementedError("Unit hydrograph optimization functions moved to trainers module")
 
 # 水文模型
 from .dhf import dhf  # 大伙房模型

@@ -1,186 +1,187 @@
 """
 Author: Wenyu Ouyang
-Date: 2025-08-06
-LastEditTime: 2025-08-07 11:01:36
+Date: 2025-08-07
+LastEditTime: 2025-08-07 14:25:05
 LastEditors: Wenyu Ouyang
-Description: 使用统一calibrate()接口的分类单位线优化脚本 - 展示统一接口的灵活性
-FilePath: \hydromodel\scripts\run_categorized_uh_optimization_unified.py
-
-This script demonstrates the unified calibration interface flexibility by
-using the same calibrate() function for categorized unit hydrograph models.
-The unified interface provides consistent behavior across all model types.
+Description: Categorized Unit Hydrograph calibration script using unified config system
+FilePath: \hydromodel\scripts\run_categorized_uh_with_config.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
 import os
+import sys
 import argparse
 import json
-from hydroutils.hydro_plot import (
-    plot_unit_hydrograph,
-    setup_matplotlib_chinese,
+from pathlib import Path
+import pandas as pd
+
+# Add hydromodel to path
+repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
+sys.path.append(repo_path)
+
+from hydromodel.configs.unified_config import (
+    UnifiedConfig,
+    load_config,
+    create_default_config,
 )
-from hydrodatasource.configs.config import SETTING
-from hydrodatasource.reader.floodevent import (
-    FloodEventDatasource,
+from hydromodel.trainers.unified_calibrate import (
+    calibrate_with_config,
+    DEAP_AVAILABLE,
 )
-from hydromodel.models.unit_hydrograph import (
+from hydrodatasource.reader.floodevent import FloodEventDatasource
+from hydromodel.trainers.unit_hydrograph_trainer import (
     evaluate_single_event_from_uh,
     print_report_preview,
     save_results_to_csv,
     print_category_statistics,
     categorize_floods_by_peak,
 )
-from hydromodel.trainers.unified_calibrate import calibrate
+from hydroutils.hydro_plot import (
+    plot_unit_hydrograph,
+    setup_matplotlib_chinese,
+)
 
 
 def parse_arguments():
-    """解析命令行参数"""
+    """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="统一接口分类单位线优化工具 - 松辽河流域数据专用",
+        description="Categorized Unit Hydrograph Calibration with Unified Config System",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-使用示例:
-  # 使用scipy优化处理碧流河站点数据
-  python run_categorized_uh_optimization_unified.py --station-id songliao_21401550 --algorithm scipy_minimize
+Configuration-based Categorized Unit Hydrograph Calibration
+
+This script supports both configuration file mode and quick setup mode:
+
+Configuration File Mode:
+  python run_categorized_uh_with_config.py --config configs/examples/categorized_uh_example.yaml
+
+Quick Setup Mode:
+  python run_categorized_uh_with_config.py --quick-setup --station-id songliao_21401550 --algorithm genetic_algorithm
+
+Create Configuration Template:
+  python run_categorized_uh_with_config.py --create-template my_categorized_uh_config.yaml
+
+Advanced Usage:
+  # Override specific parameters
+  python run_categorized_uh_with_config.py --config my_config.yaml --override model_cfgs.model_params.uh_lengths='{"small":8,"medium":16,"large":24}'
   
-  # 使用遗传算法
-  python run_categorized_uh_optimization_unified.py --station-id songliao_21401550 --algorithm genetic_algorithm --pop-size 100
+  # Use different category weights scheme
+  python run_categorized_uh_with_config.py --config my_config.yaml --category-weights balanced
         """,
     )
 
+    # Configuration file mode
+    parser.add_argument(
+        "--config",
+        "-c",
+        type=str,
+        help="Path to configuration file (YAML or JSON)",
+    )
+
+    parser.add_argument(
+        "--create-template",
+        type=str,
+        help="Create categorized unit hydrograph configuration template and exit",
+    )
+
+    # Quick setup mode
+    parser.add_argument(
+        "--quick-setup",
+        action="store_true",
+        help="Quick setup mode using command line arguments",
+    )
+
+    # Quick setup parameters
     parser.add_argument(
         "--data-path",
-        "-d",
         type=str,
-        default=os.path.join(
-            SETTING["local_data_path"]["datasets-interim"], "songliaorrevent"
-        ),
-        help="场次数据文件夹路径",
+        help="Data directory path (quick setup mode)",
     )
 
     parser.add_argument(
         "--station-id",
         type=str,
         default="songliao_21401550",
-        help="站点ID (如: songliao_21401550)",
+        help="Station ID for calibration (quick setup mode)",
     )
 
     parser.add_argument(
-        "--output-dir", "-o", type=str, default="results/", help="输出结果目录"
+        "--algorithm",
+        type=str,
+        default="genetic_algorithm",
+        choices=["scipy_minimize", "SCE_UA", "genetic_algorithm"],
+        help="Optimization algorithm (quick setup mode)",
     )
 
-    # 分类相关参数
     parser.add_argument(
         "--category-weights",
         type=str,
         default="default",
         choices=["default", "balanced", "aggressive"],
-        help="分类权重方案 (默认: default)",
+        help="Category weight scheme (quick setup mode)",
     )
 
     parser.add_argument(
         "--uh-lengths",
         type=str,
         default='{"small":8,"medium":16,"large":24}',
-        help='各类别单位线长度，JSON格式 (默认: {"small":8,"medium":16,"large":24})',
+        help="UH lengths for categories as JSON (quick setup mode)",
     )
 
     parser.add_argument(
         "--warmup-length",
         type=int,
-        default=8
-        * 60,  # 8 hours * 60 minutes / 3 hours = 160 steps for 3h data
-        help="预热期长度（步数）(默认: 160步，对应8小时)",
+        default=480,
+        help="Warmup length in time steps (quick setup mode)",
     )
 
-    # 算法选择参数
+    # Common options
     parser.add_argument(
-        "--algorithm",
+        "--override",
+        "-o",
+        action="append",
+        help="Override config values (e.g., -o model_cfgs.model_params.uh_lengths='{\"small\":12}')",
+    )
+
+    parser.add_argument(
+        "--output-dir",
         type=str,
-        default="scipy_minimize",
-        choices=["scipy_minimize", "SCE_UA", "genetic_algorithm"],
-        help="优化算法选择 (默认: scipy_minimize)",
-    )
-
-    # scipy优化参数
-    parser.add_argument(
-        "--max-iterations",
-        type=int,
-        default=500,
-        help="scipy优化最大迭代次数 (默认: 500)",
+        help="Override output directory",
     )
 
     parser.add_argument(
-        "--method",
+        "--experiment-name",
         type=str,
-        default="SLSQP",
-        help="scipy优化方法 (默认: SLSQP)",
-    )
-
-    # SCE-UA参数
-    parser.add_argument(
-        "--rep",
-        type=int,
-        default=1000,
-        help="SCE-UA算法repetitions (默认: 1000)",
+        help="Override experiment name",
     )
 
     parser.add_argument(
-        "--random-seed",
-        type=int,
-        default=1234,
-        help="随机种子 (默认: 1234)",
-    )
-
-    # 遗传算法参数
-    parser.add_argument(
-        "--pop-size",
-        type=int,
-        default=80,
-        help="遗传算法种群大小 (默认: 80)",
+        "--verbose", "-v", action="store_true", help="Verbose output"
     )
 
     parser.add_argument(
-        "--n-generations",
-        type=int,
-        default=50,
-        help="遗传算法进化代数 (默认: 50)",
+        "--dry-run",
+        action="store_true",
+        help="Dry run - validate config and show what would be done",
     )
 
     parser.add_argument(
-        "--cx-prob",
-        type=float,
-        default=0.7,
-        help="遗传算法交叉概率 (默认: 0.7)",
+        "--plot-results",
+        action="store_true",
+        help="Generate plots of results",
     )
 
     parser.add_argument(
-        "--mut-prob",
-        type=float,
-        default=0.2,
-        help="遗传算法变异概率 (默认: 0.2)",
-    )
-
-    parser.add_argument(
-        "--save-freq",
-        type=int,
-        default=5,
-        help="遗传算法保存频率（每几代保存一次） (默认: 5)",
-    )
-
-    parser.add_argument(
-        "--no-peak-obs", action="store_true", help="不包含洪峰观测值"
-    )
-
-    parser.add_argument(
-        "--quiet", "-q", action="store_true", help="静默模式，减少输出信息"
+        "--save-evaluation",
+        action="store_true",
+        help="Save detailed evaluation results to CSV",
     )
 
     return parser.parse_args()
 
 
-def get_category_weights(scheme_name):
-    """获取分类权重方案"""
+def get_category_weights_scheme(scheme_name: str):
+    """Get predefined category weight schemes"""
     schemes = {
         "default": {
             "small": {"smoothing_factor": 0.1, "peak_violation_weight": 100.0},
@@ -216,252 +217,576 @@ def get_category_weights(scheme_name):
     return schemes.get(scheme_name, schemes["default"])
 
 
-def create_model_config(args):
-    """创建模型配置"""
-    try:
-        uh_lengths = json.loads(args.uh_lengths)
-    except Exception as e:
-        print(f"❌ 单位线长度参数解析失败: {e}")
-        raise
-
-    return {
-        "name": "categorized_unit_hydrograph",
-        "category_weights": get_category_weights(args.category_weights),
-        "uh_lengths": uh_lengths,
-        "net_rain_name": "P_eff",
-        "obs_flow_name": "Q_obs_eff",
+def create_categorized_uh_template(template_file: str):
+    """Create a categorized unit hydrograph configuration template"""
+    config = {
+        "data_cfgs": {
+            "data_type": "flood_events",
+            "data_dir": "D:\\data\\waterism\\datasets-interim\\songliaorrevent",
+            "basin_ids": ["songliao_21401550"],
+            "warmup_length": 480,
+            "time_periods": {
+                "overall": ["1960-01-01", "2024-12-31"],
+                "calibration": ["1960-01-01", "2020-12-31"],
+                "testing": ["2021-01-01", "2024-12-31"],
+            },
+            "cross_validation": {"enabled": False, "folds": 1},
+            "param_range_file": None,
+            "random_seed": 1234,
+        },
+        "model_cfgs": {
+            "model_name": "categorized_unit_hydrograph",
+            "model_params": {
+                "net_rain_name": "P_eff",
+                "obs_flow_name": "Q_obs_eff",
+                "category_weights": {
+                    "small": {
+                        "smoothing_factor": 0.1,
+                        "peak_violation_weight": 100.0,
+                    },
+                    "medium": {
+                        "smoothing_factor": 0.5,
+                        "peak_violation_weight": 500.0,
+                    },
+                    "large": {
+                        "smoothing_factor": 1.0,
+                        "peak_violation_weight": 1000.0,
+                    },
+                },
+                "uh_lengths": {"small": 8, "medium": 16, "large": 24},
+            },
+        },
+        "training_cfgs": {
+            "algorithm_name": "genetic_algorithm",
+            "algorithm_params": {
+                "random_seed": 1234,
+                "pop_size": 80,
+                "n_generations": 50,
+                "cx_prob": 0.7,
+                "mut_prob": 0.2,
+                "save_freq": 5,
+            },
+            "output_dir": "results",
+            "experiment_name": "categorized_uh_experiment",
+        },
+        "evaluation_cfgs": {
+            "loss_type": "event_based",
+            "objective_function": "multi_category_loss",
+            "metrics": [
+                "RMSE",
+                "NSE",
+                "flood_peak_error",
+                "flood_volume_error",
+                "category_performance",
+            ],
+            "events_config": {
+                "include_peak_obs": True,
+                "categorization_method": "peak_magnitude",
+            },
+            "evaluation_period": "testing",
+        },
     }
 
+    unified_config = UnifiedConfig(config_dict=config)
+    unified_config.save_config(template_file)
 
-def create_algorithm_config(args):
-    """创建算法配置"""
-    if args.algorithm == "scipy_minimize":
-        return {
-            "name": "scipy_minimize",
-            "method": args.method,
-            "max_iterations": args.max_iterations,
-        }
-    elif args.algorithm == "SCE_UA":
-        return {
-            "name": "SCE_UA",
-            "rep": args.rep,
-            "random_seed": args.random_seed,
-        }
-    elif args.algorithm == "genetic_algorithm":
-        return {
-            "name": "genetic_algorithm",
-            "random_seed": args.random_seed,
-            "pop_size": args.pop_size,
-            "n_generations": args.n_generations,
-            "cx_prob": args.cx_prob,
-            "mut_prob": args.mut_prob,
-            "save_freq": args.save_freq,
-        }
-    else:
-        raise ValueError(f"Unsupported algorithm: {args.algorithm}")
+    return unified_config
 
 
-def main():
-    """统一接口分类单位线优化主函数"""
-    # 解析命令行参数
-    args = parse_arguments()
+def create_quick_setup_config(args):
+    """Create configuration from quick setup arguments"""
+    from hydrodatasource.configs.config import SETTING
 
-    # 初始化图表设置
-    setup_matplotlib_chinese()
-
-    # 1. 数据加载和预处理
-    verbose = not args.quiet
-    include_peak_obs = not args.no_peak_obs
-
-    if verbose:
-        print("=" * 60)
-        print("🚀 统一接口分类单位线优化工具启动")
-        print("=" * 60)
-        print(f"📁 数据路径: {args.data_path}")
-        if args.station_id:
-            print(f"🏭 指定站点: {args.station_id}")
-        print(f"📤 输出目录: {args.output_dir}")
-        print(f"🔧 优化算法: {args.algorithm}")
-        print(f"⏱️ 预热期长度: {args.warmup_length} 步")
-        print(f"⚙️ 分类权重方案: {args.category_weights}")
-        print(f"📏 单位线长度配置: {args.uh_lengths}")
-        print(f"📈 包含洪峰观测值: {include_peak_obs}")
-        print("-" * 60)
-
-    # 创建数据源，加载带预热期的数据
-    dataset = FloodEventDatasource(
-        args.data_path,
-        time_unit=["3h"],
-        trange4cache=["1960-01-01 02", "2024-12-31 23"],
-        warmup_length=args.warmup_length,  # 数据源提供带预热期的数据
+    # Default data path if not provided
+    data_path = args.data_path or os.path.join(
+        SETTING["local_data_path"]["datasets-interim"], "songliaorrevent"
     )
 
+    # Parse UH lengths JSON
+    try:
+        uh_lengths = json.loads(args.uh_lengths)
+    except json.JSONDecodeError:
+        print(f"❌ Invalid UH lengths JSON: {args.uh_lengths}")
+        uh_lengths = {"small": 8, "medium": 16, "large": 24}
+
+    config_dict = {
+        "data_cfgs": {
+            "data_type": "flood_events",
+            "data_dir": data_path,
+            "basin_ids": [args.station_id],
+            "warmup_length": args.warmup_length,
+            "time_periods": {
+                "overall": ["1960-01-01", "2024-12-31"],
+                "calibration": ["1960-01-01", "2020-12-31"],
+                "testing": ["2021-01-01", "2024-12-31"],
+            },
+            "cross_validation": {"enabled": False, "folds": 1},
+            "param_range_file": None,
+            "random_seed": 1234,
+        },
+        "model_cfgs": {
+            "model_name": "categorized_unit_hydrograph",
+            "model_params": {
+                "net_rain_name": "P_eff",
+                "obs_flow_name": "Q_obs_eff",
+                "category_weights": get_category_weights_scheme(
+                    args.category_weights
+                ),
+                "uh_lengths": uh_lengths,
+            },
+        },
+        "training_cfgs": {
+            "algorithm_name": args.algorithm,
+            "algorithm_params": {},
+            "output_dir": args.output_dir or "results",
+            "experiment_name": args.experiment_name
+            or f"categorized_uh_{args.station_id}_{args.algorithm}",
+        },
+        "evaluation_cfgs": {
+            "loss_type": "event_based",
+            "objective_function": "multi_category_loss",
+            "metrics": [
+                "RMSE",
+                "NSE",
+                "flood_peak_error",
+                "flood_volume_error",
+                "category_performance",
+            ],
+            "events_config": {
+                "include_peak_obs": True,
+                "categorization_method": "peak_magnitude",
+            },
+            "evaluation_period": "testing",
+        },
+    }
+
+    # Set algorithm-specific parameters
+    if args.algorithm == "scipy_minimize":
+        config_dict["training_cfgs"]["algorithm_params"].update(
+            {"method": "SLSQP", "max_iterations": 1000}
+        )
+    elif args.algorithm == "SCE_UA":
+        config_dict["training_cfgs"]["algorithm_params"].update(
+            {
+                "random_seed": 1234,
+                "rep": 2000,
+                "ngs": 1000,
+                "kstop": 100,
+                "peps": 0.01,
+                "pcento": 0.01,
+            }
+        )
+    elif args.algorithm == "genetic_algorithm":
+        config_dict["training_cfgs"]["algorithm_params"].update(
+            {
+                "random_seed": 1234,
+                "pop_size": 80,
+                "n_generations": 50,
+                "cx_prob": 0.7,
+                "mut_prob": 0.2,
+                "save_freq": 5,
+            }
+        )
+
+    return UnifiedConfig(config_dict=config_dict)
+
+
+def apply_overrides(config: UnifiedConfig, overrides: list):
+    """Apply command line overrides to configuration"""
+    if not overrides:
+        return
+
+    print("🔧 Applying configuration overrides:")
+
+    for override in overrides:
+        if "=" not in override:
+            print(f"❌ Invalid override format: {override}")
+            continue
+
+        key_path, value = override.split("=", 1)
+        keys = key_path.split(".")
+
+        # Navigate to the nested key and set the value
+        current = config.config
+        for key in keys[:-1]:
+            if key not in current:
+                current[key] = {}
+            current = current[key]
+
+        # Convert value to appropriate type
+        final_key = keys[-1]
+        try:
+            import ast
+
+            current[final_key] = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            current[final_key] = value
+
+        print(f"   ✅ {key_path} = {value}")
+
+
+def validate_and_show_config(
+    config: UnifiedConfig, verbose: bool = True
+) -> bool:
+    """Validate configuration and show summary"""
+    if verbose:
+        print("🔍 Categorized Unit Hydrograph Configuration Summary:")
+        print("=" * 60)
+
+        data_cfgs = config.data_cfgs
+        model_cfgs = config.model_cfgs
+        training_cfgs = config.training_cfgs
+        eval_cfgs = config.evaluation_cfgs
+
+        print("📊 Data Configuration:")
+        print(f"   📂 Data directory: {data_cfgs.get('data_dir')}")
+        print(f"   🏭 Station ID: {', '.join(data_cfgs.get('basin_ids', []))}")
+        print(f"   ⏱️ Warmup length: {data_cfgs.get('warmup_length')} steps")
+
+        print("\n🔧 Model Configuration:")
+        model_params = model_cfgs.get("model_params", {})
+        uh_lengths = model_params.get("uh_lengths", {})
+        print(f"   📏 UH lengths: {uh_lengths}")
+        print(
+            f"   🏷️ Category weights available: {list(model_params.get('category_weights', {}).keys())}"
+        )
+
+        print("\n🎯 Training Configuration:")
+        print(f"   🔬 Algorithm: {training_cfgs.get('algorithm_name')}")
+        print(
+            f"   📁 Output: {training_cfgs.get('output_dir')}/{training_cfgs.get('experiment_name')}"
+        )
+
+        print("\n📈 Evaluation Configuration:")
+        print(f"   📉 Objective: {eval_cfgs.get('objective_function')}")
+
+        # Check algorithm availability
+        algorithm_name = training_cfgs.get("algorithm_name")
+        if algorithm_name == "genetic_algorithm" and not DEAP_AVAILABLE:
+            print(
+                f"\n❌ ERROR: Algorithm '{algorithm_name}' requires DEAP package"
+            )
+            print("💡 Install with: pip install deap")
+            return False
+
+        print("\n✅ Configuration validation passed")
+
+    return True
+
+
+def load_flood_events_data(config: UnifiedConfig, verbose: bool = True):
+    """Load flood events data based on configuration"""
+    data_cfgs = config.data_cfgs
+
+    if verbose:
+        print(f"\n🔄 Loading flood events data...")
+
+    # Load flood events
+    dataset = FloodEventDatasource(
+        data_cfgs.get("data_dir"),
+        time_unit=["3h"],
+        trange4cache=["1960-01-01 02", "2024-12-31 23"],
+        warmup_length=data_cfgs.get("warmup_length", 480),
+    )
+
+    basin_ids = data_cfgs.get("basin_ids", [])
+    if not basin_ids:
+        raise ValueError("Basin IDs must be specified")
+
     all_event_data = dataset.load_1basin_flood_events(
-        station_id=args.station_id,
+        station_id=basin_ids[0],
         flow_unit="mm/3h",
-        include_peak_obs=include_peak_obs,  # 分类需要洪峰观测值
+        include_peak_obs=True,  # Required for categorization
         verbose=verbose,
     )
 
-    dataset.check_event_data_nan(all_event_data)
+    if all_event_data is None:
+        raise ValueError(f"No flood events found for basin {basin_ids[0]}")
+
+    # Check for NaN values (excluding warmup period)
+    dataset.check_event_data_nan(all_event_data, exclude_warmup=True)
 
     if verbose:
-        print(f"✅ 成功加载 {len(all_event_data)} 场洪水数据（含预热期）")
+        print(f"   ✅ Loaded {len(all_event_data)} flood events")
 
-    # 2. 创建配置
-    model_config = create_model_config(args)
-    algorithm_config = create_algorithm_config(args)
+    return all_event_data
 
-    if verbose:
-        print(f"\n🚀 开始使用统一接口优化分类单位线...")
-        print(f"📊 模型配置: {model_config['name']}")
-        print(f"🔧 算法配置: {algorithm_config}")
-        print(f"📏 单位线长度: {model_config['uh_lengths']}")
 
-    # 3. 执行优化（使用统一接口）
-    results = calibrate(
-        data=all_event_data,
-        model_config=model_config,
-        algorithm_config=algorithm_config,
-        loss_config={"type": "time_series", "obj_func": "RMSE"},
-        output_dir=args.output_dir,
-        warmup_length=args.warmup_length,  # 统一接口会处理预热期
-    )
+def process_results(results, config: UnifiedConfig, args):
+    """Process and display categorized unit hydrograph calibration results"""
+    print(f"\n📈 Categorized Unit Hydrograph Calibration Results:")
+    print("=" * 60)
 
-    # 4. 检查优化结果
-    if results["convergence"] != "success" or results["best_params"] is None:
-        print("❌ 分类单位线优化失败，程序终止。")
-        print(f"优化结果: {results}")
+    convergence = results.get("convergence", "unknown")
+    objective_value = results.get("objective_value", float("inf"))
+    best_params = results.get("best_params", {})
+    categorization_info = results.get("categorization_info", {})
+
+    print(f"✅ Convergence: {convergence}")
+    print(f"🎯 Best objective value: {objective_value:.6f}")
+
+    # Display categorization information
+    if categorization_info:
+        print(f"\n📊 Flood Categorization Results:")
+        categories = categorization_info.get("categories", [])
+        thresholds = categorization_info.get("thresholds", {})
+        events_per_category = categorization_info.get(
+            "events_per_category", {}
+        )
+
+        print(f"   🏷️ Categories: {categories}")
+        print(f"   📐 Thresholds: {thresholds}")
+        print(f"   📊 Events per category:")
+        for category, count in events_per_category.items():
+            print(f"      {category.capitalize()}: {count} events")
+
+    if (
+        convergence == "success"
+        and "categorized_unit_hydrograph" in best_params
+    ):
+        cat_uh_params = best_params["categorized_unit_hydrograph"]
+
+        print(f"\n📏 Unit Hydrograph Parameters by Category:")
+        for category, params_dict in cat_uh_params.items():
+            if isinstance(params_dict, dict):
+                uh_params = list(params_dict.values())
+                print(
+                    f"   📈 {category.capitalize()}: {len(uh_params)} parameters"
+                )
+                print(f"      First 3 values: {uh_params[:3]}")
+
+        # Plot results if requested
+        if args.plot_results:
+            setup_matplotlib_chinese()
+
+            for category, params_dict in cat_uh_params.items():
+                if isinstance(params_dict, dict):
+                    uh_params = list(params_dict.values())
+                    plot_unit_hydrograph(
+                        uh_params,
+                        f"Categorized Unit Hydrograph - {category.capitalize()}",
+                    )
+
+            print("📈 Categorized unit hydrograph plots generated")
+
+        # Save evaluation results if requested
+        if args.save_evaluation:
+            try:
+                # Load data again for evaluation
+                all_event_data = load_flood_events_data(config, verbose=False)
+
+                # Categorize floods by peak for evaluation
+                categories, thresholds = categorize_floods_by_peak(
+                    all_event_data,
+                    net_rain_key="P_eff",
+                    obs_flow_key="Q_obs_eff",
+                )
+
+                # Evaluate each event (simplified evaluation)
+                evaluation_results = []
+                for i, event in enumerate(all_event_data):
+                    category = categories[i]
+
+                    if category in cat_uh_params:
+                        category_params = cat_uh_params[category]
+                        if isinstance(category_params, dict):
+                            uh_params = list(category_params.values())
+
+                            result = evaluate_single_event_from_uh(
+                                event,
+                                uh_params,
+                                net_rain_key="P_eff",
+                                obs_flow_key="Q_obs_eff",
+                            )
+
+                            if result:
+                                result["所属类别"] = category
+                                evaluation_results.append(result)
+
+                if evaluation_results:
+                    # Create DataFrame and save
+                    df = pd.DataFrame(evaluation_results)
+                    df_sorted = df.sort_values("NSE", ascending=False)
+
+                    training_cfgs = config.training_cfgs
+                    output_dir = os.path.join(
+                        training_cfgs.get("output_dir", "results"),
+                        training_cfgs.get("experiment_name", "experiment"),
+                    )
+                    os.makedirs(output_dir, exist_ok=True)
+
+                    csv_file = os.path.join(
+                        output_dir, "categorized_uh_evaluation.csv"
+                    )
+                    save_results_to_csv(
+                        df_sorted,
+                        csv_file,
+                        "Categorized Unit Hydrograph Evaluation",
+                    )
+
+                    # Show preview and category statistics
+                    print_report_preview(
+                        df_sorted,
+                        "Categorized Unit Hydrograph Evaluation",
+                        top_n=5,
+                    )
+                    print_category_statistics(df_sorted)
+
+                    print(f"💾 Detailed evaluation saved to: {csv_file}")
+                else:
+                    print("⚠️ No valid evaluation results found")
+
+            except Exception as e:
+                print(f"❌ Failed to save evaluation: {e}")
+    else:
+        print("❌ Calibration failed - no valid parameters found")
+
+
+def main():
+    """Main function"""
+    args = parse_arguments()
+
+    # Handle template creation
+    if args.create_template:
+        print(
+            f"🔧 Creating categorized unit hydrograph configuration template: {args.create_template}"
+        )
+        config = create_categorized_uh_template(args.create_template)
+        print(f"✅ Template saved to: {args.create_template}")
+        print("\n📋 Configuration template preview:")
+        print(config)
         return
 
-    if verbose:
-        print("\n✅ 分类单位线优化完成！")
-        print(f"🎯 最优目标函数值: {results['objective_value']:.6f}")
+    # Load or create configuration
+    if args.config:
+        # Configuration file mode
+        try:
+            config = load_config(args.config)
+            print(f"✅ Loaded configuration: {args.config}")
+        except Exception as e:
+            print(f"❌ Failed to load configuration: {e}")
+            return
+    elif args.quick_setup:
+        # Quick setup mode
+        print(
+            "🚀 Quick setup mode - creating configuration from command line arguments"
+        )
+        config = create_quick_setup_config(args)
+    else:
+        # No config provided - show helpful information
+        print("🔍 Categorized Unit Hydrograph Calibration with Unified Config")
+        print("=" * 60)
+        print()
+        print("📋 Available options:")
+        print()
+        print("1️⃣ Use existing configuration file:")
+        print(
+            "   python run_categorized_uh_with_config.py --config my_config.yaml"
+        )
+        print()
+        print("2️⃣ Quick setup mode (no config file needed):")
+        print("   python run_categorized_uh_with_config.py --quick-setup")
+        print(
+            "   python run_categorized_uh_with_config.py --quick-setup --station-id songliao_21401550 --algorithm genetic_algorithm"
+        )
+        print()
+        print("3️⃣ Create a configuration template:")
+        print(
+            "   python run_categorized_uh_with_config.py --create-template my_categorized_config.yaml"
+        )
+        print()
+        print("4️⃣ Use example configurations:")
 
-        # 显示分类信息
-        cat_info = results.get("categorization_info", {})
-        print(f"📊 分类信息:")
-        print(f"   分类阈值: {cat_info.get('thresholds', 'N/A')}")
-        for category, count in cat_info.get("events_per_category", {}).items():
-            uh_length = cat_info.get("uh_lengths", {}).get(category, 0)
-            print(
-                f"   {category.capitalize()}: {count} 场事件, UH长度: {uh_length}"
-            )
-
-    # 5. 提取各类别优化的单位线参数
-    best_uh_by_category = {}
-    if results["best_params"]:
-        categorized_params = results["best_params"][
-            "categorized_unit_hydrograph"
-        ]
-        for category, category_params in categorized_params.items():
-            # 转换为列表形式
-            param_values = []
-            for i in range(len(category_params)):
-                param_name = f"uh_{category}_{i+1}"
-                if param_name in category_params:
-                    param_values.append(category_params[param_name])
-            best_uh_by_category[category] = param_values
-
-            if verbose:
-                print(
-                    f"✅ {category.capitalize()}类单位线: {len(param_values)} 个参数"
-                )
-
-    # 6. 绘制各类别单位线图
-    if verbose and best_uh_by_category:
-        print("\n📊 绘制各类别单位线...")
-        for category, uh_params in best_uh_by_category.items():
-            if uh_params:
-                plot_unit_hydrograph(
-                    uh_params,
-                    f"统一接口优化 - {category.capitalize()}类单位线",
-                )
-
-    # 7. 评估各类别单位线性能
-    # 我们需要手动进行分类和评估，因为评估函数需要分类信息
-    if verbose:
-        print("\n📈 正在评估各类别单位线性能...")
-
-    # 获取分类信息
-
-    # 处理事件数据（移除预热期用于评估）
-    processed_events_for_eval = []
-    for event_data in all_event_data:
-        eval_event_data = {}
-        for key, value in event_data.items():
-            if key in [
-                "P_eff",
-                "net_rain",
-                "Q_obs_eff",
-                "obs_discharge",
-            ] and hasattr(value, "__len__"):
-                eval_event_data[key] = (
-                    value[args.warmup_length :]
-                    if args.warmup_length > 0
-                    else value
-                )
+        # Check for example configs
+        examples_dir = Path(repo_path) / "configs" / "examples"
+        if examples_dir.exists():
+            example_files = list(examples_dir.glob("*categorized*.yaml"))
+            if example_files:
+                print("   Available examples:")
+                for example_file in example_files:
+                    print(
+                        f"   - python run_categorized_uh_with_config.py --config {example_file}"
+                    )
             else:
-                eval_event_data[key] = value
-        processed_events_for_eval.append(eval_event_data)
-
-    # 分类事件
-    categorized_events, _ = categorize_floods_by_peak(
-        processed_events_for_eval
-    )
-
-    final_report_data = []
-    for category_name, events_in_category in categorized_events.items():
-        uh_params = best_uh_by_category.get(category_name)
-
-        if uh_params:
-            # 使用该类别的特征单位线评估其内部所有事件
-            for event_data in events_in_category:
-                result = evaluate_single_event_from_uh(
-                    event_data, uh_params, category_name
+                print(
+                    "   - python run_categorized_uh_with_config.py --config configs/examples/categorized_uh_example.yaml"
                 )
-                final_report_data.append(result)
-
-    # 8. 保存和显示结果
-    if final_report_data:
-        # 生成输出文件名
-        station_suffix = f"_{args.station_id}" if args.station_id else ""
-        algorithm_suffix = f"_{args.algorithm}"
-        output_filename = os.path.join(
-            args.output_dir,
-            f"UH_categorized_unified_eva_output_songliao{station_suffix}{algorithm_suffix}.csv",
-        )
-
-        report_df_sorted = save_results_to_csv(
-            final_report_data,
-            output_filename,
-            sort_columns=["所属类别", "NSE"],
-        )
-
-        if verbose:
-            print(f"\n💾 详细结果已保存至: {output_filename}")
+        else:
             print(
-                f"📊 JSON结果已保存至: {os.path.join(args.output_dir, 'categorized_unit_hydrograph_calibration_results.json')}"
+                "   - python run_categorized_uh_with_config.py --config configs/examples/categorized_uh_example.yaml"
             )
 
-            # 显示性能统计
-            print_report_preview(
-                report_df_sorted, "分类评估报告预览 (按类别和NSE排序)"
+        print()
+        print(
+            "💡 For more options, run: python run_categorized_uh_with_config.py --help"
+        )
+        print()
+
+        # Offer to run quick setup with defaults
+        try:
+            response = (
+                input(
+                    "Would you like to run with default quick setup? (y/n): "
+                )
+                .lower()
+                .strip()
             )
-            print_category_statistics(report_df_sorted)
+            if response in ["y", "yes", ""]:
+                print("🚀 Using default quick setup configuration...")
+                args.quick_setup = True
+                config = create_quick_setup_config(args)
+            else:
+                return
+        except KeyboardInterrupt:
+            print("\n👋 Goodbye!")
+            return
 
-            # 显示各类别最优NSE
-            best_nse_by_category = report_df_sorted.groupby("所属类别")[
-                "NSE"
-            ].max()
-            print("\n🎯 各类别优化完成！")
-            print(f"   算法: {args.algorithm}")
-            print(f"   权重方案: {args.category_weights}")
-            print("   各类别最优NSE:")
-            for category, nse in best_nse_by_category.items():
-                print(f"     {category}: {nse:.4f}")
+    # Apply overrides
+    apply_overrides(config, args.override or [])
 
-    print("\n🎉 统一接口分类单位线优化完成！")
+    # Apply command line overrides for output settings
+    if args.output_dir:
+        config.config["training_cfgs"]["output_dir"] = args.output_dir
+    if args.experiment_name:
+        config.config["training_cfgs"][
+            "experiment_name"
+        ] = args.experiment_name
+
+    # Validate configuration
+    if not validate_and_show_config(config, args.verbose):
+        return
+
+    if args.dry_run:
+        print("\n🔍 Dry run completed - configuration is valid")
+        return
+
+    try:
+        # Load data
+        data = load_flood_events_data(config, args.verbose)
+
+        # Run calibration
+        print(f"\n🚀 Starting categorized unit hydrograph calibration...")
+        results = calibrate_with_config(config, data)
+
+        # Process results
+        process_results(results, config, args)
+
+        training_cfgs = config.training_cfgs
+        output_path = os.path.join(
+            training_cfgs.get("output_dir", "results"),
+            training_cfgs.get("experiment_name", "experiment"),
+        )
+
+        print(f"\n🎉 Categorized unit hydrograph calibration completed!")
+        print(f"✨ Used unified config-driven interface")
+        print(f"💾 Results saved to: {output_path}")
+
+    except Exception as e:
+        print(f"❌ Calibration failed: {e}")
+        if args.verbose:
+            import traceback
+
+            traceback.print_exc()
 
 
 if __name__ == "__main__":

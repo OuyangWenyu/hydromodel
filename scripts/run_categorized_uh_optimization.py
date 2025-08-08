@@ -20,10 +20,8 @@ repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 
 from hydromodel.configs.config_manager import ConfigManager
-from hydromodel.trainers.unified_calibrate import (
-    calibrate,
-    DEAP_AVAILABLE,
-)
+from hydromodel.configs.script_utils import ScriptUtils
+from hydromodel.trainers.unified_calibrate import calibrate
 from hydromodel.core.results_manager import results_manager
 
 # Optional imports - handle missing dependencies gracefully
@@ -71,69 +69,22 @@ def parse_arguments():
         epilog="""
 Unified Architecture Categorized Unit Hydrograph Calibration
 
-Uses the latest unified calibrate(config) interface with ConfigManager.
-
 Configuration File Mode:
   python run_categorized_uh_optimization.py --config configs/categorized_uh_config.yaml
 
 Quick Setup Mode:
   python run_categorized_uh_optimization.py --quick-setup --station-id songliao_21401550 --algorithm genetic_algorithm
 
-Create Configuration Template:
-  python run_categorized_uh_optimization.py --create-template my_categorized_uh_config.yaml
-
 Advanced Usage:
   # Override specific parameters
   python run_categorized_uh_optimization.py --config my_config.yaml --override model_cfgs.model_params.uh_lengths='{"small":8,"medium":16,"large":24}'
-  
-  # Use different category weights scheme
-  python run_categorized_uh_optimization.py --config my_config.yaml --category-weights balanced
         """,
     )
 
-    # Configuration file mode
-    parser.add_argument(
-        "--config",
-        "-c",
-        type=str,
-        help="Path to configuration file (YAML or JSON)",
-    )
-
-    parser.add_argument(
-        "--create-template",
-        type=str,
-        help="Create categorized unit hydrograph configuration template and exit",
-    )
-
-    # Quick setup mode
-    parser.add_argument(
-        "--quick-setup",
-        action="store_true",
-        help="Quick setup mode using command line arguments",
-    )
-
-    # Quick setup parameters
-    parser.add_argument(
-        "--data-path",
-        type=str,
-        help="Data directory path (quick setup mode)",
-    )
-
-    parser.add_argument(
-        "--station-id",
-        type=str,
-        default="songliao_21401550",
-        help="Station ID for calibration (quick setup mode)",
-    )
-
-    parser.add_argument(
-        "--algorithm",
-        type=str,
-        default="genetic_algorithm",
-        choices=["scipy_minimize", "SCE_UA", "genetic_algorithm"],
-        help="Optimization algorithm (quick setup mode)",
-    )
-
+    # Add common arguments
+    ScriptUtils.add_common_arguments(parser)
+    
+    # Add categorized UH specific arguments
     parser.add_argument(
         "--category-weights",
         type=str,
@@ -147,55 +98,6 @@ Advanced Usage:
         type=str,
         default='{"small":8,"medium":16,"large":24}',
         help="UH lengths for categories as JSON (quick setup mode)",
-    )
-
-    parser.add_argument(
-        "--warmup-length",
-        type=int,
-        default=480,
-        help="Warmup length in time steps (quick setup mode)",
-    )
-
-    # Common options
-    parser.add_argument(
-        "--override",
-        "-o",
-        action="append",
-        help="Override config values (e.g., -o model_cfgs.model_params.uh_lengths='{\"small\":12}')",
-    )
-
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        help="Override output directory",
-    )
-
-    parser.add_argument(
-        "--experiment-name",
-        type=str,
-        help="Override experiment name",
-    )
-
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Verbose output"
-    )
-
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Dry run - validate config and show what would be done",
-    )
-
-    parser.add_argument(
-        "--plot-results",
-        action="store_true",
-        help="Generate plots of results",
-    )
-
-    parser.add_argument(
-        "--save-evaluation",
-        action="store_true",
-        help="Save detailed evaluation results to CSV",
     )
 
     return parser.parse_args()
@@ -363,130 +265,10 @@ def create_quick_setup_config(args):
     return config
 
 
-def apply_overrides(config: dict, overrides: list):
-    """Apply command line overrides to configuration"""
-    if not overrides:
-        return
-
-    print("🔧 Applying configuration overrides:")
-
-    for override in overrides:
-        if "=" not in override:
-            print(f"❌ Invalid override format: {override}")
-            continue
-
-        key_path, value = override.split("=", 1)
-        keys = key_path.split(".")
-
-        # Navigate to the nested key and set the value
-        current = config
-        for key in keys[:-1]:
-            if key not in current:
-                current[key] = {}
-            current = current[key]
-
-        # Convert value to appropriate type
-        final_key = keys[-1]
-        try:
-            import ast
-
-            current[final_key] = ast.literal_eval(value)
-        except (ValueError, SyntaxError):
-            current[final_key] = value
-
-        print(f"   ✅ {key_path} = {value}")
 
 
-def validate_and_show_config(config: dict, verbose: bool = True) -> bool:
-    """Validate configuration and show summary"""
-    if verbose:
-        print("🔍 Categorized Unit Hydrograph Configuration Summary:")
-        print("=" * 60)
-
-        data_cfgs = config.get("data_cfgs", {})
-        model_cfgs = config.get("model_cfgs", {})
-        training_cfgs = config.get("training_cfgs", {})
-        eval_cfgs = config.get("evaluation_cfgs", {})
-
-        print("📊 Data Configuration:")
-        print(f"   📂 Data directory: {data_cfgs.get('data_source_path')}")
-        print(f"   🏭 Station ID: {', '.join(data_cfgs.get('basin_ids', []))}")
-        print(f"   ⏱️ Warmup length: {data_cfgs.get('warmup_length')} steps")
-        print(f"   📋 Variables: {data_cfgs.get('variables', [])}")
-
-        print("\n🔧 Model Configuration:")
-        model_params = model_cfgs.get("model_params", {})
-        uh_lengths = model_params.get("uh_lengths", {})
-        print(f"   🏷️ Model name: {model_cfgs.get('model_name')}")
-        print(f"   📏 UH lengths: {uh_lengths}")
-        print(
-            f"   🏷️ Category weights available: {list(model_params.get('category_weights', {}).keys())}"
-        )
-
-        print("\n🎯 Training Configuration:")
-        print(f"   🔬 Algorithm: {training_cfgs.get('algorithm_name')}")
-        print(
-            f"   📊 Objective: {training_cfgs.get('loss_config', {}).get('obj_func')}"
-        )
-        print(
-            f"   📁 Output: {training_cfgs.get('output_dir')}/{training_cfgs.get('experiment_name')}"
-        )
-
-        # Check algorithm availability
-        algorithm_name = training_cfgs.get("algorithm_name")
-        if algorithm_name == "genetic_algorithm" and not DEAP_AVAILABLE:
-            print(
-                f"\n❌ ERROR: Algorithm '{algorithm_name}' requires DEAP package"
-            )
-            print("💡 Install with: pip install deap")
-            return False
-
-        print("\n✅ Configuration validation passed")
-
-    return True
 
 
-def load_flood_events_data(config: dict, verbose: bool = True):
-    """Load flood events data based on configuration"""
-    if not FLOODEVENT_AVAILABLE:
-        raise ImportError(
-            "FloodEventDatasource not available - install hydrodatasource package"
-        )
-
-    data_cfgs = config.get("data_cfgs", {})
-
-    if verbose:
-        print(f"\n🔄 Loading flood events data...")
-
-    # Load flood events
-    dataset = FloodEventDatasource(
-        data_cfgs.get("data_source_path"),
-        time_unit=["3h"],
-        trange4cache=["1960-01-01 02", "2024-12-31 23"],
-        warmup_length=data_cfgs.get("warmup_length", 480),
-    )
-
-    basin_ids = data_cfgs.get("basin_ids", [])
-    if not basin_ids:
-        raise ValueError("Basin IDs must be specified")
-
-    all_event_data = dataset.load_1basin_flood_events(
-        station_id=basin_ids[0],
-        flow_unit="mm/3h",
-        include_peak_obs=True,  # Required for categorization
-        verbose=verbose,
-    )
-
-    if all_event_data is None:
-        raise ValueError(f"No flood events found for basin {basin_ids[0]}")
-
-    # Check for NaN values (excluding warmup period)
-    dataset.check_event_data_nan(all_event_data, exclude_warmup=True)
-
-    if verbose:
-        print(f"   ✅ Loaded {len(all_event_data)} flood events")
-
-    return all_event_data
 
 
 def process_results(results, config: dict, args):
@@ -503,102 +285,20 @@ def main():
     args = parse_arguments()
 
     # Handle template creation
-    if args.create_template:
-        print(
-            f"🔧 Creating categorized unit hydrograph configuration template: {args.create_template}"
-        )
-        config = create_categorized_uh_template(args.create_template)
-        print(f"✅ Template saved to: {args.create_template}")
-        print("\n📋 Configuration template preview:")
-        print(config)
+    if ScriptUtils.handle_template_creation(args, create_categorized_uh_template, "Categorized Unit Hydrograph"):
         return
 
-    # Load or create configuration
-    if args.config:
-        # Configuration file mode
-        try:
-            config = ConfigManager.load_config_from_file(args.config)
-            print(f"✅ Loaded configuration: {args.config}")
-        except Exception as e:
-            print(f"❌ Failed to load configuration: {e}")
-            return
-    elif args.quick_setup:
-        # Quick setup mode
-        print(
-            "🚀 Quick setup mode - creating configuration from command line arguments"
-        )
-        config = create_quick_setup_config(args)
-    else:
-        # No config provided - show helpful information
-        print("🔍 Categorized Unit Hydrograph Calibration with Unified Config")
-        print("=" * 60)
-        print()
-        print("📋 Available options:")
-        print()
-        print("1️⃣ Use existing configuration file:")
-        print(
-            "   python run_categorized_uh_with_config.py --config my_config.yaml"
-        )
-        print()
-        print("2️⃣ Quick setup mode (no config file needed):")
-        print("   python run_categorized_uh_with_config.py --quick-setup")
-        print(
-            "   python run_categorized_uh_with_config.py --quick-setup --station-id songliao_21401550 --algorithm genetic_algorithm"
-        )
-        print()
-        print("3️⃣ Create a configuration template:")
-        print(
-            "   python run_categorized_uh_with_config.py --create-template my_categorized_config.yaml"
-        )
-        print()
-        print("4️⃣ Use example configurations:")
-
-        # Check for example configs
-        examples_dir = Path(repo_path) / "configs" / "examples"
-        if examples_dir.exists():
-            example_files = list(examples_dir.glob("*categorized*.yaml"))
-            if example_files:
-                print("   Available examples:")
-                for example_file in example_files:
-                    print(
-                        f"   - python run_categorized_uh_with_config.py --config {example_file}"
-                    )
-            else:
-                print(
-                    "   - python run_categorized_uh_with_config.py --config configs/examples/categorized_uh_example.yaml"
-                )
-        else:
-            print(
-                "   - python run_categorized_uh_with_config.py --config configs/examples/categorized_uh_example.yaml"
-            )
-
-        print()
-        print(
-            "💡 For more options, run: python run_categorized_uh_with_config.py --help"
-        )
-        print()
-
-        # Offer to run quick setup with defaults
-        try:
-            response = (
-                input(
-                    "Would you like to run with default quick setup? (y/n): "
-                )
-                .lower()
-                .strip()
-            )
-            if response in ["y", "yes", ""]:
-                print("🚀 Using default quick setup configuration...")
-                args.quick_setup = True
-                config = create_quick_setup_config(args)
-            else:
-                return
-        except KeyboardInterrupt:
-            print("\n👋 Goodbye!")
-            return
+    # Setup configuration using unified workflow
+    config = ScriptUtils.setup_configuration(
+        args, create_quick_setup_config, 
+        "run_categorized_uh_optimization.py", "Categorized Unit Hydrograph",
+        "*categorized*.yaml"
+    )
+    if config is None:
+        return
 
     # Apply overrides
-    apply_overrides(config, args.override or [])
+    ScriptUtils.apply_overrides(config, args.override)
 
     # Apply command line overrides for output settings
     if args.output_dir:
@@ -607,7 +307,7 @@ def main():
         config["training_cfgs"]["experiment_name"] = args.experiment_name
 
     # Validate configuration
-    if not validate_and_show_config(config, args.verbose):
+    if not ScriptUtils.validate_and_show_config(config, args.verbose, "Categorized Unit Hydrograph"):
         return
 
     if args.dry_run:
@@ -626,15 +326,8 @@ def main():
         # Process results using unified ResultsManager
         processed_results = process_results(results, config, args)
 
-        training_cfgs = config.get("training_cfgs", {})
-        output_path = os.path.join(
-            training_cfgs.get("output_dir", "results"),
-            training_cfgs.get("experiment_name", "experiment"),
-        )
 
-        print(f"\n🎉 Categorized unit hydrograph calibration completed!")
-        print(f"✨ Used latest unified architecture: calibrate(config)")
-        print(f"💾 Results saved to: {output_path}")
+        ScriptUtils.print_completion_message(config, "categorized unit hydrograph calibration")
 
     except Exception as e:
         print(f"❌ Calibration failed: {e}")

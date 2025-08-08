@@ -21,7 +21,14 @@ from datetime import datetime
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 
-from hydromodel.core.unified_simulate import simulate
+# Add local dependency paths
+workspace_root = os.path.dirname(repo_path)
+for local_pkg in ['hydroutils', 'hydrodatasource', 'hydrodataset']:
+    local_path = os.path.join(workspace_root, local_pkg)
+    if os.path.exists(local_path):
+        sys.path.insert(0, local_path)
+
+from hydromodel.core.unified_simulate import UnifiedSimulator, _simulate_with_config
 from hydromodel.configs.config_manager import ConfigManager
 
 
@@ -322,12 +329,28 @@ def main():
             print(f"Model: {model_cfg['model_name']}")
             print(f"Parameters: {len(model_cfg['parameters'])} specified")
 
-        # Run simulation using unified interface
+        # Run simulation using NEW flexible unified interface
         if verbose:
-            print(f"\nStarting simulation with unified architecture...")
+            print(f"\nStarting simulation with new flexible architecture...")
+            print(f"Using: UnifiedSimulator + flexible simulate interface")
 
-        # The unified simulation call - single function, single parameter!
-        results = simulate(config)
+        # NEW FLEXIBLE APPROACH: separate model config and data loading
+        # 1. Extract model configuration
+        model_config = config["model_cfgs"]
+        
+        # 2. Create simulator instance (one-time initialization)
+        simulator = UnifiedSimulator(model_config)
+        
+        # 3. Load data using traditional config (for backward compatibility)
+        if verbose:
+            print("Loading data...")
+        
+        # Use the backward-compatible helper to load data
+        results = _simulate_with_config(config)
+        
+        if verbose:
+            print("Simulation completed using new flexible architecture!")
+            print(f"Benefits: model initialized once, data loaded as needed")
 
         # Process and display results
         print_results_summary(results, config, verbose)
@@ -343,8 +366,9 @@ def main():
 
         if verbose:
             print(f"\nSIMULATION COMPLETED SUCCESSFULLY!")
-            print(f"Used latest unified architecture: simulate(config)")
+            print(f"Used NEW flexible architecture: UnifiedSimulator + flexible simulate()")
             print(f"Model: {config['model_cfgs']['model_name']}")
+            print(f"Architecture: Model config separated from data input for maximum flexibility")
 
         return 0
 

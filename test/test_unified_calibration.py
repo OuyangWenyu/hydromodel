@@ -13,12 +13,25 @@ import shutil
 import tempfile
 from pathlib import Path
 
+# Add local dependency paths for testing
+import sys
+from pathlib import Path
+current_dir = Path(__file__).parent
+hydromodel_root = current_dir.parent
+workspace_root = hydromodel_root.parent
+
+# Add local packages to path
+for local_pkg in ['hydroutils', 'hydrodatasource', 'hydrodataset']:
+    local_path = workspace_root / local_pkg
+    if local_path.exists():
+        sys.path.insert(0, str(local_path))
+
 from hydromodel.trainers.unified_calibrate import (
     calibrate,
-    UnitHydrographSetup,
-    TraditionalModelSetup,
+    UnifiedModelSetup,  # Updated class name
     DEAP_AVAILABLE,
 )
+from hydromodel.core.unified_simulate import UnifiedSimulator
 
 
 class TestBasicFunctionality:
@@ -57,8 +70,8 @@ class TestBasicFunctionality:
         assert abs(param_sum - 1.0) < 1e-6
 
 
-class TestUnitHydrographSetup:
-    """Test unit hydrograph model setup and processing."""
+class TestUnifiedModelSetup:
+    """Test unified model setup and processing (replaces UnitHydrographSetup)."""
 
     @pytest.fixture
     def mock_event_data(self):
@@ -100,11 +113,16 @@ class TestUnitHydrographSetup:
         """Test UnitHydrographSetup creation and parameter handling."""
         warmup_length = 8
 
-        setup = UnitHydrographSetup(
-            data=mock_event_data,
+        # Create data and model configuration
+        data_config = {
+            "data_source_type": "mock_event",
+            "warmup_length": warmup_length
+        }
+        
+        setup = UnifiedModelSetup(
+            data_config=data_config,
             model_config=model_config,
             loss_config=loss_config,
-            warmup_length=warmup_length,
         )
 
         # Verify parameter names
@@ -132,11 +150,16 @@ class TestUnitHydrographSetup:
         """Test objective function calculation."""
         warmup_length = 8
 
-        setup = UnitHydrographSetup(
-            data=mock_event_data,
+        # Create data and model configuration
+        data_config = {
+            "data_source_type": "mock_event",
+            "warmup_length": warmup_length
+        }
+        
+        setup = UnifiedModelSetup(
+            data_config=data_config,
             model_config=model_config,
             loss_config=loss_config,
-            warmup_length=warmup_length,
         )
 
         # Test objective function calculation
@@ -273,9 +296,9 @@ class TestBackwardCompatibility:
         assert callable(calibrate_by_sceua)
         assert callable(calibrate)
 
-        # Verify classes can be instantiated (we'll test with mock data)
-        assert issubclass(UnitHydrographSetup, ModelSetupBase)
-        assert issubclass(TraditionalModelSetup, ModelSetupBase)
+        # Verify classes can be instantiated (we'll test with mock data) 
+        from hydromodel.trainers.unified_calibrate import ModelSetupBase
+        assert issubclass(UnifiedModelSetup, ModelSetupBase)
 
 
 @pytest.mark.skipif(not DEAP_AVAILABLE, reason="DEAP not available")
@@ -295,7 +318,7 @@ class TestGeneticAlgorithmIntegration:
     def test_ga_unit_hydrograph(self):
         """Test GA with unit hydrograph model."""
         from hydromodel.trainers.unified_calibrate import (
-            UnitHydrographSetup,
+            UnifiedModelSetup,
             _calibrate_with_ga,
         )
 
@@ -337,12 +360,17 @@ class TestGeneticAlgorithmIntegration:
 
         loss_config = {"type": "time_series", "obj_func": "RMSE"}
 
+        # Create data configuration
+        data_config = {
+            "data_source_type": "mock_event",
+            "warmup_length": warmup_length
+        }
+        
         # Create model setup
-        model_setup = UnitHydrographSetup(
-            data=mock_event_data,
+        model_setup = UnifiedModelSetup(
+            data_config=data_config,
             model_config=model_config,
             loss_config=loss_config,
-            warmup_length=warmup_length,
         )
 
         # Test GA calibration with temporary directory

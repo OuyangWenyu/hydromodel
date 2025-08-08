@@ -1,0 +1,55 @@
+data_cfgs:
+  basin_ids:
+  - songliao_21401550
+  data_source_path: D:\data\waterism\datasets-interim\songliaorrevent
+  data_source_type: floodevent
+  time_range:
+  - '1960-01-01'
+  - '2024-12-31'
+  variables:
+  - P_eff
+  - Q_obs_eff
+  warmup_length: 480
+evaluation_cfgs:
+  metrics:
+  - RMSE
+  - NSE
+  - flood_peak_error
+  - flood_volume_error
+  - category_performance
+  plot_results: true
+  save_results: true
+model_cfgs:
+  model_name: categorized_unit_hydrograph
+  model_params:
+    category_weights:
+      large:
+        peak_violation_weight: 1000.0
+        smoothing_factor: 1.0
+      medium:
+        peak_violation_weight: 500.0
+        smoothing_factor: 0.5
+      small:
+        peak_violation_weight: 100.0
+        smoothing_factor: 0.1
+    net_rain_name: P_eff
+    obs_flow_name: Q_obs_eff
+    uh_lengths:
+      large: 24
+      medium: 16
+      small: 8
+training_cfgs:
+  algorithm_name: genetic_algorithm
+  algorithm_params:
+    cx_prob: 0.7
+    mut_prob: 0.2
+    n_generations: 50
+    pop_size: 80
+    random_seed: 1234
+    save_freq: 5
+  experiment_name: categorized_uh_experiment
+  loss_config:
+    obj_func: multi_category_loss
+    type: event_based
+  output_dir: results
+  random_seed: 1234

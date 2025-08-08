@@ -88,7 +88,7 @@ def get_default_data_path(data_source_type: str, hydro_settings: Dict[str, Any])
     Parameters
     ----------
     data_source_type : str
-        Type of data source (camels, selfmadehydrodataset, etc.)
+        Type of data source (camels, selfmadehydrodataset, floodevent, etc.)
     hydro_settings : Dict[str, Any]
         Hydro settings from hydro_setting.yml
         
@@ -106,7 +106,9 @@ def get_default_data_path(data_source_type: str, hydro_settings: Dict[str, Any])
         return os.path.join(datasets_origin, "camels", "camels_us")
     elif data_source_type == "selfmadehydrodataset" and datasets_interim:
         return os.path.join(datasets_interim, "songliaorrevents")
-    elif data_source_type == "floodevent" and basins_origin:
+    elif data_source_type == "floodevent" and datasets_interim:
+        return os.path.join(datasets_interim, "songliaorrevent")
+    elif basins_origin:
         return basins_origin
     else:
         return os.path.join(os.path.expanduser("~"), "hydro_data")
@@ -172,6 +174,125 @@ class ConfigManager:
                 "plot_results": True,
                 "validation_split": 0.2,
                 "bootstrap_samples": None,
+            },
+        }
+    
+    @staticmethod
+    def get_unit_hydrograph_calibration_config() -> Dict[str, Any]:
+        """
+        Get default configuration for unit hydrograph model calibration.
+        
+        Returns
+        -------
+        Dict[str, Any]
+            Default unit hydrograph calibration configuration
+        """
+        return {
+            "data_cfgs": {
+                "data_source_type": "floodevent",
+                "data_source_path": None,  # Will be filled from hydro_setting.yml
+                "basin_ids": ["songliao_21401550"],
+                "warmup_length": 480,  # 8 hours * 60 minutes / 3 hours for 3h data
+                "variables": ["P_eff", "Q_obs_eff"],
+                "time_range": ["1960-01-01", "2024-12-31"],
+            },
+            "model_cfgs": {
+                "model_name": "unit_hydrograph",
+                "model_params": {
+                    "n_uh": 24,
+                    "smoothing_factor": 0.1,
+                    "peak_violation_weight": 10000.0,
+                    "apply_peak_penalty": True,
+                    "net_rain_name": "P_eff",
+                    "obs_flow_name": "Q_obs_eff",
+                },
+            },
+            "training_cfgs": {
+                "algorithm_name": "scipy_minimize",
+                "algorithm_params": {
+                    "method": "SLSQP",
+                    "max_iterations": 500,
+                },
+                "loss_config": {
+                    "type": "event_based",
+                    "obj_func": "RMSE",
+                },
+                "param_range_file": None,
+                "output_dir": "results",
+                "experiment_name": None,  # Will be auto-generated
+                "random_seed": 1234,
+            },
+            "evaluation_cfgs": {
+                "metrics": ["RMSE", "NSE", "flood_peak_error", "flood_volume_error"],
+                "save_results": True,
+                "plot_results": True,
+            },
+        }
+    
+    @staticmethod
+    def get_categorized_uh_calibration_config() -> Dict[str, Any]:
+        """
+        Get default configuration for categorized unit hydrograph model calibration.
+        
+        Returns
+        -------
+        Dict[str, Any]
+            Default categorized unit hydrograph calibration configuration
+        """
+        return {
+            "data_cfgs": {
+                "data_source_type": "floodevent",
+                "data_source_path": None,  # Will be filled from hydro_setting.yml
+                "basin_ids": ["songliao_21401550"],
+                "warmup_length": 480,
+                "variables": ["P_eff", "Q_obs_eff"],
+                "time_range": ["1960-01-01", "2024-12-31"],
+            },
+            "model_cfgs": {
+                "model_name": "categorized_unit_hydrograph",
+                "model_params": {
+                    "net_rain_name": "P_eff",
+                    "obs_flow_name": "Q_obs_eff",
+                    "category_weights": {
+                        "small": {
+                            "smoothing_factor": 0.1,
+                            "peak_violation_weight": 100.0,
+                        },
+                        "medium": {
+                            "smoothing_factor": 0.5,
+                            "peak_violation_weight": 500.0,
+                        },
+                        "large": {
+                            "smoothing_factor": 1.0,
+                            "peak_violation_weight": 1000.0,
+                        },
+                    },
+                    "uh_lengths": {"small": 8, "medium": 16, "large": 24},
+                },
+            },
+            "training_cfgs": {
+                "algorithm_name": "genetic_algorithm",
+                "algorithm_params": {
+                    "random_seed": 1234,
+                    "pop_size": 80,
+                    "n_generations": 50,
+                    "cx_prob": 0.7,
+                    "mut_prob": 0.2,
+                    "save_freq": 5,
+                },
+                "loss_config": {
+                    "type": "event_based",
+                    "obj_func": "multi_category_loss",
+                },
+                "param_range_file": None,
+                "output_dir": "results",
+                "experiment_name": None,  # Will be auto-generated
+                "random_seed": 1234,
+            },
+            "evaluation_cfgs": {
+                "metrics": ["RMSE", "NSE", "flood_peak_error", "flood_volume_error", "category_performance"],
+                "save_results": True,
+                "plot_results": True,
             },
         }
     
@@ -457,8 +578,18 @@ class ConfigManager:
         Dict[str, Any]
             Final calibration configuration
         """
-        # Start with defaults
-        config = ConfigManager.get_default_calibration_config()
+        # Determine model type from args to select appropriate defaults
+        model_type = None
+        if args is not None:
+            model_type = getattr(args, 'model_type', None) or getattr(args, 'model', None)
+        
+        # Start with appropriate defaults based on model type
+        if model_type == "unit_hydrograph":
+            config = ConfigManager.get_unit_hydrograph_calibration_config()
+        elif model_type == "categorized_unit_hydrograph":
+            config = ConfigManager.get_categorized_uh_calibration_config()
+        else:
+            config = ConfigManager.get_default_calibration_config()
         
         # Apply file-based config
         if config_file and os.path.exists(config_file):

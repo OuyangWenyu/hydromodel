@@ -34,6 +34,7 @@ from hydromodel.models.model_config import read_model_param_dict
 from hydromodel.models.model_dict import LOSS_DICT, MODEL_DICT
 from hydromodel.configs.unified_config import UnifiedConfig
 from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
+from hydromodel.core.unified_simulate import UnifiedSimulator
 
 
 class ModelSetupBase(ABC):
@@ -105,6 +106,7 @@ class UnifiedModelSetup(ModelSetupBase):
         self.model_name = model_config["name"]
         self.data_config = data_config
         self.training_config = training_config or {}
+        self.warmup_length = warmup_length
 
         # Load data using unified data loader
         self.data_loader = UnifiedDataLoader(data_config)
@@ -130,6 +132,17 @@ class UnifiedModelSetup(ModelSetupBase):
             # Traditional models (XAJ, GR series, etc.)
             param_file = self.training_config.get("param_range_file")
             self._setup_traditional_model_params(param_file)
+
+        # Create base model config for UnifiedSimulator (without specific parameter values)
+        self.base_model_config = {
+            "model_name": self.model_name,
+            "model_params": model_config.copy(),
+            "parameters": {}  # Will be filled in during simulation
+        }
+        
+        # Remove 'name' from model_params if it exists to avoid confusion
+        if "name" in self.base_model_config["model_params"]:
+            del self.base_model_config["model_params"]["name"]
 
         # Create spotpy parameters
         self.params = []
@@ -174,28 +187,44 @@ class UnifiedModelSetup(ModelSetupBase):
         return self.parameter_bounds
 
     def simulate(self, params: np.ndarray) -> np.ndarray:
-        """Run model simulation using unified MODEL_DICT interface."""
-        # Handle event data vs continuous data
-        if self.is_event_data and self.model_name not in [
-            "unit_hydrograph",
-            "categorized_unit_hydrograph",
-        ]:
-            # For traditional models (like XAJ) with event data, we need special handling
-            return self._simulate_event_data(params)
-        else:
-            # Standard simulation for continuous data or unit hydrograph models
-            return self._simulate_continuous_data(params)
+        """Run model simulation using unified UnifiedSimulator interface."""
+        # Convert parameters array to parameter dictionary
+        parameter_dict = self._params_array_to_dict(params)
+        
+        # Create model config with specific parameters for this simulation
+        model_config = self.base_model_config.copy()
+        model_config["parameters"] = parameter_dict
+        
+        # Create simulator instance
+        simulator = UnifiedSimulator(model_config)
+        
+        # Run simulation with flexible interface
+        results = simulator.simulate(
+            inputs=self.p_and_e,
+            warmup_length=self.warmup_length,
+            is_event_data=self.is_event_data
+        )
+        
+        return results["simulation"]
 
-    def _simulate_continuous_data(self, params: np.ndarray) -> np.ndarray:
-        """Standard simulation for continuous data."""
-        # Reshape parameters for model input
-        params_reshaped = params.reshape(1, -1)
-
-        # Handle special parameter processing for unit hydrograph models
+    def _params_array_to_dict(self, params: np.ndarray) -> Dict[str, Any]:
+        """
+        Convert parameter array from optimizer to parameter dictionary format.
+        
+        Parameters
+        ----------
+        params : np.ndarray
+            Parameter values from optimizer
+            
+        Returns
+        -------
+        Dict[str, Any]
+            Parameter dictionary in format expected by UnifiedSimulator
+        """
         if self.model_name == "unit_hydrograph":
             # For unit hydrograph, normalize parameters to sum to 1.0
             params_normalized = params / np.sum(params)
-            params_reshaped = params_normalized.reshape(1, -1)
+            return {"uh_values": params_normalized.tolist()}
 
         elif self.model_name == "categorized_unit_hydrograph":
             # For categorized unit hydrograph, convert to dictionary format
@@ -203,161 +232,50 @@ class UnifiedModelSetup(ModelSetupBase):
                 "uh_lengths", {"small": 8, "medium": 16, "large": 24}
             )
 
-            param_dict = {}
+            uh_categories = {}
             param_idx = 0
             for category, length in uh_lengths.items():
                 category_params = params[param_idx : param_idx + length]
                 # Normalize category parameters to sum to 1.0
-                param_dict[category] = (
+                uh_categories[category] = (
                     category_params / np.sum(category_params)
-                ).reshape(1, -1)
+                ).tolist()
                 param_idx += length
 
             # Add thresholds if specified
             thresholds = self.model_config.get(
                 "thresholds", {"small_medium": 10.0, "medium_large": 25.0}
             )
-            param_dict["thresholds"] = thresholds
-
-            # Pass dictionary as parameters (MODEL_DICT will handle this)
-            params_reshaped = param_dict
-
-        # Run model simulation through MODEL_DICT using unified interface
-        model_function = MODEL_DICT[self.model_name]
-
-        # Unified interface: always pass param_range and handle return values consistently
-        model_result = model_function(
-            self.p_and_e,
-            params_reshaped,
-            warmup_length=self.warmup_length,
-            **self.model_config,
-            **self.param_range,  # Empty dict for unit hydrograph models
-        )
-
-        # Normalize return format: extract simulation output regardless of return type
-        if isinstance(model_result, tuple):
-            # Traditional models return tuple (simulation, states, ...)
-            sim_output = model_result[0]
+            
+            return {
+                "uh_categories": uh_categories,
+                "thresholds": thresholds
+            }
+            
         else:
-            # Unit hydrograph models return single array
-            sim_output = model_result
+            # Traditional models (XAJ, GR series, etc.)
+            # Convert parameter array to named parameter dictionary
+            if hasattr(self, 'param_range') and self.param_range:
+                # Use parameter range to denormalize parameters
+                param_info = self.param_range[self.model_name]
+                param_names = param_info["param_name"]
+                param_bounds = param_info["param_range"]
+                
+                # Denormalize parameters from [0,1] to actual ranges
+                param_dict = {}
+                for i, (name, bounds) in enumerate(zip(param_names, param_bounds)):
+                    min_val, max_val = bounds
+                    # params[i] is in [0,1], scale to [min_val, max_val]
+                    param_dict[name] = min_val + params[i] * (max_val - min_val)
+                    
+                return param_dict
+            else:
+                # Fallback: use parameter names directly
+                return {name: value for name, value in zip(self.parameter_names, params)}
 
-        return sim_output
+    # Event data simulation is now handled by UnifiedSimulator
 
-    def _simulate_event_data(self, params: np.ndarray) -> np.ndarray:
-        """
-        Special simulation for event data with traditional models like XAJ.
-
-        For event data, we need to:
-        1. Identify event segments (non-zero periods)
-        2. Run model on each event separately
-        3. Combine results while maintaining timeline
-
-        This handles the fact that traditional models expect continuous data
-        but event data has gaps between events.
-        """
-        # Reshape parameters for model input
-        params_reshaped = params.reshape(1, -1)
-
-        # Get model function
-        model_function = MODEL_DICT[self.model_name]
-
-        # Extract precipitation data to identify events
-        # For event data, precipitation is in first channel (net rain)
-        net_rain = self.p_and_e[:, :, 0]  # [time, basin]
-
-        # Initialize output array
-        output_shape = (self.p_and_e.shape[0], self.p_and_e.shape[1], 1)
-        sim_output = np.zeros(output_shape)
-
-        # Process each basin separately
-        for basin_idx in range(self.p_and_e.shape[1]):
-            basin_rain = net_rain[:, basin_idx]
-
-            # Find event segments (continuous non-zero periods)
-            event_segments = self._find_event_segments(basin_rain)
-
-            # Process each event segment
-            for start_idx, end_idx in event_segments:
-                # Extract event data
-                event_p_and_e = self.p_and_e[
-                    start_idx : end_idx + 1, basin_idx : basin_idx + 1, :
-                ]
-
-                # Run model on this event segment
-                try:
-                    event_result = model_function(
-                        event_p_and_e,
-                        params_reshaped,
-                        warmup_length=0,  # No warmup for event segments
-                        **self.model_config,
-                        **self.param_range,
-                    )
-
-                    # Extract simulation output
-                    if isinstance(event_result, tuple):
-                        event_sim = event_result[0]
-                    else:
-                        event_sim = event_result
-
-                    # Store in output array
-                    sim_output[
-                        start_idx : end_idx + 1, basin_idx : basin_idx + 1, :
-                    ] = event_sim
-
-                except Exception as e:
-                    print(
-                        f"Warning: Event simulation failed for basin {basin_idx}, "
-                        f"segment {start_idx}-{end_idx}: {e}"
-                    )
-                    # Fill with zeros on failure
-                    sim_output[
-                        start_idx : end_idx + 1, basin_idx : basin_idx + 1, :
-                    ] = 0.0
-
-        return sim_output
-
-    def _find_event_segments(
-        self, rain_series: np.ndarray, min_gap_length: int = 1
-    ) -> List[Tuple[int, int]]:
-        """
-        Find continuous event segments in rain time series.
-
-        Parameters
-        ----------
-        rain_series : np.ndarray
-            1D array of precipitation values
-        min_gap_length : int
-            Minimum gap length to consider as event separation
-
-        Returns
-        -------
-        List[Tuple[int, int]]
-            List of (start_idx, end_idx) tuples for each event segment
-        """
-        # Find non-zero indices
-        non_zero_indices = np.where(rain_series > 0)[0]
-
-        if len(non_zero_indices) == 0:
-            return []
-
-        # Find gaps in the indices
-        gaps = np.diff(non_zero_indices) > min_gap_length
-
-        # Split indices by gaps
-        split_points = np.where(gaps)[0] + 1
-        split_indices = np.split(non_zero_indices, split_points)
-
-        # Convert to start-end pairs
-        segments = []
-        for indices in split_indices:
-            if len(indices) > 0:
-                # Expand segment to include some context if possible
-                start_idx = max(0, indices[0])
-                end_idx = min(len(rain_series) - 1, indices[-1])
-                segments.append((start_idx, end_idx))
-
-        return segments
+    # _find_event_segments method removed - now handled by UnifiedSimulator
 
     def calculate_objective(
         self, simulation: np.ndarray, observation: np.ndarray

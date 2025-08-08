@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-08-07
-LastEditTime: 2025-08-08 09:21:26
+LastEditTime: 2025-08-08 11:23:27
 LastEditors: Wenyu Ouyang
 Description: Shared Unit Hydrograph calibration script using unified architecture
 FilePath: \hydromodel\scripts\run_shared_uh_optimization.py
@@ -85,7 +85,7 @@ Advanced Usage:
 
     # Add common arguments
     ScriptUtils.add_common_arguments(parser)
-    
+
     # Add unit hydrograph specific arguments
     parser.add_argument(
         "--n-uh",
@@ -199,17 +199,11 @@ def create_quick_setup_config(args):
     return config
 
 
-
-
-
-
-
-
 def process_results(results, config: dict, args):
     """Process and display calibration results using unified ResultsManager"""
     # Use the unified results manager
     processed_results = results_manager.process_results(results, config, args)
-    
+
     # Return processed results for potential further use
     return processed_results
 
@@ -219,14 +213,18 @@ def main():
     args = parse_arguments()
 
     # Handle template creation
-    if ScriptUtils.handle_template_creation(args, create_unit_hydrograph_template, "Unit Hydrograph"):
+    if ScriptUtils.handle_template_creation(
+        args, create_unit_hydrograph_template, "Unit Hydrograph"
+    ):
         return
 
     # Setup configuration using unified workflow
     config = ScriptUtils.setup_configuration(
-        args, create_quick_setup_config, 
-        "run_shared_uh_optimization.py", "Unit Hydrograph",
-        "*unit_hydrograph*.yaml"
+        args,
+        create_quick_setup_config,
+        "run_shared_uh_optimization.py",
+        "Unit Hydrograph",
+        "*unit_hydrograph*.yaml",
     )
     if config is None:
         return
@@ -241,7 +239,9 @@ def main():
         config["training_cfgs"]["experiment_name"] = args.experiment_name
 
     # Validate configuration
-    if not ScriptUtils.validate_and_show_config(config, args.verbose, "Unit Hydrograph"):
+    if not ScriptUtils.validate_and_show_config(
+        config, args.verbose, "Unit Hydrograph"
+    ):
         return
 
     if args.dry_run:
@@ -260,8 +260,9 @@ def main():
         # Process results using unified ResultsManager
         processed_results = process_results(results, config, args)
 
-
-        ScriptUtils.print_completion_message(config, "unit hydrograph calibration")
+        ScriptUtils.print_completion_message(
+            config, "unit hydrograph calibration"
+        )
 
     except Exception as e:
         print(f"❌ Calibration failed: {e}")

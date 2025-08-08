@@ -23,6 +23,7 @@ from hydromodel.trainers.unified_calibrate import (
     calibrate,
     DEAP_AVAILABLE,
 )
+from hydromodel.core.results_manager import results_manager
 
 # Optional imports - handle missing dependencies gracefully
 try:
@@ -417,138 +418,12 @@ def load_flood_events_data(config: dict, verbose: bool = True):
 
 
 def process_results(results, config: dict, args):
-    """Process and display calibration results"""
-    print(f"\n📈 Unit Hydrograph Calibration Results:")
-    print("=" * 60)
-
-    # Handle different result formats from unified calibrate interface
-    if isinstance(results, dict) and len(results) == 1:
-        # Single basin result
-        basin_id = list(results.keys())[0]
-        basin_result = results[basin_id]
-
-        convergence = basin_result.get("convergence", "unknown")
-        objective_value = basin_result.get("objective_value", float("inf"))
-        best_params = basin_result.get("best_params", {})
-    else:
-        # Direct result format
-        convergence = results.get("convergence", "unknown")
-        objective_value = results.get("objective_value", float("inf"))
-        best_params = results.get("best_params", {})
-
-    print(f"✅ Convergence: {convergence}")
-    print(f"🎯 Best objective value: {objective_value:.6f}")
-
-    model_cfgs = config.get("model_cfgs", {})
-    training_cfgs = config.get("training_cfgs", {})
-
-    # Look for unit hydrograph parameters
-    basin_id = config.get("data_cfgs", {}).get("basin_ids", [""])[0]
-    if basin_id in best_params and "unit_hydrograph" in best_params[basin_id]:
-        uh_params_dict = best_params[basin_id]["unit_hydrograph"]
-        n_uh = model_cfgs.get("model_params", {}).get("n_uh", 24)
-
-        # Extract unit hydrograph parameters - handle different formats
-        if isinstance(uh_params_dict, dict):
-            uh_params = [
-                uh_params_dict.get(f"uh_{i+1}", 0.0) for i in range(n_uh)
-            ]
-        else:
-            uh_params = (
-                list(uh_params_dict)
-                if hasattr(uh_params_dict, "__iter__")
-                else []
-            )
-
-        if uh_params:
-            print(f"📊 Unit Hydrograph Parameters ({len(uh_params)} values):")
-            for i, param in enumerate(uh_params[:5]):  # Show first 5 values
-                print(f"   uh_{i+1}: {param:.6f}")
-            if len(uh_params) > 5:
-                print(f"   ... ({len(uh_params)-5} more parameters)")
-
-            # Plot results if requested
-            if args.plot_results:
-                if PLOTTING_AVAILABLE:
-                    try:
-                        setup_matplotlib_chinese()
-                        plot_unit_hydrograph(
-                            uh_params, "Calibrated Unit Hydrograph"
-                        )
-                        print("📈 Unit hydrograph plot generated")
-                    except Exception as e:
-                        print(f"⚠️ Failed to generate plot: {e}")
-                else:
-                    print(
-                        "⚠️ Plotting not available - install hydroutils package"
-                    )
-
-            # Save evaluation results if requested
-            if args.save_evaluation:
-                if not UH_TRAINER_AVAILABLE:
-                    print(
-                        "⚠️ Evaluation not available - unit hydrograph trainer functions not available"
-                    )
-                else:
-                    try:
-                        # Load data again for evaluation
-                        all_event_data = load_flood_events_data(
-                            config, verbose=False
-                        )
-
-                        # Evaluate each event
-                        evaluation_results = []
-                        for event in all_event_data:
-                            result = evaluate_single_event_from_uh(
-                                event,
-                                uh_params,
-                                net_rain_key="P_eff",
-                                obs_flow_key="Q_obs_eff",
-                            )
-                            if result:
-                                evaluation_results.append(result)
-
-                        if evaluation_results:
-                            # Create DataFrame and save
-                            df = pd.DataFrame(evaluation_results)
-                            df_sorted = df.sort_values("NSE", ascending=False)
-
-                            output_dir = os.path.join(
-                                training_cfgs.get("output_dir", "results"),
-                                training_cfgs.get(
-                                    "experiment_name", "experiment"
-                                ),
-                            )
-                            os.makedirs(output_dir, exist_ok=True)
-
-                            csv_file = os.path.join(
-                                output_dir, "unit_hydrograph_evaluation.csv"
-                            )
-                            save_results_to_csv(
-                                df_sorted,
-                                csv_file,
-                                "Unit Hydrograph Evaluation",
-                            )
-
-                            # Show preview
-                            print_report_preview(
-                                df_sorted,
-                                "Unit Hydrograph Evaluation",
-                                top_n=5,
-                            )
-
-                            print(
-                                f"💾 Detailed evaluation saved to: {csv_file}"
-                            )
-                        else:
-                            print("⚠️ No valid evaluation results found")
-
-                    except Exception as e:
-                        print(f"❌ Failed to save evaluation: {e}")
-        else:
-            print("⚠️ No unit hydrograph parameters found in results")
-    else:
-        print("❌ Calibration failed - no valid parameters found")
+    """Process and display calibration results using unified ResultsManager"""
+    # Use the unified results manager
+    processed_results = results_manager.process_results(results, config, args)
+    
+    # Return processed results for potential further use
+    return processed_results
 
 
 def main():
@@ -676,8 +551,8 @@ def main():
         # Run calibration using unified interface
         results = calibrate(config)
 
-        # Process results
-        process_results(results, config, args)
+        # Process results using unified ResultsManager
+        processed_results = process_results(results, config, args)
 
         training_cfgs = config.get("training_cfgs", {})
         output_path = os.path.join(

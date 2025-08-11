@@ -1,10 +1,10 @@
-"""
+r"""
 Author: Wenyu Ouyang
 Date: 2025-01-22
-LastEditTime: 2025-08-07 20:44:23
+LastEditTime: 2025-08-08 20:41:16
 LastEditors: Wenyu Ouyang
 Description: Unified data loading interface for all hydrological models
-FilePath: /hydromodel/hydromodel/datasets/unified_data_loader.py
+FilePath: \hydromodel\hydromodel\datasets\unified_data_loader.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -25,6 +25,7 @@ except ImportError:
 
 try:
     from hydrodataset import Camels
+
     CAMELS_AVAILABLE = True
 except ImportError:
     CAMELS_AVAILABLE = False
@@ -76,8 +77,12 @@ class UnifiedDataLoader:
         """
         self.config = data_config
         # Support both naming conventions for backward compatibility
-        self.data_type = data_config.get("data_source_type") or data_config.get("data_type", "selfmade")
-        self.data_path = data_config.get("data_source_path") or data_config.get("data_path")
+        self.data_type = data_config.get(
+            "data_source_type"
+        ) or data_config.get("data_type", "selfmade")
+        self.data_path = data_config.get(
+            "data_source_path"
+        ) or data_config.get("data_path")
         self.basin_ids = data_config.get("basin_ids", [])
         self.warmup_length = data_config.get("warmup_length", 365)
 

@@ -1,7 +1,7 @@
-"""
+r"""
 Author: Wenyu Ouyang
 Date: 2025-08-07
-LastEditTime: 2025-08-07 20:35:52
+LastEditTime: 2025-08-08 19:17:46
 LastEditors: Wenyu Ouyang
 Description: XAJ model calibration script using the latest unified architecture
 FilePath: \hydromodel\scripts\run_xaj_calibration_unified.py
@@ -12,18 +12,15 @@ import argparse
 import sys
 import os
 from pathlib import Path
-import yaml
-import numpy as np
-from datetime import datetime
 
 # Add hydromodel to path
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 
-from hydromodel.trainers.unified_calibrate import calibrate
-from hydromodel.configs.config_manager import ConfigManager
-from hydromodel.configs.script_utils import ScriptUtils
-from hydromodel.core.results_manager import results_manager
+from hydromodel import SETTING
+from hydromodel.trainers.unified_calibrate import calibrate  # noqa: E402
+from hydromodel.configs.script_utils import ScriptUtils  # noqa: E402
+from hydromodel.core.results_manager import results_manager  # noqa: E402
 
 
 def parse_arguments():
@@ -65,6 +62,11 @@ Usage Examples:
     parser.add_argument(
         "--data-source-path",
         type=str,
+        default=os.path.join(
+            SETTING["local_data_path"]["datasets-origin"],
+            "camels",
+            "camels_us",
+        ),
         help="Data directory path (uses default if not specified)",
     )
 
@@ -78,8 +80,8 @@ Usage Examples:
     parser.add_argument(
         "--variables",
         nargs="+",
-        default=["prcp", "pet", "streamflow"],
-        help="Variables to calibrate (default: prcp, pet, streamflow)",
+        default=["prcp", "PET", "streamflow"],
+        help="Variables to calibrate (default: prcp, PET, streamflow)",
     )
 
     parser.add_argument(
@@ -193,110 +195,6 @@ Usage Examples:
     return parser.parse_args()
 
 
-def create_xaj_template(template_file: str):
-    """Create an XAJ configuration template"""
-    config = {
-        "data_cfgs": {
-            "data_source_type": "camels",
-            "data_source_path": None,  # Will use default from hydro_setting.yml
-            "basin_ids": ["01013500"],
-            "warmup_length": 365,
-            "variables": ["prcp", "pet", "streamflow"],
-            "time_range": ["1990-01-01", "2010-12-31"],
-        },
-        "model_cfgs": {
-            "model_name": "xaj_mz",
-            "model_params": {
-                "source_type": "sources",
-                "source_book": "HF",
-                "kernel_size": 15,
-            },
-        },
-        "training_cfgs": {
-            "algorithm_name": "SCE_UA",
-            "algorithm_params": {
-                "rep": 5000,
-                "ngs": 1000,
-            },
-            "loss_config": {
-                "type": "time_series",
-                "obj_func": "RMSE",
-            },
-            "output_dir": "results",
-            "experiment_name": "xaj_calibration_experiment",
-            "random_seed": 1234,
-        },
-        "evaluation_cfgs": {
-            "metrics": ["NSE", "RMSE", "KGE", "PBIAS"],
-            "save_results": True,
-            "plot_results": True,
-        },
-    }
-
-    ConfigManager.save_config_to_file(config, template_file)
-    return config
-
-
-def create_quick_setup_config(args):
-    """Create configuration from quick setup arguments"""
-
-    # Create a minimal args namespace for ConfigManager
-    class QuickArgs:
-        def __init__(self):
-            self.data_source_type = getattr(args, "data_source_type", "camels")
-            self.data_source_path = getattr(args, "data_source_path", None)
-            self.basin_ids = getattr(args, "basin_ids", ["01013500"])
-            self.warmup_length = getattr(args, "warmup_length", 365)
-            self.variables = getattr(
-                args, "variables", ["prcp", "pet", "streamflow"]
-            )
-            self.model = getattr(args, "model_type", "xaj_mz")
-            self.algorithm = getattr(args, "algorithm", "SCE_UA")
-            self.output_dir = getattr(args, "output_dir", "results")
-            self.experiment_name = getattr(args, "experiment_name", None)
-            self.random_seed = getattr(args, "random_seed", 1234)
-
-            # XAJ-specific parameters
-            self.source_type = getattr(args, "source_type", "sources")
-            self.source_book = getattr(args, "source_book", "HF")
-            self.kernel_size = getattr(args, "kernel_size", 15)
-            self.obj_func = getattr(args, "obj_func", "RMSE")
-            self.param_range_file = getattr(args, "param_range_file", None)
-
-            # Algorithm-specific parameters
-            if self.algorithm == "scipy_minimize":
-                self.scipy_method = getattr(args, "scipy_method", "L-BFGS-B")
-                self.max_iterations = getattr(args, "max_iterations", 1000)
-            elif self.algorithm == "SCE_UA":
-                self.rep = getattr(args, "rep", 5000)
-                self.ngs = getattr(args, "ngs", 1000)
-            elif self.algorithm == "genetic_algorithm":
-                self.pop_size = getattr(args, "pop_size", 80)
-                self.n_generations = getattr(args, "n_generations", 50)
-
-    quick_args = QuickArgs()
-
-    # Use ConfigManager to create the configuration
-    config = ConfigManager.create_calibration_config(args=quick_args)
-
-    # Add XAJ-specific parameters
-    config["model_cfgs"]["model_params"].update(
-        {
-            "source_type": quick_args.source_type,
-            "source_book": quick_args.source_book,
-            "kernel_size": quick_args.kernel_size,
-        }
-    )
-
-    # Set parameter range file if specified
-    if quick_args.param_range_file:
-        config["training_cfgs"][
-            "param_range_file"
-        ] = quick_args.param_range_file
-
-    return config
-
-
 def process_results(results: dict, config: dict, args):
     """Process and display calibration results using unified ResultsManager"""
     # Use the unified results manager
@@ -312,19 +210,15 @@ def main():
     verbose = not args.quiet
 
     try:
-        # Handle template creation
-        if ScriptUtils.handle_template_creation(
-            args, create_xaj_template, "XAJ Model"
-        ):
-            return 0
-
         # Setup configuration using unified workflow
+        # Ensure correct model defaults for quick setup
+        if not getattr(args, "model_type", None) and not getattr(
+            args, "model", None
+        ):
+            args.model = "xaj_mz"
+
         config = ScriptUtils.setup_configuration(
             args,
-            create_quick_setup_config,
-            "run_xaj_calibration_unified.py",
-            "XAJ Model",
-            "*xaj*.yaml",
         )
         if config is None:
             return 1
@@ -350,16 +244,14 @@ def main():
 
         # Run calibration using unified interface
         if verbose:
-            print(
-                f"\n🚀 Starting XAJ calibration with unified architecture..."
-            )
-            print(f"📦 Using unified calibrate(config) interface")
+            print("\n🚀 Starting XAJ calibration with unified architecture...")
+            print("📦 Using unified calibrate(config) interface")
 
         # The new unified calibration call - single function, single parameter!
         results = calibrate(config)
 
         # Process and display results using unified ResultsManager
-        processed_results = process_results(results, config, args)
+        _ = process_results(results, config, args)
 
         # Save configuration file if requested
         if args.save_config:

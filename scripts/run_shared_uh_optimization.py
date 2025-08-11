@@ -1,4 +1,4 @@
-"""
+r"""
 Author: Wenyu Ouyang
 Date: 2025-08-07
 LastEditTime: 2025-08-08 11:23:27
@@ -12,7 +12,7 @@ import os
 import sys
 import argparse
 from pathlib import Path
-import pandas as pd
+ 
 
 # Add hydromodel to path
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
@@ -24,38 +24,11 @@ from hydromodel.trainers.unified_calibrate import calibrate
 from hydromodel.core.results_manager import results_manager
 
 # Optional imports - handle missing dependencies gracefully
-try:
-    from hydrodatasource.reader.floodevent import FloodEventDatasource
+ 
 
-    FLOODEVENT_AVAILABLE = True
-except ImportError:
-    print(
-        "Warning: hydrodatasource not available - flood event loading disabled"
-    )
-    FLOODEVENT_AVAILABLE = False
+ 
 
-try:
-    from hydromodel.trainers.unit_hydrograph_trainer import (
-        evaluate_single_event_from_uh,
-        print_report_preview,
-        save_results_to_csv,
-    )
-
-    UH_TRAINER_AVAILABLE = True
-except ImportError:
-    print("Warning: unit hydrograph trainer functions not available")
-    UH_TRAINER_AVAILABLE = False
-
-try:
-    from hydroutils.hydro_plot import (
-        plot_unit_hydrograph,
-        setup_matplotlib_chinese,
-    )
-
-    PLOTTING_AVAILABLE = True
-except ImportError:
-    print("Warning: hydroutils plotting not available - plotting disabled")
-    PLOTTING_AVAILABLE = False
+ 
 
 
 def parse_arguments():
@@ -146,63 +119,13 @@ def create_unit_hydrograph_template(template_file: str):
     return config
 
 
-def create_quick_setup_config(args):
-    """Create configuration from quick setup arguments"""
-
-    # Create a minimal args namespace for ConfigManager
-    class QuickArgs:
-        def __init__(self):
-            self.data_source_type = "floodevent"
-            self.data_source_path = args.data_path
-            self.basin_ids = [args.station_id]
-            self.warmup_length = args.warmup_length
-            self.variables = ["P_eff", "Q_obs_eff"]
-            self.model = (
-                "unit_hydrograph"  # Use 'model' instead of 'model_type'
-            )
-            self.algorithm = args.algorithm
-            self.output_dir = args.output_dir or "results"
-            self.experiment_name = (
-                args.experiment_name
-                or f"uh_{args.station_id}_{args.algorithm}"
-            )
-            self.random_seed = 1234
-
-            # Algorithm-specific parameters
-            if args.algorithm == "scipy_minimize":
-                self.scipy_method = "SLSQP"
-                self.max_iterations = 500
-            elif args.algorithm == "SCE_UA":
-                self.rep = 1000
-                self.ngs = 1000
-            elif args.algorithm == "genetic_algorithm":
-                self.pop_size = 80
-                self.n_generations = 50
-
-    quick_args = QuickArgs()
-
-    # Use ConfigManager to create the configuration
-    config = ConfigManager.create_calibration_config(args=quick_args)
-
-    # Add unit hydrograph specific parameters
-    config["model_cfgs"]["model_params"].update(
-        {
-            "n_uh": args.n_uh,
-            "smoothing_factor": 0.1,
-            "peak_violation_weight": 10000.0,
-            "apply_peak_penalty": True,
-            "net_rain_name": "P_eff",
-            "obs_flow_name": "Q_obs_eff",
-        }
-    )
-
-    return config
+ 
 
 
 def process_results(results, config: dict, args):
     """Process and display calibration results using unified ResultsManager"""
     # Use the unified results manager
-    processed_results = results_manager.process_results(results, config, args)
+    _ = results_manager.process_results(results, config, args)
 
     # Return processed results for potential further use
     return processed_results
@@ -212,18 +135,17 @@ def main():
     """Main function"""
     args = parse_arguments()
 
-    # Handle template creation
-    if ScriptUtils.handle_template_creation(
-        args, create_unit_hydrograph_template, "Unit Hydrograph"
-    ):
-        return
+    # Ensure correct model defaults for quick setup
+    if not getattr(args, "model_type", None) and not getattr(args, "model", None):
+        args.model = "unit_hydrograph"
+
+    # Skip template creation; go straight to default+args config
 
     # Setup configuration using unified workflow
     config = ScriptUtils.setup_configuration(
         args,
-        create_quick_setup_config,
+        None,
         "run_shared_uh_optimization.py",
-        "Unit Hydrograph",
         "*unit_hydrograph*.yaml",
     )
     if config is None:

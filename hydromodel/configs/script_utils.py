@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-08-08
-LastEditTime: 2025-08-08 11:19:10
+LastEditTime: 2025-08-08 20:23:22
 LastEditors: Wenyu Ouyang
 Description: Unified script utilities for all hydromodel scripts
 FilePath: \hydromodel\hydromodel\configs\script_utils.py
@@ -10,14 +10,14 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 
 import os
 import ast
-import json
 import yaml
 import argparse
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+
 
 from .config_manager import ConfigManager
+from .unified_config import UnifiedConfig
 
 
 class ScriptUtils:
@@ -101,9 +101,10 @@ class ScriptUtils:
         eval_cfgs = config.get("evaluation_cfgs", {})
 
         print("📊 Data Configuration:")
-        print(
-            f"   📂 Data directory: {data_cfgs.get('data_source_path', 'default')}"
+        data_dir = data_cfgs.get("data_source_path") or data_cfgs.get(
+            "data_path", "default"
         )
+        print(f"   📂 Data directory: {data_dir}")
         print(
             f"   🏭 Station/Basin IDs: {', '.join(data_cfgs.get('basin_ids', []))}"
         )
@@ -145,11 +146,11 @@ class ScriptUtils:
         # Check algorithm availability
         algorithm_name = training_cfgs.get("algorithm_name")
         if algorithm_name == "genetic_algorithm":
-            try:
-                import deap
+            import importlib.util as _importlib_util
 
-                print(f"   🧬 DEAP Available: Yes")
-            except ImportError:
+            if _importlib_util.find_spec("deap") is not None:
+                print("   🧬 DEAP Available: Yes")
+            else:
                 print(
                     f"   ❌ ERROR: Algorithm '{algorithm_name}' requires DEAP package"
                 )
@@ -159,7 +160,7 @@ class ScriptUtils:
         # Show algorithm-specific parameters preview
         algo_params = training_cfgs.get("algorithm_params", {})
         if algo_params:
-            print(f"   ⚙️ Algorithm Parameters:")
+            print("   ⚙️ Algorithm Parameters:")
             for key, value in list(algo_params.items())[:3]:  # Show first 3
                 print(f"      {key}: {value}")
             if len(algo_params) > 3:
@@ -195,7 +196,7 @@ class ScriptUtils:
         data_cfgs = config.get("data_cfgs", {})
 
         if verbose:
-            print(f"\n🔄 Loading flood events data...")
+            print("\n🔄 Loading flood events data...")
 
         # Load flood events
         dataset = FloodEventDatasource(
@@ -229,7 +230,7 @@ class ScriptUtils:
 
     @staticmethod
     def show_help_information(
-        script_name: str, model_type: str, examples_pattern: str = None
+        script_name: str, examples_pattern: Optional[str] = None
     ):
         """
         Show helpful information when no config is provided
@@ -238,12 +239,10 @@ class ScriptUtils:
         ----------
         script_name : str
             Name of the script
-        model_type : str
-            Type of model for examples
-        examples_pattern : str, optional
+        examples_pattern : Optional[str], optional
             Pattern to search for example configs
         """
-        print(f"🔍 {model_type} Model Calibration with Unified Config")
+        print(f"🔍 Model Calibration with Unified Config")
         print("=" * 60)
         print()
         print("📋 Available options:")
@@ -471,63 +470,8 @@ class ScriptUtils:
         )
 
     @staticmethod
-    def handle_template_creation(
-        args, template_creation_func, model_type: str
-    ) -> bool:
-        """
-        Handle template creation request
-
-        Parameters
-        ----------
-        args : argparse.Namespace
-            Command line arguments
-        template_creation_func : callable
-            Function to create template
-        model_type : str
-            Type of model for display
-
-        Returns
-        -------
-        bool
-            True if template was created (script should exit)
-        """
-        if args.create_template:
-            print(
-                f"🔧 Creating {model_type.lower()} configuration template: {args.create_template}"
-            )
-            config = template_creation_func(args.create_template)
-            print(f"✅ Template saved to: {args.create_template}")
-            print("\n📋 Configuration template preview:")
-
-            # Show compact preview
-            preview = {
-                "data_cfgs": {
-                    k: v
-                    for k, v in config.get("data_cfgs", {}).items()
-                    if k in ["data_source_type", "model_name"]
-                },
-                "model_cfgs": {
-                    "model_name": config.get("model_cfgs", {}).get(
-                        "model_name"
-                    )
-                },
-                "training_cfgs": {
-                    k: v
-                    for k, v in config.get("training_cfgs", {}).items()
-                    if k in ["algorithm_name", "experiment_name"]
-                },
-            }
-            print(yaml.dump(preview, default_flow_style=False, indent=2))
-            return True
-        return False
-
-    @staticmethod
     def setup_configuration(
         args,
-        create_config_func,
-        script_name: str,
-        model_type: str,
-        examples_pattern: str = None,
     ):
         """
         Setup configuration from arguments with unified workflow
@@ -536,16 +480,8 @@ class ScriptUtils:
         ----------
         args : argparse.Namespace
             Command line arguments
-        create_config_func : callable
-            Function to create config from args
-        script_name : str
-            Name of the script
-        model_type : str
-            Type of model
-        examples_pattern : str, optional
-            Pattern for example configs
 
-        Returns
+                    Returns
         -------
         Dict[str, Any] or None
             Configuration if successful, None to exit
@@ -560,16 +496,138 @@ class ScriptUtils:
                 print(f"❌ Failed to load configuration: {e}")
                 return None
 
-        elif args.quick_setup:
-            # Quick setup mode
-            print(
-                "🚀 Quick setup mode - creating configuration from command line arguments"
-            )
-            return create_config_func(args)
-
         else:
-            # No config provided - show help and prompt
-            ScriptUtils.show_help_information(
-                script_name, model_type, examples_pattern
+            # Always create config from unified defaults + args (no prompts)
+            return ScriptUtils.create_config_from_unified_defaults(args)
+
+    @staticmethod
+    def create_config_from_unified_defaults(
+        args: argparse.Namespace,
+    ) -> UnifiedConfig:
+        """
+        Build configuration from UnifiedConfig defaults, then update with args.
+
+        Returns
+        -------
+        UnifiedConfig
+            Unified configuration instance updated by args
+        """
+        config = UnifiedConfig()
+
+        updates: Dict[str, Any] = {
+            "data_cfgs": {},
+            "model_cfgs": {"model_params": {}},
+            "training_cfgs": {},
+        }
+
+        # Data configuration mapping
+        if (
+            hasattr(args, "data_source_type")
+            and args.data_source_type is not None
+        ):
+            updates["data_cfgs"]["data_type"] = args.data_source_type
+        if (
+            hasattr(args, "data_source_path")
+            and args.data_source_path is not None
+        ):
+            updates["data_cfgs"]["data_path"] = args.data_source_path
+        if hasattr(args, "data_path") and args.data_path is not None:
+            updates["data_cfgs"]["data_path"] = args.data_path
+        if hasattr(args, "basin_ids") and args.basin_ids is not None:
+            updates["data_cfgs"]["basin_ids"] = args.basin_ids
+        if hasattr(args, "warmup_length") and args.warmup_length is not None:
+            updates["data_cfgs"]["warmup_length"] = args.warmup_length
+        if hasattr(args, "variables") and args.variables is not None:
+            updates["data_cfgs"]["variables"] = args.variables
+
+        # Model configuration mapping
+        model_name = None
+        if hasattr(args, "model_type") and args.model_type is not None:
+            model_name = args.model_type
+        elif hasattr(args, "model") and args.model is not None:
+            model_name = args.model
+        if model_name is not None:
+            updates["model_cfgs"]["model_name"] = model_name
+
+        # Model parameters (optional overrides)
+        for key in [
+            "source_type",
+            "source_book",
+            "kernel_size",
+            "n_uh",
+            "smoothing_factor",
+            "peak_violation_weight",
+            "apply_peak_penalty",
+            "net_rain_name",
+            "obs_flow_name",
+        ]:
+            if hasattr(args, key) and getattr(args, key) is not None:
+                updates["model_cfgs"]["model_params"][key] = getattr(args, key)
+
+        # Categorized UH specific (JSON/text mapping should be done by caller via --override)
+        if (
+            hasattr(args, "uh_lengths")
+            and getattr(args, "uh_lengths") is not None
+        ):
+            updates["model_cfgs"]["model_params"]["uh_lengths"] = getattr(
+                args, "uh_lengths"
             )
-            return ScriptUtils.prompt_quick_setup(args, create_config_func)
+
+        # Training configuration
+        if hasattr(args, "algorithm") and args.algorithm is not None:
+            updates.setdefault("training_cfgs", {})[
+                "algorithm_name"
+            ] = args.algorithm
+
+        algo_params: Dict[str, Any] = {}
+        # SCE-UA
+        for key in ["rep", "ngs", "kstop", "peps", "pcento"]:
+            if hasattr(args, key) and getattr(args, key) is not None:
+                algo_params[key] = getattr(args, key)
+        # SciPy
+        if hasattr(args, "scipy_method") and args.scipy_method is not None:
+            algo_params["method"] = args.scipy_method
+        if hasattr(args, "max_iterations") and args.max_iterations is not None:
+            algo_params["max_iterations"] = args.max_iterations
+        # GA
+        for key in [
+            "pop_size",
+            "n_generations",
+            "cx_prob",
+            "mut_prob",
+            "random_seed",
+        ]:
+            if hasattr(args, key) and getattr(args, key) is not None:
+                algo_params[key] = getattr(args, key)
+        if algo_params:
+            updates.setdefault("training_cfgs", {}).setdefault(
+                "algorithm_params", {}
+            ).update(algo_params)
+
+        # Loss / output settings
+        if hasattr(args, "obj_func") and args.obj_func is not None:
+            updates.setdefault("training_cfgs", {}).setdefault(
+                "loss_config", {}
+            )["obj_func"] = args.obj_func
+        if hasattr(args, "output_dir") and args.output_dir is not None:
+            updates.setdefault("training_cfgs", {})[
+                "output_dir"
+            ] = args.output_dir
+        if (
+            hasattr(args, "experiment_name")
+            and args.experiment_name is not None
+        ):
+            updates.setdefault("training_cfgs", {})[
+                "experiment_name"
+            ] = args.experiment_name
+        if hasattr(args, "random_seed") and args.random_seed is not None:
+            updates.setdefault("training_cfgs", {})["algorithm_params"] = (
+                updates.get("training_cfgs", {}).get("algorithm_params", {})
+            )
+            updates["training_cfgs"]["algorithm_params"][
+                "random_seed"
+            ] = args.random_seed
+
+        # Apply updates
+        config.update_config(updates)
+        return config.config

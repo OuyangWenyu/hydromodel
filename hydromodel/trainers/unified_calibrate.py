@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-08-07
-LastEditTime: 2025-08-07 16:49:35
+LastEditTime: 2025-08-08 18:32:55
 LastEditors: Wenyu Ouyang
 Description: Simplified unified calibration interface for all hydrological models
 FilePath: /hydromodel/hydromodel/trainers/unified_calibrate.py
@@ -137,9 +137,9 @@ class UnifiedModelSetup(ModelSetupBase):
         self.base_model_config = {
             "model_name": self.model_name,
             "model_params": model_config.copy(),
-            "parameters": {}  # Will be filled in during simulation
+            "parameters": {},  # Will be filled in during simulation
         }
-        
+
         # Remove 'name' from model_params if it exists to avoid confusion
         if "name" in self.base_model_config["model_params"]:
             del self.base_model_config["model_params"]["name"]
@@ -190,32 +190,32 @@ class UnifiedModelSetup(ModelSetupBase):
         """Run model simulation using unified UnifiedSimulator interface."""
         # Convert parameters array to parameter dictionary
         parameter_dict = self._params_array_to_dict(params)
-        
+
         # Create model config with specific parameters for this simulation
         model_config = self.base_model_config.copy()
         model_config["parameters"] = parameter_dict
-        
+
         # Create simulator instance
         simulator = UnifiedSimulator(model_config)
-        
+
         # Run simulation with flexible interface
         results = simulator.simulate(
             inputs=self.p_and_e,
             warmup_length=self.warmup_length,
-            is_event_data=self.is_event_data
+            is_event_data=self.is_event_data,
         )
-        
+
         return results["simulation"]
 
     def _params_array_to_dict(self, params: np.ndarray) -> Dict[str, Any]:
         """
         Convert parameter array from optimizer to parameter dictionary format.
-        
+
         Parameters
         ----------
         params : np.ndarray
             Parameter values from optimizer
-            
+
         Returns
         -------
         Dict[str, Any]
@@ -246,32 +246,36 @@ class UnifiedModelSetup(ModelSetupBase):
             thresholds = self.model_config.get(
                 "thresholds", {"small_medium": 10.0, "medium_large": 25.0}
             )
-            
-            return {
-                "uh_categories": uh_categories,
-                "thresholds": thresholds
-            }
-            
+
+            return {"uh_categories": uh_categories, "thresholds": thresholds}
+
         else:
             # Traditional models (XAJ, GR series, etc.)
             # Convert parameter array to named parameter dictionary
-            if hasattr(self, 'param_range') and self.param_range:
+            if hasattr(self, "param_range") and self.param_range:
                 # Use parameter range to denormalize parameters
                 param_info = self.param_range[self.model_name]
                 param_names = param_info["param_name"]
                 param_bounds = param_info["param_range"]
-                
+
                 # Denormalize parameters from [0,1] to actual ranges
                 param_dict = {}
-                for i, (name, bounds) in enumerate(zip(param_names, param_bounds)):
+                for i, (name, bounds) in enumerate(
+                    zip(param_names, param_bounds)
+                ):
                     min_val, max_val = bounds
                     # params[i] is in [0,1], scale to [min_val, max_val]
-                    param_dict[name] = min_val + params[i] * (max_val - min_val)
-                    
+                    param_dict[name] = min_val + params[i] * (
+                        max_val - min_val
+                    )
+
                 return param_dict
             else:
                 # Fallback: use parameter names directly
-                return {name: value for name, value in zip(self.parameter_names, params)}
+                return {
+                    name: value
+                    for name, value in zip(self.parameter_names, params)
+                }
 
     # Event data simulation is now handled by UnifiedSimulator
 

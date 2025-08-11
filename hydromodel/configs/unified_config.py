@@ -107,9 +107,9 @@ class UnifiedConfig:
             "basin_ids": [],
             "warmup_length": 365,
             "time_periods": {
-                "overall": ["2014-10-01", "2021-09-30"],
-                "calibration": ["2014-10-01", "2019-09-30"],
-                "testing": ["2019-10-01", "2021-09-30"],
+                "overall": ["1990-10-01", "2000-09-30"],
+                "calibration": ["1990-10-01", "1995-09-30"],
+                "testing": ["1995-10-01", "2000-09-30"],
             },
             "variables": ["prcp", "PET", "streamflow"],
             "time_unit": ["1D"],
@@ -286,10 +286,6 @@ class UnifiedConfig:
                     base_dict[key] = value
 
         deep_update(self.config, updates)
-
-    def get_full_config(self) -> Dict:
-        """Get the complete configuration dictionary."""
-        return self.config
 
     def __str__(self) -> str:
         """String representation of configuration."""

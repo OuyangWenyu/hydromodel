@@ -1,4 +1,3 @@
-
 """
 Author: Wenyu Ouyang
 Date: 2024-08-14 16:34:32
@@ -14,7 +13,12 @@ from hydrodatasource.reader.data_source import SelfMadeHydroDataset
 
 # Import new unified data loader
 try:
-    from .unified_data_loader import UnifiedDataLoader, create_data_loader, load_data_from_config
+    from .unified_data_loader import (
+        UnifiedDataLoader,
+        create_data_loader,
+        load_data_from_config,
+    )
+
     UNIFIED_LOADER_AVAILABLE = True
 except ImportError:
     UNIFIED_LOADER_AVAILABLE = False
@@ -33,14 +37,14 @@ POSSIBLE_TIME_FORMATS = [
     "%Y-%m-%d %H:%M",  # 年/月/日 小时:分钟
     "%Y/%m/%d %H:%M",  # 年/月/日 小时:分钟
     "%Y-%m-%d",  # 只有日期
-    "%Y/%m/%d",   # 年/月/日
+    "%Y/%m/%d",  # 年/月/日
     "%d/%m/%Y",  # 不同的日期格式
     # ... 可以根据需要添加更多格式 ...
 ]
 ID_NAME = "id"
 NAME_NAME = "name"
-CODE_NAME = "编码" # 视站点shapefile不同，可以换成STCD、ID等字段
-STTYPE_NAME = "类型" # 视站点shapefile不同，可以换成sttype、STTP等字段
+CODE_NAME = "编码"  # 视站点shapefile不同，可以换成STCD、ID等字段
+STTYPE_NAME = "类型"  # 视站点shapefile不同，可以换成sttype、STTP等字段
 
 
 def remove_unit_from_name(name_with_unit):
@@ -74,7 +78,11 @@ def get_unit_from_name(name_with_unit):
     str
         The unit of the variable, e.g., "mm/day".
     """
-    return name_with_unit.split("(")[1].strip(")") if "(" in name_with_unit else ""
+    return (
+        name_with_unit.split("(")[1].strip(")")
+        if "(" in name_with_unit
+        else ""
+    )
 
 
 datasource_dict = {

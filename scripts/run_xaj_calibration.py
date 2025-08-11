@@ -40,10 +40,13 @@ Algorithm Types Supported:
 
 Usage Examples:
   # Basic XAJ calibration with default settings
-  python run_xaj_calibration_unified.py --model-type xaj_mz --algorithm SCE_UA
+  python run_xaj_calibration.py --model-type xaj_mz --algorithm SCE_UA
+
+  # XAJ calibration with custom time periods
+  python run_xaj_calibration.py --model-type xaj_mz --algorithm SCE_UA --train-period 1990-10-01 1995-09-30 --test-period 1995-10-01 2000-09-30
 
   # Configuration file approach (recommended)
-  python run_xaj_calibration_unified.py --config config.yaml
+  python run_xaj_calibration.py --config config.yaml
         """,
     )
 
@@ -71,6 +74,13 @@ Usage Examples:
     )
 
     parser.add_argument(
+        "--dataset-name",
+        type=str,
+        default="camelsus",
+        help="Dataset name for CAMELS data (default: camelsus)",
+    )
+
+    parser.add_argument(
         "--basin-ids",
         nargs="+",
         default=["01013500"],
@@ -82,6 +92,21 @@ Usage Examples:
         nargs="+",
         default=["prcp", "PET", "streamflow"],
         help="Variables to calibrate (default: prcp, PET, streamflow)",
+    )
+
+    # Time range configuration
+    parser.add_argument(
+        "--train-period",
+        nargs=2,
+        default=["1990-10-01", "1995-09-30"],
+        help="Training period as start and end dates (default: 1990-10-01 1995-09-30)",
+    )
+
+    parser.add_argument(
+        "--test-period",
+        nargs=2,
+        default=["1995-10-01", "2000-09-30"],
+        help="Testing period as start and end dates (default: 1995-10-01 2000-09-30)",
     )
 
     parser.add_argument(

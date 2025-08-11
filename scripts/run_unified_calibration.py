@@ -68,6 +68,13 @@ Usage Examples:
     )
 
     parser.add_argument(
+        "--dataset-name",
+        type=str,
+        default="songliaorrevents",
+        help="Name of flood event dataset (default: songliaorrevents)",
+    )
+
+    parser.add_argument(
         "--station-id",
         type=str,
         default="songliao_21401550",
@@ -222,6 +229,13 @@ Usage Examples:
     )
 
     parser.add_argument(
+        "--time-unit",
+        type=str,
+        default="3h",
+        help="Time unit for data (default: 3h)",
+    )
+
+    parser.add_argument(
         "--quiet", "-q", action="store_true", help="Quiet mode"
     )
 
@@ -373,9 +387,12 @@ def main():
         print("-" * 80)
 
     # Load data
+    # Ensure time_unit is a list
+    time_unit = [args.time_unit] if isinstance(args.time_unit, str) else args.time_unit
+    
     dataset = FloodEventDatasource(
         args.data_path,
-        time_unit=["3h"],
+        time_unit=time_unit,
         trange4cache=["1960-01-01 02", "2024-12-31 23"],
         warmup_length=args.warmup_length,
     )

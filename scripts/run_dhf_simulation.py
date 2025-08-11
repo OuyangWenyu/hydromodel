@@ -33,55 +33,36 @@ from hydromodel.core.unified_simulate import (
     _simulate_with_config,
 )
 from hydromodel.configs.config_manager import ConfigManager
+from hydromodel.configs.script_utils import ScriptUtils
 
 
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="DHF (大伙房) Model Simulation using New Flexible Architecture",
+        description="DHF (大伙房) Model Simulation using Latest Unified Architecture",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-DHF Model Features:
-  - 22 parameters for comprehensive watershed simulation
-  - Dual-layer runoff generation (surface and subsurface)
-  - Complex routing with surface and groundwater components
-  - Designed for Chinese watershed conditions
+DHF Model Types Supported:
+  - dhf: 22-parameter Chinese watershed model with dual-layer runoff generation
 
 Data Source Types:
-  - csv_json: CSV time series data + JSON parameter files
+  - csv_json: CSV time series data + JSON parameter files (recommended for DHF)
   - selfmadehydrodataset: Custom hydrological datasets
   - floodevent: Event-based data
 
 Usage Examples:
-  # Use CSV data and JSON parameters (recommended for DHF)
-  python run_unified_simulation.py --data-path /path/to/dhf.csv --params-file /path/to/dhf_params.json
-  
-  # Use configuration file
-  python run_unified_simulation.py --config simulate_dhf_example.yaml
-  
-  # Quick test with default parameters
-  python run_unified_simulation.py --model dhf --data-path /path/to/data --basin-id basin_001
+  # Basic DHF simulation with default settings
+  python run_dhf_simulation.py --model-type dhf --data-path /path/to/data
+
+  # Configuration file approach (recommended)
+  python run_dhf_simulation.py --config config.yaml
         """,
     )
 
-    # Configuration file option
-    parser.add_argument(
-        "--config",
-        "-c",
-        type=str,
-        default=None,
-        help="Configuration file path (YAML format). If provided, overrides other arguments.",
-    )
+    # Add common arguments
+    ScriptUtils.add_common_arguments(parser)
 
-    # Quick setup options
-    parser.add_argument(
-        "--model",
-        type=str,
-        default="dhf",
-        choices=["dhf"],
-        help="Model type - fixed to DHF (大伙房) model",
-    )
-
+    # DHF-specific arguments
     parser.add_argument(
         "--data-source-type",
         type=str,
@@ -91,10 +72,17 @@ Usage Examples:
     )
 
     parser.add_argument(
-        "--data-path",
+        "--data-source-path",
         type=str,
         default=None,
-        help="Data directory path",
+        help="Data directory path (uses default if not specified)",
+    )
+
+    parser.add_argument(
+        "--dataset-name",
+        type=str,
+        default="dhf_simulation_data",
+        help="Dataset name for DHF simulation (default: dhf_simulation_data)",
     )
 
     parser.add_argument(
@@ -105,10 +93,32 @@ Usage Examples:
     )
 
     parser.add_argument(
+        "--variables",
+        nargs="+",
+        default=["prcp", "PET", "streamflow"],
+        help="Variables for simulation (default: prcp, PET, streamflow)",
+    )
+
+    parser.add_argument(
+        "--model-type",
+        type=str,
+        default="dhf",
+        choices=["dhf"],
+        help="DHF model type (default: dhf)",
+    )
+
+    parser.add_argument(
         "--warmup-length",
         type=int,
         default=30,
         help="Warmup period length in time steps (default: 30 for DHF)",
+    )
+
+    parser.add_argument(
+        "--time-unit",
+        type=str,
+        default="1d",
+        help="Time unit for data (default: 1d for daily DHF model)",
     )
 
     # Parameter input methods
@@ -126,21 +136,6 @@ Usage Examples:
         help="Use parameters from calibration results file",
     )
 
-    # Output configuration
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default="results/simulations",
-        help="Output directory (default: results/simulations)",
-    )
-
-    parser.add_argument(
-        "--experiment-name",
-        type=str,
-        default=None,
-        help="Experiment name (auto-generated if not provided)",
-    )
-
     parser.add_argument(
         "--save-results",
         action="store_true",
@@ -153,12 +148,24 @@ Usage Examples:
         help="Generate simulation plots",
     )
 
-    # Other options
+    parser.add_argument(
+        "--random-seed",
+        type=int,
+        default=1234,
+        help="Random seed for reproducibility (default: 1234)",
+    )
+
     parser.add_argument(
         "--quiet",
         "-q",
         action="store_true",
         help="Quiet mode - minimal output",
+    )
+
+    parser.add_argument(
+        "--save-config",
+        action="store_true",
+        help="Save configuration to file after run",
     )
 
     return parser.parse_args()
@@ -360,128 +367,96 @@ def main():
     verbose = not args.quiet
 
     try:
-        # Load configuration using ConfigManager
-        if verbose:
-            if args.config:
-                print(f"Loading configuration from: {args.config}")
-            else:
-                print("Creating configuration from command line arguments")
+        # Setup configuration using unified workflow
+        # Ensure correct model defaults for quick setup
+        if not getattr(args, "model_type", None) and not getattr(
+            args, "model", None
+        ):
+            args.model = "dhf"
 
-        # Add parameter handling to args namespace for ConfigManager
+        # Add parameter handling to args namespace before config setup
         if args.params_file:
             parameters = load_parameters_from_file(args.params_file)
             args.model_parameters = parameters
         elif args.calibration_results:
             basin_id = args.basin_ids[0] if args.basin_ids else None
             parameters = load_parameters_from_calibration(
-                args.calibration_results, args.model, basin_id
+                args.calibration_results, getattr(args, "model_type", "dhf"), basin_id
             )
             args.model_parameters = parameters
         else:
             # Use default parameters
-            parameters = get_default_parameters(args.model)
+            parameters = get_default_parameters(getattr(args, "model_type", "dhf"))
             if not parameters:
                 raise ValueError(
-                    f"No default parameters available for model {args.model}. "
+                    f"No default parameters available for DHF model. "
                     "Please provide --params-file or --calibration-results"
                 )
             args.model_parameters = parameters
 
-        config = ConfigManager.create_simulation_config(
-            config_file=args.config, args=args
-        )
+        config = ScriptUtils.setup_configuration(args)
+        if config is None:
+            return 1
 
-        # Print configuration summary
+        # Apply overrides
+        ScriptUtils.apply_overrides(config, args.override)
+
+        # Apply command line overrides for output settings
+        if args.output_dir:
+            config["training_cfgs"]["output_dir"] = args.output_dir
+        if args.experiment_name:
+            config["training_cfgs"]["experiment_name"] = args.experiment_name
+
+        # Validate configuration
+        if not ScriptUtils.validate_and_show_config(
+            config, verbose, "DHF Model"
+        ):
+            return 1
+
+        if args.dry_run:
+            print("\n🔍 Dry run completed - configuration is valid")
+            return 0
+
+        # Run DHF simulation using unified interface
         if verbose:
-            print("\n" + "=" * 60)
-            print("UNIFIED MODEL SIMULATION")
-            print("=" * 60)
+            print("\n🚀 Starting DHF model simulation with unified architecture...")
+            print("📦 Using unified simulate interface")
+            print("DHF Model: 22-parameter Chinese watershed model with dual-layer runoff")
 
-            data_cfg = config["data_cfgs"]
-            model_cfg = config["model_cfgs"]
-
-            print(f"Data Source: {data_cfg['data_source_type']}")
-            print(f"Data Path: {data_cfg.get('data_source_path', 'default')}")
-            print(f"Basins: {', '.join(data_cfg['basin_ids'])}")
-            print(f"Model: {model_cfg['model_name']} (DHF - 大伙房水文模型)")
-            print(
-                f"Parameters: {len(model_cfg['parameters'])} DHF parameters specified (22 expected)"
-            )
-
-        # Run DHF simulation using NEW flexible unified interface
-        if verbose:
-            print(
-                f"\nStarting DHF model simulation with new flexible architecture..."
-            )
-            print(f"Using: UnifiedSimulator + flexible simulate interface")
-            print(
-                f"DHF Model: 22-parameter Chinese watershed model with dual-layer runoff"
-            )
-
-        # NEW FLEXIBLE APPROACH: separate model config and data loading
-        # 1. Extract model configuration
-        model_config = config["model_cfgs"]
-
-        # 2. Create DHF simulator instance (one-time initialization)
-        simulator = UnifiedSimulator(model_config)
-
-        # 3. Load data using traditional config (for backward compatibility)
-        if verbose:
-            print("Loading DHF model data...")
-            print(f"Parameters: 22 DHF parameters loaded")
-            print(
-                f"Data format: precipitation + evapotranspiration time series"
-            )
-
-        # Use the backward-compatible helper to load data
+        # Use the unified simulation interface
         results = _simulate_with_config(config)
-
-        if verbose:
-            print("DHF simulation completed using new flexible architecture!")
-            print(
-                f"Benefits: DHF model initialized once, multiple datasets can be run"
-            )
-            print(
-                f"Model components: runoff generation + surface/groundwater routing"
-            )
 
         # Process and display results
         print_results_summary(results, config, verbose)
 
         # Save results if requested
-        simulation_cfg = config.get("simulation_cfgs", {})
-        if simulation_cfg.get("save_results", False):
+        if args.save_results or config.get("simulation_cfgs", {}).get("save_results", False):
             output_dir = os.path.join(
-                simulation_cfg.get("output_dir", "results/simulations"),
-                simulation_cfg.get("experiment_name", "simulation"),
+                config.get("training_cfgs", {}).get("output_dir", "results/simulations"),
+                config.get("training_cfgs", {}).get("experiment_name", "dhf_simulation"),
             )
             save_simulation_results(results, config, output_dir)
 
-        if verbose:
-            print(f"\nDHF SIMULATION COMPLETED SUCCESSFULLY!")
-            print(
-                f"Used NEW flexible architecture: UnifiedSimulator + flexible simulate()"
+        # Save configuration file if requested
+        if args.save_config:
+            training_cfgs = config.get("training_cfgs", {})
+            output_dir = os.path.join(
+                training_cfgs.get("output_dir", "results"),
+                training_cfgs.get("experiment_name", "experiment"),
             )
-            print(
-                f"Model: {config['model_cfgs']['model_name']} (大伙房水文模型)"
+            config_output_path = os.path.join(
+                output_dir, "dhf_simulation_config.yaml"
             )
-            print(
-                f"Parameters: 22 DHF parameters for comprehensive watershed simulation"
-            )
-            print(
-                f"Architecture: DHF model config separated from data input for maximum flexibility"
-            )
-            print(
-                f"Key advantage: Same DHF model can now run different datasets without reinitialization"
-            )
+            ScriptUtils.save_config_file(config, config_output_path)
 
+        ScriptUtils.print_completion_message(config, "DHF simulation")
         return 0
 
     except KeyboardInterrupt:
-        print("\nSimulation interrupted by user")
+        print("\n👋 Simulation interrupted by user")
         return 1
     except Exception as e:
-        print(f"\nERROR: Simulation failed: {e}")
+        print(f"\n❌ ERROR: Simulation failed: {e}")
         if verbose:
             import traceback
 

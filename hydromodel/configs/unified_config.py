@@ -130,22 +130,52 @@ class UnifiedConfig:
 
     def _set_model_defaults(self):
         """Set default values for model configuration."""
-        model_defaults = {
-            "model_name": "xaj_mz",
-            "model_params": {
-                # XAJ specific parameters
+        # Set basic model defaults
+        if "model_name" not in self.config["model_cfgs"]:
+            self.config["model_cfgs"]["model_name"] = "xaj_mz"
+            
+        if "model_params" not in self.config["model_cfgs"]:
+            self.config["model_cfgs"]["model_params"] = {}
+            
+        # Set model-specific parameter defaults based on model type
+        model_name = self.config["model_cfgs"]["model_name"]
+        self._set_model_specific_defaults(model_name)
+
+    def _set_model_specific_defaults(self, model_name: str):
+        """Set model-specific default parameters."""
+        model_params = self.config["model_cfgs"]["model_params"]
+        
+        if model_name in ["xaj", "xaj_mz"]:
+            # XAJ specific parameters
+            xaj_defaults = {
                 "source_type": "sources",
-                "source_book": "HF",
+                "source_book": "HF", 
                 "kernel_size": 15,
                 "time_interval_hours": 24,
-                # Unit Hydrograph specific parameters
+            }
+            for key, value in xaj_defaults.items():
+                if key not in model_params:
+                    model_params[key] = value
+                    
+        elif model_name == "unit_hydrograph":
+            # Unit Hydrograph specific parameters
+            uh_defaults = {
                 "n_uh": 24,
                 "smoothing_factor": 0.1,
                 "peak_violation_weight": 10000.0,
                 "apply_peak_penalty": True,
                 "net_rain_name": "P_eff",
                 "obs_flow_name": "Q_obs_eff",
-                # Categorized UH specific parameters
+            }
+            for key, value in uh_defaults.items():
+                if key not in model_params:
+                    model_params[key] = value
+                    
+        elif model_name == "categorized_unit_hydrograph":
+            # Categorized UH specific parameters  
+            cuh_defaults = {
+                "net_rain_name": "P_eff",
+                "obs_flow_name": "Q_obs_eff",
                 "category_weights": {
                     "small": {
                         "smoothing_factor": 0.1,
@@ -161,46 +191,81 @@ class UnifiedConfig:
                     },
                 },
                 "uh_lengths": {"small": 8, "medium": 16, "large": 24},
-            },
-        }
-
-        for key, value in model_defaults.items():
-            if key not in self.config["model_cfgs"]:
-                self.config["model_cfgs"][key] = value
+            }
+            for key, value in cuh_defaults.items():
+                if key not in model_params:
+                    model_params[key] = value
+                    
+        elif model_name == "dhf":
+            # DHF model typically loads parameters from files, minimal defaults
+            pass
+            
+        # No defaults for unknown model types - let them be specified via args or config
 
     def _set_training_defaults(self):
         """Set default values for training/calibration configuration."""
+        # Set basic training defaults
         training_defaults = {
             "algorithm_name": "SCE_UA",
-            "algorithm_params": {
-                # SCE-UA parameters
+            "loss_config": {"type": "time_series", "obj_func": "RMSE"},
+            "param_range_file": None,
+            "output_dir": "results", 
+            "experiment_name": "hydromodel_experiment",
+        }
+        
+        for key, value in training_defaults.items():
+            if key not in self.config["training_cfgs"]:
+                self.config["training_cfgs"][key] = value
+                
+        # Set algorithm-specific parameter defaults
+        if "algorithm_params" not in self.config["training_cfgs"]:
+            self.config["training_cfgs"]["algorithm_params"] = {}
+            
+        algorithm_name = self.config["training_cfgs"]["algorithm_name"]
+        self._set_algorithm_specific_defaults(algorithm_name)
+
+    def _set_algorithm_specific_defaults(self, algorithm_name: str):
+        """Set algorithm-specific default parameters."""
+        algo_params = self.config["training_cfgs"]["algorithm_params"]
+        
+        if algorithm_name == "SCE_UA":
+            # SCE-UA specific parameters
+            sceua_defaults = {
                 "random_seed": 1234,
                 "rep": 1000,
                 "ngs": 1000,
                 "kstop": 50,
                 "peps": 0.1,
                 "pcento": 0.1,
-                # Genetic Algorithm parameters
+            }
+            for key, value in sceua_defaults.items():
+                if key not in algo_params:
+                    algo_params[key] = value
+                    
+        elif algorithm_name == "genetic_algorithm":
+            # Genetic Algorithm specific parameters
+            ga_defaults = {
+                "random_seed": 1234,
                 "pop_size": 80,
                 "n_generations": 50,
                 "cx_prob": 0.7,
                 "mut_prob": 0.2,
                 "save_freq": 5,
-                # Scipy parameters
+            }
+            for key, value in ga_defaults.items():
+                if key not in algo_params:
+                    algo_params[key] = value
+                    
+        elif algorithm_name == "scipy_minimize":
+            # SciPy optimization specific parameters
+            scipy_defaults = {
+                "random_seed": 1234,
                 "method": "SLSQP",
                 "max_iterations": 500,
-            },
-            # Loss function configuration (training objective)
-            "loss_config": {"type": "time_series", "obj_func": "RMSE"},
-            # Parameter range file for traditional models
-            "param_range_file": None,
-            "output_dir": "results",
-            "experiment_name": "hydromodel_experiment",
-        }
-
-        for key, value in training_defaults.items():
-            if key not in self.config["training_cfgs"]:
-                self.config["training_cfgs"][key] = value
+            }
+            for key, value in scipy_defaults.items():
+                if key not in algo_params:
+                    algo_params[key] = value
 
     def _set_evaluation_defaults(self):
         """Set default values for evaluation configuration."""
@@ -285,7 +350,33 @@ class UnifiedConfig:
                 else:
                     base_dict[key] = value
 
+        # Store old names to check if they changed
+        old_model_name = self.config.get("model_cfgs", {}).get("model_name")
+        old_algorithm_name = self.config.get("training_cfgs", {}).get("algorithm_name")
+        
         deep_update(self.config, updates)
+        
+        # If model name changed, reapply model-specific defaults
+        new_model_name = self.config.get("model_cfgs", {}).get("model_name")
+        if old_model_name != new_model_name and new_model_name:
+            # Clear existing model_params to avoid mixing
+            self.config["model_cfgs"]["model_params"] = {}
+            # Reapply model-specific defaults
+            self._set_model_specific_defaults(new_model_name)
+            # Reapply updates to model_params if they exist in updates
+            if "model_cfgs" in updates and "model_params" in updates["model_cfgs"]:
+                deep_update(self.config["model_cfgs"]["model_params"], updates["model_cfgs"]["model_params"])
+        
+        # If algorithm name changed, reapply algorithm-specific defaults
+        new_algorithm_name = self.config.get("training_cfgs", {}).get("algorithm_name")
+        if old_algorithm_name != new_algorithm_name and new_algorithm_name:
+            # Clear existing algorithm_params to avoid mixing
+            self.config["training_cfgs"]["algorithm_params"] = {}
+            # Reapply algorithm-specific defaults
+            self._set_algorithm_specific_defaults(new_algorithm_name)
+            # Reapply updates to algorithm_params if they exist in updates
+            if "training_cfgs" in updates and "algorithm_params" in updates["training_cfgs"]:
+                deep_update(self.config["training_cfgs"]["algorithm_params"], updates["training_cfgs"]["algorithm_params"])
 
     def __str__(self) -> str:
         """String representation of configuration."""

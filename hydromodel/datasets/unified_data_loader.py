@@ -9,10 +9,13 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
 import os
+import re
 import numpy as np
 import xarray as xr
 from typing import Dict, List, Optional, Union, Tuple, Any
 from pathlib import Path
+
+from hydrodatasource.utils.utils import streamflow_unit_conv
 
 # Import different datasource types
 try:
@@ -154,8 +157,8 @@ class UnifiedDataLoader:
         -------
         Tuple[np.ndarray, np.ndarray]
             (p_and_e, qobs) tuple where:
-            - p_and_e: Precipitation and PET data [time, basin, features=2]
-            - qobs: Observed streamflow [time, basin, features=1]
+            - p_and_e: Precipitation and PET data [basin, time, features=2]
+            - qobs: Observed streamflow [basin, time, features=1]
         """
         # Use read_ts_xrdataset as the unified interface
         ts_data = self.datasource.read_ts_xrdataset(
@@ -174,6 +177,9 @@ class UnifiedDataLoader:
             # Single xarray dataset
             xr_dataset = ts_data
 
+        # Check and convert units before converting to standard format
+        xr_dataset = self._check_and_convert_units(xr_dataset)
+        
         # Convert to standard (p_and_e, qobs) format
         return self._convert_xr_to_standard_format(xr_dataset)
 
@@ -222,17 +228,17 @@ class UnifiedDataLoader:
             )
 
         # For event data, we typically only have net rain, not separate P and PET
-        # So we create a dummy PET array of zeros
-        net_rain = xr_dataset[net_rain_key].values  # [time, basin]
-        obs_flow = xr_dataset[obs_flow_key].values  # [time, basin]
+        # Extract data with explicit dimension order [time, basin]
+        net_rain = xr_dataset[net_rain_key].transpose('time', 'basin').values
+        obs_flow = xr_dataset[obs_flow_key].transpose('time', 'basin').values
 
         # Create dummy PET (zeros) to maintain the standard format
         dummy_pet = np.zeros_like(net_rain)
 
-        # Stack P and E: [time, basin, features=2]
+        # Stack P and E: [basin, time, features=2]
         p_and_e = np.stack([net_rain, dummy_pet], axis=2)
 
-        # Expand qobs: [time, basin, features=1]
+        # Expand qobs: [basin, time, features=1]
         qobs = np.expand_dims(obs_flow, axis=2)
 
         return p_and_e, qobs
@@ -262,15 +268,15 @@ class UnifiedDataLoader:
                 f"Could not find required variables in dataset. Available: {list(xr_dataset.data_vars)}"
             )
 
-        # Extract data
-        prcp = xr_dataset[prcp_var].values
-        pet = xr_dataset[pet_var].values
-        flow = xr_dataset[flow_var].values
-
-        # Stack P and E: [time, basin, features=2]
+        # Extract data with explicit dimension order [time, basin]
+        prcp = xr_dataset[prcp_var].transpose('time', 'basin').values
+        pet = xr_dataset[pet_var].transpose('time', 'basin').values
+        flow = xr_dataset[flow_var].transpose('time', 'basin').values
+        
+        # Stack P and E: [basin, time, features=2]
         p_and_e = np.stack([prcp, pet], axis=2)
 
-        # Expand qobs: [time, basin, features=1]
+        # Expand qobs: [basin, time, features=1]
         qobs = np.expand_dims(flow, axis=2)
 
         return p_and_e, qobs
@@ -283,6 +289,90 @@ class UnifiedDataLoader:
             if name in xr_dataset.data_vars:
                 return name
         return None
+
+    def _check_and_convert_units(self, xr_dataset: xr.Dataset) -> xr.Dataset:
+        """
+        Check units between precipitation and streamflow data and convert if necessary.
+        
+        This function ensures that precipitation and streamflow data have consistent units
+        before performing hydrological modeling calculations.
+        
+        Parameters
+        ----------
+        xr_dataset : xr.Dataset
+            Input xarray dataset containing hydrological variables
+            
+        Returns
+        -------
+        xr.Dataset
+            Dataset with consistent units between precipitation and streamflow
+        """
+        def standardize_unit(unit):
+            """Standardize unit strings for comparison."""
+            unit = unit.lower()  # convert to lower case
+            unit = re.sub(r"day", "d", unit)
+            unit = re.sub(r"hour", "h", unit)
+            return unit
+
+        if self.data_type == "floodevent":
+            # For flood event data, check net rain and observed flow units
+            net_rain_key = self.config.get("net_rain_key", "P_eff")
+            obs_flow_key = self.config.get("obs_flow_key", "Q_obs_eff")
+            
+            if net_rain_key in xr_dataset.data_vars and obs_flow_key in xr_dataset.data_vars:
+                # Get units from attributes
+                net_rain_unit = xr_dataset[net_rain_key].attrs.get("units", "mm/d")
+                obs_flow_unit = xr_dataset[obs_flow_key].attrs.get("units", "mm/d")
+                
+                # Standardize units for comparison
+                standardized_rain_unit = standardize_unit(net_rain_unit)
+                standardized_flow_unit = standardize_unit(obs_flow_unit)
+                
+                if standardized_rain_unit != standardized_flow_unit:
+                    # Convert streamflow to match precipitation unit
+                    if hasattr(self.datasource, 'read_area'):
+                        basin_areas = self.datasource.read_area(self.basin_ids)
+                        obs_flow_dataset = xr_dataset[[obs_flow_key]]
+                        converted_flow_dataset = streamflow_unit_conv(
+                            obs_flow_dataset, basin_areas, target_unit=net_rain_unit
+                        )
+                        xr_dataset[obs_flow_key] = converted_flow_dataset[obs_flow_key]
+                    else:
+                        print(f"Warning: Cannot convert units - datasource doesn't support read_area()")
+                        print(f"Precipitation unit: {net_rain_unit}, Flow unit: {obs_flow_unit}")
+        else:
+            # For continuous data, check precipitation and streamflow units
+            var_mapping = {
+                "prcp": ["prcp", "precipitation", "P"],
+                "flow": ["streamflow", "flow", "Q", "discharge"],
+            }
+            
+            prcp_var = self._find_variable_name(xr_dataset, var_mapping["prcp"])
+            flow_var = self._find_variable_name(xr_dataset, var_mapping["flow"])
+            
+            if prcp_var and flow_var:
+                # Get units from attributes
+                prcp_unit = xr_dataset[prcp_var].attrs.get("units", "mm/d")
+                flow_unit = xr_dataset[flow_var].attrs.get("units", "m3/s")
+                
+                # Standardize units for comparison
+                standardized_prcp_unit = standardize_unit(prcp_unit)
+                standardized_flow_unit = standardize_unit(flow_unit)
+                
+                if standardized_prcp_unit != standardized_flow_unit:
+                    # Convert streamflow to match precipitation unit
+                    if hasattr(self.datasource, 'read_area'):
+                        basin_areas = self.datasource.read_area(self.basin_ids)
+                        flow_dataset = xr_dataset[[flow_var]]
+                        converted_flow_dataset = streamflow_unit_conv(
+                            flow_dataset, basin_areas, target_unit=prcp_unit
+                        )
+                        xr_dataset[flow_var] = converted_flow_dataset[flow_var]
+                    else:
+                        print(f"Warning: Cannot convert units - datasource doesn't support read_area()")
+                        print(f"Precipitation unit: {prcp_unit}, Flow unit: {flow_unit}")
+        
+        return xr_dataset
 
     def get_event_metadata(self) -> Optional[Dict[str, Any]]:
         """

@@ -12,187 +12,244 @@ import os
 import sys
 import argparse
 from pathlib import Path
- 
 
 # Add hydromodel to path
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 
+from hydromodel import SETTING
 from hydromodel.configs.config_manager import ConfigManager
 from hydromodel.configs.script_utils import ScriptUtils
 from hydromodel.trainers.unified_calibrate import calibrate
 from hydromodel.core.results_manager import results_manager
 
+
 # Optional imports - handle missing dependencies gracefully
- 
-
- 
-
- 
-
-
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
         description="Shared Unit Hydrograph Calibration with Unified Architecture",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Unified Architecture Unit Hydrograph Calibration
+Unit Hydrograph Model Types Supported:
+  - unit_hydrograph: Shared unit hydrograph optimization for flood events
 
-Uses the latest unified calibrate(config) interface with ConfigManager.
+Algorithm Types Supported:
+  - scipy_minimize: SciPy optimization methods (default)
+  - SCE_UA: Shuffled Complex Evolution via spotpy
+  - genetic_algorithm: Genetic algorithm via DEAP (if installed)
 
-Configuration File Mode:
-  python run_shared_uh_optimization.py --config configs/unit_hydrograph_config.yaml
+Usage Examples:
+  # Basic UH calibration with default settings
+  python run_shared_uh_optimization.py --model-type unit_hydrograph --algorithm scipy_minimize
 
-Quick Setup Mode:
-  python run_shared_uh_optimization.py --quick-setup --station-id songliao_21401550 --algorithm scipy_minimize
-
-Create Configuration Template:
-  python run_shared_uh_optimization.py --create-template my_uh_config.yaml
-
-Advanced Usage:
-  # Override specific parameters
-  python run_shared_uh_optimization.py --config my_config.yaml --override model_cfgs.model_params.n_uh=32
+  # Configuration file approach (recommended)
+  python run_shared_uh_optimization.py --config config.yaml
         """,
     )
 
     # Add common arguments
     ScriptUtils.add_common_arguments(parser)
 
-    # Add unit hydrograph specific arguments
+    # Unit hydrograph specific arguments
+    parser.add_argument(
+        "--data-source-type",
+        type=str,
+        default="floodevent",
+        choices=["floodevent", "selfmadehydrodataset", "camels"],
+        help="Dataset type (default: floodevent)",
+    )
+
+    parser.add_argument(
+        "--data-source-path",
+        type=str,
+        default=os.path.join(SETTING["local_data_path"]["datasets-interim"], "songliaorrevent"),
+        help="Data directory path (uses default if not specified)",
+    )
+
+    parser.add_argument(
+        "--dataset-name",
+        type=str,
+        default="songliaorrevents",
+        help="Name of songliao flood event dataset (default: songliaorrevents)",
+    )
+
+    parser.add_argument(
+        "--basin-ids",
+        nargs="+",
+        default=["songliao_21401550"],
+        help="Basin IDs to calibrate (default: songliao_21401550)",
+    )
+
+    parser.add_argument(
+        "--variables",
+        nargs="+",
+        default=["P_eff", "Q_obs_eff"],
+        help="Variables to calibrate (default: P_eff, Q_obs_eff)",
+    )
+
+    parser.add_argument(
+        "--model-type",
+        type=str,
+        default="unit_hydrograph",
+        choices=["unit_hydrograph"],
+        help="Unit hydrograph model type (default: unit_hydrograph)",
+    )
+
+    # Unit hydrograph specific parameters
     parser.add_argument(
         "--n-uh",
         type=int,
         default=24,
-        help="Unit hydrograph length (quick setup mode)",
+        help="Unit hydrograph length (default: 24)",
     )
 
-    return parser.parse_args()
+    parser.add_argument(
+        "--smoothing-factor",
+        type=float,
+        default=0.1,
+        help="Smoothing factor for unit hydrograph (default: 0.1)",
+    )
+
+    parser.add_argument(
+        "--peak-violation-weight",
+        type=float,
+        default=10000.0,
+        help="Peak violation penalty weight (default: 10000.0)",
+    )
+
+    # Algorithm-specific parameters
+    parser.add_argument(
+        "--scipy-method",
+        type=str,
+        default="SLSQP",
+        help="SciPy optimization method (default: SLSQP)",
+    )
+
+    parser.add_argument(
+        "--max-iterations",
+        type=int,
+        default=500,
+        help="Maximum iterations for scipy (default: 500)",
+    )
+
+    parser.add_argument(
+        "--obj-func",
+        type=str,
+        default="RMSE",
+        choices=["RMSE", "NSE", "KGE"],
+        help="Objective function (default: RMSE)",
+    )
+
+    parser.add_argument(
+        "--random-seed",
+        type=int,
+        default=1234,
+        help="Random seed for reproducibility (default: 1234)",
+    )
+
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Quiet mode - minimal output",
+    )
+
+    parser.add_argument(
+        "--save-config",
+        action="store_true",
+        help="Save configuration to file after run",
+    )
+
+    args = parser.parse_args()
+    return args
 
 
-def create_unit_hydrograph_template(template_file: str):
-    """Create a unit hydrograph configuration template"""
-    config = {
-        "data_cfgs": {
-            "data_source_type": "floodevent",
-            "data_source_path": "D:\\data\\waterism\\datasets-interim\\songliaorrevent",
-            "basin_ids": ["songliao_21401550"],
-            "warmup_length": 480,  # 8 hours * 60 minutes / 3 hours for 3h data
-            "variables": ["P_eff", "Q_obs_eff"],
-            "time_range": ["1960-01-01", "2024-12-31"],
-        },
-        "model_cfgs": {
-            "model_name": "unit_hydrograph",
-            "model_params": {
-                "n_uh": 24,
-                "smoothing_factor": 0.1,
-                "peak_violation_weight": 10000.0,
-                "apply_peak_penalty": True,
-                "net_rain_name": "P_eff",
-                "obs_flow_name": "Q_obs_eff",
-            },
-        },
-        "training_cfgs": {
-            "algorithm_name": "scipy_minimize",
-            "algorithm_params": {"method": "SLSQP", "max_iterations": 500},
-            "loss_config": {
-                "type": "event_based",
-                "obj_func": "RMSE",
-            },
-            "output_dir": "results",
-            "experiment_name": "unit_hydrograph_experiment",
-            "random_seed": 1234,
-        },
-        "evaluation_cfgs": {
-            "metrics": [
-                "RMSE",
-                "NSE",
-                "flood_peak_error",
-                "flood_volume_error",
-            ],
-            "save_results": True,
-            "plot_results": True,
-        },
-    }
-
-    ConfigManager.save_config_to_file(config, template_file)
-    return config
-
-
- 
-
-
-def process_results(results, config: dict, args):
+def process_results(results: dict, config: dict, args):
     """Process and display calibration results using unified ResultsManager"""
     # Use the unified results manager
-    _ = results_manager.process_results(results, config, args)
+    processed_results = results_manager.process_results(results, config, args)
 
     # Return processed results for potential further use
     return processed_results
 
 
 def main():
-    """Main function"""
+    """Main execution function"""
     args = parse_arguments()
-
-    # Ensure correct model defaults for quick setup
-    if not getattr(args, "model_type", None) and not getattr(args, "model", None):
-        args.model = "unit_hydrograph"
-
-    # Skip template creation; go straight to default+args config
-
-    # Setup configuration using unified workflow
-    config = ScriptUtils.setup_configuration(
-        args,
-        None,
-        "run_shared_uh_optimization.py",
-        "*unit_hydrograph*.yaml",
-    )
-    if config is None:
-        return
-
-    # Apply overrides
-    ScriptUtils.apply_overrides(config, args.override)
-
-    # Apply command line overrides for output settings
-    if args.output_dir:
-        config["training_cfgs"]["output_dir"] = args.output_dir
-    if args.experiment_name:
-        config["training_cfgs"]["experiment_name"] = args.experiment_name
-
-    # Validate configuration
-    if not ScriptUtils.validate_and_show_config(
-        config, args.verbose, "Unit Hydrograph"
-    ):
-        return
-
-    if args.dry_run:
-        print("\n🔍 Dry run completed - configuration is valid")
-        return
+    verbose = not args.quiet
 
     try:
-        # Note: For unit hydrograph models with flood events, we don't need to
-        # load data separately as the unified calibrate() function handles it
-        print(f"\n🚀 Starting unit hydrograph calibration...")
-        print(f"📦 Using unified calibrate(config) interface")
+        # Setup configuration using unified workflow
+        # Ensure correct model defaults for quick setup
+        if not getattr(args, "model_type", None) and not getattr(
+            args, "model", None
+        ):
+            args.model = "unit_hydrograph"
+
+        config = ScriptUtils.setup_configuration(
+            args,
+        )
+        if config is None:
+            return 1
+
+        # Apply overrides
+        ScriptUtils.apply_overrides(config, args.override)
+
+        # Apply command line overrides for output settings
+        if args.output_dir:
+            config["training_cfgs"]["output_dir"] = args.output_dir
+        if args.experiment_name:
+            config["training_cfgs"]["experiment_name"] = args.experiment_name
+
+        # Validate configuration
+        if not ScriptUtils.validate_and_show_config(
+            config, verbose, "Unit Hydrograph"
+        ):
+            return 1
+
+        if args.dry_run:
+            print("\n🔍 Dry run completed - configuration is valid")
+            return 0
 
         # Run calibration using unified interface
+        if verbose:
+            print("\n🚀 Starting unit hydrograph calibration with unified architecture...")
+            print("📦 Using unified calibrate(config) interface")
+
+        # The new unified calibration call - single function, single parameter!
         results = calibrate(config)
 
-        # Process results using unified ResultsManager
-        processed_results = process_results(results, config, args)
+        # Process and display results using unified ResultsManager
+        _ = process_results(results, config, args)
 
-        ScriptUtils.print_completion_message(
-            config, "unit hydrograph calibration"
-        )
+        # Save configuration file if requested
+        if args.save_config:
+            training_cfgs = config.get("training_cfgs", {})
+            output_dir = os.path.join(
+                training_cfgs.get("output_dir", "results"),
+                training_cfgs.get("experiment_name", "experiment"),
+            )
+            config_output_path = os.path.join(
+                output_dir, "uh_calibration_config.yaml"
+            )
+            ScriptUtils.save_config_file(config, config_output_path)
 
+        ScriptUtils.print_completion_message(config, "Unit Hydrograph calibration")
+        return 0
+
+    except KeyboardInterrupt:
+        print("\n👋 Calibration interrupted by user")
+        return 1
     except Exception as e:
-        print(f"❌ Calibration failed: {e}")
-        if args.verbose:
+        print(f"\n❌ ERROR: Calibration failed: {e}")
+        if verbose:
             import traceback
 
             traceback.print_exc()
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    exit_code = main()
+    sys.exit(exit_code)

@@ -1,10 +1,10 @@
-"""
+r"""
 Author: Wenyu Ouyang
 Date: 2025-08-07
-LastEditTime: 2025-08-08 18:32:55
+LastEditTime: 2025-08-11 17:40:30
 LastEditors: Wenyu Ouyang
 Description: Simplified unified calibration interface for all hydrological models
-FilePath: /hydromodel/hydromodel/trainers/unified_calibrate.py
+FilePath: \hydromodel\hydromodel\trainers\unified_calibrate.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -35,6 +35,7 @@ from hydromodel.models.model_dict import LOSS_DICT, MODEL_DICT
 from hydromodel.configs.unified_config import UnifiedConfig
 from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
 from hydromodel.core.unified_simulate import UnifiedSimulator
+from hydromodel.trainers.calibrate_sceua import SpotSetup
 
 
 class ModelSetupBase(ABC):
@@ -112,7 +113,7 @@ class UnifiedModelSetup(ModelSetupBase):
         self.data_loader = UnifiedDataLoader(data_config)
         self.p_and_e, qobs = self.data_loader.load_data()
 
-        # Store observation data (remove warmup period)
+        # Store observation data (remove warmup period); seq-first data
         self.true_obs = qobs[
             warmup_length:, :, :
         ]  # Remove warmup period from observation
@@ -120,11 +121,8 @@ class UnifiedModelSetup(ModelSetupBase):
         # Store whether this is event data for special handling
         self.is_event_data = self.data_loader.is_event_data()
 
-        # Handle unit hydrograph models with legacy parameter configuration
-        if self.model_name in [
-            "unit_hydrograph",
-            "categorized_unit_hydrograph",
-        ]:
+        # Handle unit hydrograph models vs traditional models
+        if self.model_name in ["unit_hydrograph", "categorized_unit_hydrograph"]:
             self._setup_unit_hydrograph_params()
             # Unit hydrograph models don't need param_range
             self.param_range = {}
@@ -140,9 +138,10 @@ class UnifiedModelSetup(ModelSetupBase):
             "parameters": {},  # Will be filled in during simulation
         }
 
-        # Remove 'name' from model_params if it exists to avoid confusion
-        if "name" in self.base_model_config["model_params"]:
-            del self.base_model_config["model_params"]["name"]
+        # For traditional models, embed the per-model param dict into model_params so simulator forwards it
+        if self.model_name not in ["unit_hydrograph", "categorized_unit_hydrograph"]:
+            if isinstance(self.param_range, dict) and self.model_name in self.param_range:
+                self.base_model_config["model_params"][self.model_name] = self.param_range[self.model_name]
 
         # Create spotpy parameters
         self.params = []
@@ -188,12 +187,38 @@ class UnifiedModelSetup(ModelSetupBase):
 
     def simulate(self, params: np.ndarray) -> np.ndarray:
         """Run model simulation using unified UnifiedSimulator interface."""
-        # Convert parameters array to parameter dictionary
-        parameter_dict = self._params_array_to_dict(params)
+        # Build parameters without denormalization; models will handle scaling using provided param ranges
+        if self.model_name == "unit_hydrograph":
+            params_normalized = params / np.sum(params)
+            parameter_value = {"uh_values": params_normalized.tolist()}
+        elif self.model_name == "categorized_unit_hydrograph":
+            uh_lengths = self.model_config.get(
+                "uh_lengths", {"small": 8, "medium": 16, "large": 24}
+            )
+            uh_categories = {}
+            param_idx = 0
+            for category, length in uh_lengths.items():
+                category_params = params[param_idx : param_idx + length]
+                uh_categories[category] = (
+                    category_params / np.sum(category_params)
+                ).tolist()
+                param_idx += length
+            thresholds = self.model_config.get(
+                "thresholds", {"small_medium": 10.0, "medium_large": 25.0}
+            )
+            parameter_value = {"uh_categories": uh_categories, "thresholds": thresholds}
+        else:
+            # Traditional models: preserve parameter order and keep normalized values in [0,1]
+            from collections import OrderedDict
+
+            ordered_params = OrderedDict(
+                (name, float(params[i])) for i, name in enumerate(self.parameter_names)
+            )
+            parameter_value = ordered_params
 
         # Create model config with specific parameters for this simulation
         model_config = self.base_model_config.copy()
-        model_config["parameters"] = parameter_dict
+        model_config["parameters"] = parameter_value
 
         # Create simulator instance
         simulator = UnifiedSimulator(model_config)
@@ -207,75 +232,7 @@ class UnifiedModelSetup(ModelSetupBase):
 
         return results["simulation"]
 
-    def _params_array_to_dict(self, params: np.ndarray) -> Dict[str, Any]:
-        """
-        Convert parameter array from optimizer to parameter dictionary format.
-
-        Parameters
-        ----------
-        params : np.ndarray
-            Parameter values from optimizer
-
-        Returns
-        -------
-        Dict[str, Any]
-            Parameter dictionary in format expected by UnifiedSimulator
-        """
-        if self.model_name == "unit_hydrograph":
-            # For unit hydrograph, normalize parameters to sum to 1.0
-            params_normalized = params / np.sum(params)
-            return {"uh_values": params_normalized.tolist()}
-
-        elif self.model_name == "categorized_unit_hydrograph":
-            # For categorized unit hydrograph, convert to dictionary format
-            uh_lengths = self.model_config.get(
-                "uh_lengths", {"small": 8, "medium": 16, "large": 24}
-            )
-
-            uh_categories = {}
-            param_idx = 0
-            for category, length in uh_lengths.items():
-                category_params = params[param_idx : param_idx + length]
-                # Normalize category parameters to sum to 1.0
-                uh_categories[category] = (
-                    category_params / np.sum(category_params)
-                ).tolist()
-                param_idx += length
-
-            # Add thresholds if specified
-            thresholds = self.model_config.get(
-                "thresholds", {"small_medium": 10.0, "medium_large": 25.0}
-            )
-
-            return {"uh_categories": uh_categories, "thresholds": thresholds}
-
-        else:
-            # Traditional models (XAJ, GR series, etc.)
-            # Convert parameter array to named parameter dictionary
-            if hasattr(self, "param_range") and self.param_range:
-                # Use parameter range to denormalize parameters
-                param_info = self.param_range[self.model_name]
-                param_names = param_info["param_name"]
-                param_bounds = param_info["param_range"]
-
-                # Denormalize parameters from [0,1] to actual ranges
-                param_dict = {}
-                for i, (name, bounds) in enumerate(
-                    zip(param_names, param_bounds)
-                ):
-                    min_val, max_val = bounds
-                    # params[i] is in [0,1], scale to [min_val, max_val]
-                    param_dict[name] = min_val + params[i] * (
-                        max_val - min_val
-                    )
-
-                return param_dict
-            else:
-                # Fallback: use parameter names directly
-                return {
-                    name: value
-                    for name, value in zip(self.parameter_names, params)
-                }
+    # _params_array_to_dict removed: models now receive normalized params and param ranges, and handle scaling internally
 
     # Event data simulation is now handled by UnifiedSimulator
 
@@ -377,18 +334,16 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
     )
 
     # For multi-basin calibration, we can either:
-    # 1. Calibrate all basins together (current implementation)
-    # 2. Calibrate each basin separately (loop approach)
+    # 1. Calibrate all basins together (TODO - future implementation)
+    # 2. Calibrate each basin separately (current implementation)
 
-    # Currently using approach 1 - calibrate all basins together
-    # This is more efficient and allows for shared parameters
+    # Currently using approach 2 - calibrate each basin separately
+    # This is the default approach that hydromodel supports
 
-    basin_result = _calibrate_model(
-        model_setup, algorithm_config, output_dir, "multi_basin", **kwargs
-    )
-
-    # Store results for all basins
-    for basin_id in basin_ids:
+    for i, basin_id in enumerate(basin_ids):
+        basin_result = _calibrate_model(
+            model_setup, algorithm_config, output_dir, basin_id, basin_index=i, **kwargs
+        )
         results[basin_id] = basin_result
 
     return results
@@ -399,6 +354,7 @@ def _calibrate_model(
     algorithm_config: Dict,
     output_dir: str,
     basin_id: str,
+    basin_index: int = 0,
     **kwargs,
 ) -> Dict[str, Any]:
     """Calibrate any model using the unified setup."""
@@ -492,48 +448,115 @@ def _calibrate_with_scipy(model_setup, algorithm_config, output_dir, basin_id):
 
 
 def _calibrate_with_sceua(model_setup, algorithm_config, output_dir, basin_id):
-    """Calibrate using SCE-UA algorithm via spotpy."""
+    """Calibrate using SCE-UA via SpotPy, subclassing SpotSetup to use unified simulate."""
 
-    class SpotPySetup:
-        def __init__(self, model_setup):
+    # Determine basin index from config (fallback to 0)
+    basin_ids = model_setup.data_config.get(
+        "basin_ids",
+        [f"basin_{i}" for i in range(model_setup.p_and_e.shape[0])],
+    )
+    try:
+        basin_index = basin_ids.index(str(basin_id))
+    except Exception:
+        basin_index = 0
+
+    class UnifiedSpotSetup(SpotSetup):
+        def __init__(self, model_setup, basin_index: int):
+            # Do not call super().__init__ to avoid reloading or storing redundant data
             self.model_setup = model_setup
+            self.basin_index = int(basin_index)
+            # Reuse parameter definitions created by UnifiedModelSetup
             self.params = model_setup.params
+            self.parameter_names = model_setup.parameter_names
 
-        def simulation(self, vector):
-            params_array = np.array([param for param in vector])
-            simulation = self.model_setup.simulate(params_array)
-            return simulation.flatten()
+        def simulation(self, x):
+            # x comes as ParameterSet; convert to numpy array of parameter values
+            try:
+                params_array = np.array([v for v in x])
+            except Exception:
+                params_array = np.array(x)
+            # Run unified simulation over all basins, then slice this basin
+            sim_all = self.model_setup.simulate(params_array)  # [time, basin, 1]
+            return sim_all[:, self.basin_index : self.basin_index + 1, :]
 
         def evaluation(self):
-            return self.model_setup.true_obs.flatten()
+            # true_obs stored as seq-first data
+            return self.model_setup.true_obs[
+                :, self.basin_index : self.basin_index + 1, :
+            ]
 
-        def objectivefunction(self, simulation, evaluation):
+        def objectivefunction(self, simulation, evaluation, params=None):
             return self.model_setup.calculate_objective(simulation, evaluation)
 
-    # Create setup
-    spot_setup = SpotPySetup(model_setup)
+    # Initialize setup
+    spot_setup = UnifiedSpotSetup(model_setup, basin_index)
 
-    # Configure SCE-UA
+    # Sampler configuration
     rep = algorithm_config.get("rep", 1000)
+    ngs = algorithm_config.get("ngs", 1000)
+    kstop = algorithm_config.get("kstop", 500)
+    peps = algorithm_config.get("peps", 0.1)
+    pcento = algorithm_config.get("pcento", 0.1)
+    random_seed = algorithm_config.get("random_seed", 1234)
+
+    os.makedirs(output_dir, exist_ok=True)
+    dbname = os.path.join(output_dir, f"{basin_id}_sceua")
+
     sampler = spotpy.algorithms.sceua(
-        spot_setup, dbname=f"{output_dir}/{basin_id}_sceua", dbformat="csv"
+        spot_setup, dbname=dbname, dbformat="csv", random_state=random_seed
     )
 
     # Run optimization
-    sampler.sample(rep)
+    sampler.sample(rep, ngs=ngs, kstop=kstop, peps=peps, pcento=pcento)
 
-    # Get results
+    # Extract results
     results = sampler.getdata()
-    best_sim = sampler.status.params
-    best_like = sampler.status.objectivefunction
+    df_results = pd.DataFrame(results)
+    if "like1" in df_results.columns and len(df_results) > 0:
+        best_run = df_results.loc[df_results["like1"].idxmin()]
+        best_like = float(best_run["like1"])
+    else:
+        best_like = float(getattr(sampler.status, "objectivefunction", np.nan))
 
-    best_params = dict(zip(model_setup.parameter_names, best_sim))
+    # Determine best parameters
+    param_names = model_setup.get_parameter_names()
+    best_params = {}
+    if "like1" in df_results.columns and len(df_results) > 0:
+        # Try parx1.. order
+        cols = []
+        for j in range(len(param_names)):
+            col = f"parx{j+1}"
+            if col in df_results.columns:
+                cols.append(col)
+        if len(cols) == len(param_names):
+            for j, name in enumerate(param_names):
+                best_params[name] = float(best_run[cols[j]])
+        else:
+            # Try par{name}
+            for name in param_names:
+                col = f"par{name}"
+                if col in df_results.columns:
+                    best_params[name] = float(best_run[col])
+
+    if not best_params:
+        try:
+            best_sim = np.array(getattr(sampler.status, "params"))
+            best_params = dict(zip(param_names, best_sim))
+        except Exception:
+            best_params = {name: np.nan for name in param_names}
 
     return {
         "convergence": "success",
         "objective_value": best_like,
         "best_params": {model_setup.model_name: best_params},
-        "algorithm_info": {"rep": rep},
+        "algorithm_info": {
+            "rep": rep,
+            "ngs": ngs,
+            "kstop": kstop,
+            "peps": peps,
+            "pcento": pcento,
+            "random_seed": random_seed,
+        },
     }
 
 

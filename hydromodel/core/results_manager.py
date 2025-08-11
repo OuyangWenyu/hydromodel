@@ -263,9 +263,15 @@ class UnitHydrographResultsProcessor(ModelResultsProcessor):
         try:
             # Load flood events data
             data_cfgs = config.get("data_cfgs", {})
+            # Get time unit from config, default to ["3h"] if not specified
+            time_unit = data_cfgs.get("time_unit", ["3h"])
+            # Ensure time_unit is a list
+            if isinstance(time_unit, str):
+                time_unit = [time_unit]
+            
             dataset = FloodEventDatasource(
                 data_cfgs.get("data_source_path"),
-                time_unit=["3h"],
+                time_unit=time_unit,
                 trange4cache=["1960-01-01 02", "2024-12-31 23"],
                 warmup_length=data_cfgs.get("warmup_length", 480),
             )

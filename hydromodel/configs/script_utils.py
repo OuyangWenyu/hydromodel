@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-08-08
-LastEditTime: 2025-08-08 20:23:22
+LastEditTime: 2025-08-11 12:03:55
 LastEditors: Wenyu Ouyang
 Description: Unified script utilities for all hydromodel scripts
 FilePath: \hydromodel\hydromodel\configs\script_utils.py
@@ -199,9 +199,15 @@ class ScriptUtils:
             print("\n🔄 Loading flood events data...")
 
         # Load flood events
+        # Get time unit from config, default to ["3h"] if not specified
+        time_unit = data_cfgs.get("time_unit", ["3h"])
+        # Ensure time_unit is a list
+        if isinstance(time_unit, str):
+            time_unit = [time_unit]
+        
         dataset = FloodEventDatasource(
             data_cfgs.get("data_source_path"),
-            time_unit=["3h"],
+            time_unit=time_unit,
             trange4cache=["1960-01-01 02", "2024-12-31 23"],
             warmup_length=data_cfgs.get("warmup_length", 480),
         )
@@ -418,8 +424,15 @@ class ScriptUtils:
         parser.add_argument(
             "--warmup-length",
             type=int,
-            default=365,
+            default=480,
             help="Warmup length in time steps (quick setup mode)",
+        )
+
+        parser.add_argument(
+            "--time-unit",
+            type=str,
+            default="3h",
+            help="Time unit for data (default: 3h)",
         )
 
         # Training configuration
@@ -533,12 +546,38 @@ class ScriptUtils:
             updates["data_cfgs"]["data_path"] = args.data_source_path
         if hasattr(args, "data_path") and args.data_path is not None:
             updates["data_cfgs"]["data_path"] = args.data_path
+        if hasattr(args, "dataset_name") and args.dataset_name is not None:
+            updates["data_cfgs"]["dataset_name"] = args.dataset_name
         if hasattr(args, "basin_ids") and args.basin_ids is not None:
             updates["data_cfgs"]["basin_ids"] = args.basin_ids
         if hasattr(args, "warmup_length") and args.warmup_length is not None:
             updates["data_cfgs"]["warmup_length"] = args.warmup_length
         if hasattr(args, "variables") and args.variables is not None:
             updates["data_cfgs"]["variables"] = args.variables
+        if hasattr(args, "time_unit") and args.time_unit is not None:
+            # Ensure time_unit is stored as a list for consistency
+            time_unit = args.time_unit if isinstance(args.time_unit, list) else [args.time_unit]
+            updates["data_cfgs"]["time_unit"] = time_unit
+        
+        # Time range configuration
+        if hasattr(args, "train_period") or hasattr(args, "test_period"):
+            # Create time periods structure
+            time_periods = {}
+            
+            # Get training period
+            train_period = getattr(args, "train_period", ["1990-10-01", "1995-09-30"])
+            test_period = getattr(args, "test_period", ["1995-10-01", "2000-09-30"])
+            
+            # Set overall time range (from train start to test end)
+            time_periods["overall"] = [train_period[0], test_period[1]]
+            
+            # Set calibration/training period
+            time_periods["calibration"] = train_period
+            
+            # Set testing period
+            time_periods["testing"] = test_period
+            
+            updates["data_cfgs"]["time_periods"] = time_periods
 
         # Model configuration mapping
         model_name = None
@@ -549,56 +588,125 @@ class ScriptUtils:
         if model_name is not None:
             updates["model_cfgs"]["model_name"] = model_name
 
-        # Model parameters (optional overrides)
-        for key in [
-            "source_type",
-            "source_book",
-            "kernel_size",
-            "n_uh",
-            "smoothing_factor",
-            "peak_violation_weight",
-            "apply_peak_penalty",
-            "net_rain_name",
-            "obs_flow_name",
-        ]:
-            if hasattr(args, key) and getattr(args, key) is not None:
-                updates["model_cfgs"]["model_params"][key] = getattr(args, key)
-
-        # Categorized UH specific (JSON/text mapping should be done by caller via --override)
-        if (
-            hasattr(args, "uh_lengths")
-            and getattr(args, "uh_lengths") is not None
-        ):
-            updates["model_cfgs"]["model_params"]["uh_lengths"] = getattr(
-                args, "uh_lengths"
-            )
+        # Model parameters (type-specific)
+        if model_name in ["xaj", "xaj_mz"]:
+            # XAJ model parameters
+            for key in ["source_type", "source_book", "kernel_size"]:
+                if hasattr(args, key) and getattr(args, key) is not None:
+                    updates["model_cfgs"]["model_params"][key] = getattr(args, key)
+        
+        elif model_name in ["unit_hydrograph"]:
+            # Unit Hydrograph model parameters
+            for key in [
+                "n_uh",
+                "smoothing_factor", 
+                "peak_violation_weight",
+                "apply_peak_penalty",
+                "net_rain_name",
+                "obs_flow_name",
+            ]:
+                if hasattr(args, key) and getattr(args, key) is not None:
+                    updates["model_cfgs"]["model_params"][key] = getattr(args, key)
+        
+        elif model_name in ["categorized_unit_hydrograph"]:
+            # Categorized Unit Hydrograph model parameters
+            for key in ["net_rain_name", "obs_flow_name"]:
+                if hasattr(args, key) and getattr(args, key) is not None:
+                    updates["model_cfgs"]["model_params"][key] = getattr(args, key)
+            
+            # Handle complex JSON parameters
+            if hasattr(args, "uh_lengths") and getattr(args, "uh_lengths") is not None:
+                uh_lengths = getattr(args, "uh_lengths")
+                if isinstance(uh_lengths, str):
+                    import json
+                    try:
+                        uh_lengths = json.loads(uh_lengths)
+                    except json.JSONDecodeError:
+                        print(f"Warning: Could not parse uh_lengths JSON: {uh_lengths}")
+                        uh_lengths = {"small": 8, "medium": 16, "large": 24}  # default
+                updates["model_cfgs"]["model_params"]["uh_lengths"] = uh_lengths
+                
+            if hasattr(args, "category_weights") and getattr(args, "category_weights") is not None:
+                category_weights = getattr(args, "category_weights")
+                if isinstance(category_weights, str):
+                    # If it's a scheme name, use predefined schemes
+                    if category_weights == "default":
+                        category_weights = {
+                            "small": {"smoothing_factor": 0.1, "peak_violation_weight": 100.0},
+                            "medium": {"smoothing_factor": 0.5, "peak_violation_weight": 500.0},
+                            "large": {"smoothing_factor": 1.0, "peak_violation_weight": 1000.0},
+                        }
+                    elif category_weights == "balanced":
+                        category_weights = {
+                            "small": {"smoothing_factor": 0.2, "peak_violation_weight": 200.0},
+                            "medium": {"smoothing_factor": 0.2, "peak_violation_weight": 200.0},
+                            "large": {"smoothing_factor": 0.2, "peak_violation_weight": 200.0},
+                        }
+                    elif category_weights == "aggressive":
+                        category_weights = {
+                            "small": {"smoothing_factor": 0.05, "peak_violation_weight": 50.0},
+                            "medium": {"smoothing_factor": 0.1, "peak_violation_weight": 100.0},
+                            "large": {"smoothing_factor": 0.5, "peak_violation_weight": 2000.0},
+                        }
+                    else:
+                        import json
+                        try:
+                            category_weights = json.loads(category_weights)
+                        except json.JSONDecodeError:
+                            print(f"Warning: Could not parse category_weights: {category_weights}")
+                            category_weights = {
+                                "small": {"smoothing_factor": 0.1, "peak_violation_weight": 100.0},
+                                "medium": {"smoothing_factor": 0.5, "peak_violation_weight": 500.0},
+                                "large": {"smoothing_factor": 1.0, "peak_violation_weight": 1000.0},
+                            }
+                updates["model_cfgs"]["model_params"]["category_weights"] = category_weights
+        
+        elif model_name in ["dhf"]:
+            # DHF model parameters (22 parameters handled elsewhere)
+            pass  # DHF parameters are typically loaded from files
+        
+        else:
+            # Fallback: include common parameters for unknown model types
+            for key in ["source_type", "source_book", "kernel_size"]:
+                if hasattr(args, key) and getattr(args, key) is not None:
+                    updates["model_cfgs"]["model_params"][key] = getattr(args, key)
 
         # Training configuration
+        algorithm_name = None
         if hasattr(args, "algorithm") and args.algorithm is not None:
+            algorithm_name = args.algorithm
             updates.setdefault("training_cfgs", {})[
                 "algorithm_name"
             ] = args.algorithm
 
+        # Algorithm parameters (type-specific to avoid contamination)
         algo_params: Dict[str, Any] = {}
-        # SCE-UA
-        for key in ["rep", "ngs", "kstop", "peps", "pcento"]:
-            if hasattr(args, key) and getattr(args, key) is not None:
-                algo_params[key] = getattr(args, key)
-        # SciPy
-        if hasattr(args, "scipy_method") and args.scipy_method is not None:
-            algo_params["method"] = args.scipy_method
-        if hasattr(args, "max_iterations") and args.max_iterations is not None:
-            algo_params["max_iterations"] = args.max_iterations
-        # GA
-        for key in [
-            "pop_size",
-            "n_generations",
-            "cx_prob",
-            "mut_prob",
-            "random_seed",
-        ]:
-            if hasattr(args, key) and getattr(args, key) is not None:
-                algo_params[key] = getattr(args, key)
+        if algorithm_name == "SCE_UA":
+            # SCE-UA specific parameters only
+            for key in ["rep", "ngs", "kstop", "peps", "pcento", "random_seed"]:
+                if hasattr(args, key) and getattr(args, key) is not None:
+                    algo_params[key] = getattr(args, key)
+        elif algorithm_name == "scipy_minimize":
+            # SciPy specific parameters only
+            if hasattr(args, "scipy_method") and args.scipy_method is not None:
+                algo_params["method"] = args.scipy_method
+            if hasattr(args, "max_iterations") and args.max_iterations is not None:
+                algo_params["max_iterations"] = args.max_iterations
+            if hasattr(args, "random_seed") and args.random_seed is not None:
+                algo_params["random_seed"] = args.random_seed
+        elif algorithm_name == "genetic_algorithm":
+            # GA specific parameters only
+            for key in [
+                "pop_size",
+                "n_generations",
+                "cx_prob",
+                "mut_prob",
+                "save_freq",
+                "random_seed",
+            ]:
+                if hasattr(args, key) and getattr(args, key) is not None:
+                    algo_params[key] = getattr(args, key)
+        
         if algo_params:
             updates.setdefault("training_cfgs", {}).setdefault(
                 "algorithm_params", {}
@@ -620,13 +728,6 @@ class ScriptUtils:
             updates.setdefault("training_cfgs", {})[
                 "experiment_name"
             ] = args.experiment_name
-        if hasattr(args, "random_seed") and args.random_seed is not None:
-            updates.setdefault("training_cfgs", {})["algorithm_params"] = (
-                updates.get("training_cfgs", {}).get("algorithm_params", {})
-            )
-            updates["training_cfgs"]["algorithm_params"][
-                "random_seed"
-            ] = args.random_seed
 
         # Apply updates
         config.update_config(updates)

@@ -12,6 +12,7 @@ import os
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Union, Any, Tuple
+from collections import OrderedDict
 from abc import ABC, abstractmethod
 
 from hydromodel.models.model_dict import MODEL_DICT
@@ -55,7 +56,7 @@ class UnifiedSimulator:
         # Extract model information
         self.model_name = self.model_config["model_name"]
         self.model_params = self.model_config.get("model_params", {})
-        self.parameters = self.model_config.get("parameters", {})
+        self.parameters = OrderedDict(self.model_config.get("parameters", {}))
 
         # Validate model exists
         if self.model_name not in MODEL_DICT:
@@ -276,24 +277,12 @@ class UnifiedSimulator:
         model_config = dict(self.model_params)
         model_config.update(kwargs)
 
-        # Add parameter range for traditional models (empty for unit hydrograph)
-        if self.model_name not in [
-            "unit_hydrograph",
-            "categorized_unit_hydrograph",
-        ]:
-            # For traditional models, we don't need param_range during simulation
-            # The parameters are already provided as specific values
-            param_range = {}
-        else:
-            param_range = {}
-
         # Run model simulation
         model_result = self.model_function(
             inputs,
             self.param_array,
             warmup_length=warmup_length,
             **model_config,
-            **param_range,
         )
 
         # Handle different return formats

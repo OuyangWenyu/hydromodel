@@ -1,10 +1,10 @@
-"""
+r"""
 Author: Wenyu Ouyang
 Date: 2025-08-07
-LastEditTime: 2025-08-08 16:49:01
+LastEditTime: 2025-08-12 11:00:08
 LastEditors: Wenyu Ouyang
 Description: Unified simulation interface for all hydrological models
-FilePath: hydromodel/hydromodel/core/unified_simulate.py
+FilePath: \hydromodel\hydromodel\core\unified_simulate.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -60,7 +60,9 @@ class UnifiedSimulator:
 
         # Validate model exists
         if self.model_name not in MODEL_DICT:
-            raise ValueError(f"Model '{self.model_name}' not found in MODEL_DICT")
+            raise ValueError(
+                f"Model '{self.model_name}' not found in MODEL_DICT"
+            )
 
         # Get model function
         self.model_function = MODEL_DICT[self.model_name]
@@ -101,7 +103,7 @@ class UnifiedSimulator:
             # Convert to numpy array and normalize to sum to 1
             uh_array = np.array(uh_values)
             uh_array = uh_array / np.sum(uh_array)
-            
+
             # Store as base parameters that will be replicated per basin as needed
             self.base_uh_params = uh_array
 
@@ -135,12 +137,11 @@ class UnifiedSimulator:
         # Store parameter info for later use when we know number of basins
         self.param_names = param_names
         self.param_values = param_values
-        
+
         # Check if basin-specific parameters are provided
-        self.has_basin_specific_params = (
-            self.parameters.get("basin_specific", False) and 
-            isinstance(param_values[0], (list, np.ndarray))
-        )
+        self.has_basin_specific_params = self.parameters.get(
+            "basin_specific", False
+        ) and isinstance(param_values[0], (list, np.ndarray))
 
     def simulate(
         self,
@@ -148,7 +149,7 @@ class UnifiedSimulator:
         qobs: Optional[np.ndarray] = None,
         warmup_length: int = 365,
         is_event_data: bool = False,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Run model simulation with provided input data.
@@ -179,7 +180,7 @@ class UnifiedSimulator:
         # Validate inputs
         if not isinstance(inputs, np.ndarray):
             inputs = np.array(inputs)
-        
+
         if inputs.ndim != 3:
             raise ValueError(
                 f"Input data must be 3D array [time, basin, features], got shape {inputs.shape}"
@@ -195,7 +196,9 @@ class UnifiedSimulator:
             "categorized_unit_hydrograph",
         ]:
             # Event data with traditional models
-            simulation_output = self._simulate_event_data(inputs, warmup_length, **kwargs)
+            simulation_output = self._simulate_event_data(
+                inputs, warmup_length, **kwargs
+            )
         else:
             # Standard simulation
             simulation_output = self._simulate_continuous_data(
@@ -224,12 +227,12 @@ class UnifiedSimulator:
     def _prepare_param_array(self, n_basins: int) -> np.ndarray:
         """
         Prepare parameter array for the given number of basins.
-        
+
         Parameters
         ----------
         n_basins : int
             Number of basins in the input data
-            
+
         Returns
         -------
         np.ndarray or dict
@@ -238,18 +241,22 @@ class UnifiedSimulator:
         """
         if self.model_name == "unit_hydrograph":
             # Unit hydrograph: replicate base parameters for each basin
-            if hasattr(self, 'base_uh_params'):
+            if hasattr(self, "base_uh_params"):
                 return np.tile(self.base_uh_params, (n_basins, 1))
             else:
-                raise ValueError("Unit hydrograph parameters not properly initialized")
-        
+                raise ValueError(
+                    "Unit hydrograph parameters not properly initialized"
+                )
+
         elif self.model_name == "categorized_unit_hydrograph":
             # Categorized unit hydrograph already has param_array as dict
-            if hasattr(self, 'param_array'):
+            if hasattr(self, "param_array"):
                 return self.param_array
             else:
-                raise ValueError("Categorized unit hydrograph parameters not properly initialized")
-        
+                raise ValueError(
+                    "Categorized unit hydrograph parameters not properly initialized"
+                )
+
         else:
             # Traditional models: create param array from parameter values
             if n_basins == 1:
@@ -266,7 +273,7 @@ class UnifiedSimulator:
                 else:
                     # Replicate same parameters for all basins
                     param_array = np.tile(self.param_values, (n_basins, 1))
-            
+
             return param_array
 
     def _simulate_continuous_data(
@@ -330,7 +337,7 @@ class UnifiedSimulator:
                     # Run model on this event segment
                     model_config = dict(self.model_params)
                     model_config.update(kwargs)
-                    
+
                     event_result = self.model_function(
                         event_inputs,
                         basin_params,
@@ -394,7 +401,7 @@ def simulate(
     inputs: Optional[np.ndarray] = None,
     qobs: Optional[np.ndarray] = None,
     model_config: Optional[Dict[str, Any]] = None,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Unified simulation interface for all hydrological models.
@@ -457,7 +464,7 @@ def simulate(
     ... }
     >>> results = simulate(config)
     """
-    
+
     # Handle different usage patterns
     if config is not None:
         # Traditional config-based approach (backward compatibility)
@@ -497,11 +504,11 @@ def _simulate_with_config(config: Dict[str, Any], **kwargs) -> Dict[str, Any]:
     data_config = config["data_cfgs"]
     data_loader = UnifiedDataLoader(data_config)
     inputs, qobs = data_loader.load_data()
-    
+
     # Extract simulation parameters
     warmup_length = data_config.get("warmup_length", 365)
     is_event_data = data_loader.is_event_data()
-    
+
     # Create and run simulator with the loaded data
     simulator = UnifiedSimulator(model_cfgs)
     results = simulator.simulate(
@@ -509,13 +516,15 @@ def _simulate_with_config(config: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         qobs=qobs,
         warmup_length=warmup_length,
         is_event_data=is_event_data,
-        **kwargs
+        **kwargs,
     )
-    
+
     # Add traditional metadata
     results["metadata"]["basin_ids"] = data_config.get("basin_ids", [])
-    results["metadata"]["data_source_type"] = data_config.get("data_source_type")
-    
+    results["metadata"]["data_source_type"] = data_config.get(
+        "data_source_type"
+    )
+
     return results
 
 
@@ -523,11 +532,11 @@ def _simulate_with_inputs(
     model_config: Dict[str, Any],
     inputs: np.ndarray,
     qobs: Optional[np.ndarray] = None,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """New flexible simulation with separate model config and input data."""
     # Create and run simulator
     simulator = UnifiedSimulator(model_config)
     results = simulator.simulate(inputs=inputs, qobs=qobs, **kwargs)
-    
+
     return results

@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
-"""
+r"""
 Author: Wenyu Ouyang
-Date: 2025-08-08
-LastEditTime: 2025-08-08 18:30:22
+Date: 2025-08-12
+LastEditTime: 2025-08-12 14:00:00
 LastEditors: Wenyu Ouyang
-Description: DHF (大伙房) model simulation script using the new flexible interface
-FilePath: \hydromodel\scripts\run_unified_simulation.py
+Description: DHF (大伙房) model simulation script using refactored runtime simulation utilities
+FilePath: \hydromodel\scripts\run_dhf_simulation.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
 import argparse
 import sys
 import os
+import json
 from pathlib import Path
-import yaml
-import numpy as np
-from datetime import datetime
+from collections import OrderedDict
 
 # Add hydromodel to path
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
@@ -28,77 +27,50 @@ for local_pkg in ["hydroutils", "hydrodatasource", "hydrodataset"]:
     if os.path.exists(local_path):
         sys.path.insert(0, local_path)
 
-from hydromodel.core.unified_simulate import (
-    UnifiedSimulator,
-    _simulate_with_config,
+# Import the new runtime simulation utilities
+from hydromodel.core.runtime_simulate import (
+    save_simulation_results,
+    print_simulation_summary,
+    validate_runtime_simulation_inputs,
 )
+from hydromodel.core.unified_simulate import UnifiedSimulator
+
+# Import RuntimeDataLoader directly
+try:
+    from hydrodatasource.runtime import load_runtime_data
+
+    RUNTIME_DATA_AVAILABLE = True
+except ImportError:
+    RUNTIME_DATA_AVAILABLE = False
+    load_runtime_data = None
 from hydromodel.configs.config_manager import ConfigManager
-from hydromodel.configs.script_utils import ScriptUtils
 
 
 def parse_arguments():
-    """Parse command line arguments"""
+    """Parse command line arguments for DHF simulation"""
     parser = argparse.ArgumentParser(
-        description="DHF (大伙房) Model Simulation using Latest Unified Architecture",
+        description="DHF (大伙房) Model Simulation using Runtime Data Loading",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-DHF Model Types Supported:
-  - dhf: 22-parameter Chinese watershed model with dual-layer runoff generation
+DHF Model - 19-parameter Chinese watershed model with dual-layer runoff generation
 
-Data Source Types:
-  - csv_json: CSV time series data + JSON parameter files (recommended for DHF)
-  - selfmadehydrodataset: Custom hydrological datasets
-  - floodevent: Event-based data
+Data Source Types (RuntimeDataLoader):
+  - csv: CSV files with time series data (recommended for DHF)
+  - parquet: Parquet files for large datasets
+  - memory: In-memory data (DataFrame, Dict, Arrays)
+  - sql: SQL databases (PostgreSQL, MySQL, SQLite)
+  - stream: Real-time data streams (for operational scenarios)
 
 Usage Examples:
-  # Basic DHF simulation with default settings
-  python run_dhf_simulation.py --model-type dhf --data-path /path/to/data
+  # Basic DHF simulation with CSV data
+  python run_dhf_simulation.py --data-path /path/to/data.csv --basin-ids basin_001
 
-  # Configuration file approach (recommended)
-  python run_dhf_simulation.py --config config.yaml
+  # Database-driven simulation
+  python run_dhf_simulation.py --data-source sql --sql-connection "postgresql://user:pass@host/db" --sql-table hydro_data
         """,
     )
 
-    # Add common arguments
-    ScriptUtils.add_common_arguments(parser)
-
-    # DHF-specific arguments
-    parser.add_argument(
-        "--data-source-type",
-        type=str,
-        default="csv_json",
-        choices=["csv_json", "selfmadehydrodataset", "floodevent"],
-        help="Dataset type (default: csv_json for DHF model)",
-    )
-
-    parser.add_argument(
-        "--data-source-path",
-        type=str,
-        default=None,
-        help="Data directory path (uses default if not specified)",
-    )
-
-    parser.add_argument(
-        "--dataset-name",
-        type=str,
-        default="dhf_simulation_data",
-        help="Dataset name for DHF simulation (default: dhf_simulation_data)",
-    )
-
-    parser.add_argument(
-        "--basin-ids",
-        nargs="+",
-        default=["basin_001"],
-        help="Basin IDs to simulate (default: basin_001)",
-    )
-
-    parser.add_argument(
-        "--variables",
-        nargs="+",
-        default=["prcp", "PET", "streamflow"],
-        help="Variables for simulation (default: prcp, PET, streamflow)",
-    )
-
+    # Model configuration
     parser.add_argument(
         "--model-type",
         type=str,
@@ -107,33 +79,99 @@ Usage Examples:
         help="DHF model type (default: dhf)",
     )
 
+    # Data source configuration
     parser.add_argument(
-        "--warmup-length",
-        type=int,
-        default=30,
-        help="Warmup period length in time steps (default: 30 for DHF)",
-    )
-
-    parser.add_argument(
-        "--time-unit",
+        "--data-source",
         type=str,
-        default="1d",
-        help="Time unit for data (default: 1d for daily DHF model)",
+        default="csv",
+        choices=["csv", "parquet", "json", "memory", "sql", "stream"],
+        help="Data source type for RuntimeDataLoader (default: csv)",
     )
 
-    # Parameter input methods
+    parser.add_argument(
+        "--data-path",
+        type=str,
+        help="Data file path (for csv, parquet, json sources)",
+        default=r"E:\data\ClassC\songliaorrevent\timeseries\3h\songliao_21100150.csv",
+    )
+
+    parser.add_argument(
+        "--sql-connection",
+        type=str,
+        help="SQL connection string (for sql source)",
+    )
+
+    parser.add_argument(
+        "--sql-table",
+        type=str,
+        default="hydro_data",
+        help="SQL table name (default: hydro_data)",
+    )
+
+    parser.add_argument(
+        "--basin-ids",
+        nargs="+",
+        default=["songliao_21100150"],
+        help="Basin IDs to simulate (default: songliao_21100150)",
+    )
+
+    parser.add_argument(
+        "--variables",
+        nargs="+",
+        default=["rain", "ES", "inflow"],
+        help="Variables for simulation (default: rain, ES, inflow)",
+    )
+
+    parser.add_argument(
+        "--time-range",
+        nargs=2,
+        default=["2020-01-01", "2020-12-31"],
+        help="Time range for simulation: start_date end_date (default: 2020-01-01 2020-12-31)",
+    )
+
+    parser.add_argument(
+        "--time-column",
+        type=str,
+        default="time",
+        help="Name of time column in data (default: time)",
+    )
+
+    parser.add_argument(
+        "--basin-column",
+        type=str,
+        default="basin",
+        help="Name of basin column in data (default: basin)",
+    )
+
+    # Model parameters
     parser.add_argument(
         "--params-file",
         type=str,
-        default=None,
-        help="JSON/YAML file containing model parameters",
+        default=r"D:\Code\songliaodb_analysis\results\json_parameters\songliao_21100150_params.json",
+        help="JSON/YAML file containing DHF model parameters",
+    )
+
+    # Simulation settings
+    parser.add_argument(
+        "--warmup-length",
+        type=int,
+        default=365,
+        help="Warmup period length (default: 365 days)",
+    )
+
+    # Output settings
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="results/dhf_runtime_simulation",
+        help="Output directory for results",
     )
 
     parser.add_argument(
-        "--calibration-results",
+        "--experiment-name",
         type=str,
-        default=None,
-        help="Use parameters from calibration results file",
+        default="dhf_runtime",
+        help="Experiment name for output files",
     )
 
     parser.add_argument(
@@ -142,17 +180,11 @@ Usage Examples:
         help="Save simulation results to files",
     )
 
+    # Control options
     parser.add_argument(
-        "--plot-results",
+        "--dry-run",
         action="store_true",
-        help="Generate simulation plots",
-    )
-
-    parser.add_argument(
-        "--random-seed",
-        type=int,
-        default=1234,
-        help="Random seed for reproducibility (default: 1234)",
+        help="Validate configuration without running simulation",
     )
 
     parser.add_argument(
@@ -163,49 +195,50 @@ Usage Examples:
     )
 
     parser.add_argument(
-        "--save-config",
+        "--validate-inputs",
         action="store_true",
-        help="Save configuration to file after run",
+        help="Validate simulation inputs before running",
     )
 
     return parser.parse_args()
 
 
-def load_parameters_from_file(params_file: str) -> dict:
-    """Load DHF parameters from JSON file"""
+def load_dhf_parameters_from_file(params_file: str) -> dict:
+    """
+    Load DHF-specific parameters from JSON file.
+
+    DHF model has 19 parameters in specific order:
+    [S0, U0, D0, K, KW, K2, KA, G, A, B, B0, K0, N, L, DD, CC, COE, DDL, CCL]
+    """
     try:
         if params_file.endswith(".json"):
-            import json
-
             with open(params_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             # Extract DHF parameters in order
-            # [S0, U0, D0, K, KW, K2, KA, G, A, B, B0, K0, N, L, DD, CC, COE, DDL, CCL, SA0, UA0, YA0]
-            dhf_params = {
-                "S0": float(data["S0"]),
-                "U0": float(data["U0"]),
-                "D0": float(data["D0"]),
-                "K": float(data["K"]),
-                "KW": float(data["KW"]),
-                "K2": float(data["K2"]),
-                "KA": float(data["KA"]),
-                "G": float(data["G"]),
-                "A": float(data["A"]),
-                "B": float(data["B"]),
-                "B0": float(data["B0"]),
-                "K0": float(data["K0"]),
-                "N": float(data["N"]),
-                "L": float(data["L"]),
-                "DD": float(data["DD"]),
-                "CC": float(data["CC"]),
-                "COE": float(data["COE"]),
-                "DDL": float(data["DDL"]),
-                "CCL": float(data["CCL"]),
-                "SA0": float(data["SA0"]),
-                "UA0": float(data["UA0"]),
-                "YA0": float(data["YA0"]),
-            }
+            dhf_params = OrderedDict(
+                {
+                    "S0": float(data["S0"]),
+                    "U0": float(data["U0"]),
+                    "D0": float(data["D0"]),
+                    "K": float(data["K"]),
+                    "KW": float(data["KW"]),
+                    "K2": float(data["K2"]),
+                    "KA": float(data["KA"]),
+                    "G": float(data["G"]),
+                    "A": float(data["A"]),
+                    "B": float(data["B"]),
+                    "B0": float(data["B0"]),
+                    "K0": float(data["K0"]),
+                    "N": float(data["N"]),
+                    "L": float(data["L"]),
+                    "DD": float(data["DD"]),
+                    "CC": float(data["CC"]),
+                    "COE": float(data["COE"]),
+                    "DDL": float(data["DDL"]),
+                    "CCL": float(data["CCL"]),
+                }
+            )
             return dhf_params
         else:
             return ConfigManager.load_config_from_file(params_file)
@@ -215,248 +248,202 @@ def load_parameters_from_file(params_file: str) -> dict:
         )
 
 
-def load_parameters_from_calibration(
-    results_file: str, model_name: str, basin_id: str = None
-) -> dict:
-    """Load parameters from calibration results"""
-    try:
-        with open(results_file, "r") as f:
-            if results_file.endswith(".json"):
-                import json
-
-                results = json.load(f)
-            else:
-                results = yaml.safe_load(f)
-
-        # Extract parameters from calibration results
-        if basin_id:
-            basin_results = results.get(basin_id, {})
-        else:
-            # Use first basin if no specific basin requested
-            basin_results = next(iter(results.values()), {})
-
-        best_params = basin_results.get("best_params", {})
-        model_params = best_params.get(model_name, {})
-
-        if not model_params:
-            raise ValueError(
-                f"No parameters found for model {model_name} in results file"
-            )
-
-        return model_params
-
-    except Exception as e:
-        raise ValueError(
-            f"Failed to load parameters from calibration results: {e}"
-        )
-
-
-def get_default_parameters(model_name: str) -> dict:
+def get_dhf_default_parameters() -> dict:
     """Get default parameters for DHF model testing"""
-    if model_name == "dhf":
-        # DHF model default parameters - 22 parameters
-        # [S0, U0, D0, K, KW, K2, KA, G, A, B, B0, K0, N, L, DD, CC, COE, DDL, CCL, SA0, UA0, YA0]
-        return {
-            "S0": 50.0,
-            "U0": 100.0,
-            "D0": 80.0,
-            "K": 0.8,
-            "KW": 0.5,
-            "K2": 0.3,
-            "KA": 0.7,
-            "G": 0.2,
-            "A": 0.4,
-            "B": 0.6,
-            "B0": 1.5,
-            "K0": 0.5,
-            "N": 2.0,
-            "L": 100.0,
-            "DD": 1.2,
-            "CC": 0.8,
-            "COE": 0.6,
-            "DDL": 1.0,
-            "CCL": 0.7,
-            "SA0": 20.0,
-            "UA0": 40.0,
-            "YA0": 10.0,
-        }
-    else:
-        return ConfigManager.get_model_default_parameters(model_name)
-
-
-def save_simulation_results(results: dict, config: dict, output_dir: str):
-    """Save simulation results to files"""
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Save simulation output as CSV
-    simulation = results["simulation"]
-    basin_ids = config["data_cfgs"]["basin_ids"]
-
-    for basin_idx, basin_id in enumerate(basin_ids):
-        basin_sim = simulation[:, basin_idx, 0]
-
-        # Create DataFrame with time index
-        import pandas as pd
-
-        df = pd.DataFrame(
-            {
-                "simulation": basin_sim,
-            }
-        )
-
-        if "observation" in results and results["observation"] is not None:
-            basin_obs = results["observation"][:, basin_idx, 0]
-            df["observation"] = basin_obs
-
-        # Save to CSV
-        csv_path = os.path.join(output_dir, f"{basin_id}_simulation.csv")
-        df.to_csv(csv_path, index=True)
-        print(f"Saved simulation results: {csv_path}")
-
-    # Save metadata
-    metadata_path = os.path.join(output_dir, "simulation_metadata.yaml")
-    with open(metadata_path, "w") as f:
-        yaml.dump(results["metadata"], f, default_flow_style=False)
-    print(f"Saved simulation metadata: {metadata_path}")
-
-
-def print_results_summary(results: dict, config: dict, verbose: bool = True):
-    """Print simulation results summary"""
-    if not verbose:
-        return
-
-    metadata = results["metadata"]
-    simulation = results["simulation"]
-
-    print("\n" + "=" * 60)
-    print("SIMULATION RESULTS SUMMARY")
-    print("=" * 60)
-
-    print(f"Model: {metadata['model_name']}")
-    print(f"Simulation shape: {metadata['simulation_shape']}")
-    print(f"Time steps: {metadata['time_steps']}")
-    print(f"Number of basins: {metadata['n_basins']}")
-    print(f"Warmup length: {metadata['warmup_length']}")
-
-    # Basic statistics
-    sim_stats = {
-        "Mean": np.nanmean(simulation),
-        "Std": np.nanstd(simulation),
-        "Min": np.nanmin(simulation),
-        "Max": np.nanmax(simulation),
+    return {
+        "S0": 50.0,
+        "U0": 100.0,
+        "D0": 80.0,
+        "K": 0.8,
+        "KW": 0.5,
+        "K2": 0.3,
+        "KA": 0.7,
+        "G": 0.2,
+        "A": 0.4,
+        "B": 0.6,
+        "B0": 1.5,
+        "K0": 0.5,
+        "N": 2.0,
+        "L": 100.0,
+        "DD": 1.2,
+        "CC": 0.8,
+        "COE": 0.6,
+        "DDL": 1.0,
+        "CCL": 0.7,
+        "SA0": 20.0,
+        "UA0": 40.0,
+        "YA0": 10.0,
     }
-
-    print("\nSimulation Statistics:")
-    for stat, value in sim_stats.items():
-        print(f"  {stat}: {value:.4f}")
-
-    # Basin-specific summary
-    basin_ids = config["data_cfgs"]["basin_ids"]
-    for basin_idx, basin_id in enumerate(basin_ids):
-        basin_sim = simulation[:, basin_idx, 0]
-        basin_mean = np.nanmean(basin_sim)
-        basin_max = np.nanmax(basin_sim)
-        print(
-            f"  Basin {basin_id}: Mean={basin_mean:.4f}, Max={basin_max:.4f}"
-        )
 
 
 def main():
-    """Main execution function"""
+    """Main execution function using refactored runtime simulation utilities"""
     args = parse_arguments()
     verbose = not args.quiet
 
     try:
-        # Setup configuration using unified workflow
-        # Ensure correct model defaults for quick setup
-        if not getattr(args, "model_type", None) and not getattr(
-            args, "model", None
-        ):
-            args.model = "dhf"
-
-        # Add parameter handling to args namespace before config setup
-        if args.params_file:
-            parameters = load_parameters_from_file(args.params_file)
-            args.model_parameters = parameters
-        elif args.calibration_results:
-            basin_id = args.basin_ids[0] if args.basin_ids else None
-            parameters = load_parameters_from_calibration(
-                args.calibration_results, getattr(args, "model_type", "dhf"), basin_id
-            )
-            args.model_parameters = parameters
+        # Load DHF model parameters
+        if args.params_file and os.path.exists(args.params_file):
+            parameters = load_dhf_parameters_from_file(args.params_file)
+            if verbose:
+                print(f"📋 Loaded DHF parameters from: {args.params_file}")
         else:
-            # Use default parameters
-            parameters = get_default_parameters(getattr(args, "model_type", "dhf"))
-            if not parameters:
-                raise ValueError(
-                    f"No default parameters available for DHF model. "
-                    "Please provide --params-file or --calibration-results"
-                )
-            args.model_parameters = parameters
+            parameters = get_dhf_default_parameters()
+            if verbose:
+                print("📋 Using default DHF parameters")
+                if args.params_file:
+                    print(f"   (Parameter file not found: {args.params_file})")
 
-        config = ScriptUtils.setup_configuration(args)
-        if config is None:
-            return 1
-
-        # Apply overrides
-        ScriptUtils.apply_overrides(config, args.override)
-
-        # Apply command line overrides for output settings
-        if args.output_dir:
-            config["training_cfgs"]["output_dir"] = args.output_dir
-        if args.experiment_name:
-            config["training_cfgs"]["experiment_name"] = args.experiment_name
-
-        # Validate configuration
-        if not ScriptUtils.validate_and_show_config(
-            config, verbose, "DHF Model"
-        ):
-            return 1
+        if verbose:
+            print(f"   DHF model: {len(parameters)} parameters loaded")
 
         if args.dry_run:
             print("\n🔍 Dry run completed - configuration is valid")
+            print(f"   Model: {args.model_type}")
+            print(f"   Data source: {args.data_source}")
+            print(f"   Parameters: {len(parameters)}")
             return 0
 
-        # Run DHF simulation using unified interface
+        # Prepare data source configuration
+        source_config = {}
+        if args.data_source in ["csv", "parquet", "json"]:
+            if not args.data_path:
+                print(
+                    f"❌ ERROR: --data-path required for {args.data_source} source"
+                )
+                return 1
+            source_config["file_path"] = args.data_path
+            source_config["time_column"] = args.time_column
+            source_config["basin_column"] = args.basin_column
+        elif args.data_source == "sql":
+            if not args.sql_connection:
+                print("❌ ERROR: --sql-connection required for sql source")
+                return 1
+            source_config.update(
+                {
+                    "connection_string": args.sql_connection,
+                    "table_name": args.sql_table,
+                    "time_column": args.time_column,
+                    "basin_column": args.basin_column,
+                }
+            )
+
+        # Check if RuntimeDataLoader is available
+        if not RUNTIME_DATA_AVAILABLE:
+            print(
+                "❌ ERROR: RuntimeDataLoader not available. Please ensure hydrodatasource with runtime module is installed."
+            )
+            return 1
+
+        # DHF simulation using direct approach (recommended)
         if verbose:
-            print("\n🚀 Starting DHF model simulation with unified architecture...")
-            print("📦 Using unified simulate interface")
-            print("DHF Model: 22-parameter Chinese watershed model with dual-layer runoff")
+            print(f"\n🚀 Starting DHF simulation...")
+            print(f"   Source: {args.data_source}")
+            print(f"   Basins: {args.basin_ids}")
+            print(f"   Variables: {args.variables}")
+            print(
+                f"   Time range: {args.time_range[0]} to {args.time_range[1]}"
+            )
 
-        # Use the unified simulation interface
-        results = _simulate_with_config(config)
+        # Load data directly using RuntimeDataLoader
+        try:
+            data = load_runtime_data(
+                variables=args.variables,
+                basin_ids=args.basin_ids,
+                time_range=tuple(args.time_range),
+                source_type=args.data_source,
+                source_config=source_config,
+                return_format="arrays",  # Return in (p_and_e, qobs) format
+            )
 
-        # Process and display results
-        print_results_summary(results, config, verbose)
+            if isinstance(data, tuple):
+                inputs, qobs = data
+                # For pure simulation, set qobs to None
+                qobs = None
+                if verbose:
+                    print(f"✅ Data loaded successfully:")
+                    print(
+                        f"   Input shape: {inputs.shape} [time, basin, features]"
+                    )
+                    print("   Observations: None (simulation mode)")
+            else:
+                print("❌ ERROR: Expected array format from RuntimeDataLoader")
+                return 1
+
+        except Exception as e:
+            print(f"❌ ERROR: Failed to load data: {e}")
+            return 1
+
+        # Validate inputs if requested
+        if args.validate_inputs:
+            validation = validate_runtime_simulation_inputs(
+                model_name=args.model_type,
+                parameters=parameters,
+                inputs=inputs,
+                basin_ids=args.basin_ids,
+            )
+
+            if not validation["valid"]:
+                print("❌ Validation failed:")
+                for issue in validation["issues"]:
+                    print(f"   - {issue}")
+                return 1
+
+            if validation["warnings"] and verbose:
+                print("⚠️  Validation warnings:")
+                for warning in validation["warnings"]:
+                    print(f"   - {warning}")
+
+        # Create model configuration and run simulation directly
+        model_config = {
+            "model_name": args.model_type,
+            "model_params": {},
+            "parameters": parameters,
+        }
+
+        if verbose:
+            print(f"⚙️  Initializing {args.model_type} simulator...")
+            print(f"   Parameters: {len(parameters)} model parameters")
+            print(f"   Input shape: {inputs.shape}")
+            print(f"   Warmup length: {args.warmup_length}")
+
+        # Create and run simulator directly
+        simulator = UnifiedSimulator(model_config)
+        results = simulator.simulate(
+            inputs=inputs,
+            qobs=qobs,
+            warmup_length=args.warmup_length,
+            is_event_data=False,  # DHF is typically for continuous data
+        )
+
+        if verbose:
+            sim_shape = results["simulation"].shape
+            print(f"✅ Simulation completed: {sim_shape}")
+
+        # Display results
+        print_simulation_summary(results, args.basin_ids, "DHF", verbose)
 
         # Save results if requested
-        if args.save_results or config.get("simulation_cfgs", {}).get("save_results", False):
-            output_dir = os.path.join(
-                config.get("training_cfgs", {}).get("output_dir", "results/simulations"),
-                config.get("training_cfgs", {}).get("experiment_name", "dhf_simulation"),
+        if args.save_results:
+            save_simulation_results(
+                results=results,
+                basin_ids=args.basin_ids,
+                output_dir=args.output_dir,
+                experiment_name=args.experiment_name,
+                time_range=tuple(args.time_range),
             )
-            save_simulation_results(results, config, output_dir)
 
-        # Save configuration file if requested
-        if args.save_config:
-            training_cfgs = config.get("training_cfgs", {})
-            output_dir = os.path.join(
-                training_cfgs.get("output_dir", "results"),
-                training_cfgs.get("experiment_name", "experiment"),
-            )
-            config_output_path = os.path.join(
-                output_dir, "dhf_simulation_config.yaml"
-            )
-            ScriptUtils.save_config_file(config, config_output_path)
+        if verbose:
+            print(f"\n✅ DHF simulation completed successfully!")
+            print(f"   Final simulation shape: {results['simulation'].shape}")
 
-        ScriptUtils.print_completion_message(config, "DHF simulation")
         return 0
 
     except KeyboardInterrupt:
-        print("\n👋 Simulation interrupted by user")
+        print("\n👋 DHF simulation interrupted by user")
         return 1
     except Exception as e:
-        print(f"\n❌ ERROR: Simulation failed: {e}")
+        print(f"\n❌ ERROR: DHF simulation failed: {e}")
         if verbose:
             import traceback
 

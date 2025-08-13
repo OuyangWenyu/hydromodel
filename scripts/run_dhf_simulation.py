@@ -118,8 +118,8 @@ Usage Examples:
     parser.add_argument(
         "--variables",
         nargs="+",
-        default=["rain", "ES", "inflow"],
-        help="Variables for simulation (default: rain, ES, inflow)",
+        default=["rain", "ES", "inflow", "flood_event"],
+        help="Variables for simulation (default: rain, ES, inflow, flood_event)",
     )
 
     parser.add_argument(
@@ -413,7 +413,7 @@ def main():
             inputs=inputs,
             qobs=qobs,
             warmup_length=args.warmup_length,
-            is_event_data=False,  # DHF is typically for continuous data
+            is_event_data=True,
         )
 
         if verbose:

@@ -95,10 +95,20 @@ class UnifiedDataLoader:
             "calibration", ["2014-10-01", "2019-09-30"]
         )
 
-        # Get variable names
-        self.variables = data_config.get(
-            "variables", ["prcp", "PET", "streamflow"]
-        )
+        # Get variable names with data type specific defaults
+        if self.data_type == "floodevent":
+            # For flood event data, ensure flood_event is included
+            default_vars = ["P_eff", "Q_obs_eff", "flood_event"]
+            self.variables = data_config.get("variables", default_vars)
+            
+            # Ensure flood_event is always included for floodevent data type
+            if "flood_event" not in self.variables:
+                self.variables.append("flood_event")
+        else:
+            # For other data types
+            self.variables = data_config.get(
+                "variables", ["prcp", "PET", "streamflow"]
+            )
 
         # Initialize the appropriate datasource
         self.datasource = self._create_datasource()
@@ -235,8 +245,16 @@ class UnifiedDataLoader:
         # Create dummy PET (zeros) to maintain the standard format
         dummy_pet = np.zeros_like(net_rain)
 
-        # Stack P and E: [basin, time, features=2]
-        p_and_e = np.stack([net_rain, dummy_pet], axis=2)
+        # For flood event data, flood_event markers are mandatory
+        if "flood_event" not in xr_dataset.data_vars:
+            raise ValueError(
+                "flood_event markers are required for floodevent data type. "
+                "Please ensure the dataset contains 'flood_event' variable."
+            )
+        
+        flood_event_markers = xr_dataset["flood_event"].transpose("time", "basin").values
+        # Stack P, E, and flood_event: [basin, time, features=3]
+        p_and_e = np.stack([net_rain, dummy_pet, flood_event_markers], axis=2)
 
         # Expand qobs: [basin, time, features=1]
         qobs = np.expand_dims(obs_flow, axis=2)

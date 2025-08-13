@@ -306,8 +306,13 @@ class UnifiedSimulator:
         self, inputs: np.ndarray, warmup_length: int, **kwargs
     ) -> np.ndarray:
         """Special simulation for event data with traditional models."""
-        # Extract precipitation data to identify events
-        net_rain = inputs[:, :, 0]  # [time, basin]
+        # Validate that flood_event markers are present
+        if inputs.shape[2] < 3:
+            raise ValueError(
+                "Event data simulation requires flood_event markers. "
+                f"Expected input shape [time, basin, 3] with features [rain, pet, flood_event], "
+                f"but got shape {inputs.shape}."
+            )
 
         # Initialize output array
         output_shape = (inputs.shape[0], inputs.shape[1], 1)
@@ -315,10 +320,8 @@ class UnifiedSimulator:
 
         # Process each basin separately
         for basin_idx in range(inputs.shape[1]):
-            basin_rain = net_rain[:, basin_idx]
-
-            # Find event segments
-            event_segments = self._find_event_segments(basin_rain)
+            # Find event segments using flood_event markers
+            event_segments = self._find_event_segments(inputs, basin_idx)
 
             # Get basin-specific parameters
             if self.param_array.shape[0] > 1:
@@ -341,7 +344,7 @@ class UnifiedSimulator:
                     event_result = self.model_function(
                         event_inputs,
                         basin_params,
-                        warmup_length=0,  # No warmup for event segments
+                        warmup_length=warmup_length,
                         **model_config,
                     )
 
@@ -369,29 +372,34 @@ class UnifiedSimulator:
         return simulation_output
 
     def _find_event_segments(
-        self, rain_series: np.ndarray, min_gap_length: int = 1
+        self, inputs: np.ndarray, basin_idx: int, min_gap_length: int = 1
     ) -> List[Tuple[int, int]]:
-        """Find continuous event segments in rain time series."""
-        # Find non-zero indices
-        non_zero_indices = np.where(rain_series > 0)[0]
+        """Find continuous event segments using flood_event markers."""
+        # For event data, flood_event markers are mandatory
+        # Use flood_event markers (feature index 2)
+        flood_event_series = inputs[:, basin_idx, 2]
+        # Find non-zero indices (both warmup and actual event periods)
+        event_indices = np.where(flood_event_series > 0)[0]
 
-        if len(non_zero_indices) == 0:
+        if len(event_indices) == 0:
             return []
 
-        # Find gaps in the indices
-        gaps = np.diff(non_zero_indices) > min_gap_length
-
-        # Split indices by gaps
-        split_points = np.where(gaps)[0] + 1
-        split_indices = np.split(non_zero_indices, split_points)
-
-        # Convert to start-end pairs
+        # Find continuous segments
         segments = []
-        for indices in split_indices:
-            if len(indices) > 0:
-                start_idx = max(0, indices[0])
-                end_idx = min(len(rain_series) - 1, indices[-1])
-                segments.append((start_idx, end_idx))
+        if len(event_indices) > 0:
+            # Find gaps in the indices
+            gaps = np.diff(event_indices) > 1
+
+            # Split indices by gaps
+            split_points = np.where(gaps)[0] + 1
+            split_indices = np.split(event_indices, split_points)
+
+            # Convert to start-end pairs
+            for indices in split_indices:
+                if len(indices) > 0:
+                    start_idx = indices[0]
+                    end_idx = indices[-1]
+                    segments.append((start_idx, end_idx))
 
         return segments
 

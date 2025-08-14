@@ -160,7 +160,7 @@ Usage Examples:
     parser.add_argument(
         "--warmup-length",
         type=int,
-        default=365,
+        default=480,
         help="Warmup period length (default: 365 days)",
     )
 
@@ -425,15 +425,13 @@ def main():
         # Display results
         print_simulation_summary(results, args.basin_ids, "DHF", verbose)
 
-        # Save results if requested
-        if args.save_results:
-            save_simulation_results(
-                results=results,
-                basin_ids=args.basin_ids,
-                output_dir=args.output_dir,
-                experiment_name=args.experiment_name,
-                time_range=tuple(args.time_range),
-            )
+        save_simulation_results(
+            results=results,
+            basin_ids=args.basin_ids,
+            output_dir=args.output_dir,
+            experiment_name=args.experiment_name,
+            time_range=tuple(args.time_range),
+        )
 
         if verbose:
             print(f"\n✅ DHF simulation completed successfully!")

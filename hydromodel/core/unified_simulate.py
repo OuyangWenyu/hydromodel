@@ -363,6 +363,18 @@ class UnifiedSimulator:
                     else:
                         event_sim = event_result
 
+                    # Ensure event_sim has the correct shape for storage
+                    if event_sim.ndim == 1:
+                        # Convert 1D output to (time, 1, 1) for compatibility
+                        event_sim = event_sim.reshape(-1, 1, 1)
+                    elif event_sim.ndim == 2:
+                        if event_sim.shape[1] == 1:
+                            # Convert (time, 1) to (time, 1, 1)
+                            event_sim = event_sim.reshape(-1, 1, 1)
+                        else:
+                            # If it's (time, basin) but basin != 1, take the first basin and add feature dim
+                            event_sim = event_sim[:, 0:1].reshape(-1, 1, 1)
+
                     # Store only the event period output (excluding warmup period)
                     # The model output should already exclude warmup period
                     event_output_length = original_end - original_start + 1

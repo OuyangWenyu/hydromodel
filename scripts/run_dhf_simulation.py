@@ -118,7 +118,12 @@ Usage Examples:
     parser.add_argument(
         "--variables",
         nargs="+",
-        default=["rain", "ES", "inflow", "flood_event"],
+        default=[
+            "rain",
+            "ES",
+            "inflow",
+            "flood_event",
+        ],
         help="Variables for simulation (default: rain, ES, inflow, flood_event)",
     )
 
@@ -270,9 +275,6 @@ def get_dhf_default_parameters() -> dict:
         "COE": 0.6,
         "DDL": 1.0,
         "CCL": 0.7,
-        "SA0": 20.0,
-        "UA0": 40.0,
-        "YA0": 10.0,
     }
 
 

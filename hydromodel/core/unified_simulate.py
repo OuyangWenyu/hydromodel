@@ -320,8 +320,10 @@ class UnifiedSimulator:
 
         # Process each basin separately
         for basin_idx in range(inputs.shape[1]):
-            # Find event segments using flood_event markers
-            event_segments = self._find_event_segments(inputs, basin_idx)
+            # Find event segments using flood_event markers (including warmup period)
+            event_segments = self._find_event_segments(
+                inputs, basin_idx, warmup_length
+            )
 
             # Get basin-specific parameters
             if self.param_array.shape[0] > 1:
@@ -330,10 +332,17 @@ class UnifiedSimulator:
                 basin_params = self.param_array
 
             # Process each event segment
-            for start_idx, end_idx in event_segments:
-                # Extract event data
+            for (
+                extended_start,
+                extended_end,
+                original_start,
+                original_end,
+            ) in event_segments:
+                # Extract event data (including warmup period)
                 event_inputs = inputs[
-                    start_idx : end_idx + 1, basin_idx : basin_idx + 1, :
+                    extended_start : extended_end + 1,
+                    basin_idx : basin_idx + 1,
+                    :,
                 ]
 
                 try:
@@ -354,27 +363,55 @@ class UnifiedSimulator:
                     else:
                         event_sim = event_result
 
-                    # Store in output array
-                    simulation_output[
-                        start_idx : end_idx + 1, basin_idx : basin_idx + 1, :
-                    ] = event_sim
+                    # Store only the event period output (excluding warmup period)
+                    # The model output should already exclude warmup period
+                    event_output_length = original_end - original_start + 1
+                    if event_sim.shape[0] == event_output_length:
+                        # Model correctly handled warmup and returned only event period output
+                        simulation_output[
+                            original_start : original_end + 1,
+                            basin_idx : basin_idx + 1,
+                            :,
+                        ] = event_sim
+                    else:
+                        # Fallback: store whatever the model returned, starting from original event start
+                        actual_length = min(
+                            event_sim.shape[0], event_output_length
+                        )
+                        simulation_output[
+                            original_start : original_start + actual_length,
+                            basin_idx : basin_idx + 1,
+                            :,
+                        ] = event_sim[:actual_length]
 
                 except Exception as e:
                     print(
                         f"Warning: Event simulation failed for basin {basin_idx}, "
-                        f"segment {start_idx}-{end_idx}: {e}"
+                        f"segment {original_start}-{original_end}: {e}"
                     )
-                    # Fill with zeros on failure
+                    # Fill with zeros on failure (only for the original event period)
                     simulation_output[
-                        start_idx : end_idx + 1, basin_idx : basin_idx + 1, :
+                        original_start : original_end + 1,
+                        basin_idx : basin_idx + 1,
+                        :,
                     ] = 0.0
 
         return simulation_output
 
     def _find_event_segments(
-        self, inputs: np.ndarray, basin_idx: int, min_gap_length: int = 1
-    ) -> List[Tuple[int, int]]:
-        """Find continuous event segments using flood_event markers."""
+        self,
+        inputs: np.ndarray,
+        basin_idx: int,
+        warmup_length: int = 0,
+    ) -> List[Tuple[int, int, int, int]]:
+        """Find continuous event segments using flood_event markers, including warmup period.
+
+        Returns
+        -------
+        List[Tuple[int, int, int, int]]
+            List of (extended_start, extended_end, original_start, original_end) tuples.
+            extended_start includes warmup period, original_start is the actual event start.
+        """
         # For event data, flood_event markers are mandatory
         # Use flood_event markers (feature index 2)
         flood_event_series = inputs[:, basin_idx, 2]
@@ -394,12 +431,26 @@ class UnifiedSimulator:
             split_points = np.where(gaps)[0] + 1
             split_indices = np.split(event_indices, split_points)
 
-            # Convert to start-end pairs
+            # Convert to start-end pairs and extend with warmup period
             for indices in split_indices:
                 if len(indices) > 0:
-                    start_idx = indices[0]
-                    end_idx = indices[-1]
-                    segments.append((start_idx, end_idx))
+                    original_start_idx = indices[0]
+                    original_end_idx = indices[-1]
+
+                    # Extend start index to include warmup period
+                    extended_start_idx = max(
+                        0, original_start_idx - warmup_length
+                    )
+
+                    # Return (extended_start, extended_end, original_start, original_end)
+                    segments.append(
+                        (
+                            extended_start_idx,
+                            original_end_idx,
+                            original_start_idx,
+                            original_end_idx,
+                        )
+                    )
 
         return segments
 

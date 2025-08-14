@@ -1,12 +1,13 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-30 16:44:15
-LastEditTime: 2025-07-31 10:50:04
-LastEditors: zhuanglaihong
+LastEditTime: 2025-08-14 11:02:50
+LastEditors: Wenyu Ouyang
 Description: Dahuofang Model - Python implementation based on Java version
-FilePath: \hydromodel_dev\hydromodel_dev\DHF.py
+FilePath: \hydromodel\hydromodel\models\dhf.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
+
 import json
 import math
 import numpy as np
@@ -18,27 +19,75 @@ import traceback
 
 def run_dhf_single_basin(
     precipitation: np.ndarray,
-    evapotranspiration: np.ndarray,
+    potential_evapotranspiration: np.ndarray,
     parameters: np.ndarray,
     warmup_length: int = 30,
-    area: float = 35.0,
+    **kwargs,
 ) -> Dict[str, np.ndarray]:
     """
-    带跟踪功能的DHF模型运行函数，用于调试特定时刻的计算过程
+    DHF模型运行函数，用于单个流域的径流计算
+
+    Parameters
+    ----------
+    precipitation : np.ndarray
+        降雨数据
+    potential_evapotranspiration : np.ndarray
+        潜在蒸散发数据
+    parameters : np.ndarray
+        模型参数数组 [S0, U0, D0, KC, KW, K2, KA, G, A, B, B0, K0, N, L, DD, CC, COE, DDL, CCL]
+    warmup_length : int, optional
+        预热期长度，默认30
+    **kwargs
+        Additional keyword arguments, including time_interval_hours (default: 1.0)
+
+    Returns
+    -------
+    Dict[str, np.ndarray]
+        包含模拟结果和状态变量的字典
+
+    Notes
+    -----
+    输入输出单位已统一，不需要流域面积转换
     """
-    # 提取参数
+    # 提取参数（只包含模型参数，不包含状态变量）
     s0, u0, d0, kc, kw, k2, ka = parameters[0:7]
     g, a, b, b0, k0, n, l = parameters[7:14]
     dd, cc, coe, ddl, ccl = parameters[14:19]
-    sa0, ua0, ya0 = parameters[19:22]
+
+    # 预热期处理 - 递归调用获取合适的初始状态
+    if warmup_length > 0:
+        warmup_precipitation = precipitation[:warmup_length]
+        warmup_pet = potential_evapotranspiration[:warmup_length]
+
+        # 递归调用预热期（无预热期）
+        warmup_results = run_dhf_single_basin(
+            warmup_precipitation,
+            warmup_pet,
+            parameters,
+            warmup_length=0,
+            **kwargs,
+        )
+
+        # 从预热结果获取最终状态作为正式计算的初始状态
+        sa0 = warmup_results["sa"][-1]
+        ua0 = warmup_results["ua"][-1]
+        ya0 = warmup_results["ya"][-1]
+
+        # 使用预热期后的数据进行正式计算
+        precipitation = precipitation[warmup_length:]
+        potential_evapotranspiration = potential_evapotranspiration[
+            warmup_length:
+        ]
+    else:
+        # 使用默认初始状态 (from Jinggang Chu)
+        sa0 = 0.0
+        ua0 = 0.0
+        ya0 = 0.5
 
     time_steps = len(precipitation)
 
-    # 使用Java版本的timeInterval和月蒸发量
-    time_interval = 1.0  # 小时
-    ES = np.array(
-        [13.6, 20.9, 43.1, 85.7, 103.8, 92.8, 75.8, 82.1, 78.7, 61, 31, 13.9]
-    )  # 月蒸发量(mm)
+    # 模型常量
+    time_interval = kwargs.get("time_interval_hours", 3.0)
     PAI = np.pi
 
     # 初始化状态变量
@@ -83,21 +132,18 @@ def run_dhf_single_basin(
         yL[i] = 0.0
         Eb = 0.0
 
-        # 计算蒸散发 
-        month = 7  # 固定为7月
-        if evapotranspiration is not None and len(evapotranspiration) > i:
+        # 计算蒸散发
+        if (
+            potential_evapotranspiration is not None
+            and len(potential_evapotranspiration) > i
+        ):
             # 如果提供了蒸发数据，直接使用
             # print(f"使用提供的蒸发数据: {evapotranspiration[i]}")
-            Ep = evapotranspiration[i]
+            Ep = potential_evapotranspiration[i]
             EDt = kc * Ep
 
         else:
-            # 否则使用基于月份的计算方法
-            time_interval = 1.0  # 小时
-            # month = months[i]  # 使用当前时间步对应的月份
-            Ep = ES[month - 1] / 30  # 月蒸发量转日蒸发量
-            Ep = Ep * time_interval / 24  # 日蒸发量转时段蒸发量
-            EDt = kc * Ep
+            raise ValueError("Potential evapotranspiration is required")
 
         PE[i] = precipitation[i] - EDt  # 净雨
         y0[i] = g * PE[i]  # 不透水面积产流
@@ -222,7 +268,8 @@ def run_dhf_single_basin(
             ya[j + 1] = 0.0
 
     # DHF汇流计算
-    w0 = area / (3.6 * time_interval)
+    # 注意: 流域面积转换已在数据预处理中完成，这里使用标准化因子
+    w0 = 1.0 / time_interval
 
     for i in range(time_steps):
         if ya[i] < 0.5:
@@ -262,7 +309,7 @@ def run_dhf_single_basin(
 
             # Java版本：for (int j = 0; j < Tm; j++)
             j = 0
-            while j < Tm:  
+            while j < Tm:
                 tmp = (PAI * j / Tm) ** dd
                 tmp1 = (np.sin(PAI * j / Tm)) ** cc
                 K3_old = K3  # 保存旧值用于跟踪
@@ -328,23 +375,10 @@ def run_dhf_single_basin(
             if QSim[i + j] < 0.0:
                 QSim[i + j] = 0.0
 
-    # 应用预热期
-    if warmup_length > 0:
-        start_idx = warmup_length
-        QSim = QSim[start_idx:]
-        RunoffSim = RunoffSim[start_idx:]
-        y0 = y0[start_idx:]
-        yu = yu[start_idx:]
-        yL = yL[start_idx:]
-        y = y[start_idx:]
-        PE = PE[start_idx:]
-        sa = sa[start_idx:-1]
-        ua = ua[start_idx:-1]
-        ya = ya[start_idx:-1]
-    else:
-        sa = sa[:-1]
-        ua = ua[:-1]
-        ya = ya[:-1]
+    # 状态变量处理（移除最后一个时步的状态，因为它对应时间步长+1）
+    sa = sa[:-1]
+    ua = ua[:-1]
+    ya = ya[:-1]
 
     # 构建分水源产流数组
     r_sim = np.array([y0, yu, yL, y])
@@ -369,6 +403,7 @@ def dhf(
     parameters: np.ndarray,
     warmup_length: int = 365,
     return_state: bool = False,
+    **kwargs,
 ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[str, np.ndarray]]]:
     """
     大伙房水文模型（DHF Model）- 按照dhf.py逻辑重构版本
@@ -382,9 +417,11 @@ def dhf(
         model parameters, 2-dim variable: [basin, parameter]
         Parameters expected in order: [S0, U0, D0, K, KW, K2, KA, G, A, B, B0, K0, N, L, DD, CC, COE, DDL, CCL, SA0, UA0, YA0]
     warmup_length : int, optional
-        the length of warmup period (default: 30)
+        the length of warmup period (default: 365)
     return_state : bool, optional
         if True, return internal state variables, else only return streamflow (default: False)
+    **kwargs
+        Additional keyword arguments, including time_interval_hours (default: 1.0)
 
     Returns
     -------
@@ -396,6 +433,9 @@ def dhf(
     # 获取数据维度
     time_steps, num_basins, _ = p_and_e.shape
 
+    # 提取参数
+    time_interval_hours = kwargs.get("time_interval_hours", 3.0)
+
     # 处理每个流域
     all_results = {}
     actual_output_length = None
@@ -404,11 +444,15 @@ def dhf(
         # 提取当前流域的参数和数据
         params = parameters[basin_idx, :]
         precipitation = p_and_e[:, basin_idx, 0]
-        evapotranspiration = p_and_e[:, basin_idx, 1]
+        potential_evapotranspiration = p_and_e[:, basin_idx, 1]
 
-        # 运行单个流域模型
+        # 运行单个流域模型（预热期处理在run_dhf_single_basin内部完成）
         basin_results = run_dhf_single_basin(
-            precipitation, evapotranspiration, params, warmup_length
+            precipitation,
+            potential_evapotranspiration,
+            params,
+            warmup_length=warmup_length,
+            time_interval_hours=time_interval_hours,
         )
 
         # 获取实际输出长度

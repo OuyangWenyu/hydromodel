@@ -18,6 +18,7 @@ from abc import ABC, abstractmethod
 from hydromodel.models.model_dict import MODEL_DICT
 from hydromodel.configs.unified_config import UnifiedConfig
 from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
+from hydroutils.hydro_event import find_flood_event_segments_as_tuples
 
 
 class UnifiedSimulator:
@@ -321,8 +322,11 @@ class UnifiedSimulator:
         # Process each basin separately
         for basin_idx in range(inputs.shape[1]):
             # Find event segments using flood_event markers (including warmup period)
-            event_segments = self._find_event_segments(
-                inputs, basin_idx, warmup_length
+            flood_event_array = inputs[
+                :, basin_idx, 2
+            ]  # feature index 2 is flood_event
+            event_segments = find_flood_event_segments_as_tuples(
+                flood_event_array, warmup_length
             )
 
             # Get basin-specific parameters
@@ -409,62 +413,6 @@ class UnifiedSimulator:
                     ] = 0.0
 
         return simulation_output
-
-    def _find_event_segments(
-        self,
-        inputs: np.ndarray,
-        basin_idx: int,
-        warmup_length: int = 0,
-    ) -> List[Tuple[int, int, int, int]]:
-        """Find continuous event segments using flood_event markers, including warmup period.
-
-        Returns
-        -------
-        List[Tuple[int, int, int, int]]
-            List of (extended_start, extended_end, original_start, original_end) tuples.
-            extended_start includes warmup period, original_start is the actual event start.
-        """
-        # For event data, flood_event markers are mandatory
-        # Use flood_event markers (feature index 2)
-        flood_event_series = inputs[:, basin_idx, 2]
-        # Find non-zero indices (both warmup and actual event periods)
-        event_indices = np.where(flood_event_series > 0)[0]
-
-        if len(event_indices) == 0:
-            return []
-
-        # Find continuous segments
-        segments = []
-        if len(event_indices) > 0:
-            # Find gaps in the indices
-            gaps = np.diff(event_indices) > 1
-
-            # Split indices by gaps
-            split_points = np.where(gaps)[0] + 1
-            split_indices = np.split(event_indices, split_points)
-
-            # Convert to start-end pairs and extend with warmup period
-            for indices in split_indices:
-                if len(indices) > 0:
-                    original_start_idx = indices[0]
-                    original_end_idx = indices[-1]
-
-                    # Extend start index to include warmup period
-                    extended_start_idx = max(
-                        0, original_start_idx - warmup_length
-                    )
-
-                    # Return (extended_start, extended_end, original_start, original_end)
-                    segments.append(
-                        (
-                            extended_start_idx,
-                            original_end_idx,
-                            original_start_idx,
-                            original_end_idx,
-                        )
-                    )
-
-        return segments
 
 
 def simulate(

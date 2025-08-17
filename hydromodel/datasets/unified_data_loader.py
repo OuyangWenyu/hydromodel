@@ -100,7 +100,7 @@ class UnifiedDataLoader:
             # For flood event data, ensure flood_event is included
             default_vars = ["P_eff", "Q_obs_eff", "flood_event"]
             self.variables = data_config.get("variables", default_vars)
-            
+
             # Ensure flood_event is always included for floodevent data type
             if "flood_event" not in self.variables:
                 self.variables.append("flood_event")
@@ -251,8 +251,10 @@ class UnifiedDataLoader:
                 "flood_event markers are required for floodevent data type. "
                 "Please ensure the dataset contains 'flood_event' variable."
             )
-        
-        flood_event_markers = xr_dataset["flood_event"].transpose("time", "basin").values
+
+        flood_event_markers = (
+            xr_dataset["flood_event"].transpose("time", "basin").values
+        )
         # Stack P, E, and flood_event: [basin, time, features=3]
         p_and_e = np.stack([net_rain, dummy_pet, flood_event_markers], axis=2)
 

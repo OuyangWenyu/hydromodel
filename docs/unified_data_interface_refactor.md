@@ -121,8 +121,8 @@ data_cfgs:
   time_unit: ["1D"]
   warmup_length: 365
   # Event-specific configuration
-  net_rain_key: "P_eff"
-  obs_flow_key: "Q_obs_eff"
+  net_rain_key: "net_rain"
+  obs_flow_key: "inflow"
   # Additional parameters
   datasource_kwargs: {}
   read_kwargs: {}
@@ -167,9 +167,9 @@ data_cfgs:
   data_path: "path/to/flood/events"
   basin_ids: ["21401550"]
   time_unit: ["3h"]
-  variables: ["P_eff", "Q_obs_eff"]
-  net_rain_key: "P_eff"
-  obs_flow_key: "Q_obs_eff"
+  variables: ["net_rain", "inflow"]
+  net_rain_key: "net_rain"
+  obs_flow_key: "inflow"
   warmup_length: 0
 
 model_cfgs:

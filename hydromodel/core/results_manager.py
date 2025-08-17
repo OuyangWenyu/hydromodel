@@ -268,7 +268,7 @@ class UnitHydrographResultsProcessor(ModelResultsProcessor):
             # Ensure time_unit is a list
             if isinstance(time_unit, str):
                 time_unit = [time_unit]
-            
+
             dataset = FloodEventDatasource(
                 data_cfgs.get("data_source_path"),
                 time_unit=time_unit,
@@ -295,8 +295,8 @@ class UnitHydrographResultsProcessor(ModelResultsProcessor):
                 result = evaluate_single_event_from_uh(
                     event,
                     uh_params,
-                    net_rain_key="P_eff",
-                    obs_flow_key="Q_obs_eff",
+                    net_rain_key=data_cfgs.get("net_rain_key"),
+                    obs_flow_key=data_cfgs.get("obs_flow_key"),
                 )
                 if result:
                     evaluation_results.append(result)

@@ -61,13 +61,13 @@ data_cfgs:
     testing: ["2023-01-01", "2023-12-31"]
   
   # Data processing settings
-  variables: ["P_eff", "Q_obs_eff"]
+  variables: ["net_rain", "inflow"]
   warmup_length: 365
   time_unit: ["3h"]
   
   # Event-specific settings (for flood events)
-  net_rain_key: "P_eff"
-  obs_flow_key: "Q_obs_eff"
+  net_rain_key: "net_rain"
+  obs_flow_key: "inflow"
   
   # Additional datasource parameters
   datasource_kwargs: {}

@@ -15,12 +15,12 @@ data_cfgs:
     testing: ["2023-01-01", "2023-12-31"]
   
   # Variables for flood event data
-  variables: ["P_eff", "Q_obs_eff"]  # Net rain and observed flow
+  variables: ["net_rain", "inflow"]  # Net rain and observed flow
   
   # Event-specific configuration
   rain_key: "rain"
-  net_rain_key: "P_eff"
-  obs_flow_key: "Q_obs_eff"
+  net_rain_key: "net_rain"
+  obs_flow_key: "inflow"
   
   # Additional datasource parameters
   datasource_kwargs: {}

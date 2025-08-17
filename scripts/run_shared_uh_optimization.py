@@ -63,7 +63,9 @@ Usage Examples:
     parser.add_argument(
         "--data-source-path",
         type=str,
-        default=os.path.join(SETTING["local_data_path"]["datasets-interim"], "songliaorrevent"),
+        default=os.path.join(
+            SETTING["local_data_path"]["datasets-interim"], "songliaorrevent"
+        ),
         help="Data directory path (uses default if not specified)",
     )
 
@@ -84,8 +86,8 @@ Usage Examples:
     parser.add_argument(
         "--variables",
         nargs="+",
-        default=["P_eff", "Q_obs_eff"],
-        help="Variables to calibrate (default: P_eff, Q_obs_eff)",
+        default=["net_rain", "inflow"],
+        help="Variables to calibrate",
     )
 
     parser.add_argument(
@@ -214,7 +216,9 @@ def main():
 
         # Run calibration using unified interface
         if verbose:
-            print("\n🚀 Starting unit hydrograph calibration with unified architecture...")
+            print(
+                "\n🚀 Starting unit hydrograph calibration with unified architecture..."
+            )
             print("📦 Using unified calibrate(config) interface")
 
         # The new unified calibration call - single function, single parameter!
@@ -235,7 +239,9 @@ def main():
             )
             ScriptUtils.save_config_file(config, config_output_path)
 
-        ScriptUtils.print_completion_message(config, "Unit Hydrograph calibration")
+        ScriptUtils.print_completion_message(
+            config, "Unit Hydrograph calibration"
+        )
         return 0
 
     except KeyboardInterrupt:

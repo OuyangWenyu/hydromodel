@@ -122,7 +122,10 @@ class UnifiedModelSetup(ModelSetupBase):
         self.is_event_data = self.data_loader.is_event_data()
 
         # Handle unit hydrograph models vs traditional models
-        if self.model_name in ["unit_hydrograph", "categorized_unit_hydrograph"]:
+        if self.model_name in [
+            "unit_hydrograph",
+            "categorized_unit_hydrograph",
+        ]:
             self._setup_unit_hydrograph_params()
             # Unit hydrograph models don't need param_range
             self.param_range = {}
@@ -139,9 +142,17 @@ class UnifiedModelSetup(ModelSetupBase):
         }
 
         # For traditional models, embed the per-model param dict into model_params so simulator forwards it
-        if self.model_name not in ["unit_hydrograph", "categorized_unit_hydrograph"]:
-            if isinstance(self.param_range, dict) and self.model_name in self.param_range:
-                self.base_model_config["model_params"][self.model_name] = self.param_range[self.model_name]
+        if self.model_name not in [
+            "unit_hydrograph",
+            "categorized_unit_hydrograph",
+        ]:
+            if (
+                isinstance(self.param_range, dict)
+                and self.model_name in self.param_range
+            ):
+                self.base_model_config["model_params"][self.model_name] = (
+                    self.param_range[self.model_name]
+                )
 
         # Create spotpy parameters
         self.params = []
@@ -206,13 +217,17 @@ class UnifiedModelSetup(ModelSetupBase):
             thresholds = self.model_config.get(
                 "thresholds", {"small_medium": 10.0, "medium_large": 25.0}
             )
-            parameter_value = {"uh_categories": uh_categories, "thresholds": thresholds}
+            parameter_value = {
+                "uh_categories": uh_categories,
+                "thresholds": thresholds,
+            }
         else:
             # Traditional models: preserve parameter order and keep normalized values in [0,1]
             from collections import OrderedDict
 
             ordered_params = OrderedDict(
-                (name, float(params[i])) for i, name in enumerate(self.parameter_names)
+                (name, float(params[i]))
+                for i, name in enumerate(self.parameter_names)
             )
             parameter_value = ordered_params
 
@@ -342,7 +357,12 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
 
     for i, basin_id in enumerate(basin_ids):
         basin_result = _calibrate_model(
-            model_setup, algorithm_config, output_dir, basin_id, basin_index=i, **kwargs
+            model_setup,
+            algorithm_config,
+            output_dir,
+            basin_id,
+            basin_index=i,
+            **kwargs,
         )
         results[basin_id] = basin_result
 
@@ -476,7 +496,9 @@ def _calibrate_with_sceua(model_setup, algorithm_config, output_dir, basin_id):
             except Exception:
                 params_array = np.array(x)
             # Run unified simulation over all basins, then slice this basin
-            sim_all = self.model_setup.simulate(params_array)  # [time, basin, 1]
+            sim_all = self.model_setup.simulate(
+                params_array
+            )  # [time, basin, 1]
             return sim_all[:, self.basin_index : self.basin_index + 1, :]
 
         def evaluation(self):

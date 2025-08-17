@@ -11,8 +11,8 @@ data_cfgs:
   # Event data specific settings
   time_unit: ["3h"]                         # 3-hour time step
   rain_key: "rain"                          # Rainfall column name
-  net_rain_key: "P_eff"                     # Effective rainfall column
-  obs_flow_key: "Q_obs_eff"                 # Observed flow column
+  net_rain_key: "net_rain"                     # Effective rainfall column
+  obs_flow_key: "inflow"                 # Observed flow column
 
 model_cfgs:
   # Unit hydrograph model

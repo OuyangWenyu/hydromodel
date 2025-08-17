@@ -130,9 +130,9 @@ class UnifiedDataLoader:
                 data_path=self.data_path,
                 dataset_name=self.config.get("dataset_name", "events"),
                 time_unit=self.config.get("time_unit", ["3h"]),
-                rain_key=self.config.get("rain_key", "rain"),
-                net_rain_key=self.config.get("net_rain_key", "P_eff"),
-                obs_flow_key=self.config.get("obs_flow_key", "Q_obs_eff"),
+                rain_key=self.config.get("rain_key"),
+                net_rain_key=self.config.get("net_rain_key"),
+                obs_flow_key=self.config.get("obs_flow_key"),
                 warmup_length=self.warmup_length,
                 **self.config.get("datasource_kwargs", {}),
             )
@@ -224,8 +224,8 @@ class UnifiedDataLoader:
         We need to handle this appropriately for different model types.
         """
         # Extract variables based on data_type configuration
-        net_rain_key = self.config.get("net_rain_key", "P_eff")
-        obs_flow_key = self.config.get("obs_flow_key", "Q_obs_eff")
+        net_rain_key = self.config.get("net_rain_key")
+        obs_flow_key = self.config.get("obs_flow_key")
 
         # Check if we have the expected variables
         if net_rain_key not in xr_dataset.data_vars:
@@ -337,8 +337,8 @@ class UnifiedDataLoader:
 
         if self.data_type == "floodevent":
             # For flood event data, check net rain and observed flow units
-            net_rain_key = self.config.get("net_rain_key", "P_eff")
-            obs_flow_key = self.config.get("obs_flow_key", "Q_obs_eff")
+            net_rain_key = self.config.get("net_rain_key")
+            obs_flow_key = self.config.get("obs_flow_key")
 
             if (
                 net_rain_key in xr_dataset.data_vars

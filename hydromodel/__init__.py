@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-02-09 15:56:48
-LastEditTime: 2025-08-07 21:00:00
+LastEditTime: 2025-08-18 07:50:03
 LastEditors: Wenyu Ouyang
 Description: Top-level package for hydromodel with unified interfaces
 FilePath: /hydromodel/hydromodel/__init__.py
@@ -16,11 +16,33 @@ import yaml
 # Import unified interfaces for easy access
 try:
     from .trainers.unified_calibrate import calibrate
-    from .core.unified_simulate import simulate
-    __all__ = ['calibrate', 'simulate', 'SETTING', 'CACHE_DIR']
+    from .core.unified_simulate import UnifiedSimulator
+    from .core.basin import Basin
+
+    # Import unit conversion functions from hydroutils
+    from hydroutils.hydro_units import (
+        mm_per_time_to_m3_per_s,
+        m3_per_s_to_mm_per_time,
+        detect_time_interval,
+        get_time_interval_info,
+        validate_unit_compatibility,
+    )
+
+    __all__ = [
+        "calibrate",
+        "UnifiedSimulator",
+        "Basin",
+        "SETTING",
+        "CACHE_DIR",
+        "mm_per_time_to_m3_per_s",
+        "m3_per_s_to_mm_per_time",
+        "detect_time_interval",
+        "get_time_interval_info",
+        "validate_unit_compatibility",
+    ]
 except ImportError:
     # Fallback if unified interfaces are not available
-    __all__ = ['SETTING', 'CACHE_DIR']
+    __all__ = ["SETTING", "CACHE_DIR"]
 
 __author__ = """Wenyu Ouyang"""
 __email__ = 'wenyuouyang@outlook.com'
@@ -33,7 +55,9 @@ SETTING_FILE = os.path.join(Path.home(), "hydro_setting.yml")
 
 def read_setting(setting_path):
     if not os.path.exists(setting_path):
-        raise FileNotFoundError(f"Configuration file not found: {setting_path}")
+        raise FileNotFoundError(
+            f"Configuration file not found: {setting_path}"
+        )
 
     with open(setting_path, "r") as file:
         setting = yaml.safe_load(file)
@@ -72,7 +96,9 @@ def read_setting(setting_path):
             if isinstance(subkeys, list):
                 for subkey in subkeys:
                     if subkey not in setting[key]:
-                        raise KeyError(f"Missing required subkey '{subkey}' in '{key}'")
+                        raise KeyError(
+                            f"Missing required subkey '{subkey}' in '{key}'"
+                        )
     except KeyError as e:
         raise ValueError(
             f"Incorrect configuration format: {e}\n\nExample configuration:\n{example_setting}"

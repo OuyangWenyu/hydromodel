@@ -8,17 +8,13 @@ FilePath: \hydromodel\hydromodel\core\unified_simulate.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
-import os
 import numpy as np
-import pandas as pd
-from typing import Dict, List, Optional, Union, Any, Tuple
+from typing import Dict, Any, Optional, Union
 from collections import OrderedDict
-from abc import ABC, abstractmethod
 
-from hydromodel.models.model_dict import MODEL_DICT
-from hydromodel.configs.unified_config import UnifiedConfig
-from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
 from hydroutils.hydro_event import find_flood_event_segments_as_tuples
+from hydromodel.models.model_dict import MODEL_DICT
+from .basin import Basin
 
 
 class UnifiedSimulator:
@@ -40,9 +36,13 @@ class UnifiedSimulator:
     - Support for both single and multi-basin simulations
     """
 
-    def __init__(self, model_config: Dict[str, Any]):
+    def __init__(
+        self,
+        model_config: Dict[str, Any],
+        basin_config: Optional[Union[Basin, Dict[str, Any]]] = None,
+    ):
         """
-        Initialize the unified simulator with model configuration only.
+        Initialize the unified simulator with model configuration and basin information.
 
         Parameters
         ----------
@@ -51,6 +51,10 @@ class UnifiedSimulator:
             - model_name: Name of the model to use
             - model_params: Model-specific parameters (structure, etc.)
             - parameters: Specific parameter values for simulation
+        basin_config : Basin or Dict[str, Any], optional
+            Basin configuration for unit conversion and modeling approach.
+            If dict provided, it will be converted to Basin instance.
+            If None, unit conversion will be disabled.
         """
         self.model_config = model_config
 
@@ -58,6 +62,15 @@ class UnifiedSimulator:
         self.model_name = self.model_config["model_name"]
         self.model_params = self.model_config.get("model_params", {})
         self.parameters = OrderedDict(self.model_config.get("parameters", {}))
+
+        # Store basin configuration
+        if basin_config is not None:
+            if isinstance(basin_config, dict):
+                self.basin = Basin.from_config(basin_config)
+            else:
+                self.basin = basin_config
+        else:
+            self.basin = None
 
         # Validate model exists
         if self.model_name not in MODEL_DICT:
@@ -223,6 +236,125 @@ class UnifiedSimulator:
             },
         }
 
+        # Apply unit conversion if basin configuration and output unit are available
+        results = self._trans_sim_results_unit(
+            results,
+            output_unit=kwargs.get("output_unit", "m^3/s"),
+            time_step_hours=kwargs.get("time_step_hours", 3.0),
+        )
+
+        return results
+
+    def _trans_sim_results_unit(
+        self,
+        results,
+        output_unit="m^3/s",
+        time_step_hours=3.0,
+    ):
+        """
+        Apply unit conversion to simulation results using basin configuration.
+
+        Parameters
+        ----------
+        results : Dict[str, Any]
+            Simulation results dictionary
+        output_unit : str, default "m^3/s"
+            Target output unit for conversion
+        time_step_hours : float, default 3.0
+            Time step in hours for the data
+        time_series : Optional
+            Time series data for detecting time interval (optional)
+
+        Returns
+        -------
+        Dict[str, Any]
+            Updated results with unit conversion applied
+        """
+        if self.basin is not None and output_unit == "m^3/s":
+            try:
+                from hydroutils.hydro_units import streamflow_unit_conv
+
+                # Get simulation results
+                simulation = results.get("simulation")
+                if simulation is not None:
+                    # Detect time interval from time series or use provided time step
+                    # Convert time_step_hours to integer format for time_interval
+                    if time_step_hours.is_integer():
+                        time_interval = f"{int(time_step_hours)}h"
+                    else:
+                        # Handle fractional hours by converting to minutes if < 1 hour
+                        if time_step_hours < 1:
+                            time_interval_minutes = int(time_step_hours * 60)
+                            time_interval = f"{time_interval_minutes}m"
+                        else:
+                            # Round to nearest hour for other cases
+                            time_interval = f"{round(time_step_hours)}h"
+
+                    # Convert simulation results from mm/time to m³/s
+                    # simulation shape is [time, basin, 1]
+                    converted_simulation = np.zeros_like(simulation)
+
+                    for basin_idx in range(simulation.shape[1]):
+                        basin_simulation = simulation[
+                            :, basin_idx, 0
+                        ]  # Extract time series for this basin
+
+                        # Get basin area for this unit (supports semi-distributed)
+                        basin_area_km2 = self.basin.unit_areas
+
+                        converted_discharge = streamflow_unit_conv(
+                            data=basin_simulation,
+                            area=basin_area_km2,
+                            target_unit=output_unit,
+                            source_unit=f"mm/{time_interval}",
+                            area_unit="km^2",
+                        )
+
+                        converted_simulation[:, basin_idx, 0] = (
+                            converted_discharge
+                        )
+
+                    # Update results with converted simulation
+                    results["simulation"] = converted_simulation
+
+                    # Add conversion metadata
+                    results["metadata"]["unit_conversion"] = {
+                        "applied": True,
+                        "source_unit": f"mm/{time_interval}",
+                        "target_unit": output_unit,
+                        "basin_info": {
+                            "basin_id": self.basin.basin_id,
+                            "basin_name": self.basin.basin_name,
+                            "total_area_km2": self.basin.total_area_km2,
+                            "modeling_approach": self.basin.modeling_approach,
+                        },
+                        "time_interval": time_interval,
+                    }
+
+            except ImportError:
+                # If hydroutils is not available, just add a note
+                results["metadata"]["unit_conversion"] = {
+                    "applied": False,
+                    "error": "hydroutils not available for unit conversion",
+                }
+            except Exception as e:
+                # If conversion fails, add error info but don't fail the simulation
+                results["metadata"]["unit_conversion"] = {
+                    "applied": False,
+                    "error": f"Unit conversion failed: {str(e)}",
+                }
+        else:
+            # No unit conversion applied
+            reason = "No basin configuration provided"
+            if self.basin is not None:
+                reason = (
+                    f"Output unit '{output_unit}' does not require conversion"
+                )
+
+            results["metadata"]["unit_conversion"] = {
+                "applied": False,
+                "reason": reason,
+            }
         return results
 
     def _prepare_param_array(self, n_basins: int) -> np.ndarray:
@@ -413,149 +545,3 @@ class UnifiedSimulator:
                     ] = 0.0
 
         return simulation_output
-
-
-def simulate(
-    config: Optional[Dict[str, Any]] = None,
-    inputs: Optional[np.ndarray] = None,
-    qobs: Optional[np.ndarray] = None,
-    model_config: Optional[Dict[str, Any]] = None,
-    **kwargs,
-) -> Dict[str, Any]:
-    """
-    Unified simulation interface for all hydrological models.
-
-    This is the main entry point for model simulation, providing flexible usage:
-    1. Traditional config-based approach (for backward compatibility)
-    2. New flexible approach with separate model config and input data
-
-    Parameters
-    ----------
-    config : Dict[str, Any], optional
-        Traditional simulation configuration containing data_cfgs and model_cfgs
-        (used for backward compatibility)
-    inputs : np.ndarray, optional
-        Input data array with shape [time, basin, features]
-        Features typically include [precipitation, potential_evapotranspiration]
-    qobs : np.ndarray, optional
-        Observed streamflow data with shape [time, basin, 1]
-    model_config : Dict[str, Any], optional
-        Model configuration containing model_name, model_params, and parameters
-    **kwargs
-        Additional arguments (warmup_length, is_event_data, etc.)
-
-    Returns
-    -------
-    Dict[str, Any]
-        Dictionary containing simulation results and metadata
-
-    Examples
-    --------
-    # New flexible approach (recommended)
-    >>> model_config = {
-    ...     "model_name": "xaj_mz",
-    ...     "model_params": {"source_type": "sources", "source_book": "HF"},
-    ...     "parameters": {
-    ...         "K": 0.5, "B": 0.3, "IM": 0.01, "UM": 20, "LM": 80,
-    ...         "DM": 120, "C": 0.15, "SM": 50, "EX": 1.0, "KI": 0.3,
-    ...         "KG": 0.2, "A": 0.8, "THETA": 0.2, "CI": 0.8, "CG": 0.15
-    ...     }
-    ... }
-    >>> # Create simulator once
-    >>> simulator = UnifiedSimulator(model_config)
-    >>> # Run with different inputs
-    >>> results1 = simulator.simulate(inputs1, qobs=qobs1, warmup_length=365)
-    >>> results2 = simulator.simulate(inputs2, qobs=qobs2, warmup_length=365)
-
-    # Traditional approach (backward compatibility)
-    >>> config = {
-    ...     "data_cfgs": {
-    ...         "data_source_type": "selfmadehydrodataset",
-    ...         "data_source_path": "/path/to/data",
-    ...         "basin_ids": ["basin_001"],
-    ...         "warmup_length": 365
-    ...     },
-    ...     "model_cfgs": {
-    ...         "model_name": "xaj_mz",
-    ...         "model_params": {"source_type": "sources", "source_book": "HF"},
-    ...         "parameters": {...}
-    ...     }
-    ... }
-    >>> results = simulate(config)
-    """
-
-    # Handle different usage patterns
-    if config is not None:
-        # Traditional config-based approach (backward compatibility)
-        return _simulate_with_config(config, **kwargs)
-    elif model_config is not None and inputs is not None:
-        # New flexible approach
-        return _simulate_with_inputs(model_config, inputs, qobs, **kwargs)
-    else:
-        raise ValueError(
-            "Must provide either 'config' (traditional approach) or "
-            "'model_config' and 'inputs' (flexible approach)"
-        )
-
-
-def _simulate_with_config(config: Dict[str, Any], **kwargs) -> Dict[str, Any]:
-    """Traditional config-based simulation for backward compatibility."""
-    # Validate configuration
-    if not isinstance(config, dict):
-        raise ValueError("Config must be a dictionary")
-
-    if "data_cfgs" not in config:
-        raise ValueError("Config must contain 'data_cfgs' section")
-
-    if "model_cfgs" not in config:
-        raise ValueError("Config must contain 'model_cfgs' section")
-
-    model_cfgs = config["model_cfgs"]
-    if "model_name" not in model_cfgs:
-        raise ValueError("model_cfgs must contain 'model_name'")
-
-    if "parameters" not in model_cfgs:
-        raise ValueError(
-            "model_cfgs must contain 'parameters' with specific parameter values"
-        )
-
-    # Load data using the traditional approach
-    data_config = config["data_cfgs"]
-    data_loader = UnifiedDataLoader(data_config)
-    inputs, qobs = data_loader.load_data()
-
-    # Extract simulation parameters
-    warmup_length = data_config.get("warmup_length", 365)
-    is_event_data = data_loader.is_event_data()
-
-    # Create and run simulator with the loaded data
-    simulator = UnifiedSimulator(model_cfgs)
-    results = simulator.simulate(
-        inputs=inputs,
-        qobs=qobs,
-        warmup_length=warmup_length,
-        is_event_data=is_event_data,
-        **kwargs,
-    )
-
-    # Add traditional metadata
-    results["metadata"]["basin_ids"] = data_config.get("basin_ids", [])
-    results["metadata"]["data_source_type"] = data_config.get(
-        "data_source_type"
-    )
-
-    return results
-
-
-def _simulate_with_inputs(
-    model_config: Dict[str, Any],
-    inputs: np.ndarray,
-    qobs: Optional[np.ndarray] = None,
-    **kwargs,
-) -> Dict[str, Any]:
-    """New flexible simulation with separate model config and input data."""
-    # Create and run simulator
-    simulator = UnifiedSimulator(model_config)
-    results = simulator.simulate(inputs=inputs, qobs=qobs, **kwargs)
-
-    return results

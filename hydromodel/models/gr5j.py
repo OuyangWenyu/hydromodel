@@ -1,10 +1,10 @@
 """
 Author: zhuanglaihong
 Date: 2025-02-21 14:54:24
-LastEditTime: 2025-02-26 16:24:08
-LastEditors: zhuanglaihong
+LastEditTime: 2025-08-19 09:34:36
+LastEditors: Wenyu Ouyang
 Description: Core code for GR5J model
-FilePath: /zlh/hydromodel/hydromodel/models/gr5j.py
+FilePath: \hydromodel\hydromodel\models\gr5j.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 """
 
@@ -15,6 +15,7 @@ from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.unit_hydrograph import uh_conv
+from hydromodel.models.param_utils import process_parameters
 
 
 # @jit
@@ -162,7 +163,9 @@ def uh_gr5j(x4):
     return uh1_ordinates, uh2_ordinates
 
 
-def routing(q9: np.array, q1: np.array, x2, x3, x5, r_level: Optional[np.array] = None):
+def routing(
+    q9: np.array, q1: np.array, x2, x3, x5, r_level: Optional[np.array] = None
+):
     """
     the GR5j routing-module unit cell for time-sequence loop
     Parameters
@@ -183,7 +186,9 @@ def routing(q9: np.array, q1: np.array, x2, x3, x5, r_level: Optional[np.array] 
     # r_level should not be larger than self.x3
     r_level = np.clip(r_level, a_min=np.full(r_level.shape, 0.0), a_max=x3)
     groundwater_ex = x2 * r_level / x3 - x2 * x5
-    r_updated = np.maximum(np.full(r_level.shape, 0.0), r_level + q9 + groundwater_ex)
+    r_updated = np.maximum(
+        np.full(r_level.shape, 0.0), r_level + q9 + groundwater_ex
+    )
 
     qr = r_updated * (1.0 - (1.0 + (r_updated / x3) ** 4) ** -0.25)
     r_updated = r_updated - qr
@@ -193,7 +198,14 @@ def routing(q9: np.array, q1: np.array, x2, x3, x5, r_level: Optional[np.array] 
     return q, r_updated
 
 
-def gr5j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
+def gr5j(
+    p_and_e,
+    parameters,
+    warmup_length: int,
+    return_state=False,
+    normalized_params="auto",
+    **kwargs,
+):
     """
     run GR5J model
 
@@ -203,11 +215,16 @@ def gr5j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         3-dim input -- [time, basin, variable]: precipitation and potential evaporation
     parameters
         2-dim variable -- [basin, parameter]:
-        the parameters are x1, x2, x3 and x4
+        the parameters are x1, x2, x3, x4, x5
     warmup_length
         length of warmup period
     return_state
         if True, return state values, mainly for warmup periods
+    normalized_params : Union[bool, str], optional
+        Parameter format specification:
+        - "auto": Automatically detect parameter format (default)
+        - True: Parameters are normalized (0-1 range), convert to original scale
+        - False: Parameters are already in original scale, use as-is
 
     Returns
     -------
@@ -219,21 +236,27 @@ def gr5j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         model_param_dict = MODEL_PARAM_DICT["gr5j"]
     # params
     param_ranges = model_param_dict["param_range"]
-    x1_scale = param_ranges["x1"]
-    x2_sacle = param_ranges["x2"]
-    x3_scale = param_ranges["x3"]
-    x4_scale = param_ranges["x4"]
-    x5_scale = param_ranges["x5"]
-    x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
-    x2 = x2_sacle[0] + parameters[:, 1] * (x2_sacle[1] - x2_sacle[0])
-    x3 = x3_scale[0] + parameters[:, 2] * (x3_scale[1] - x3_scale[0])
-    x4 = x4_scale[0] + parameters[:, 3] * (x4_scale[1] - x4_scale[0])
-    x5 = x5_scale[0] + parameters[:, 4] * (x5_scale[1] - x5_scale[0])
+
+    # Process parameters using unified parameter handling
+    processed_params = process_parameters(
+        parameters, param_ranges, normalized=normalized_params
+    )
+
+    # Extract individual parameters from processed array
+    x1 = processed_params[:, 0]
+    x2 = processed_params[:, 1]
+    x3 = processed_params[:, 2]
+    x4 = processed_params[:, 3]
+    x5 = processed_params[:, 4]
     if warmup_length > 0:
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
         _, _, s0, r0 = gr5j(
-            p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
+            p_and_e_warmup,
+            parameters,
+            warmup_length=0,
+            return_state=True,
+            **kwargs,
         )
     else:
         s0 = 0.5 * x1

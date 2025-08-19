@@ -1,3 +1,12 @@
+"""
+Author: Wenyu Ouyang
+Date: 2025-08-06 22:52:45
+LastEditTime: 2025-08-19 10:12:54
+LastEditors: Wenyu Ouyang
+Description: Test XAJ model
+FilePath: \hydromodel\test\test_xaj.py
+Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
+"""
 import numpy as np
 import pytest
 
@@ -55,7 +64,7 @@ def test_xaj(p_and_e, params, warmup_length):
 def test_xaj_mz(p_and_e, params, warmup_length):
     qsim, e = xaj(
         p_and_e,
-        np.tile([0.5], (1, 16)),
+        params,
         warmup_length=warmup_length,
         name="xaj_mz",
         source_book="HF",

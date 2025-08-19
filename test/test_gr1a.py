@@ -26,11 +26,11 @@ def setup_data():
     p_and_e = np.ones((time_length, basin_num, var_num))
     # 设置降水数据
     p_and_e[:, :, 0] = np.array(
-        [[1000, 1200], [1100, 1300], [900, 1100], [1050, 1250], [950, 1150]]  
+        [[1000, 1200], [1100, 1300], [900, 1100], [1050, 1250], [950, 1150]]
     )
     # 设置蒸发数据
     p_and_e[:, :, 1] = np.array(
-        [[800, 850], [820, 870], [780, 830], [810, 860], [790, 840]] 
+        [[800, 850], [820, 870], [780, 830], [810, 860], [790, 840]]
     )
 
     # 创建参数数据 [basin, parameter]
@@ -83,7 +83,10 @@ def test_gr1a_no_warmup(setup_data):
 
     # 运行模型
     result, ets = gr1a(
-        data["p_and_e"], data["parameters"], warmup_length=0, return_state=False
+        data["p_and_e"],
+        data["parameters"],
+        warmup_length=0,
+        return_state=False,
     )
 
     # 检查结果维度
@@ -136,7 +139,9 @@ def test_gr1a_return_state(setup_data):
     assert r.shape == (data["time_length"], data["basin_num"])
 
     # 检查状态值 - s应该是倒数第二年的降水量（因为最后一年的pk_1是倒数第二年的降水量）
-    assert np.array_equal(s, data["p_and_e"][-2, :, 0])  # 修正：使用倒数第二年的降水量
+    assert np.array_equal(
+        s, data["p_and_e"][-2, :, 0]
+    )  # 修正：使用倒数第二年的降水量
     assert np.array_equal(r, result[:, :, 0])  # r应该等于径流量
 
 
@@ -148,7 +153,10 @@ def test_gr1a_custom_params(setup_data):
     custom_params = {"param_range": {"x1": [0.5, 1.0]}}
 
     result1, _ = gr1a(
-        data["p_and_e"], data["parameters"], warmup_length=0, return_state=False
+        data["p_and_e"],
+        data["parameters"],
+        warmup_length=0,
+        return_state=False,
     )
 
     result2, _ = gr1a(

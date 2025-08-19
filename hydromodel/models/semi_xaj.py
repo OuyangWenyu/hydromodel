@@ -1,9 +1,18 @@
+"""
+Author: Yang Wang
+Date: 2025-08-19 10:00:07
+LastEditTime: 2025-08-19 10:02:29
+LastEditors: Wenyu Ouyang
+Description: TODO: Semi-distributed XAJ model implementation with topology support but not finished yet!!!
+FilePath: \hydromodel\hydromodel\models\semi_xaj.py
+Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
+"""
+
 import logging  # 去除debug信息
 
 import numpy as np
-
+from hydromodel.models.xaj import xaj
 from hydromodel.models.musk import Musk
-from hydromodel.models.params_dict_xaj import params_dict_xaj
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -20,8 +29,49 @@ logging.basicConfig(level=logging.WARNING)
 
 
 def semi_xaj(
-    p_and_e, attributes, modelwithsameParas, para_seq, params_range, topo, dt, **kwargs
+    p_and_e,
+    attributes,
+    modelwithsameParas,
+    para_seq,
+    params_range,
+    topo,
+    dt,
+    normalized_params="auto",
+    **kwargs,
 ):
+    """
+    Semi-distributed XAJ model implementation with topology support.
+
+    Parameters
+    ----------
+    p_and_e : ndarray
+        Precipitation and evaporation data
+    attributes : object
+        Basin attributes data
+    modelwithsameParas : list
+        Model parameter configuration
+    para_seq : ndarray
+        Parameter sequence array
+    params_range : list
+        Parameter range definitions
+    topo : list
+        Topology configuration
+    dt : float
+        Time step
+    normalized_params : Union[bool, str], optional
+        Parameter format specification (maintained for compatibility):
+        - "auto": Automatically detect parameter format (default)
+        - True: Parameters are normalized (0-1 range), convert to original scale
+        - False: Parameters are already in original scale, use as-is
+        Note: This model uses custom parameter processing logic
+    **kwargs : dict
+        Additional keyword arguments
+
+    Returns
+    -------
+    ndarray
+        Simulated streamflow
+    """
     model_name = kwargs.get("name", "xaj")
     source_type = kwargs.get("source_type", "sources")
     source_book = kwargs.get("source_book", "HF")
@@ -32,17 +82,21 @@ def semi_xaj(
     start_index = 0
     for item in modelwithsameParas:
         param_length = len(item["PARAMETER"])
-        item["PARAMETER"] = para_seq[start_index : start_index + param_length].tolist()
+        item["PARAMETER"] = para_seq[
+            start_index : start_index + param_length
+        ].tolist()
         start_index += param_length
 
     for i in range(len(modelwithsameParas)):
         modelIdSet = modelwithsameParas[i]["MODELIDSET"]
         for j in range(len(modelIdSet)):
-            params_range[modelIdSet[j] - 1]["PARAMETER"] = modelwithsameParas[i][
-                "PARAMETER"
-            ]
+            params_range[modelIdSet[j] - 1]["PARAMETER"] = modelwithsameParas[
+                i
+            ]["PARAMETER"]
             params_range[modelIdSet[j] - 1]["UP"] = modelwithsameParas[i]["UP"]
-            params_range[modelIdSet[j] - 1]["DOWN"] = modelwithsameParas[i]["DOWN"]
+            params_range[modelIdSet[j] - 1]["DOWN"] = modelwithsameParas[i][
+                "DOWN"
+            ]
 
     lineN0 = 0
     for calid in topo:
@@ -65,13 +119,16 @@ def semi_xaj(
                 parameter = np.array(params_range[modelid[0] - 1]["PARAMETER"])
                 parameterup = np.array(params_range[modelid[0] - 1]["UP"])
                 parameterdown = np.array(params_range[modelid[0] - 1]["DOWN"])
+
+                # Use existing parameter processing logic for semi_xaj model
+                # This maintains compatibility with the existing semi_xaj parameter format
                 parameter_xaj = (
                     parameterup - parameterdown
                 ) * parameter + parameterdown
                 parameter_xaj = parameter_xaj.reshape(-1, 1)
                 print(attributes, "wwwwwwwwwwwwwwww")
                 area = attributes.sel(id=str(numbers[0]))["area"].values
-                qsim, _ = params_dict_xaj(
+                qsim, _ = xaj(
                     p_and_e1,
                     params=parameter_xaj,
                     warmup_length=0,

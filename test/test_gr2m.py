@@ -93,7 +93,10 @@ def test_gr2m_no_warmup(setup_data):
 
     # 运行模型
     result, ets = gr2m(
-        data["p_and_e"], data["parameters"], warmup_length=0, return_state=False
+        data["p_and_e"],
+        data["parameters"],
+        warmup_length=0,
+        return_state=False,
     )
 
     # 检查结果维度
@@ -168,7 +171,10 @@ def test_gr2m_custom_params(setup_data):
 
     # 运行模型
     result1, _ = gr2m(
-        data["p_and_e"], data["parameters"], warmup_length=0, return_state=False
+        data["p_and_e"],
+        data["parameters"],
+        warmup_length=0,
+        return_state=False,
     )
 
     result2, _ = gr2m(
@@ -241,7 +247,10 @@ def test_gr2m_consecutive_runs(setup_data):
 
         # 只运行第一个时间步，因为我们只能控制第一个时间步的初始状态
         second_result, _ = gr2m(
-            second_part[:1], data["parameters"], warmup_length=0, return_state=False
+            second_part[:1],
+            data["parameters"],
+            warmup_length=0,
+            return_state=False,
         )
 
     # 检查第一个时间步的结果是否一致

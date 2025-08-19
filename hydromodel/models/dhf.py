@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-30 16:44:15
-LastEditTime: 2025-08-14 11:02:50
+LastEditTime: 2025-08-19 10:00:07
 LastEditors: Wenyu Ouyang
 Description: Dahuofang Model - Python implementation based on Java version
 FilePath: \hydromodel\hydromodel\models\dhf.py
@@ -9,12 +9,13 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
 import json
-import math
 import numpy as np
 import pandas as pd
-from datetime import datetime
-from typing import Dict, List, Any, Optional, Tuple, Union
+from typing import Dict, Tuple, Union
 import traceback
+
+from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.param_utils import process_parameters
 
 
 def run_dhf_single_basin(
@@ -403,10 +404,11 @@ def dhf(
     parameters: np.ndarray,
     warmup_length: int = 365,
     return_state: bool = False,
+    normalized_params: Union[bool, str] = "auto",
     **kwargs,
 ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[str, np.ndarray]]]:
     """
-    大伙房水文模型（DHF Model）- 按照dhf.py逻辑重构版本
+    大伙房水文模型（DHF Model）- 按照dhf.java逻辑重构的python版本
 
     Parameters
     ----------
@@ -415,11 +417,16 @@ def dhf(
         where feature=0 is precipitation, feature=1 is potential evapotranspiration
     parameters : np.ndarray
         model parameters, 2-dim variable: [basin, parameter]
-        Parameters expected in order: [S0, U0, D0, K, KW, K2, KA, G, A, B, B0, K0, N, L, DD, CC, COE, DDL, CCL, SA0, UA0, YA0]
+        Parameters expected in order: [S0, U0, D0, K, KW, K2, KA, G, A, B, B0, K0, N, L, DD, CC, COE, DDL, CCL]
     warmup_length : int, optional
         the length of warmup period (default: 365)
     return_state : bool, optional
         if True, return internal state variables, else only return streamflow (default: False)
+    normalized_params : Union[bool, str], optional
+        parameter format specification:
+        - "auto": automatically detect parameter format (default)
+        - True: parameters are normalized (0-1 range), will be converted to original scale
+        - False: parameters are already in original scale, use as-is
     **kwargs
         Additional keyword arguments, including time_interval_hours (default: 1.0)
 
@@ -436,17 +443,27 @@ def dhf(
     # 提取参数
     time_interval_hours = kwargs.get("time_interval_hours", 3.0)
 
+    # 统一处理参数格式 - 在DHF主函数中进行参数转换
+    processed_parameters = parameters.copy()
+    if normalized_params != False:  # 如果不是明确指定为原始尺度
+        model_param_dict = MODEL_PARAM_DICT.get("dhf")
+        if model_param_dict is not None:
+            param_ranges = model_param_dict["param_range"]
+            processed_parameters = process_parameters(
+                parameters, param_ranges, normalized=normalized_params
+            )
+
     # 处理每个流域
     all_results = {}
     actual_output_length = None
 
     for basin_idx in range(num_basins):
-        # 提取当前流域的参数和数据
-        params = parameters[basin_idx, :]
+        # 提取当前流域的参数和数据（参数已经转换为真实尺度）
+        params = processed_parameters[basin_idx, :]
         precipitation = p_and_e[:, basin_idx, 0]
         potential_evapotranspiration = p_and_e[:, basin_idx, 1]
 
-        # 运行单个流域模型（预热期处理在run_dhf_single_basin内部完成）
+        # 运行单个流域模型（参数已经是真实尺度，预热期处理在run_dhf_single_basin内部完成）
         basin_results = run_dhf_single_basin(
             precipitation,
             potential_evapotranspiration,
@@ -472,6 +489,7 @@ def dhf(
         # 存储结果
         for key, value in basin_results.items():
             if key == "RSim":
+                # RSim is a size of 4 array
                 all_results["RSim"][:, :, basin_idx] = value
             else:
                 all_results[key][:, basin_idx] = value

@@ -163,6 +163,7 @@ class UnifiedSimulator:
         qobs: Optional[np.ndarray] = None,
         warmup_length: int = 365,
         is_event_data: bool = False,
+        return_intermediate: bool = True,
         **kwargs,
     ) -> Dict[str, Any]:
         """
@@ -179,6 +180,8 @@ class UnifiedSimulator:
             Length of warmup period (time steps)
         is_event_data : bool, default False
             Whether input data represents event-based data
+        return_intermediate : bool, default True
+            Whether to return intermediate results from model computation
         **kwargs
             Additional arguments passed to the model function
 
@@ -189,6 +192,7 @@ class UnifiedSimulator:
             - simulation: Model simulation output [time, basin, 1]
             - observation: Observed data (if provided) [time, basin, 1]
             - input_data: Input data used for simulation [time, basin, n_features]
+            - intermediate: Intermediate results (if return_intermediate=True)
             - metadata: Simulation metadata and configuration
         """
         # Validate inputs
@@ -210,14 +214,23 @@ class UnifiedSimulator:
             "categorized_unit_hydrograph",
         ]:
             # Event data with traditional models
-            simulation_output = self._simulate_event_data(
-                inputs, warmup_length, **kwargs
+            simulation_result = self._simulate_event_data(
+                inputs, warmup_length, return_intermediate, **kwargs
             )
         else:
             # Standard simulation
-            simulation_output = self._simulate_continuous_data(
-                inputs, warmup_length, **kwargs
+            simulation_result = self._simulate_continuous_data(
+                inputs, warmup_length, return_intermediate, **kwargs
             )
+
+        # Extract simulation output and intermediate results
+        if isinstance(simulation_result, dict):
+            simulation_output = simulation_result["simulation"]
+            intermediate_results = simulation_result.get("intermediate", None)
+        else:
+            # Backward compatibility: if only simulation array is returned
+            simulation_output = simulation_result
+            intermediate_results = None
 
         # Prepare results
         results = {
@@ -233,8 +246,13 @@ class UnifiedSimulator:
                 "time_steps": simulation_output.shape[0],
                 "n_basins": simulation_output.shape[1],
                 "is_event_data": is_event_data,
+                "return_intermediate": return_intermediate,
             },
         }
+
+        # Add intermediate results if available
+        if intermediate_results is not None:
+            results["intermediate"] = intermediate_results
 
         # Apply unit conversion if basin configuration and output unit are available
         results = self._trans_sim_results_unit(
@@ -410,8 +428,12 @@ class UnifiedSimulator:
             return param_array
 
     def _simulate_continuous_data(
-        self, inputs: np.ndarray, warmup_length: int, **kwargs
-    ) -> np.ndarray:
+        self,
+        inputs: np.ndarray,
+        warmup_length: int,
+        return_intermediate: bool,
+        **kwargs,
+    ) -> Union[np.ndarray, Dict[str, Any]]:
         """Standard simulation for continuous data."""
         # Prepare model configuration
         model_config = dict(self.model_params)
@@ -422,9 +444,11 @@ class UnifiedSimulator:
             inputs,
             self.param_array,
             warmup_length=warmup_length,
+            return_state=return_intermediate,
             **model_config,
         )
-
+        if return_intermediate:
+            return model_result
         # Handle different return formats
         if isinstance(model_result, tuple):
             # Traditional models return (simulation, states, ...)
@@ -436,8 +460,12 @@ class UnifiedSimulator:
         return simulation_output
 
     def _simulate_event_data(
-        self, inputs: np.ndarray, warmup_length: int, **kwargs
-    ) -> np.ndarray:
+        self,
+        inputs: np.ndarray,
+        warmup_length: int,
+        return_intermediate: bool,
+        **kwargs,
+    ) -> Union[np.ndarray, Dict[str, Any]]:
         """Special simulation for event data with traditional models."""
         # Validate that flood_event markers are present
         if inputs.shape[2] < 3:
@@ -490,6 +518,7 @@ class UnifiedSimulator:
                         event_inputs,
                         basin_params,
                         warmup_length=warmup_length,
+                        return_state=return_intermediate,
                         **model_config,
                     )
 

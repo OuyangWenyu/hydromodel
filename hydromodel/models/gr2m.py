@@ -1,7 +1,7 @@
 """
 Author: zhuanglaihong
 Date: 2025-02-21 15:37:10
-LastEditTime: 2025-07-08 19:03:43
+LastEditTime: 2025-08-19 09:33:49
 LastEditors: Wenyu Ouyang
 Description: Core code for GR2M model
 FilePath: \hydromodel\hydromodel\models\gr2m.py
@@ -15,6 +15,7 @@ from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.unit_hydrograph import uh_conv
+from hydromodel.models.param_utils import process_parameters
 
 
 def production(inputs, x1, s0):
@@ -77,7 +78,14 @@ def routing(p3, x2, r0):
     return q, r
 
 
-def gr2m(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
+def gr2m(
+    p_and_e,
+    parameters,
+    warmup_length: int,
+    return_state=False,
+    normalized_params="auto",
+    **kwargs,
+):
     """
     run GR2m model
 
@@ -102,15 +110,24 @@ def gr2m(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         model_param_dict = MODEL_PARAM_DICT["gr2m"]
     # params
     param_ranges = model_param_dict["param_range"]
-    x1_scale = param_ranges["x1"]
-    x2_scale = param_ranges["x2"]
-    x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
-    x2 = x2_scale[0] + parameters[:, 1] * (x2_scale[1] - x2_scale[0])
+
+    # Process parameters using unified parameter handling
+    processed_params = process_parameters(
+        parameters, param_ranges, normalized=normalized_params
+    )
+
+    # Extract individual parameters from processed array
+    x1 = processed_params[:, 0]
+    x2 = processed_params[:, 1]
 
     if warmup_length > 0:
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
         _, _, s0, r0 = gr2m(
-            p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
+            p_and_e_warmup,
+            parameters,
+            warmup_length=0,
+            return_state=True,
+            **kwargs,
         )
     else:
         s0 = 0.5 * x1

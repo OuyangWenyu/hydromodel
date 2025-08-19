@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2025-07-08 19:04:49
+LastEditTime: 2025-08-19 09:35:20
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
 FilePath: /hydromodel/hydromodel/models/xaj.py
@@ -15,13 +15,16 @@ from scipy.special import gamma
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.unit_hydrograph import uh_conv
+from hydromodel.models.param_utils import process_parameters
 
 PRECISION = 1e-5
 
 
 # @jit
 # @jit(nopython=True)
-def calculate_evap(lm, c, wu0, wl0, prcp, pet) -> tuple[np.array, np.array, np.array]:
+def calculate_evap(
+    lm, c, wu0, wl0, prcp, pet
+) -> tuple[np.array, np.array, np.array]:
     """
     Three-layers evaporation model from "Watershed Hydrologic Simulation" written by Prof. RenJun Zhao.
     The book is Chinese, and its name is 《流域水文模拟》;
@@ -50,7 +53,9 @@ def calculate_evap(lm, c, wu0, wl0, prcp, pet) -> tuple[np.array, np.array, np.a
         eu/el/ed are evaporation from upper/lower/deeper layer, respectively
     """
     eu = np.where(wu0 + prcp >= pet, pet, wu0 + prcp)
-    ed = np.where((wl0 < c * lm) & (wl0 < c * (pet - eu)), c * (pet - eu) - wl0, 0.0)
+    ed = np.where(
+        (wl0 < c * lm) & (wl0 < c * (pet - eu)), c * (pet - eu) - wl0, 0.0
+    )
     el = np.where(
         wu0 + prcp >= pet,
         0.0,
@@ -92,13 +97,17 @@ def calculate_prcp_runoff(b, im, wm, w0, pe) -> tuple[np.array, np.array]:
     wmm = wm * (1.0 + b)
     a = wmm * (1.0 - (1.0 - w0 / wm) ** (1.0 / (1.0 + b)))
     if np.isnan(a).any():
-        raise ArithmeticError("Please check if w0>wm or b is a negative value!")
+        raise ArithmeticError(
+            "Please check if w0>wm or b is a negative value!"
+        )
     r_cal = np.where(
         pe > 0.0,
         np.where(
             pe + a < wmm,
             # 1e-5 is a precision which we set to guarantee float's calculation is correct
-            pe - (wm - w0) + wm * (1.0 - np.minimum(a + pe, wmm) / wmm) ** (1.0 + b),
+            pe
+            - (wm - w0)
+            + wm * (1.0 - np.minimum(a + pe, wmm) / wmm) ** (1.0 + b),
             pe - (wm - w0),
         ),
         np.full(pe.shape, 0.0),
@@ -160,7 +169,11 @@ def calculate_w_storage(
     # calculate wd before wl because it is easier to cal using where statement
     wd = np.where(
         pe > 0.0,
-        np.where(wu0 + wl0 + pe - r > um + lm, wu0 + wl0 + wd0 + pe - r - um - lm, wd0),
+        np.where(
+            wu0 + wl0 + pe - r > um + lm,
+            wu0 + wl0 + wd0 + pe - r - um - lm,
+            wd0,
+        ),
         wd0 - ed,
     )
     # water balance (equation 2.2 in Page 13, also shown in Page 23)
@@ -174,7 +187,9 @@ def calculate_w_storage(
     return wu_, wl_, wd_
 
 
-def generation(p_and_e, k, b, im, um, lm, dm, c, wu0=None, wl0=None, wd0=None) -> tuple:
+def generation(
+    p_and_e, k, b, im, um, lm, dm, c, wu0=None, wl0=None, wd0=None
+) -> tuple:
     """
     Single-step runoff generation in XAJ.
 
@@ -547,7 +562,9 @@ def sources5mm(
                     * (
                         (
                             1
-                            - np.minimum(pen[fr_mask] + au[fr_mask], smm[fr_mask])
+                            - np.minimum(
+                                pen[fr_mask] + au[fr_mask], smm[fr_mask]
+                            )
                             / smm[fr_mask]
                         )
                         ** (1 + ex[fr_mask])
@@ -557,7 +574,9 @@ def sources5mm(
                 fr_d[fr_mask] * (pen[fr_mask] + ss_d[fr_mask] - sm[fr_mask]),
             )
             rs_j = np.minimum(rs_j, rn)
-            s_d[fr_mask] = ss_d[fr_mask] + (rn[fr_mask] - rs_j[fr_mask]) / fr_d[fr_mask]
+            s_d[fr_mask] = (
+                ss_d[fr_mask] + (rn[fr_mask] - rs_j[fr_mask]) / fr_d[fr_mask]
+            )
             s_d = np.minimum(s_d, sm)
 
         elif book == "EH":
@@ -588,7 +607,9 @@ def sources5mm(
                 (pen[fr_mask] + ss_d[fr_mask] - smf[fr_mask]) * fr_d[fr_mask],
             )
             rs_j = np.minimum(rs_j, rn)
-            s_d[fr_mask] = ss_d[fr_mask] + (rn[fr_mask] - rs_j[fr_mask]) / fr_d[fr_mask]
+            s_d[fr_mask] = (
+                ss_d[fr_mask] + (rn[fr_mask] - rs_j[fr_mask]) / fr_d[fr_mask]
+            )
             s_d = np.minimum(s_d, smf)
 
         else:
@@ -665,7 +686,8 @@ def uh_gamma(a, theta, len_uh=15):
     theta = np.maximum(0.0, theta[0:len_uh, :, :]) + 0.5
     # len_f, batch, feature
     t = np.expand_dims(
-        np.swapaxes(np.tile(np.arange(0.5, len_uh * 1.0), (m[1], 1)), 0, 1), axis=-1
+        np.swapaxes(np.tile(np.arange(0.5, len_uh * 1.0), (m[1], 1)), 0, 1),
+        axis=-1,
     )
     denominator = gamma(aa) * (theta**aa)
     # [len_f, m[1], m[2]]
@@ -679,6 +701,7 @@ def xaj(
     params: np.ndarray,
     return_state=False,
     warmup_length=365,
+    normalized_params="auto",
     **kwargs,
 ) -> Union[tuple, np.ndarray]:
     """
@@ -696,6 +719,11 @@ def xaj(
         if True, return state values, mainly for warmup periods
     warmup_length
         hydro models need a warm-up period to get good initial state values
+    normalized_params
+        parameter format specification:
+        - "auto": automatically detect if parameters are normalized (0-1) or original scale (default)
+        - True: parameters are normalized (0-1 range), will be converted to original scale
+        - False: parameters are already in original scale, use as-is
     kwargs
         name
             now we provide two ways: "xaj" (route:recession constant + lag time) and "xaj_mz" (route:method from mizuRoute)
@@ -742,56 +770,42 @@ def xaj(
         raise ValueError(
             "Parameters contain NaN values. Please check your opt algorithm"
         )
-    # xaj_params = [
-    #     (value[1] - value[0]) * params[:, i] + value[0]
-    #     for i, (key, value) in enumerate(param_ranges.items())
-    # ]  # the sequence of parameters is important but this loop may lead to error
-    # Hence, we use a seemingly clumsy but correct method
-    k_scale = param_ranges["K"]
-    b_scale = param_ranges["B"]
-    im_scale = param_ranges["IM"]
-    um_scale = param_ranges["UM"]
-    lm_scale = param_ranges["LM"]
-    dm_scale = param_ranges["DM"]
-    c_scale = param_ranges["C"]
-    sm_scale = param_ranges["SM"]
-    ex_scale = param_ranges["EX"]
-    ki_scale = param_ranges["KI"]
-    kg_scale = param_ranges["KG"]
+    # Process parameters using unified parameter handling
+    processed_params = process_parameters(
+        params, param_ranges, normalized=normalized_params
+    )
 
-    k = k_scale[0] + params[:, 0] * (k_scale[1] - k_scale[0])
-    b = b_scale[0] + params[:, 1] * (b_scale[1] - b_scale[0])
-    im = im_scale[0] + params[:, 2] * (im_scale[1] - im_scale[0])
-    um = um_scale[0] + params[:, 3] * (um_scale[1] - um_scale[0])
-    lm = lm_scale[0] + params[:, 4] * (lm_scale[1] - lm_scale[0])
-    dm = dm_scale[0] + params[:, 5] * (dm_scale[1] - dm_scale[0])
-    c = c_scale[0] + params[:, 6] * (c_scale[1] - c_scale[0])
-    sm = sm_scale[0] + params[:, 7] * (sm_scale[1] - sm_scale[0])
-    ex = ex_scale[0] + params[:, 8] * (ex_scale[1] - ex_scale[0])
-    ki_ = ki_scale[0] + params[:, 9] * (ki_scale[1] - ki_scale[0])
-    kg_ = kg_scale[0] + params[:, 10] * (kg_scale[1] - kg_scale[0])
+    # Extract individual parameters from processed array
+    k = processed_params[:, 0]
+    b = processed_params[:, 1]
+    im = processed_params[:, 2]
+    um = processed_params[:, 3]
+    lm = processed_params[:, 4]
+    dm = processed_params[:, 5]
+    c = processed_params[:, 6]
+    sm = processed_params[:, 7]
+    ex = processed_params[:, 8]
+    ki_ = processed_params[:, 9]
+    kg_ = processed_params[:, 10]
+
     # ki+kg should be smaller than 1; if not, we scale them
     ki = np.where(ki_ + kg_ < 1.0, ki_, (1.0 - PRECISION) / (ki_ + kg_) * ki_)
     kg = np.where(ki_ + kg_ < 1.0, kg_, (1.0 - PRECISION) / (ki_ + kg_) * kg_)
+
     if route_method == "CSL":
-        cs_scale = param_ranges["CS"]
-        l_scale = param_ranges["L"]
-        cs = cs_scale[0] + params[:, 11] * (cs_scale[1] - cs_scale[0])
-        l = l_scale[0] + params[:, 12] * (l_scale[1] - l_scale[0])
+        cs = processed_params[:, 11]
+        l = processed_params[:, 12]
     elif route_method == "MZ":
         # we will use routing method from mizuRoute -- http://www.geosci-model-dev.net/9/2223/2016/
-        a_scale = param_ranges["A"]
-        theta_scale = param_ranges["THETA"]
-        a = a_scale[0] + params[:, 11] * (a_scale[1] - a_scale[0])
-        theta = theta_scale[0] + params[:, 12] * (theta_scale[1] - theta_scale[0])
+        a = processed_params[:, 11]
+        theta = processed_params[:, 12]
     else:
         raise NotImplementedError(
             "We don't provide this route method now! Please use 'CSL' or 'MZ'!"
         )
-    ci_scale = param_ranges["CI"]
-    cg_scale = param_ranges["CG"]
-    ci = ci_scale[0] + params[:, 13] * (ci_scale[1] - ci_scale[0])
-    cg = cg_scale[0] + params[:, 14] * (cg_scale[1] - cg_scale[0])
+
+    ci = processed_params[:, 13]
+    cg = processed_params[:, 14]
 
     # initialize state values
     if warmup_length > 0:

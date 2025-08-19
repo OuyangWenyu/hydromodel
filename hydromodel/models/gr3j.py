@@ -1,7 +1,7 @@
 """
 Author: zhuanglaihong
 Date: 2025-03-13 09:35:22
-LastEditTime: 2025-03-24 11:03:33
+LastEditTime: 2025-08-19 09:34:15
 LastEditors: Wenyu Ouyang
 Description: Core code for GR3J model
 FilePath: \hydromodel\hydromodel\models\gr3j.py
@@ -15,6 +15,7 @@ from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.unit_hydrograph import uh_conv
+from hydromodel.models.param_utils import process_parameters
 
 
 @jit(nopython=True)
@@ -104,7 +105,9 @@ def uh_gr3j(x3):
     return uh1_ordinates, uh2_ordinates
 
 
-def routing(q9: np.array, q1: np.array, x1, x2, r_level: Optional[np.array] = None):
+def routing(
+    q9: np.array, q1: np.array, x1, x2, r_level: Optional[np.array] = None
+):
     """GR3J的汇流计算"""
     if r_level is None:
         r_level = np.full_like(x2, 0.4 * x2)
@@ -121,7 +124,14 @@ def routing(q9: np.array, q1: np.array, x1, x2, r_level: Optional[np.array] = No
     return q, r_updated
 
 
-def gr3j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
+def gr3j(
+    p_and_e,
+    parameters,
+    warmup_length: int,
+    return_state=False,
+    normalized_params="auto",
+    **kwargs,
+):
     """
     run GR3j model
 
@@ -136,6 +146,11 @@ def gr3j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         length of warmup period
     return_state
         if True, return state values, mainly for warmup periods
+    normalized_params : Union[bool, str], optional
+        Parameter format specification:
+        - "auto": Automatically detect parameter format (default)
+        - True: Parameters are normalized (0-1 range), convert to original scale
+        - False: Parameters are already in original scale, use as-is
 
     Returns
     -------
@@ -148,25 +163,36 @@ def gr3j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         model_param_dict = MODEL_PARAM_DICT["gr3j"]
     # params
     param_ranges = model_param_dict["param_range"]
-    x1_scale = param_ranges["x1"]
-    x2_scale = param_ranges["x2"]
-    x3_scale = param_ranges["x3"]
 
-    x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
-    x2 = x2_scale[0] + parameters[:, 1] * (x2_scale[1] - x2_scale[0])
-    x3 = x3_scale[0] + parameters[:, 2] * (x3_scale[1] - x3_scale[0])
+    # Process parameters using unified parameter handling
+    processed_params = process_parameters(
+        parameters, param_ranges, normalized=normalized_params
+    )
+
+    # Extract individual parameters from processed array
+    x1 = processed_params[:, 0]
+    x2 = processed_params[:, 1]
+    x3 = processed_params[:, 2]
 
     # 改进预热处理，避免递归调用
     if warmup_length > 0:
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
         _, _, s0, r0 = gr3j(
-            p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
+            p_and_e_warmup,
+            parameters,
+            warmup_length=0,
+            return_state=True,
+            **kwargs,
         )
     else:
         m = 1  # 最开始的月份
-        r0 = x2 * (0.40 + 0.20 * np.sin(np.pi / 6 * (5 - m)))  # 产流水库初始状态
-        s0 = 330 * (0.65 + 0.20 * np.sin(np.pi / 6 * (5 - m)))  # 汇流水库初始状态
+        r0 = x2 * (
+            0.40 + 0.20 * np.sin(np.pi / 6 * (5 - m))
+        )  # 产流水库初始状态
+        s0 = 330 * (
+            0.65 + 0.20 * np.sin(np.pi / 6 * (5 - m))
+        )  # 汇流水库初始状态
 
     inputs = p_and_e[warmup_length:, :, :]
     streamflow_ = np.full(inputs.shape[:2], 0.0)

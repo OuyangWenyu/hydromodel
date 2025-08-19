@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-08 19:23:11
-LastEditTime: 2025-07-09 09:21:41
+LastEditTime: 2025-08-19 10:07:03
 LastEditors: Wenyu Ouyang
 Description: Test unit hydrograph functions
-FilePath: /hydromodel/test/test_unit_hydrograph.py
+FilePath: \hydromodel\test\test_unit_hydrograph.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -115,7 +115,9 @@ def test_uh_conv_3d():
     # Check that convolution is applied correctly along sequence dimension
     # For batch=0, feature=0: conv([1,5,9], [0.5,0.3]) = [0.5, 2.8, 6.0]
     expected_batch0_feat0 = np.array([0.5, 2.8, 6.0])
-    np.testing.assert_almost_equal(result[:, 0, 0], expected_batch0_feat0, decimal=3)
+    np.testing.assert_almost_equal(
+        result[:, 0, 0], expected_batch0_feat0, decimal=3
+    )
 
 
 def test_uh_conv_truncate_parameter():
@@ -135,12 +137,20 @@ def test_uh_conv_truncate_parameter():
 
     # Verify shapes
     assert result_default.shape == x.shape, "Default should match input shape"
-    assert result_truncated.shape == x.shape, "Truncated should match input shape"
-    assert result_full.shape == expected_full.shape, "Full should have conv length"
+    assert (
+        result_truncated.shape == x.shape
+    ), "Truncated should match input shape"
+    assert (
+        result_full.shape == expected_full.shape
+    ), "Full should have conv length"
 
     # Verify values
-    np.testing.assert_almost_equal(result_default, expected_truncated, decimal=5)
-    np.testing.assert_almost_equal(result_truncated, expected_truncated, decimal=5)
+    np.testing.assert_almost_equal(
+        result_default, expected_truncated, decimal=5
+    )
+    np.testing.assert_almost_equal(
+        result_truncated, expected_truncated, decimal=5
+    )
     np.testing.assert_almost_equal(result_full, expected_full, decimal=5)
 
     # Test 2D truncate parameter
@@ -152,7 +162,10 @@ def test_uh_conv_truncate_parameter():
 
     # Check shapes
     assert result2d_truncated.shape == x2d.shape
-    assert result2d_full.shape == (x2d.shape[0] + uh2d.shape[0] - 1, x2d.shape[1])
+    assert result2d_full.shape == (
+        x2d.shape[0] + uh2d.shape[0] - 1,
+        x2d.shape[1],
+    )
 
     # Manual verification for first batch
     expected_batch0_full = np.convolve(x2d[:, 0], uh2d[:, 0])
@@ -161,7 +174,9 @@ def test_uh_conv_truncate_parameter():
     np.testing.assert_almost_equal(
         result2d_truncated[:, 0], expected_batch0_trunc, decimal=5
     )
-    np.testing.assert_almost_equal(result2d_full[:, 0], expected_batch0_full, decimal=5)
+    np.testing.assert_almost_equal(
+        result2d_full[:, 0], expected_batch0_full, decimal=5
+    )
 
 
 def test_uh_conv_dimension_mismatch_1d():

@@ -170,7 +170,10 @@ def test_gr3j_no_warmup(setup_data):
     data = setup_data
 
     result, ets = gr3j(
-        data["p_and_e"], data["parameters"], warmup_length=0, return_state=False
+        data["p_and_e"],
+        data["parameters"],
+        warmup_length=0,
+        return_state=False,
     )
 
     # 检查结果维度
@@ -250,7 +253,10 @@ def test_gr3j_custom_params(setup_data):
 
     # 运行模型
     result1, _ = gr3j(
-        data["p_and_e"], data["parameters"], warmup_length=0, return_state=False
+        data["p_and_e"],
+        data["parameters"],
+        warmup_length=0,
+        return_state=False,
     )
 
     result2, _ = gr3j(

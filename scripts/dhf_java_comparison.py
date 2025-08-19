@@ -12,7 +12,7 @@ import sys
 # Add the hydromodel to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hydromodel.models.dhf import dhf_vectorized
+from hydromodel.models.dhf import dhf
 
 
 def _get_pet_from_es(es, dt_list, time_interval=1.0):
@@ -172,7 +172,7 @@ def run_dhf_comparison():
         print(f"  {name}: {parameters[0, i]}")
 
     print("\nRunning DHF model...")
-    result = dhf_vectorized(
+    result = dhf(
         p_and_e=p_and_e,
         parameters=parameters,
         warmup_length=0,
@@ -186,11 +186,11 @@ def run_dhf_comparison():
     print(f"Output range: {np.min(result):.6f} - {np.max(result):.6f}")
     print(f"First 10 output values:")
     for i in range(min(10, result.shape[0])):
-        print(f"  Step {i+1}: {result[i, 0, 0]:.6f}")
+        print(f"  Step {i+1}: {result[i, 0]:.6f}")
 
     # Also run with return_state=True to see internal variables
     print("\nRunning with return_state=True...")
-    results = dhf_vectorized(
+    results = dhf(
         p_and_e=p_and_e,
         parameters=parameters,
         warmup_length=720,
@@ -199,18 +199,18 @@ def run_dhf_comparison():
         time_interval_hours=time_interval,
     )
 
-    q_sim, runoff_sim, y0, yu, yl, y, pe, sa, ua, ya = results
+    q_sim, runoff_sim, y0, yu, yl, y, sa, ua, ya = results
 
     print(f"\nInternal state variables (first 5 values):")
-    print(f"  q_sim (discharge): {q_sim[:5, 0, 0]}")
-    print(f"  runoff_sim (total runoff): {runoff_sim[:5, 0, 0]}")
-    print(f"  y0 (impervious runoff): {y0[:5, 0, 0]}")
-    print(f"  yu (surface runoff): {yu[:5, 0, 0]}")
-    print(f"  yl (subsurface runoff): {yl[:5, 0, 0]}")
-    print(f"  pe (net precipitation): {pe[:5, 0, 0]}")
-    print(f"  sa (surface storage): {sa[:5, 0, 0]}")
-    print(f"  ua (subsurface storage): {ua[:5, 0, 0]}")
-
+    print(f"  q_sim (discharge): {q_sim[:5, 0]}")
+    print(f"  runoff_sim (total runoff): {runoff_sim[:5, 0]}")
+    print(f"  y0 (impervious runoff): {y0[:5, 0]}")
+    print(f"  yu (surface runoff): {yu[:5, 0]}")
+    print(f"  yl (subsurface runoff): {yl[:5, 0]}")
+    print(f"  y (total runoff): {y[:5, 0]}")
+    print(f"  sa (surface storage): {sa[:5, 0]}")
+    print(f"  ua (subsurface storage): {ua[:5, 0]}")
+    print(f"  ya (precedent rain): {ya[:5, 0]}")
     return result
 
 

@@ -168,7 +168,6 @@ fabric.properties
 /test/test_data_camels_cc.py
 /hydromodel/example/*
 /result/
-/data/
 # sample data
 !/hydromodel/example/example
 hydromodel/example/example/*
@@ -176,9 +175,12 @@ hydromodel/example/example/*
 !/hydromodel/example/example/data_info_*.json
 !/hydromodel/example/daily_flow_27071.txt
 !/hydromodel/example/daily_rainfall_27071.txt
+# Exclude all files in data directory
+/data/*
+# But allow specific files
+!/data/dhf_data.json
 outputs/
 result_old/
 results/*
-data/
 CLAUDE.md
 .claude/*

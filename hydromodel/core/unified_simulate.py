@@ -465,7 +465,7 @@ class UnifiedSimulator:
         warmup_length: int,
         return_intermediate: bool,
         **kwargs,
-    ) -> Union[np.ndarray, Dict[str, Any]]:
+    ) -> np.ndarray:
         """Special simulation for event data with traditional models."""
         # Validate that flood_event markers are present
         if inputs.shape[2] < 3:
@@ -476,8 +476,7 @@ class UnifiedSimulator:
             )
 
         # Initialize output array
-        output_shape = (inputs.shape[0], inputs.shape[1], 1)
-        simulation_output = np.zeros(output_shape)
+        outputs = []
 
         # Process each basin separately
         for basin_idx in range(inputs.shape[1]):
@@ -496,81 +495,40 @@ class UnifiedSimulator:
                 basin_params = self.param_array
 
             # Process each event segment
-            for (
+            for j, (
                 extended_start,
                 extended_end,
                 original_start,
                 original_end,
-            ) in event_segments:
+            ) in enumerate(event_segments):
                 # Extract event data (including warmup period)
                 event_inputs = inputs[
                     extended_start : extended_end + 1,
                     basin_idx : basin_idx + 1,
                     :,
                 ]
+                # Run model on this event segment
+                model_config = dict(self.model_params)
+                model_config.update(kwargs)
 
-                try:
-                    # Run model on this event segment
-                    model_config = dict(self.model_params)
-                    model_config.update(kwargs)
-
-                    event_result = self.model_function(
-                        event_inputs,
-                        basin_params,
-                        warmup_length=warmup_length,
-                        return_state=return_intermediate,
-                        **model_config,
+                event_result = self.model_function(
+                    event_inputs,
+                    basin_params,
+                    warmup_length=warmup_length,
+                    return_state=return_intermediate,
+                    **model_config,
+                )
+                event_sim = np.concatenate(event_result, axis=-1)
+                if j == 0:
+                    simulation_output = np.zeros(
+                        (inputs.shape[0], inputs.shape[1], event_sim.shape[-1])
                     )
-
-                    # Extract simulation output
-                    if isinstance(event_result, tuple):
-                        event_sim = event_result[0]
-                    else:
-                        event_sim = event_result
-
-                    # Ensure event_sim has the correct shape for storage
-                    if event_sim.ndim == 1:
-                        # Convert 1D output to (time, 1, 1) for compatibility
-                        event_sim = event_sim.reshape(-1, 1, 1)
-                    elif event_sim.ndim == 2:
-                        if event_sim.shape[1] == 1:
-                            # Convert (time, 1) to (time, 1, 1)
-                            event_sim = event_sim.reshape(-1, 1, 1)
-                        else:
-                            # If it's (time, basin) but basin != 1, take the first basin and add feature dim
-                            event_sim = event_sim[:, 0:1].reshape(-1, 1, 1)
-
-                    # Store only the event period output (excluding warmup period)
-                    # The model output should already exclude warmup period
-                    event_output_length = original_end - original_start + 1
-                    if event_sim.shape[0] == event_output_length:
-                        # Model correctly handled warmup and returned only event period output
-                        simulation_output[
-                            original_start : original_end + 1,
-                            basin_idx : basin_idx + 1,
-                            :,
-                        ] = event_sim
-                    else:
-                        # Fallback: store whatever the model returned, starting from original event start
-                        actual_length = min(
-                            event_sim.shape[0], event_output_length
-                        )
-                        simulation_output[
-                            original_start : original_start + actual_length,
-                            basin_idx : basin_idx + 1,
-                            :,
-                        ] = event_sim[:actual_length]
-
-                except Exception as e:
-                    print(
-                        f"Warning: Event simulation failed for basin {basin_idx}, "
-                        f"segment {original_start}-{original_end}: {e}"
-                    )
-                    # Fill with zeros on failure (only for the original event period)
-                    simulation_output[
-                        original_start : original_end + 1,
-                        basin_idx : basin_idx + 1,
-                        :,
-                    ] = 0.0
-
-        return simulation_output
+                # save the event result to its location in long time series data
+                simulation_output[
+                    original_start : original_end + 1,
+                    basin_idx : basin_idx + 1,
+                    :,
+                ] = event_sim
+            outputs.append(simulation_output)
+        output_arr = np.concatenate(outputs, axis=1)
+        return output_arr

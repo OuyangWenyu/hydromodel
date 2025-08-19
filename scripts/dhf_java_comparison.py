@@ -186,7 +186,7 @@ def run_dhf_comparison():
     print(f"Output range: {np.min(result):.6f} - {np.max(result):.6f}")
     print(f"First 10 output values:")
     for i in range(min(10, result.shape[0])):
-        print(f"  Step {i+1}: {result[i, 0]:.6f}")
+        print(f"  Step {i+1}: {result[i, 0, 0]:.6f}")
 
     # Also run with return_state=True to see internal variables
     print("\nRunning with return_state=True...")
@@ -202,15 +202,15 @@ def run_dhf_comparison():
     q_sim, runoff_sim, y0, yu, yl, y, sa, ua, ya = results
 
     print(f"\nInternal state variables (first 5 values):")
-    print(f"  q_sim (discharge): {q_sim[:5, 0]}")
-    print(f"  runoff_sim (total runoff): {runoff_sim[:5, 0]}")
-    print(f"  y0 (impervious runoff): {y0[:5, 0]}")
-    print(f"  yu (surface runoff): {yu[:5, 0]}")
-    print(f"  yl (subsurface runoff): {yl[:5, 0]}")
-    print(f"  y (total runoff): {y[:5, 0]}")
-    print(f"  sa (surface storage): {sa[:5, 0]}")
-    print(f"  ua (subsurface storage): {ua[:5, 0]}")
-    print(f"  ya (precedent rain): {ya[:5, 0]}")
+    print(f"  q_sim (discharge): {q_sim[:5, 0, 0]}")
+    print(f"  runoff_sim (total runoff): {runoff_sim[:5, 0, 0]}")
+    print(f"  y0 (impervious runoff): {y0[:5, 0, 0]}")
+    print(f"  yu (surface runoff): {yu[:5, 0, 0]}")
+    print(f"  yl (subsurface runoff): {yl[:5, 0, 0]}")
+    print(f"  y (total runoff): {y[:5, 0, 0]}")
+    print(f"  sa (surface storage): {sa[:5, 0, 0]}")
+    print(f"  ua (subsurface storage): {ua[:5, 0, 0]}")
+    print(f"  ya (precedent rain): {ya[:5, 0, 0]}")
     return result
 
 

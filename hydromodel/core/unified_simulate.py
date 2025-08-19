@@ -17,6 +17,82 @@ from hydromodel.models.model_dict import MODEL_DICT
 from .basin import Basin
 
 
+def get_model_output_names(model_name, return_state=False):
+    """
+    Get the names of output variables for different models.
+
+    Parameters
+    ----------
+    model_name : str
+        Name of the model
+    return_state : bool
+        Whether state variables are returned
+
+    Returns
+    -------
+    list
+        List of output variable names
+    """
+    # Base output for most models
+    base_outputs = {
+        "xaj": (
+            ["qsim", "es"]
+            if not return_state
+            else ["qsim", "es", "w", "s", "fr", "qi", "qg"]
+        ),
+        "xaj_mz": (
+            ["qsim", "es"]
+            if not return_state
+            else ["qsim", "es", "w", "s", "fr", "qi", "qg"]
+        ),
+        "dhf": (
+            ["qsim"]
+            if not return_state
+            else [
+                "qsim",
+                "runoff_sim",
+                "y0",
+                "yu",
+                "yl",
+                "y",
+                "sa",
+                "ua",
+                "ya",
+            ]
+        ),
+        "hymod": (
+            ["qsim", "et"]
+            if not return_state
+            else ["qsim", "et", "x_slow", "x_quick", "x_loss"]
+        ),
+        "gr1a": (
+            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s"]
+        ),
+        "gr2m": (
+            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s"]
+        ),
+        "gr3j": (
+            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s", "r"]
+        ),
+        "gr4j": (
+            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s", "r"]
+        ),
+        "gr5j": (
+            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s", "r"]
+        ),
+        "gr6j": (
+            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s", "r"]
+        ),
+        "semi_xaj": ["qsim"],  # Semi-XAJ typically returns only streamflow
+        "unit_hydrograph": ["qsim"],
+        "categorized_unit_hydrograph": ["qsim"],
+    }
+
+    return base_outputs.get(
+        model_name, ["output_0", "output_1", "output_2"]
+    )  # fallback names
+
+
 class UnifiedSimulator:
     """
     Unified simulator for all hydrological models.
@@ -222,19 +298,15 @@ class UnifiedSimulator:
             simulation_result = self._simulate_continuous_data(
                 inputs, warmup_length, return_intermediate, **kwargs
             )
-
-        # Extract simulation output and intermediate results
-        if isinstance(simulation_result, dict):
-            simulation_output = simulation_result["simulation"]
-            intermediate_results = simulation_result.get("intermediate", None)
-        else:
-            # Backward compatibility: if only simulation array is returned
-            simulation_output = simulation_result
-            intermediate_results = None
-
+        # Apply unit conversion if basin configuration and output unit are available
+        simulation_result["qsim"] = self._trans_sim_results_unit(
+            simulation_result["qsim"],
+            output_unit=kwargs.get("output_unit", "m^3/s"),
+            time_step_hours=kwargs.get("time_step_hours", 3.0),
+        )
         # Prepare results
         results = {
-            "simulation": simulation_output,
+            "simulation": simulation_result,
             "observation": qobs,
             "input_data": inputs,
             "metadata": {
@@ -242,25 +314,11 @@ class UnifiedSimulator:
                 "model_params": self.model_params,
                 "parameters": self.parameters,
                 "warmup_length": warmup_length,
-                "simulation_shape": simulation_output.shape,
-                "time_steps": simulation_output.shape[0],
-                "n_basins": simulation_output.shape[1],
                 "is_event_data": is_event_data,
                 "return_intermediate": return_intermediate,
+                "output_variables": list(simulation_result.keys()),
             },
         }
-
-        # Add intermediate results if available
-        if intermediate_results is not None:
-            results["intermediate"] = intermediate_results
-
-        # Apply unit conversion if basin configuration and output unit are available
-        results = self._trans_sim_results_unit(
-            results,
-            output_unit=kwargs.get("output_unit", "m^3/s"),
-            time_step_hours=kwargs.get("time_step_hours", 3.0),
-        )
-
         return results
 
     def _trans_sim_results_unit(
@@ -433,7 +491,7 @@ class UnifiedSimulator:
         warmup_length: int,
         return_intermediate: bool,
         **kwargs,
-    ) -> Union[np.ndarray, Dict[str, Any]]:
+    ) -> Union[Dict[str, np.ndarray], Dict[str, Any]]:
         """Standard simulation for continuous data."""
         # Prepare model configuration
         model_config = dict(self.model_params)
@@ -447,17 +505,22 @@ class UnifiedSimulator:
             return_state=return_intermediate,
             **model_config,
         )
-        if return_intermediate:
-            return model_result
-        # Handle different return formats
+
+        # Convert model_result to dictionary based on model output names
+        output_names = get_model_output_names(
+            self.model_name, return_intermediate
+        )
+
         if isinstance(model_result, tuple):
             # Traditional models return (simulation, states, ...)
-            simulation_output = model_result[0]
+            result_dict = {
+                name: arr for name, arr in zip(output_names, model_result)
+            }
         else:
             # Unit hydrograph models return single array
-            simulation_output = model_result
+            result_dict = {output_names[0]: model_result}
 
-        return simulation_output
+        return result_dict
 
     def _simulate_event_data(
         self,
@@ -465,7 +528,7 @@ class UnifiedSimulator:
         warmup_length: int,
         return_intermediate: bool,
         **kwargs,
-    ) -> np.ndarray:
+    ) -> Dict[str, Any]:
         """Special simulation for event data with traditional models."""
         # Validate that flood_event markers are present
         if inputs.shape[2] < 3:
@@ -518,17 +581,42 @@ class UnifiedSimulator:
                     return_state=return_intermediate,
                     **model_config,
                 )
-                event_sim = np.concatenate(event_result, axis=-1)
+
+                # Convert event_result tuple to dictionary based on model output names
+                output_names = get_model_output_names(
+                    self.model_name, return_intermediate
+                )
+                if isinstance(event_result, tuple):
+                    event_dict = {
+                        name: arr
+                        for name, arr in zip(output_names, event_result)
+                    }
+                else:
+                    # If single array returned, use first output name
+                    event_dict = {output_names[0]: event_result}
+
                 if j == 0:
-                    simulation_output = np.zeros(
-                        (inputs.shape[0], inputs.shape[1], event_sim.shape[-1])
-                    )
-                # save the event result to its location in long time series data
-                simulation_output[
-                    original_start : original_end + 1,
-                    basin_idx : basin_idx + 1,
-                    :,
-                ] = event_sim
+                    # Initialize output dictionaries for each variable
+                    simulation_output = {}
+                    for name, arr in event_dict.items():
+                        simulation_output[name] = np.zeros(
+                            (inputs.shape[0], inputs.shape[1], 1)
+                        )
+
+                # Save the event result to its location in long time series data
+                for name, arr in event_dict.items():
+                    simulation_output[name][
+                        original_start : original_end + 1,
+                        basin_idx : basin_idx + 1,
+                        :,
+                    ] = arr
+
             outputs.append(simulation_output)
-        output_arr = np.concatenate(outputs, axis=1)
-        return output_arr
+
+        # Combine outputs from all basins into final output dictionary
+        final_output = {}
+        for var_name in outputs[0].keys():
+            basin_arrays = [output[var_name] for output in outputs]
+            final_output[var_name] = np.concatenate(basin_arrays, axis=1)
+
+        return final_output

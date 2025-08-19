@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-30 16:44:15
-LastEditTime: 2025-08-19 20:14:07
+LastEditTime: 2025-08-19 20:47:36
 LastEditors: Wenyu Ouyang
 Description: Dahuofang Model - Python implementation based on Java version
 FilePath: \hydromodel\hydromodel\models\dhf.py
@@ -421,9 +421,9 @@ def dhf(
             normalized_params=False,  # Already processed
             **kwargs,
         )
-        sa0 = sa[-1, :].copy()
-        ua0 = ua[-1, :].copy()
-        ya0 = ya[-1, :].copy()
+        sa0 = sa[-1, :, 0].copy()
+        ua0 = ua[-1, :, 0].copy()
+        ya0 = ya[-1, :, 0].copy()
     else:
         # Default initial states
         sa0 = np.zeros(s0.shape)
@@ -759,6 +759,17 @@ def dhf(
     # Total discharge
     q_sim = qs + ql
     q_sim = np.maximum(q_sim, 0.0)
+
+    # seq, batch, feature
+    q_sim = np.expand_dims(q_sim, axis=2)
+    runoff_sim = np.expand_dims(runoff_sim, axis=2)
+    y0_out = np.expand_dims(y0_out, axis=2)
+    yu_out = np.expand_dims(yu_out, axis=2)
+    yl_out = np.expand_dims(yl_out, axis=2)
+    y_out = np.expand_dims(y_out, axis=2)
+    sa = np.expand_dims(sa, axis=2)
+    ua = np.expand_dims(ua, axis=2)
+    ya = np.expand_dims(ya, axis=2)
 
     if return_state:
         return (

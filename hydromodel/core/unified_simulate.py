@@ -50,14 +50,14 @@ def get_model_output_names(model_name, return_state=False):
             if not return_state
             else [
                 "qsim",
-                "runoff_sim",
+                "runoff",
                 "y0",
                 "yu",
                 "yl",
                 "y",
                 "sa",
                 "ua",
-                "ya",
+                "Pa",
             ]
         ),
         "hymod": (
@@ -299,10 +299,12 @@ class UnifiedSimulator:
                 inputs, warmup_length, return_intermediate, **kwargs
             )
         # Apply unit conversion if basin configuration and output unit are available
-        simulation_result["qsim"] = self._trans_sim_results_unit(
-            simulation_result["qsim"],
-            output_unit=kwargs.get("output_unit", "m^3/s"),
-            time_step_hours=kwargs.get("time_step_hours", 3.0),
+        simulation_result["qsim"], unitconv_metadata = (
+            self._trans_sim_results_unit(
+                simulation_result["qsim"],
+                output_unit=kwargs.get("output_unit", "m^3/s"),
+                time_step_hours=kwargs.get("time_step_hours", 3.0),
+            )
         )
         # Prepare results
         results = {
@@ -317,13 +319,14 @@ class UnifiedSimulator:
                 "is_event_data": is_event_data,
                 "return_intermediate": return_intermediate,
                 "output_variables": list(simulation_result.keys()),
+                "unit_conversion": unitconv_metadata,
             },
         }
         return results
 
     def _trans_sim_results_unit(
         self,
-        results,
+        simulation,
         output_unit="m^3/s",
         time_step_hours=3.0,
     ):
@@ -332,8 +335,8 @@ class UnifiedSimulator:
 
         Parameters
         ----------
-        results : Dict[str, Any]
-            Simulation results dictionary
+        simulation : np.ndarray
+            Simulation results
         output_unit : str, default "m^3/s"
             Target output unit for conversion
         time_step_hours : float, default 3.0
@@ -343,58 +346,52 @@ class UnifiedSimulator:
 
         Returns
         -------
-        Dict[str, Any]
-            Updated results with unit conversion applied
+        tuple
+            tuple of (converted_simulation, unitconv_metadata)
         """
         if self.basin is not None and output_unit == "m^3/s":
-            try:
-                from hydroutils.hydro_units import streamflow_unit_conv
+            from hydroutils.hydro_units import streamflow_unit_conv
 
-                # Get simulation results
-                simulation = results.get("simulation")
-                if simulation is not None:
-                    # Detect time interval from time series or use provided time step
-                    # Convert time_step_hours to integer format for time_interval
-                    if time_step_hours.is_integer():
-                        time_interval = f"{int(time_step_hours)}h"
+            # Get simulation results
+            if simulation is not None:
+                # Detect time interval from time series or use provided time step
+                # Convert time_step_hours to integer format for time_interval
+                if time_step_hours.is_integer():
+                    time_interval = f"{int(time_step_hours)}h"
+                else:
+                    # Handle fractional hours by converting to minutes if < 1 hour
+                    if time_step_hours < 1:
+                        time_interval_minutes = int(time_step_hours * 60)
+                        time_interval = f"{time_interval_minutes}m"
                     else:
-                        # Handle fractional hours by converting to minutes if < 1 hour
-                        if time_step_hours < 1:
-                            time_interval_minutes = int(time_step_hours * 60)
-                            time_interval = f"{time_interval_minutes}m"
-                        else:
-                            # Round to nearest hour for other cases
-                            time_interval = f"{round(time_step_hours)}h"
+                        # Round to nearest hour for other cases
+                        time_interval = f"{round(time_step_hours)}h"
 
-                    # Convert simulation results from mm/time to m³/s
-                    # simulation shape is [time, basin, 1]
-                    converted_simulation = np.zeros_like(simulation)
+                # Convert simulation results from mm/time to m³/s
+                # simulation shape is [time, basin, 1]
+                converted_simulation = np.zeros_like(simulation)
 
-                    for basin_idx in range(simulation.shape[1]):
-                        basin_simulation = simulation[
-                            :, basin_idx, 0
-                        ]  # Extract time series for this basin
+                for basin_idx in range(simulation.shape[1]):
+                    # TODO: Only support 1 basin for now
+                    basin_simulation = simulation[
+                        :, basin_idx, 0
+                    ]  # Extract time series for this basin
 
-                        # Get basin area for this unit (supports semi-distributed)
-                        basin_area_km2 = self.basin.unit_areas
+                    # Get basin area for this unit (supports semi-distributed)
+                    basin_area_km2 = self.basin.unit_areas
 
-                        converted_discharge = streamflow_unit_conv(
-                            data=basin_simulation,
-                            area=basin_area_km2,
-                            target_unit=output_unit,
-                            source_unit=f"mm/{time_interval}",
-                            area_unit="km^2",
-                        )
+                    converted_discharge = streamflow_unit_conv(
+                        data=basin_simulation,
+                        area=basin_area_km2,
+                        target_unit=output_unit,
+                        source_unit=f"mm/{time_interval}",
+                        area_unit="km^2",
+                    )
 
-                        converted_simulation[:, basin_idx, 0] = (
-                            converted_discharge
-                        )
-
-                    # Update results with converted simulation
-                    results["simulation"] = converted_simulation
+                    converted_simulation[:, basin_idx, 0] = converted_discharge
 
                     # Add conversion metadata
-                    results["metadata"]["unit_conversion"] = {
+                    unitconv_metadata = {
                         "applied": True,
                         "source_unit": f"mm/{time_interval}",
                         "target_unit": output_unit,
@@ -407,18 +404,6 @@ class UnifiedSimulator:
                         "time_interval": time_interval,
                     }
 
-            except ImportError:
-                # If hydroutils is not available, just add a note
-                results["metadata"]["unit_conversion"] = {
-                    "applied": False,
-                    "error": "hydroutils not available for unit conversion",
-                }
-            except Exception as e:
-                # If conversion fails, add error info but don't fail the simulation
-                results["metadata"]["unit_conversion"] = {
-                    "applied": False,
-                    "error": f"Unit conversion failed: {str(e)}",
-                }
         else:
             # No unit conversion applied
             reason = "No basin configuration provided"
@@ -426,12 +411,13 @@ class UnifiedSimulator:
                 reason = (
                     f"Output unit '{output_unit}' does not require conversion"
                 )
-
-            results["metadata"]["unit_conversion"] = {
+            unitconv_metadata = {
                 "applied": False,
                 "reason": reason,
+                "source_unit": None,
+                "target_unit": output_unit,
             }
-        return results
+        return converted_simulation, unitconv_metadata
 
     def _prepare_param_array(self, n_basins: int) -> np.ndarray:
         """

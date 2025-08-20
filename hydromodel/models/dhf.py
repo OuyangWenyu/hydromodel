@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-30 16:44:15
-LastEditTime: 2025-08-19 20:47:36
+LastEditTime: 2025-08-20 08:56:19
 LastEditors: Wenyu Ouyang
 Description: Dahuofang Model - Python implementation based on Java version
 FilePath: \hydromodel\hydromodel\models\dhf.py
@@ -629,8 +629,8 @@ def dhf(
     qs = np.zeros((actual_time_steps, num_basins))
     ql = np.zeros((actual_time_steps, num_basins))
 
-    w0 = 35.0 / (3.6 * time_interval)  # tmp value used for testing
-    # w0 = 1.0 / time_interval
+    # w0 = 35.0 / (3.6 * time_interval)  # tmp value used for testing
+    w0 = 1.0 / time_interval
 
     # Main time loop for routing (before convolution, getting ya)
     for i in range(actual_time_steps):

@@ -22,10 +22,15 @@ try:
 except ImportError:
     # Fallback for missing functions - provide dummy implementations
     def objective_function_multi_event(*args, **kwargs):
-        raise NotImplementedError("Unit hydrograph optimization functions moved to trainers module")
-    
+        raise NotImplementedError(
+            "Unit hydrograph optimization functions moved to trainers module"
+        )
+
     def optimize_uh_for_group(*args, **kwargs):
-        raise NotImplementedError("Unit hydrograph optimization functions moved to trainers module")
+        raise NotImplementedError(
+            "Unit hydrograph optimization functions moved to trainers module"
+        )
+
 
 # 水文模型
 from .dhf import dhf  # 大伙房模型

@@ -81,13 +81,17 @@ def check_tsdata_format(file_path):
             col for col in data.columns if re.match(r"node\d+_flow", col)
         ]
         if not node_flow_columns:
-            print(f"No 'node_flow' columns found in file: {file_path}, but it's okay.")
+            print(
+                f"No 'node_flow' columns found in file: {file_path}, but it's okay."
+            )
 
         # Check time format and sorting
         time_parsed = False
         for time_format in POSSIBLE_TIME_FORMATS:
             try:
-                data[TIME_NAME] = pd.to_datetime(data[TIME_NAME], format=time_format)
+                data[TIME_NAME] = pd.to_datetime(
+                    data[TIME_NAME], format=time_format
+                )
                 time_parsed = True
                 break
             except ValueError:
@@ -106,7 +110,9 @@ def check_tsdata_format(file_path):
             data[TIME_NAME].diff().dropna()
         )  # Calculate differences and remove NaN
         if not all(time_differences == time_differences.iloc[0]):
-            print(f"Time series is not at consistent intervals in file: {file_path}")
+            print(
+                f"Time series is not at consistent intervals in file: {file_path}"
+            )
             return False
 
         return True
@@ -183,11 +189,15 @@ def check_folder_contents(folder_path, basin_attr_file="basin_attributes.csv"):
         file_path = os.path.join(folder_path, file_name)
 
         if not os.path.exists(file_path):
-            print(f"Missing time series data file for basin {basin_id}: {file_path}")
+            print(
+                f"Missing time series data file for basin {basin_id}: {file_path}"
+            )
             return False
 
         if not check_tsdata_format(file_path):
-            print(f"Time series data format check failed for file: {file_path}")
+            print(
+                f"Time series data format check failed for file: {file_path}"
+            )
             return False
 
     return True
@@ -214,7 +224,9 @@ def _transform_timescale(df, target_scale="D"):
         except ValueError:
             continue
     else:
-        raise ValueError("Could not parse time column. Please check the time format.")
+        raise ValueError(
+            "Could not parse time column. Please check the time format."
+        )
 
     df.set_index("time", inplace=True)
 
@@ -262,12 +274,16 @@ def process_and_save_data_as_nc(
         return False
 
     basin_attrs, ds_attrs = _process_basin_attributes(folder_path)
-    ds_ts = _process_timeseries_data(folder_path, target_data_scale, basin_attrs)
+    ds_ts = _process_timeseries_data(
+        folder_path, target_data_scale, basin_attrs
+    )
 
     ts_path = os.path.join(save_folder, nc_ts_file)
     if os.path.exists(ts_path):
         print("-" * 50)
-        print("Found existing timeseries.nc file. Removing and creating a new one...")
+        print(
+            "Found existing timeseries.nc file. Removing and creating a new one..."
+        )
         os.remove(ts_path)
 
     ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
@@ -329,7 +345,9 @@ def _process_timeseries_data(folder_path, target_data_scale, basin_attrs):
 
         for time_format in POSSIBLE_TIME_FORMATS:
             try:
-                data[TIME_NAME] = pd.to_datetime(data[TIME_NAME], format=time_format)
+                data[TIME_NAME] = pd.to_datetime(
+                    data[TIME_NAME], format=time_format
+                )
                 break
             except ValueError:
                 continue
@@ -521,15 +539,22 @@ def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
     if data_type in datasource_dict.keys():
         datasource = datasource_dict[data_type](data_dir)
         p_pet_flow_vars = datasource_vars_dict[data_type]
-        ts_data = datasource.read_ts_xrdataset(basin_ids, periods, p_pet_flow_vars)
+        ts_data = datasource.read_ts_xrdataset(
+            basin_ids, periods, p_pet_flow_vars
+        )
         if isinstance(ts_data, dict):
             # We only support one time-unit in the data source, we select the first
             ts_data = ts_data[list(ts_data.keys())[0]]
         # get streamflow and convert the unit
         qobs_ = ts_data[p_pet_flow_vars[-1:]]
         target_unit = ts_data[p_pet_flow_vars[0]].attrs.get("units", "unknown")
-        if qobs_[p_pet_flow_vars[-1]].attrs.get("units", "unknown") != target_unit:
-            r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
+        if (
+            qobs_[p_pet_flow_vars[-1]].attrs.get("units", "unknown")
+            != target_unit
+        ):
+            r_mmd = streamflow_unit_conv(
+                qobs_, basin_area, target_unit=target_unit
+            )
             ts_data[flow_name] = r_mmd[p_pet_flow_vars[-1]]
             ts_data[flow_name].attrs["units"] = target_unit
         ts_data = ts_data.rename(
@@ -576,15 +601,27 @@ def _get_pe_q_from_ts(ts_xr_dataset):
     pet_name = remove_unit_from_name(PET_NAME)
     flow_name = remove_unit_from_name(FLOW_NAME)
     p_and_e = (
-        ts_xr_dataset[[prcp_name, pet_name]].to_array().to_numpy().transpose(2, 1, 0)
+        ts_xr_dataset[[prcp_name, pet_name]]
+        .to_array()
+        .to_numpy()
+        .transpose(2, 1, 0)
     )
-    qobs = np.expand_dims(ts_xr_dataset[flow_name].to_numpy().transpose(1, 0), axis=2)
+    qobs = np.expand_dims(
+        ts_xr_dataset[flow_name].to_numpy().transpose(1, 0), axis=2
+    )
 
     return p_and_e, qobs
 
 
 def cross_val_split_tsdata(
-    data_type, data_dir, cv_fold, train_period, test_period, periods, warmup, basin_ids
+    data_type,
+    data_dir,
+    cv_fold,
+    train_period,
+    test_period,
+    periods,
+    warmup,
+    basin_ids,
 ):
     """Prepare the time series data for cross-validation or no cross-validation
 

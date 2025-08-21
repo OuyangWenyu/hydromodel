@@ -58,7 +58,16 @@ class Evaluator:
         if not os.path.exists(eval_dir):
             os.makedirs(eval_dir)
 
-    def predict(self, ds,calibrate_id,attributes,modelwithsameParas,params_range,topo,dt):
+    def predict(
+        self,
+        ds,
+        calibrate_id,
+        attributes,
+        modelwithsameParas,
+        params_range,
+        topo,
+        dt,
+    ):
         """predict the streamflow of all basins in ds
 
         Parameters
@@ -75,9 +84,9 @@ class Evaluator:
         p_and_e, _ = _get_pe_q_from_ts(ds)
         basins = ds["basin"].data.astype(str)
         params = _read_all_basin_params(basins[calibrate_id], self.params_dir)
-        print(params,'wwwwwwwwwwwwwwwww')
-        print(params[0,:])
-        params=params[0,:]
+        print(params, "wwwwwwwwwwwwwwwww")
+        print(params[0, :])
+        params = params[0, :]
         qsim = MODEL_DICT[model_info["name"]](
             p_and_e,
             attributes,
@@ -87,9 +96,9 @@ class Evaluator:
             topo,
             dt,
             # we set the warmup_length=0 but later we get results from warmup_length to the end to evaluate
-            #warmup_length=0,
+            # warmup_length=0,
             **model_info,
-            #**{"param_range_file": self.param_range_file},
+            # **{"param_range_file": self.param_range_file},
         )
         qsim, qobs = self._convert_streamflow_units(ds, qsim)
         return qsim, qobs
@@ -108,8 +117,8 @@ class Evaluator:
             _description_
         """
         basins = ds["basin"].data.astype(str)
-        #self._summarize_parameters(basins,calibrate_id)
-        #self._renormalize_params(basins,calibrate_id)
+        # self._summarize_parameters(basins,calibrate_id)
+        # self._renormalize_params(basins,calibrate_id)
         self._save_evaluate_results(qsim, qobs, ds)
         self._summarize_metrics(basins)
 
@@ -133,7 +142,10 @@ class Evaluator:
             ds, basin_area, target_unit=target_unit, inverse=True
         )
         ds_obsflow = streamflow_unit_conv(
-            test_data[[flow_name]], basin_area, target_unit=target_unit, inverse=True
+            test_data[[flow_name]],
+            basin_area,
+            target_unit=target_unit,
+            inverse=True,
         )
         return ds_simflow, ds_obsflow
 
@@ -156,35 +168,35 @@ class Evaluator:
         model_name = self.model_info["name"]
         params = []
         model_param_dict = read_model_param_dict(self.param_range_file)
-        print("vvvvvvvvvv",model_name)
-        #for basin_id in basin_ids:
-        basin_id=basin_ids[calibrate_id]
-        #columns = model_param_dict[model_name]["param_name"]
+        print("vvvvvvvvvv", model_name)
+        # for basin_id in basin_ids:
+        basin_id = basin_ids[calibrate_id]
+        # columns = model_param_dict[model_name]["param_name"]
         params_txt = pd.read_csv(
             os.path.join(param_dir, basin_id + "_calibrate_params.txt")
         )
         params_df = pd.DataFrame(params_txt.values.T)
         params.append(params_df)
-        
-        params_dfs = pd.concat(params, axis=0)
-        print("ccc",params_dfs,'',params_dfs.index)
-        #params_dfs.index = [basin_ids[calibrate_id]]
-        #print(params_dfs)
-        #params_csv_file = os.path.join(param_dir, "basins_norm_params.csv")
-        #params_dfs.to_csv(params_csv_file, sep=",", index=True, header=True)
 
-    def _renormalize_params(self, basin_ids, calibrate_id): #wgz
+        params_dfs = pd.concat(params, axis=0)
+        print("ccc", params_dfs, "", params_dfs.index)
+        # params_dfs.index = [basin_ids[calibrate_id]]
+        # print(params_dfs)
+        # params_csv_file = os.path.join(param_dir, "basins_norm_params.csv")
+        # params_dfs.to_csv(params_csv_file, sep=",", index=True, header=True)
+
+    def _renormalize_params(self, basin_ids, calibrate_id):  # wgz
         param_dir = self.params_dir
         model_name = self.model_info["name"]
-        model_name="xaj" #wgz
+        model_name = "xaj"  # wgz
         renormalization_params = []
         model_param_dict = read_model_param_dict(self.param_range_file)
-        #for basin_id in basin_ids:
+        # for basin_id in basin_ids:
         basin_id = basin_ids[calibrate_id]
         params = np.loadtxt(
             os.path.join(param_dir, basin_id + "_calibrate_params.txt")
         )[1:].reshape(1, -1)
-        param_ranges = model_param_dict[model_name]["param_range"] #wgz
+        param_ranges = model_param_dict[model_name]["param_range"]  # wgz
         xaj_params = [
             (value[1] - value[0]) * params[:, i] + value[0]
             for i, (key, value) in enumerate(param_ranges.items())
@@ -193,7 +205,9 @@ class Evaluator:
         params_df = pd.DataFrame(xaj_params_.T)
         renormalization_params.append(params_df)
         renormalization_params_dfs = pd.concat(renormalization_params, axis=1)
-        renormalization_params_dfs.index = model_param_dict[model_name]["param_name"]
+        renormalization_params_dfs.index = model_param_dict[model_name][
+            "param_name"
+        ]
         renormalization_params_dfs.columns = basin_ids
         print(renormalization_params_dfs)
         params_csv_file = os.path.join(param_dir, "basins_denorm_params.csv")
@@ -216,19 +230,27 @@ class Evaluator:
         """
         result_dir = self.save_dir
         model_name = self.model_info["name"]
-        file_path = os.path.join(result_dir, f"{model_name}_evaluation_results.nc")
+        file_path = os.path.join(
+            result_dir, f"{model_name}_evaluation_results.nc"
+        )
         ds = xr.open_dataset(file_path)
         # for metrics, warmup_length should be considered
         warmup_length = self.config["warmup"]
-        qobs = ds["qobs"].transpose("basin", "time").to_numpy()[:, warmup_length:]
-        qsim = ds["qsim"].transpose("basin", "time").to_numpy()[:, warmup_length:]
+        qobs = (
+            ds["qobs"].transpose("basin", "time").to_numpy()[:, warmup_length:]
+        )
+        qsim = (
+            ds["qsim"].transpose("basin", "time").to_numpy()[:, warmup_length:]
+        )
         test_metrics = hydro_stat.stat_error(
             qobs,
             qsim,
         )
         metric_dfs_test = pd.DataFrame(test_metrics, index=basin_ids)
         metric_file_test = os.path.join(result_dir, "basins_metrics.csv")
-        metric_dfs_test.to_csv(metric_file_test, sep=",", index=True, header=True)
+        metric_dfs_test.to_csv(
+            metric_file_test, sep=",", index=True, header=True
+        )
 
     def _save_evaluate_results(self, qsim, qobs, obs_ds):
         result_dir = self.save_dir
@@ -244,7 +266,9 @@ class Evaluator:
         ds["pet"] = obs_ds["pet"]
 
         # 保存为 .nc 文件
-        file_path = os.path.join(result_dir, f"{model_name}_evaluation_results.nc")
+        file_path = os.path.join(
+            result_dir, f"{model_name}_evaluation_results.nc"
+        )
         ds.to_netcdf(file_path)
 
         print(f"Results saved to: {file_path}")
@@ -252,11 +276,15 @@ class Evaluator:
     def load_results(self):
         result_dir = self.save_dir
         model_name = self.model_info["name"]
-        file_path = os.path.join(result_dir, f"{model_name}_evaluation_results.nc")
+        file_path = os.path.join(
+            result_dir, f"{model_name}_evaluation_results.nc"
+        )
         return xr.open_dataset(file_path)
 
 
-def _read_save_sceua_calibrated_params(basin_id, save_dir, sceua_calibrated_file_name):
+def _read_save_sceua_calibrated_params(
+    basin_id, save_dir, sceua_calibrated_file_name
+):
     """
     read the parameters' file generated by spotpy SCE-UA when finishing calibration
 
@@ -280,7 +308,9 @@ def _read_save_sceua_calibrated_params(basin_id, save_dir, sceua_calibrated_file
         results
     )  # 结果数组中具有最小目标函数的位置的索引
     best_model_run = results[bestindex]
-    fields = [word for word in best_model_run.dtype.names if word.startswith("par")]
+    fields = [
+        word for word in best_model_run.dtype.names if word.startswith("par")
+    ]
     best_calibrate_params = pd.DataFrame(list(best_model_run[fields]))
     save_file = os.path.join(save_dir, basin_id + "_calibrate_params.txt")
     best_calibrate_params.to_csv(save_file, sep=",", index=False, header=True)
@@ -292,7 +322,9 @@ def _read_all_basin_params(basins, param_dir):
     for basin_id in basins:
         db_name = os.path.join(param_dir, basin_id)
         # 读取每个流域的参数
-        basin_params = _read_save_sceua_calibrated_params(basin_id, param_dir, db_name)
+        basin_params = _read_save_sceua_calibrated_params(
+            basin_id, param_dir, db_name
+        )
         # 确保basin_params是一维的
         basin_params = basin_params.flatten()
         params_list.append(basin_params)
@@ -342,10 +374,14 @@ def read_and_save_et_ouputs(result_dir, fold: int):
         es_train.append(e_train.flatten())
         es_test.append(e_test.flatten())
     df_e_train = pd.DataFrame(
-        np.array(es_train).T, columns=basins_id, index=train_period[warmup_length:]
+        np.array(es_train).T,
+        columns=basins_id,
+        index=train_period[warmup_length:],
     )
     df_e_test = pd.DataFrame(
-        np.array(es_test).T, columns=basins_id, index=test_period[warmup_length:]
+        np.array(es_test).T,
+        columns=basins_id,
+        index=test_period[warmup_length:],
     )
     etsim_train_save_path = os.path.join(result_dir, "basin_etsim_train.csv")
     etsim_test_save_path = os.path.join(result_dir, "basin_etsim_test.csv")

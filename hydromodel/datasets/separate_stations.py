@@ -11,44 +11,58 @@ from hydromodel.datasets.read_data_from_topo import read_data_from_topo
 
 def organize_stations_df(stations, basin):
     nearest_gdf = separate_stations(stations, basin)
-    for poly_id in np.unique(nearest_gdf['index_right'].to_numpy()):
-        sta_ids = nearest_gdf.index[nearest_gdf['index_right'] == poly_id].to_numpy()
+    for poly_id in np.unique(nearest_gdf["index_right"].to_numpy()):
+        sta_ids = nearest_gdf.index[
+            nearest_gdf["index_right"] == poly_id
+        ].to_numpy()
         # sta_types = stations[stations[CODE_NAME].isin(sta_ids)][STTYPE_NAME].to_numpy()
         if len(sta_ids) >= 2:
             data_dict = read_data_from_topo(stations, sta_ids)
             dfs = list(data_dict.values())
-            tm_min = np.min(dfs[0]['tm'])
-            tm_max = np.max(dfs[0]['tm'])
+            tm_min = np.min(dfs[0]["tm"])
+            tm_max = np.max(dfs[0]["tm"])
             for df in dfs:
-                tm_min = np.min(tm_min, np.min(df['tm']))
-                tm_max = np.max(tm_max, np.max(df['tm']))
+                tm_min = np.min(tm_min, np.min(df["tm"]))
+                tm_max = np.max(tm_max, np.max(df["tm"]))
             pp_comp_df, rr_comp_df = organize_rain_and_flow(dfs)
-            pp_comp_df = pp_comp_df.set_index('tm')
-            pp_comp_df = pp_comp_df.resample('1h', origin='epoch').interpolate()[tm_min: tm_max]
-            rr_comp_df = rr_comp_df.resample('1h', origin='epoch').interpolate()[tm_min: tm_max]
+            pp_comp_df = pp_comp_df.set_index("tm")
+            pp_comp_df = pp_comp_df.resample(
+                "1h", origin="epoch"
+            ).interpolate()[tm_min:tm_max]
+            rr_comp_df = rr_comp_df.resample(
+                "1h", origin="epoch"
+            ).interpolate()[tm_min:tm_max]
             pr_comp_df = pd.concat([pp_comp_df, rr_comp_df], axis=1)
+
 
 def read_pev_from_era5():
     # 使用ftproot里的数据集
     era5l_ds = xr.open_dataset("/ftproot/632_basins_era5land_fixed.nc")
 
+
 def organize_rain_and_flow(dfs):
     # dfs is list of GeoDataFrame
     # tm_min = np.min(dfs[0]['tm'])
     # tm_max = np.max(dfs[0]['tm'])
-    pp_comp_df = pd.concat([df for df in dfs if 'drp' in df.columns])
-    pp_comp_df = pp_comp_df.groupby(level=0).agg({'drp': 'mean'})
-    river_comp_df = pd.concat([df for df in dfs if ('q' in df.columns)])
-    rsvr_comp_df = pd.concat([df for df in dfs if ('inq' in df.columns)])
-    rsvr_comp_df = rsvr_comp_df.rename(columns={'inq': 'q'})
-    rr_comp_df = pd.concat([river_comp_df, rsvr_comp_df]).groupby(level=0).agg({'q': 'mean'})
+    pp_comp_df = pd.concat([df for df in dfs if "drp" in df.columns])
+    pp_comp_df = pp_comp_df.groupby(level=0).agg({"drp": "mean"})
+    river_comp_df = pd.concat([df for df in dfs if ("q" in df.columns)])
+    rsvr_comp_df = pd.concat([df for df in dfs if ("inq" in df.columns)])
+    rsvr_comp_df = rsvr_comp_df.rename(columns={"inq": "q"})
+    rr_comp_df = (
+        pd.concat([river_comp_df, rsvr_comp_df])
+        .groupby(level=0)
+        .agg({"q": "mean"})
+    )
     return pp_comp_df, rr_comp_df
 
 
 def separate_stations(stations, basin):
     # 考虑到碧流河流域雨量站远多于洪量站的现状，以洪量站划分泰森多边形，再在多边形上做雨量平均，以此拼合雨洪量
-    stations_npp = stations[stations[STTYPE_NAME].str.contains('|'.join(['RR', 'ZQ']))]
-    stations_pp = stations[stations[STTYPE_NAME] == 'PP']
+    stations_npp = stations[
+        stations[STTYPE_NAME].str.contains("|".join(["RR", "ZQ"]))
+    ]
+    stations_pp = stations[stations[STTYPE_NAME] == "PP"]
     # 以数量少的站点类型划分泰森多边形
     if len(stations_npp) >= len(stations_pp):
         polygons = calculate_voronoi_polygons(stations_pp, basin)
@@ -117,6 +131,7 @@ def calculate_voronoi_polygons(stations, basin):
     clipped_polygons = gpd.clip(gdf_polygons, basin)
     clipped_polygons["clipped_area"] = clipped_polygons.geometry.area
     clipped_polygons["area_ratio"] = (
-        clipped_polygons["clipped_area"] / clipped_polygons["clipped_area"].sum()
+        clipped_polygons["clipped_area"]
+        / clipped_polygons["clipped_area"].sum()
     )
     return clipped_polygons

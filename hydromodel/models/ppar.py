@@ -156,7 +156,10 @@ class PParCorrelationModel:
         return max(0.0, min(r_sim, p))
 
     def update_pa_vectorized(
-        self, pa_current: np.ndarray, rainfall: np.ndarray, times: List[datetime]
+        self,
+        pa_current: np.ndarray,
+        rainfall: np.ndarray,
+        times: List[datetime],
     ) -> np.ndarray:
         """
         矢量化Pa更新
@@ -200,17 +203,25 @@ class PParCorrelationModel:
         # 查找Pa插值区间
         if paa <= self.pa_values[0]:
             # 使用第一条曲线
-            return self.calculate_runoff(p, self.pr_curves[0], self.pr_curves[1])
+            return self.calculate_runoff(
+                p, self.pr_curves[0], self.pr_curves[1]
+            )
         elif paa >= self.pa_values[-1]:
             # 使用最后一条曲线
-            return self.calculate_runoff(p, self.pr_curves[0], self.pr_curves[-1])
+            return self.calculate_runoff(
+                p, self.pr_curves[0], self.pr_curves[-1]
+            )
         else:
             # 在两条曲线间插值
             idx = np.searchsorted(self.pa_values, paa)
             pa1, pa2 = self.pa_values[idx - 1], self.pa_values[idx]
 
-            r1 = self.calculate_runoff(p, self.pr_curves[0], self.pr_curves[idx])
-            r2 = self.calculate_runoff(p, self.pr_curves[0], self.pr_curves[idx + 1])
+            r1 = self.calculate_runoff(
+                p, self.pr_curves[0], self.pr_curves[idx]
+            )
+            r2 = self.calculate_runoff(
+                p, self.pr_curves[0], self.pr_curves[idx + 1]
+            )
 
             # 线性插值
             weight = (paa - pa1) / (pa2 - pa1)
@@ -250,10 +261,14 @@ class PParCorrelationModel:
             cumulative_p = np.cumsum(self.rainfall)
 
             # 矢量化计算累积径流
-            cumulative_r = self._interpolate_pa_curves_vectorized(cumulative_p, paa)
+            cumulative_r = self._interpolate_pa_curves_vectorized(
+                cumulative_p, paa
+            )
 
             # 计算时段径流
-            self.runoff_sim[0] = max(0.0, min(cumulative_r[0], self.rainfall[0]))
+            self.runoff_sim[0] = max(
+                0.0, min(cumulative_r[0], self.rainfall[0])
+            )
             if len(cumulative_r) > 1:
                 self.runoff_sim[1:] = np.maximum(
                     0.0, np.minimum(np.diff(cumulative_r), self.rainfall[1:])
@@ -271,14 +286,19 @@ class PParCorrelationModel:
         if self.start_index > 0:
             paa1 = self.pa_sim[0]
             cumulative_p1 = np.cumsum(self.rainfall[: self.start_index])
-            cumulative_r1 = self._interpolate_pa_curves_vectorized(cumulative_p1, paa1)
+            cumulative_r1 = self._interpolate_pa_curves_vectorized(
+                cumulative_p1, paa1
+            )
 
-            self.runoff_sim[0] = max(0.0, min(cumulative_r1[0], self.rainfall[0]))
+            self.runoff_sim[0] = max(
+                0.0, min(cumulative_r1[0], self.rainfall[0])
+            )
             if len(cumulative_r1) > 1:
                 self.runoff_sim[1 : self.start_index] = np.maximum(
                     0.0,
                     np.minimum(
-                        np.diff(cumulative_r1), self.rainfall[1 : self.start_index]
+                        np.diff(cumulative_r1),
+                        self.rainfall[1 : self.start_index],
                     ),
                 )
 
@@ -287,7 +307,9 @@ class PParCorrelationModel:
             paa2 = self.pa_sim[self.start_index]
             rainfall_part2 = self.rainfall[self.start_index :]
             cumulative_p2 = np.cumsum(rainfall_part2)
-            cumulative_r2 = self._interpolate_pa_curves_vectorized(cumulative_p2, paa2)
+            cumulative_r2 = self._interpolate_pa_curves_vectorized(
+                cumulative_p2, paa2
+            )
 
             start_idx = self.start_index
             self.runoff_sim[start_idx] = max(
@@ -310,7 +332,9 @@ class PParCorrelationModel:
             for i in range(n_steps):
                 # 计算当前时段径流
                 r_base = self.calculate_runoff_single(
-                    self.pa_sim[i], self.pr_single_curve[0], self.pr_single_curve[1]
+                    self.pa_sim[i],
+                    self.pr_single_curve[0],
+                    self.pr_single_curve[1],
                 )
 
                 r_total = self.calculate_runoff_single(
@@ -319,7 +343,9 @@ class PParCorrelationModel:
                     self.pr_single_curve[1],
                 )
 
-                self.runoff_sim[i] = max(0.0, min(r_total - r_base, self.rainfall[i]))
+                self.runoff_sim[i] = max(
+                    0.0, min(r_total - r_base, self.rainfall[i])
+                )
 
                 # 更新Pa
                 pa_new = self.update_pa_vectorized(
@@ -342,7 +368,9 @@ class PParCorrelationModel:
             # 矢量化计算
             cumulative_input = cumulative_p + pa_start
             cumulative_r = self.calculate_runoff(
-                cumulative_input, self.pr_single_curve[0], self.pr_single_curve[1]
+                cumulative_input,
+                self.pr_single_curve[0],
+                self.pr_single_curve[1],
             )
 
             # 基础径流
@@ -357,7 +385,10 @@ class PParCorrelationModel:
             )
             if len(cumulative_r_adjusted) > 1:
                 self.runoff_sim[1:] = np.maximum(
-                    0.0, np.minimum(np.diff(cumulative_r_adjusted), self.rainfall[1:])
+                    0.0,
+                    np.minimum(
+                        np.diff(cumulative_r_adjusted), self.rainfall[1:]
+                    ),
                 )
         else:
             # 分段计算
@@ -373,11 +404,15 @@ class PParCorrelationModel:
             cumulative_p1 = np.cumsum(self.rainfall[: self.start_index])
             cumulative_input1 = cumulative_p1 + self.pa_initial
             cumulative_r1 = self.calculate_runoff(
-                cumulative_input1, self.pr_single_curve[0], self.pr_single_curve[1]
+                cumulative_input1,
+                self.pr_single_curve[0],
+                self.pr_single_curve[1],
             )
 
             r_base1 = self.calculate_runoff_single(
-                self.pa_initial, self.pr_single_curve[0], self.pr_single_curve[1]
+                self.pa_initial,
+                self.pr_single_curve[0],
+                self.pr_single_curve[1],
             )
 
             cumulative_r1_adjusted = cumulative_r1 - r_base1
@@ -401,7 +436,9 @@ class PParCorrelationModel:
 
             cumulative_input2 = cumulative_p2 + pa_start2
             cumulative_r2 = self.calculate_runoff(
-                cumulative_input2, self.pr_single_curve[0], self.pr_single_curve[1]
+                cumulative_input2,
+                self.pr_single_curve[0],
+                self.pr_single_curve[1],
             )
 
             r_base2 = self.calculate_runoff_single(
@@ -415,7 +452,10 @@ class PParCorrelationModel:
             )
             if len(cumulative_r2_adjusted) > 1:
                 self.runoff_sim[start_idx + 1 :] = np.maximum(
-                    0.0, np.minimum(np.diff(cumulative_r2_adjusted), rainfall_part2[1:])
+                    0.0,
+                    np.minimum(
+                        np.diff(cumulative_r2_adjusted), rainfall_part2[1:]
+                    ),
                 )
 
     def _update_pa_sequence(self) -> None:
@@ -451,7 +491,9 @@ class PParCorrelationModel:
             "total_rainfall": float(total_rainfall),
             "total_runoff": float(total_runoff),
             "runoff_coefficient": (
-                float(total_runoff / total_rainfall) if total_rainfall > 0 else 0.0
+                float(total_runoff / total_rainfall)
+                if total_rainfall > 0
+                else 0.0
             ),
         }
 
@@ -478,7 +520,9 @@ class PParCorrelationModel:
 
 def create_test_data() -> Tuple[List[float], List[datetime]]:
     """创建测试数据"""
-    times = [datetime(2021, 6, 5, 8) + pd.Timedelta(hours=6 * i) for i in range(10)]
+    times = [
+        datetime(2021, 6, 5, 8) + pd.Timedelta(hours=6 * i) for i in range(10)
+    ]
     rainfall = [0.0, 5.17, 1.71, 0.0, 0.0, 0.0, 0.63, 5.17, 11.49, 0.24]
     return rainfall, times
 

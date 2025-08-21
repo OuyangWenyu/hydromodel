@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
-Date: 2025-08-06 
-LastEditTime: 2025-08-06 
+Date: 2025-08-06
+LastEditTime: 2025-08-06
 LastEditors: Wenyu Ouyang
 Description: Trainers module for hydrological model calibration
 FilePath: \hydromodel\hydromodel\trainers\__init__.py
@@ -33,16 +33,14 @@ __all__ = [
     # Traditional interfaces
     "SpotSetup",
     "calibrate_by_sceua_old",
-    
     # Unified interfaces
     "calibrate",
     "ModelSetupBase",
     "UnifiedModelSetup",
     "DEAP_AVAILABLE",
-    
     # Unit hydrograph training functions
     "objective_function_multi_event",
-    "optimize_shared_unit_hydrograph", 
+    "optimize_shared_unit_hydrograph",
     "evaluate_single_event_from_uh",
     "print_report_preview",
     "save_results_to_csv",

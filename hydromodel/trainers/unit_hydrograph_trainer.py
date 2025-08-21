@@ -337,8 +337,16 @@ def evaluate_single_event_from_uh(
         nse_value = stat_error(sim_flow, obs_flow, ["NSE"])["NSE"]
         rmse_value = np.sqrt(np.mean((sim_flow - obs_flow) ** 2))
         # Calculate peak and volume errors manually since they're not in stat_error
-        peak_error = abs(obs_flow.max() - sim_flow.max()) / obs_flow.max() * 100 if obs_flow.max() > 0 else 0
-        volume_error = abs(obs_flow.sum() - sim_flow.sum()) / obs_flow.sum() * 100 if obs_flow.sum() > 0 else 0
+        peak_error = (
+            abs(obs_flow.max() - sim_flow.max()) / obs_flow.max() * 100
+            if obs_flow.max() > 0
+            else 0
+        )
+        volume_error = (
+            abs(obs_flow.sum() - sim_flow.sum()) / obs_flow.sum() * 100
+            if obs_flow.sum() > 0
+            else 0
+        )
 
         # Prepare result dictionary
         result = {

@@ -10,9 +10,20 @@ from hydromodel.models.model_dict import LOSS_DICT, MODEL_DICT
 
 class SpotSetup(object):
     def __init__(
-        self,calibrate_id, p_and_e, qobs, attributes, modelwithsameParas, params_range, topo, dt, warmup_length=365, model=None, loss=None
+        self,
+        calibrate_id,
+        p_and_e,
+        qobs,
+        attributes,
+        modelwithsameParas,
+        params_range,
+        topo,
+        dt,
+        warmup_length=365,
+        model=None,
+        loss=None,
     ):
-        self.calibrate_id = calibrate_id #确定校核断面
+        self.calibrate_id = calibrate_id  # 确定校核断面
         self.attributes = attributes
         self.modelwithsameParas = modelwithsameParas
         self.params_range = params_range
@@ -20,8 +31,13 @@ class SpotSetup(object):
         self.dt = dt
         self.model = model
         self.para_seq = []
-        para_number = sum(len(item['PARAMETER']) for item in self.modelwithsameParas)
-        self.para_seq.extend(Uniform(f'param_{i}', low=0.0, high=1.0) for i in range(para_number))
+        para_number = sum(
+            len(item["PARAMETER"]) for item in self.modelwithsameParas
+        )
+        self.para_seq.extend(
+            Uniform(f"param_{i}", low=0.0, high=1.0)
+            for i in range(para_number)
+        )
         self.loss = loss
         self.p_and_e = p_and_e
         self.true_obs = qobs[warmup_length:, :, :]
@@ -30,21 +46,27 @@ class SpotSetup(object):
     def parameters(self):
         # print(f'参数：{spotpy.parameter.generate(self.para_seq)}')
         return spotpy.parameter.generate(self.para_seq)
-    
 
     def simulation(self, x: ParameterSet) -> Union[list, np.array]:
         # parameter, 2-dim variable: [basin=1, parameter]
         param_seq = np.array(x)
-        calibrate_id=self.calibrate_id
+        calibrate_id = self.calibrate_id
         sim = MODEL_DICT[self.model["name"]](
             self.p_and_e,
-            self.attributes, self.modelwithsameParas, param_seq, self.params_range, self.topo, self.dt,
+            self.attributes,
+            self.modelwithsameParas,
+            param_seq,
+            self.params_range,
+            self.topo,
+            self.dt,
             warmup_length=self.warmup_length,
             **self.model,
         )
-        area = self.attributes.sel(id=str(calibrate_id))['area'].values
+        area = self.attributes.sel(id=str(calibrate_id))["area"].values
 
-        return sim[:,calibrate_id,:] / area * (3600*self.dt*1000/1000000)
+        return (
+            sim[:, calibrate_id, :] / area * (3600 * self.dt * 1000 / 1000000)
+        )
 
     def evaluation(self) -> Union[list, np.array]:
         return self.true_obs
@@ -71,15 +93,20 @@ class SpotSetup(object):
         for i in range(len(time)):
             if time.iloc[i, 0] < calibrate_endtime:
                 start_num = (
-                    time.iloc[i, 0] - calibrate_starttime - pd.Timedelta(hours=365)
+                    time.iloc[i, 0]
+                    - calibrate_starttime
+                    - pd.Timedelta(hours=365)
                 ) / pd.Timedelta(hours=1)
                 end_num = (
-                    time.iloc[i, 1] - calibrate_starttime - pd.Timedelta(hours=365)
+                    time.iloc[i, 1]
+                    - calibrate_starttime
+                    - pd.Timedelta(hours=365)
                 ) / pd.Timedelta(hours=1)
                 start_num = int(start_num)
                 end_num = int(end_num)
                 like_ = LOSS_DICT[self.loss["obj_func"]](
-                    evaluation[start_num:end_num,], simulation[start_num:end_num,]
+                    evaluation[start_num:end_num,],
+                    simulation[start_num:end_num,],
                 )
                 count += 1
 
@@ -93,7 +120,11 @@ def calibrate_semi_xaj_sceua(
     basins,
     p_and_e,
     qobs,
-    attributes, modelwithsameParas, params_range, topo, dt,
+    attributes,
+    modelwithsameParas,
+    params_range,
+    topo,
+    dt,
     dbname,
     warmup_length=365,
     model=None,
@@ -107,12 +138,16 @@ def calibrate_semi_xaj_sceua(
     peps = algorithm["peps"]
     pcento = algorithm["pcento"]
     np.random.seed(random_seed)
-    for i in range(calibrate_id,calibrate_id+1):
+    for i in range(calibrate_id, calibrate_id + 1):
         spot_setup = SpotSetup(
             calibrate_id,
             p_and_e[:, :, :],
             qobs[:, i : i + 1, :],
-            attributes, modelwithsameParas, params_range, topo, dt,
+            attributes,
+            modelwithsameParas,
+            params_range,
+            topo,
+            dt,
             warmup_length=warmup_length,
             model=model,
             loss=loss,

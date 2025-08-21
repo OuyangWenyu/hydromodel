@@ -10,7 +10,13 @@ from hydromodel.models.model_dict import LOSS_DICT, MODEL_DICT
 
 class SpotSetup(object):
     def __init__(
-        self, p_and_e, qobs, warmup_length=365, model=None, param_file=None, loss=None
+        self,
+        p_and_e,
+        qobs,
+        warmup_length=365,
+        model=None,
+        param_file=None,
+        loss=None,
     ):
         """
         Set up for Spotpy
@@ -52,7 +58,8 @@ class SpotSetup(object):
         self.model = model
         self.params = []
         self.params.extend(
-            Uniform(par_name, low=0.0, high=1.0) for par_name in self.parameter_names
+            Uniform(par_name, low=0.0, high=1.0)
+            for par_name in self.parameter_names
         )
         # Just a way to keep this example flexible and applicable to various examples
         self.loss = loss
@@ -141,15 +148,20 @@ class SpotSetup(object):
         for i in range(len(time)):
             if time.iloc[i, 0] < calibrate_endtime:
                 start_num = (
-                    time.iloc[i, 0] - calibrate_starttime - pd.Timedelta(hours=365)
+                    time.iloc[i, 0]
+                    - calibrate_starttime
+                    - pd.Timedelta(hours=365)
                 ) / pd.Timedelta(hours=1)
                 end_num = (
-                    time.iloc[i, 1] - calibrate_starttime - pd.Timedelta(hours=365)
+                    time.iloc[i, 1]
+                    - calibrate_starttime
+                    - pd.Timedelta(hours=365)
                 ) / pd.Timedelta(hours=1)
                 start_num = int(start_num)
                 end_num = int(end_num)
                 like_ = LOSS_DICT[self.loss["obj_func"]](
-                    evaluation[start_num:end_num,], simulation[start_num:end_num,]
+                    evaluation[start_num:end_num,],
+                    simulation[start_num:end_num,],
                 )
                 count += 1
 
@@ -246,7 +258,9 @@ def calibrate_by_sceua(
         print(f"🔢 参数名称: {spot_setup.parameter_names}")
 
         # 获取最佳参数组合
-        best_run = df_results.loc[df_results["like1"].idxmin()]  # 目标函数最小值
+        best_run = df_results.loc[
+            df_results["like1"].idxmin()
+        ]  # 目标函数最小值
 
         # 获取参数值 - 智能检测列名格式
         param_columns = []
@@ -276,9 +290,13 @@ def calibrate_by_sceua(
         if len(param_columns) != len(spot_setup.parameter_names):
             param_columns = []
             # 查找所有以'par'开头的列
-            par_cols = [col for col in df_results.columns if str(col).startswith("par")]
+            par_cols = [
+                col for col in df_results.columns if str(col).startswith("par")
+            ]
             if len(par_cols) >= len(spot_setup.parameter_names):
-                param_columns = sorted(par_cols)[: len(spot_setup.parameter_names)]
+                param_columns = sorted(par_cols)[
+                    : len(spot_setup.parameter_names)
+                ]
 
         print(f"🎯 检测到的参数列: {param_columns}")
 
@@ -289,7 +307,12 @@ def calibrate_by_sceua(
             )
             print(f"   可用列名: {list(df_results.columns)}")
             # 使用前N列作为参数（排除目标函数列）
-            exclude_cols = ["like1", "chain", "simulation", "chain1"]  # 常见的非参数列
+            exclude_cols = [
+                "like1",
+                "chain",
+                "simulation",
+                "chain1",
+            ]  # 常见的非参数列
             available_cols = [
                 col for col in df_results.columns if col not in exclude_cols
             ]
@@ -317,7 +340,9 @@ def calibrate_by_sceua(
             if j < len(param_columns):
                 param_col = param_columns[j]
                 try:
-                    best_params[basins[i]][param_name] = float(best_run[param_col])
+                    best_params[basins[i]][param_name] = float(
+                        best_run[param_col]
+                    )
                     print(
                         f"   ✅ {param_name} = {best_run[param_col]} (来自列: {param_col})"
                     )

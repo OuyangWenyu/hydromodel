@@ -1,12 +1,13 @@
-'''
+"""
 Author: zhuanglaihong
 Date: 2025-03-24 13:43:14
 LastEditTime: 2025-03-29 01:03:48
 LastEditors: zhuanglaihong
-Description: 
+Description:
 FilePath: /zlh/hydromodel/hydromodel/models/model_dict.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
-'''
+"""
+
 """
 Author: Wenyu Ouyang
 Date: 2025-02-18 10:20:58
@@ -29,9 +30,11 @@ from hydromodel.models.gr4j import gr4j
 from hydromodel.models.gr5j import gr5j
 from hydromodel.models.gr6j import gr6j
 from hydromodel.models.hymod import hymod
-from hydromodel.models.unit_hydrograph import unit_hydrograph, categorized_unit_hydrograph
+from hydromodel.models.unit_hydrograph import (
+    unit_hydrograph,
+    categorized_unit_hydrograph,
+)
 from hydromodel.models.dhf import dhf
-
 
 
 def rmse43darr(obs, sim):
@@ -63,7 +66,6 @@ def rmse43darr(obs, sim):
     # tolist is necessary for spotpy to get the value
     # otherwise the print will incur to an issue https://github.com/thouska/spotpy/issues/319
     return rmse.tolist()
-
 
 
 LOSS_DICT = {

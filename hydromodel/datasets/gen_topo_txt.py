@@ -3,16 +3,19 @@ Author: Yang Wang
 Date: 2025-03-24 10:05:59
 LastEditTime: 2025-03-24 11:12:28
 LastEditors: Wenyu Ouyang
-Description: 
+Description:
 FilePath: \hydromodel\hydromodel\datasets\gen_topo_txt.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
+
 import hydrotopo.ig_path as htip
 import numpy as np
 
 
 # 特化，只针对上游
-def find_edge_nodes(gpd_nodes_df, gpd_network_df, station_indexes, cutoff: int = 2):
+def find_edge_nodes(
+    gpd_nodes_df, gpd_network_df, station_indexes, cutoff: int = 2
+):
     geom_array, new_geom_array, index_geom_array = htip.line_min_dist(
         gpd_nodes_df, gpd_network_df
     )
@@ -20,7 +23,9 @@ def find_edge_nodes(gpd_nodes_df, gpd_network_df, station_indexes, cutoff: int =
     station_dict = {}
     # 当前站点所对应线索引
     for station_index in station_indexes:
-        cur_index = np.argwhere(new_geom_array == index_geom_array[station_index])[0][0]
+        cur_index = np.argwhere(
+            new_geom_array == index_geom_array[station_index]
+        )[0][0]
         true_index = len(geom_array) - len(new_geom_array) + cur_index
         paths = graph.get_all_shortest_paths(v=true_index, mode="in")
         sta_lists = []
@@ -28,7 +33,9 @@ def find_edge_nodes(gpd_nodes_df, gpd_network_df, station_indexes, cutoff: int =
             sta_list = []
             for line in path:
                 if line >= len(geom_array) - len(new_geom_array):
-                    new_line_index = line - len(geom_array) + len(new_geom_array)
+                    new_line_index = (
+                        line - len(geom_array) + len(new_geom_array)
+                    )
                     sta_index = np.argwhere(
                         index_geom_array == new_geom_array[new_line_index]
                     )
@@ -42,7 +49,9 @@ def find_edge_nodes(gpd_nodes_df, gpd_network_df, station_indexes, cutoff: int =
 
 
 def gen_topo_text(gpd_nodes_df, gpd_network_df, station_indexes):
-    station_dict = find_edge_nodes(gpd_nodes_df, gpd_network_df, station_indexes)
+    station_dict = find_edge_nodes(
+        gpd_nodes_df, gpd_network_df, station_indexes
+    )
     riv_1lvl_list = []
     higher_list = []
     for val in station_dict.values():

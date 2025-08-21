@@ -197,47 +197,101 @@ MODEL_PARAM_DICT = {
     },
     "dhf": {
         "param_name": [
-            "S0",    # 表层蓄水容量
-            "U0",    # 下层蓄水容量  
-            "D0",    # 深层蓄水容量
-            "KC",    # 蒸发系数
-            "KW",    # 下层流系数
-            "K2",    # 渗透系数
-            "KA",    # 总径流调节系数
-            "G",     # 不透水面积比例
-            "A",     # 表层蓄水指数
-            "B",     # 下层蓄水指数
-            "B0",    # 汇流参数
-            "K0",    # 汇流参数
-            "N",     # 汇流参数
-            "L",     # 汇流参数
-            "DD",    # 汇流参数
-            "CC",    # 汇流参数
-            "COE",   # 汇流参数
-            "DDL",   # 地下汇流参数
-            "CCL",   # 地下汇流参数
+            "S0",  # 表层蓄水容量
+            "U0",  # 下层蓄水容量
+            "D0",  # 深层蓄水容量
+            "KC",  # 蒸发系数
+            "KW",  # 下层流系数
+            "K2",  # 渗透系数
+            "KA",  # 总径流调节系数
+            "G",  # 不透水面积比例
+            "A",  # 表层蓄水指数
+            "B",  # 下层蓄水指数
+            "B0",  # 汇流参数
+            "K0",  # 汇流参数
+            "N",  # 汇流参数
+            "L",  # 汇流参数
+            "DD",  # 汇流参数
+            "CC",  # 汇流参数
+            "COE",  # 汇流参数
+            "DDL",  # 地下汇流参数
+            "CCL",  # 地下汇流参数
         ],
         "param_range": OrderedDict(
             {
-                "S0": [10.0, 200.0],     # 表层蓄水容量 (mm)
-                "U0": [10.0, 100.0],     # 下层蓄水容量 (mm)
-                "D0": [10.0, 100.0],     # 深层蓄水容量 (mm)
-                "KC": [0.5, 1.5],        # 蒸发系数
-                "KW": [0.1, 0.9],        # 下层流系数
-                "K2": [0.01, 0.5],       # 渗透系数
-                "KA": [0.5, 1.0],        # 总径流调节系数
-                "G": [0.0, 0.3],         # 不透水面积比例
-                "A": [0.5, 2.0],         # 表层蓄水指数
-                "B": [0.5, 3.0],         # 下层蓄水指数
-                "B0": [0.1, 2.0],        # 汇流参数
-                "K0": [0.1, 2.0],        # 汇流参数
-                "N": [1.0, 10.0],        # 汇流参数
-                "L": [1.0, 20.0],        # 汇流参数
-                "DD": [1.0, 5.0],        # 汇流参数
-                "CC": [0.1, 2.0],        # 汇流参数
-                "COE": [0.1, 0.9],       # 汇流参数
-                "DDL": [1.0, 5.0],       # 地下汇流参数
-                "CCL": [0.1, 2.0],       # 地下汇流参数
+                "S0": [10.0, 200.0],  # 表层蓄水容量 (mm)
+                "U0": [10.0, 100.0],  # 下层蓄水容量 (mm)
+                "D0": [10.0, 100.0],  # 深层蓄水容量 (mm)
+                "KC": [0.5, 1.5],  # 蒸发系数
+                "KW": [0.1, 0.9],  # 下层流系数
+                "K2": [0.01, 0.5],  # 渗透系数
+                "KA": [0.5, 1.0],  # 总径流调节系数
+                "G": [0.0, 0.3],  # 不透水面积比例
+                "A": [0.5, 2.0],  # 表层蓄水指数
+                "B": [0.5, 3.0],  # 下层蓄水指数
+                "B0": [0.1, 2.0],  # 汇流参数
+                "K0": [0.1, 2.0],  # 汇流参数
+                "N": [1.0, 10.0],  # 汇流参数
+                "L": [1.0, 20.0],  # 汇流参数
+                "DD": [1.0, 5.0],  # 汇流参数
+                "CC": [0.1, 2.0],  # 汇流参数
+                "COE": [0.1, 0.9],  # 汇流参数
+                "DDL": [1.0, 5.0],  # 地下汇流参数
+                "CCL": [0.1, 2.0],  # 地下汇流参数
+            }
+        ),
+    },
+    "xaj_songliao": {
+        "param_name": [
+            "WUP",  # Initial upper layer tension water
+            "WLP",  # Initial lower layer tension water
+            "WDP",  # Initial deep layer tension water
+            "SP",  # Initial free water storage
+            "FRP",  # Initial runoff area ratio
+            "WM",  # Total tension water capacity
+            "WUMx",  # Upper layer capacity ratio
+            "WLMx",  # Lower layer capacity ratio
+            "KC",  # Evaporation coefficient
+            "B",  # Exponent of tension water capacity curve
+            "C",  # Deep evapotranspiration coefficient
+            "IM",  # Impervious area ratio
+            "SM",  # Average free water capacity
+            "EX",  # Exponent of free water capacity curve
+            "KG",  # Groundwater outflow coefficient
+            "KI",  # Interflow outflow coefficient
+            "CS",  # Channel system recession constant
+            "CI",  # Lower interflow recession constant
+            "CG",  # Groundwater storage recession constant
+            "LAG",  # Lag time
+            "KK",  # Muskingum K parameter
+            "X",  # Muskingum X parameter
+            "MP",  # Number of Muskingum reaches
+        ],
+        "param_range": OrderedDict(
+            {
+                "WUP": [0.0, 20.0],  # Initial upper layer tension water (mm)
+                "WLP": [30.0, 70.0],  # Initial lower layer tension water (mm)
+                "WDP": [30.0, 80.0],  # Initial deep layer tension water (mm)
+                "SP": [0.0, 20.0],  # Initial free water storage (mm)
+                "FRP": [0.0, 1.0],  # Initial runoff area ratio
+                "WM": [100.0, 200.0],  # Total tension water capacity (mm)
+                "WUMx": [0.1, 0.3],  # Upper layer capacity ratio
+                "WLMx": [0.4, 0.7],  # Lower layer capacity ratio
+                "KC": [0.5, 1.5],  # Evaporation coefficient
+                "B": [0.1, 0.4],  # Exponent of tension water capacity curve
+                "C": [0.0, 0.2],  # Deep evapotranspiration coefficient
+                "IM": [0.01, 0.1],  # Impervious area ratio
+                "SM": [1.0, 100.0],  # Average free water capacity (mm)
+                "EX": [1.0, 1.5],  # Exponent of free water capacity curve
+                "KG": [0.0, 0.7],  # Groundwater outflow coefficient
+                "KI": [0.0, 0.7],  # Interflow outflow coefficient
+                "CS": [0.0, 1.0],  # Channel system recession constant
+                "CI": [0.0, 0.9],  # Lower interflow recession constant
+                "CG": [0.98, 0.998],  # Groundwater storage recession constant
+                "LAG": [1.0, 10.0],  # Lag time (time steps)
+                "KK": [0.1, 10.0],  # Muskingum K parameter (hours)
+                "X": [0.0, 0.5],  # Muskingum X parameter
+                "MP": [1.0, 5.0],  # Number of Muskingum reaches
             }
         ),
     },

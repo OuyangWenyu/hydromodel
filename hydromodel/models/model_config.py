@@ -266,6 +266,9 @@ MODEL_PARAM_DICT = {
             "KK",  # Muskingum K parameter
             "X",  # Muskingum X parameter
             "MP",  # Number of Muskingum reaches
+            "QSP",  # Initial surface flow
+            "QIP",  # Initial interflow
+            "QGP",  # Initial groundwater flow
         ],
         "param_range": OrderedDict(
             {
@@ -292,6 +295,9 @@ MODEL_PARAM_DICT = {
                 "KK": [0.1, 10.0],  # Muskingum K parameter (hours)
                 "X": [0.0, 0.5],  # Muskingum X parameter
                 "MP": [1.0, 5.0],  # Number of Muskingum reaches
+                "QSP": [0.0, 10.0],  # Initial surface flow (m³/s)
+                "QIP": [0.0, 10.0],  # Initial interflow (m³/s)
+                "QGP": [0.0, 10.0],  # Initial groundwater flow (m³/s)
             }
         ),
     },

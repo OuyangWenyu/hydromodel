@@ -29,7 +29,7 @@ def calculate_net_precipitation(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     计算净雨和实际蒸散发
-    
+
     Parameters
     ----------
     precipitation : np.ndarray
@@ -38,7 +38,7 @@ def calculate_net_precipitation(
         潜在蒸散发
     kc : np.ndarray
         蒸散发系数
-        
+
     Returns
     -------
     tuple
@@ -49,7 +49,7 @@ def calculate_net_precipitation(
     return pe, edt
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def dunne_mechanism_vectorized(
     precipitation: np.ndarray,
     edt: np.ndarray,
@@ -277,7 +277,7 @@ def dunne_mechanism_vectorized(
     return wu_new, wl_new, wd_new, r, pe, rim
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def free_tank_vectorized(
     r: np.ndarray,
     pe: np.ndarray,
@@ -435,7 +435,7 @@ def free_tank_vectorized(
     return rs, ri, rg, s_new[:-1], fr_new  # 返回与输入长度相同的s_new
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def liner_reservoir_vectorized(
     rs: np.ndarray,
     ri: np.ndarray,
@@ -449,7 +449,7 @@ def liner_reservoir_vectorized(
     qgp: float = 0.0,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    向量化坡面汇流-线性水库 - 对应Java的LinerReservoir
+    向量化坡面汇流-线性水库
 
     Parameters
     ----------
@@ -503,6 +503,7 @@ def time_lag_vectorized(
     q: np.ndarray,
     lag: float,
     cs: float,
+    qs_initial: float,  # 初始总基流值
 ) -> np.ndarray:
     """
     向量化河网汇流-滞时法 - 对应Java的TimeLag
@@ -515,6 +516,8 @@ def time_lag_vectorized(
         滞时
     cs : float
         地面径流消退系数
+    qs_initial : float
+        初始总基流值，对应Java版本的QSInitial
 
     Returns
     -------
@@ -529,20 +532,20 @@ def time_lag_vectorized(
         t = 0
         for i in range(time_steps):
             if i == 0:
-                qf[i] = 0.0  # 简化初始条件
+                qf[i] = qs_initial  # 使用初始值，与Java版本一致
             else:
                 qf[i] = cs * qf[i - 1] + (1 - cs) * q[i]
     else:
         for i in range(time_steps):
-            if i < t:
-                qf[i] = 0.0  # 简化初始条件
-            else:
+            if i < t:  # 滞时期间
+                qf[i] = qs_initial  # 使用初始值
+            else:  # 滞时之后
                 qf[i] = cs * qf[i - 1] + (1 - cs) * q[i - t]
 
     return qf
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def muskingum_vectorized(
     qr: np.ndarray,
     ke: float,
@@ -619,6 +622,7 @@ def channel_routing_combined(
     x: float,
     mp: int,
     time_interval: float,
+    qs_initial: float,
 ) -> np.ndarray:
     """
     组合河网汇流计算 - 结合TimeLag和muskingum
@@ -639,6 +643,8 @@ def channel_routing_combined(
         河段数
     time_interval : float
         时间间隔
+     qs_initial : np.ndarray
+        初始总基流数组
 
     Returns
     -------
@@ -646,13 +652,12 @@ def channel_routing_combined(
         最终出流
     """
     # 河网汇流-滞时法
-    qf = time_lag_vectorized(qtmp, lag, cs)
+    qf = time_lag_vectorized(qtmp, lag, cs, qs_initial)
 
     # 河道演进-马斯京根法
     q_sim = muskingum_vectorized(qf, kk, x, mp, time_interval)
 
     return q_sim
-
 
 
 def xaj_songliao(
@@ -690,7 +695,7 @@ def xaj_songliao(
     parameters : np.ndarray
         模型参数，2维: [流域, 参数]
         参数顺序: [WUP, WLP, WDP, SP, FRP, WM, WUMx, WLMx, KC, B, C, IM,
-                  SM, EX, KG, KI, CS, CI, CG, LAG, KK, X, MP]
+                 SM, EX, KG, KI, CS, CI, CG, LAG, KK, X, MP, QSP, QIP, QGP]
     warmup_length : int, optional
         预热期长度 (默认: 365)
     return_state : bool, optional
@@ -748,6 +753,9 @@ def xaj_songliao(
     kk = processed_parameters[:, 20]  # Muskingum K parameter
     x = processed_parameters[:, 21]  # Muskingum X parameter
     mp = processed_parameters[:, 22]  # Number of Muskingum reaches
+    qsp = processed_parameters[:, 23]  # Initial surface flow
+    qip = processed_parameters[:, 24]  # Initial interflow
+    qgp = processed_parameters[:, 25]  # Initial groundwater flow
 
     # Calculate derived parameters
     um = wumx * wm  # Upper layer tension water capacity
@@ -798,7 +806,7 @@ def xaj_songliao(
     rg_out = np.zeros((actual_time_steps, num_basins))
     pe_out = np.zeros((actual_time_steps, num_basins))
 
-    # Main time loop 
+    # Main time loop
     for i in range(actual_time_steps):
         # Current precipitation and PET for all basins
         prcp = inputs[i, :, 0]
@@ -819,9 +827,7 @@ def xaj_songliao(
             fr_curr = fr[i - 1, :]
 
         # Step 1: Calculate evapotranspiration and net precipitation
-        pe, edt = calculate_net_precipitation(
-            prcp, pet, kc
-        )
+        pe, edt = calculate_net_precipitation(prcp, pet, kc)
 
         # Step 2: Tension water storage and runoff generation (Dunne mechanism)
         wu_new, wl_new, wd_new, r, pe_calc, rim = dunne_mechanism_vectorized(
@@ -920,6 +926,9 @@ def xaj_songliao(
             area,
             np.full(actual_time_steps, ci[basin_idx]),
             np.full(actual_time_steps, cg[basin_idx]),
+            qsp[basin_idx],  # Initial surface flow
+            qip[basin_idx],  # Initial interflow
+            qgp[basin_idx],  # Initial groundwater flow
         )
 
         # Total inflow to channel
@@ -927,6 +936,7 @@ def xaj_songliao(
         qtmp = np.maximum(qtmp, 0.0)
 
         # Step 5: Channel routing (Time lag + Muskingum)
+        qsig = [0.1, 0.1, 0.1]
         q_sim[:, basin_idx] = channel_routing_combined(
             qtmp,
             lag[basin_idx],
@@ -935,6 +945,7 @@ def xaj_songliao(
             x[basin_idx],
             int(mp[basin_idx]),
             time_interval,
+            qsig[basin_idx],
         )
 
     # Ensure non-negative discharge
@@ -983,7 +994,7 @@ def load_xaj_data_from_json(
     p_and_e : np.ndarray
         降雨和蒸发数据 [time, basin=1, feature=2]
     parameters : np.ndarray
-        模型参数 [basin=1, parameter=23]
+        模型参数 [basin=1, parameter=26]
     """
     # 读取JSON文件
     with open(json_file_path, "r", encoding="utf-8") as f:
@@ -1000,9 +1011,9 @@ def load_xaj_data_from_json(
     p_and_e[:, 0, 0] = rain  # 降雨数据
     p_and_e[:, 0, 1] = evap  # 蒸散发数据
 
-    # 构建参数数组 [basin=1, parameter=23]
+    # 构建参数数组 [basin=1, parameter=26]
     # 参数顺序: [WUP, WLP, WDP, SP, FRP, WM, WUMx, WLMx, K, B, C, IM,
-    #          SM, EX, KG, KI, CS, CI, CG, LAG, KK, X, MP]
+    #          SM, EX, KG, KI, CS, CI, CG, LAG, KK, X, MP, QSP, QIP, QGP]
     parameters = np.array(
         [
             [
@@ -1029,6 +1040,9 @@ def load_xaj_data_from_json(
                 float(data["KK"]),
                 float(data["X"]),
                 float(data["MP"]),
+                float(data["QSP"]),
+                float(data["QIP"]),
+                float(data["QGP"]),
             ]
         ]
     )

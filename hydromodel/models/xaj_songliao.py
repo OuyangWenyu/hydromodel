@@ -22,74 +22,34 @@ from hydromodel.models.param_utils import process_parameters
 
 
 @jit(nopython=True)
-def calc_evaporation_potential_vectorized(
-    month_idx: np.ndarray,
-    time_interval: float,
-    ES: np.ndarray,
-    kc: np.ndarray,
-) -> np.ndarray:
-    """
-    向量化蒸发计算
-
-    Parameters
-    ----------
-    month_idx : np.ndarray
-        月份索引数组 (0-11)
-    time_interval : float
-        时间间隔 (小时)
-    ES : np.ndarray
-        月蒸发量数组 (mm)
-    kc : np.ndarray
-        蒸散发系数
-
-    Returns
-    -------
-    np.ndarray
-        时段蒸发量
-    """
-    ep = ES[month_idx] / 30  # 月蒸发量转换成日蒸发量
-    ep = ep * time_interval / 24  # 日蒸发量转换成时段蒸发量
-    ept = kc * ep
-    return ept
-
-
-@jit(nopython=True)
 def calculate_net_precipitation(
     precipitation: np.ndarray,
     potential_evapotranspiration: np.ndarray,
     kc: np.ndarray,
-    time_interval: float,
-    ES: np.ndarray,
-    month_idx: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     计算净雨和实际蒸散发
-
-    优先使用ES月蒸发计算
+    
+    Parameters
+    ----------
+    precipitation : np.ndarray
+        降水量
+    potential_evapotranspiration : np.ndarray
+        潜在蒸散发
+    kc : np.ndarray
+        蒸散发系数
+        
+    Returns
+    -------
+    tuple
+        (净雨, 实际蒸散发)
     """
-    # 检查potential_evapotranspiration是否有效
-
-    has_valid_pet = (
-        potential_evapotranspiration is not None
-        and len(potential_evapotranspiration) == len(precipitation)
-        and not np.all(np.isnan(potential_evapotranspiration))
-        and not np.all(potential_evapotranspiration == 0)
-    )
-
-    if not has_valid_pet:
-        # 使用ES月蒸发计算
-        edt = calc_evaporation_potential_vectorized(
-            month_idx, time_interval, ES, kc
-        )
-    else:
-        # 使用输入的潜在蒸散发数据
-        edt = kc * potential_evapotranspiration
-
+    edt = kc * potential_evapotranspiration  # 实际蒸散发
     pe = precipitation - edt  # 净雨
     return pe, edt
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def dunne_mechanism_vectorized(
     precipitation: np.ndarray,
     edt: np.ndarray,
@@ -317,7 +277,7 @@ def dunne_mechanism_vectorized(
     return wu_new, wl_new, wd_new, r, pe, rim
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def free_tank_vectorized(
     r: np.ndarray,
     pe: np.ndarray,
@@ -475,7 +435,7 @@ def free_tank_vectorized(
     return rs, ri, rg, s_new[:-1], fr_new  # 返回与输入长度相同的s_new
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def liner_reservoir_vectorized(
     rs: np.ndarray,
     ri: np.ndarray,
@@ -538,7 +498,7 @@ def liner_reservoir_vectorized(
     return qs, qi, qg
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def time_lag_vectorized(
     q: np.ndarray,
     lag: float,
@@ -582,7 +542,7 @@ def time_lag_vectorized(
     return qf
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def muskingum_vectorized(
     qr: np.ndarray,
     ke: float,
@@ -650,7 +610,7 @@ def muskingum_vectorized(
     return q_routing
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def channel_routing_combined(
     qtmp: np.ndarray,
     lag: float,
@@ -694,73 +654,6 @@ def channel_routing_combined(
     return q_sim
 
 
-def load_xaj_data_from_json(
-    json_file_path: str,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    从JSON文件加载XAJ模型所需的时序数据和参数
-
-    Parameters
-    ----------
-    json_file_path : str
-        JSON文件路径，包含时间序列、降雨数据和模型参数
-
-    Returns
-    -------
-    p_and_e : np.ndarray
-        降雨和蒸发数据 [time, basin=1, feature=2]
-    parameters : np.ndarray
-        模型参数 [basin=1, parameter=23]
-    """
-    # 读取JSON文件
-    with open(json_file_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    # 解析时间序列和降雨数据
-    dt = json.loads(data["dt"])  # 时间序列
-    rain = json.loads(data["rain"])  # 降雨数据
-
-    # 构建p_and_e数组 [time, basin=1, feature=2]
-    time_steps = len(rain)
-    p_and_e = np.zeros((time_steps, 1, 2))
-    p_and_e[:, 0, 0] = rain  # 降雨数据
-    p_and_e[:, 0, 1] = 0.0  # 蒸发数据占位（将在模型中计算）
-
-    # 构建参数数组 [basin=1, parameter=23]
-    # 参数顺序: [WUP, WLP, WDP, SP, FRP, WM, WUMx, WLMx, K, B, C, IM,
-    #          SM, EX, KG, KI, CS, CI, CG, LAG, KK, X, MP]
-    parameters = np.array(
-        [
-            [
-                float(data["WUP"]),
-                float(data["WLP"]),
-                float(data["WDP"]),
-                float(data["SP"]),
-                float(data["FRP"]),
-                float(data["WM"]),
-                float(data["WUMx"]),
-                float(data["WLMx"]),
-                float(data["K"]),
-                float(data["B"]),
-                float(data["C"]),
-                float(data["IM"]),
-                float(data["SM"]),
-                float(data["EX"]),
-                float(data["KG"]),
-                float(data["KI"]),
-                float(data["CS"]),
-                float(data["CI"]),
-                float(data["CG"]),
-                float(data["LAG"]),
-                float(data["KK"]),
-                float(data["X"]),
-                float(data["MP"]),
-            ]
-        ]
-    )
-
-    return p_and_e, parameters
-
 
 def xaj_songliao(
     p_and_e: np.ndarray,
@@ -784,7 +677,7 @@ def xaj_songliao(
     ],
 ]:
     """
-    向量化新安江松辽水文模型 - 完全并行化版本
+    向量化新安江松辽水文模型
 
     该函数实现了新安江模型的完全NumPy向量化，
     使用[时间, 流域, 特征]张量操作同时处理所有流域。
@@ -862,11 +755,6 @@ def xaj_songliao(
     dm = wm - um - lm  # Deep layer tension water capacity
     dm = np.maximum(dm, 0.0)  # Ensure non-negative
 
-    # Monthly evaporation array (mm)
-    ES = np.array(
-        [13.6, 20.9, 43.1, 85.7, 103.8, 92.8, 75.8, 82.1, 78.7, 61, 31, 13.9]
-    )
-
     # Handle warmup period
     if warmup_length > 0:
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
@@ -910,7 +798,7 @@ def xaj_songliao(
     rg_out = np.zeros((actual_time_steps, num_basins))
     pe_out = np.zeros((actual_time_steps, num_basins))
 
-    # Main time loop - 使用新的短函数
+    # Main time loop 
     for i in range(actual_time_steps):
         # Current precipitation and PET for all basins
         prcp = inputs[i, :, 0]
@@ -930,12 +818,9 @@ def xaj_songliao(
             s_curr = s[i - 1, :]
             fr_curr = fr[i - 1, :]
 
-        # Month index for evaporation calculation (simplified as July=6)
-        month_idx = np.full(num_basins, 6)
-
         # Step 1: Calculate evapotranspiration and net precipitation
         pe, edt = calculate_net_precipitation(
-            prcp, pet, kc, time_interval, ES, month_idx
+            prcp, pet, kc
         )
 
         # Step 2: Tension water storage and runoff generation (Dunne mechanism)
@@ -1080,3 +965,72 @@ def xaj_songliao(
         )
     else:
         return q_sim
+
+
+def load_xaj_data_from_json(
+    json_file_path: str,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    从JSON文件加载XAJ模型所需的时序数据和参数
+
+    Parameters
+    ----------
+    json_file_path : str
+        JSON文件路径，包含时间序列、降雨数据和模型参数
+
+    Returns
+    -------
+    p_and_e : np.ndarray
+        降雨和蒸发数据 [time, basin=1, feature=2]
+    parameters : np.ndarray
+        模型参数 [basin=1, parameter=23]
+    """
+    # 读取JSON文件
+    with open(json_file_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # 解析时间序列、降雨和蒸散发数据
+    dt = json.loads(data["dt"])  # 时间序列
+    rain = json.loads(data["rain"])  # 降雨数据
+    evap = json.loads(data["evaporation"])  # 蒸散发数据
+
+    # 构建p_and_e数组 [time, basin=1, feature=2]
+    time_steps = len(rain)
+    p_and_e = np.zeros((time_steps, 1, 2))
+    p_and_e[:, 0, 0] = rain  # 降雨数据
+    p_and_e[:, 0, 1] = evap  # 蒸散发数据
+
+    # 构建参数数组 [basin=1, parameter=23]
+    # 参数顺序: [WUP, WLP, WDP, SP, FRP, WM, WUMx, WLMx, K, B, C, IM,
+    #          SM, EX, KG, KI, CS, CI, CG, LAG, KK, X, MP]
+    parameters = np.array(
+        [
+            [
+                float(data["WUP"]),
+                float(data["WLP"]),
+                float(data["WDP"]),
+                float(data["SP"]),
+                float(data["FRP"]),
+                float(data["WM"]),
+                float(data["WUMx"]),
+                float(data["WLMx"]),
+                float(data["K"]),
+                float(data["B"]),
+                float(data["C"]),
+                float(data["IM"]),
+                float(data["SM"]),
+                float(data["EX"]),
+                float(data["KG"]),
+                float(data["KI"]),
+                float(data["CS"]),
+                float(data["CI"]),
+                float(data["CG"]),
+                float(data["LAG"]),
+                float(data["KK"]),
+                float(data["X"]),
+                float(data["MP"]),
+            ]
+        ]
+    )
+
+    return p_and_e, parameters

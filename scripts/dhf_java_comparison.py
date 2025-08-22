@@ -106,7 +106,6 @@ def prepare_parameters(java_params):
         "B0",
         "K0",
         "N",
-        "L",
         "DD",
         "CC",
         "COE",
@@ -160,7 +159,6 @@ def run_dhf_comparison():
         "B0",
         "K0",
         "N",
-        "L",
         "DD",
         "CC",
         "COE",
@@ -179,6 +177,8 @@ def run_dhf_comparison():
         return_state=False,
         normalized_params=False,
         time_interval_hours=time_interval,
+        main_channel_length=8.0,
+        basin_area=35.0,
     )
 
     print(f"\n=== DHF Python Results ===")
@@ -197,6 +197,8 @@ def run_dhf_comparison():
         return_state=True,
         normalized_params=False,
         time_interval_hours=time_interval,
+        main_channel_length=8.0,
+        basin_area=35.0,
     )
 
     q_sim, runoff_sim, y0, yu, yl, y, sa, ua, ya = results

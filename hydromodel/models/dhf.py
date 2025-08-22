@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-30 16:44:15
-LastEditTime: 2025-08-20 08:56:19
+LastEditTime: 2025-08-22 11:19:46
 LastEditors: Wenyu Ouyang
 Description: Dahuofang Model - Python implementation based on Java version
 FilePath: \hydromodel\hydromodel\models\dhf.py
@@ -354,7 +354,7 @@ def dhf(
         where feature=0 is precipitation, feature=1 is potential evapotranspiration
     parameters : np.ndarray
         model parameters, 2-dim: [basin, parameter]
-        Parameters: [S0, U0, D0, KC, KW, K2, KA, G, A, B, B0, K0, N, L, DD, CC, COE, DDL, CCL]
+        Parameters: [S0, U0, D0, KC, KW, K2, KA, G, A, B, B0, K0, N, DD, CC, COE, DDL, CCL]
     warmup_length : int, optional
         the length of warmup period (default: 365)
     return_state : bool, optional
@@ -365,7 +365,10 @@ def dhf(
         - True: parameters are normalized (0-1 range), convert to original scale
         - False: parameters are already in original scale, use as-is
     **kwargs
-        Additional keyword arguments, including time_interval_hours (default: 3.0)
+        Additional keyword arguments, including
+        - time_interval_hours (default: 3.0)
+        - main_channel_length (default: None) means length of the main channel (km), for example, dahuofang's is 155.763
+        - basin_area (default: None) means basin area (km^2), for example, dahuofang's is 5482.0
 
     Returns
     -------
@@ -378,6 +381,11 @@ def dhf(
     time_steps, num_basins, _ = p_and_e.shape
     time_interval = kwargs.get("time_interval_hours", 3.0)
     pai = np.pi
+    l = kwargs.get("main_channel_length", None)  # km
+    f = kwargs.get("basin_area", None)  # km^2
+
+    if l is None or f is None:
+        raise ValueError("l and f must be provided")
 
     # Process parameters using unified parameter handling
     processed_parameters = parameters.copy()
@@ -403,12 +411,11 @@ def dhf(
     b0 = processed_parameters[:, 10]  # Routing parameter
     k0 = processed_parameters[:, 11]  # Routing parameter
     n = processed_parameters[:, 12]  # Routing parameter
-    l = processed_parameters[:, 13]  # Routing parameter
-    dd = processed_parameters[:, 14]  # Surface routing parameter
-    cc = processed_parameters[:, 15]  # Surface routing parameter
-    coe = processed_parameters[:, 16]  # Routing parameter
-    ddl = processed_parameters[:, 17]  # Subsurface routing parameter
-    ccl = processed_parameters[:, 18]  # Subsurface routing parameter
+    dd = processed_parameters[:, 13]  # Surface routing parameter
+    cc = processed_parameters[:, 14]  # Surface routing parameter
+    coe = processed_parameters[:, 15]  # Routing parameter
+    ddl = processed_parameters[:, 16]  # Subsurface routing parameter
+    ccl = processed_parameters[:, 17]  # Subsurface routing parameter
 
     # Handle warmup period
     if warmup_length > 0:
@@ -629,8 +636,7 @@ def dhf(
     qs = np.zeros((actual_time_steps, num_basins))
     ql = np.zeros((actual_time_steps, num_basins))
 
-    # w0 = 35.0 / (3.6 * time_interval)  # tmp value used for testing
-    w0 = 1.0 / time_interval
+    w0 = f / (3.6 * time_interval)  # tmp value used for testing
 
     # Main time loop for routing (before convolution, getting ya)
     for i in range(actual_time_steps):

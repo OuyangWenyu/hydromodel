@@ -498,7 +498,7 @@ def liner_reservoir_vectorized(
     return qs, qi, qg
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def time_lag_vectorized(
     q: np.ndarray,
     lag: float,
@@ -613,7 +613,7 @@ def muskingum_vectorized(
     return q_routing
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def channel_routing_combined(
     qtmp: np.ndarray,
     lag: float,

@@ -19,12 +19,13 @@ def test_xaj_slw_with_example_data():
     使用示例数据测试XAJ-SLW模型，输出中间变量用于与Java版本对比
     """
     print("开始测试XAJ-SLW模型...")
-    
+    sms_data_path = "data/sms_3_data.json"
+    lag_data_path = "data/lag_3_data.json"
     try:
         # 加载示例数据
         p_and_e, parameters, time_dates, start_time, es = load_sms_lag_data_from_json(
-            "/home/zlh/hydromodel/data/sms_3_data.json",
-            "/home/zlh/hydromodel/data/lag_3_data.json",
+            sms_data_path,
+            lag_data_path,
             default_evap=0.918548  # 设置默认蒸散发值
         )
         
@@ -65,21 +66,8 @@ def test_xaj_slw_with_example_data():
         q_sim, runoff_sim, rs, ri, rg, pe, wu, wl, wd = result
         
         print("\n模拟结果概览:")
-        print(f"模拟流量范围: [{q_sim[:, 0, 0].min():.6f}, {q_sim[:, 0, 0].max():.6f}] m³/s")
-        print(f"总产流量范围: [{runoff_sim[:, 0, 0].min():.6f}, {runoff_sim[:, 0, 0].max():.6f}] mm")
-        print(f"地表径流范围: [{rs[:, 0, 0].min():.6f}, {rs[:, 0, 0].max():.6f}] mm")
-        print(f"壤中流范围: [{ri[:, 0, 0].min():.6f}, {ri[:, 0, 0].max():.6f}] mm")
-        print(f"地下径流范围: [{rg[:, 0, 0].min():.6f}, {rg[:, 0, 0].max():.6f}] mm")
-        
-        print("\n详细统计信息:")
-        print(f"降雨总量: {p_and_e[:, 0, 0].sum():.6f} mm")
-        print(f"蒸散发总量: {p_and_e[:, 0, 1].sum():.6f} mm")
-        print(f"净雨总量: {pe[:, 0, 0].sum():.6f} mm")
-        print(f"产流总量: {runoff_sim[:, 0, 0].sum():.6f} mm")
-        print(f"流量总量: {q_sim[:, 0, 0].sum():.6f} m³/s")
-        
         # 生成时间序列
-        with open("/home/zlh/hydromodel/data/sms_3_data.json", "r") as f:
+        with open(sms_data_path, "r") as f:
             data = json.load(f)
             time_series = pd.to_datetime(data["dt"])
         
@@ -92,7 +80,7 @@ def test_xaj_slw_with_example_data():
                   f"{rg[i, 0, 0]:8.3f} | {q_sim[i, 0, 0]:8.3f}")
         
         # 保存数值结果
-        output_dir = "/home/zlh/hydromodel/results"
+        output_dir = "results"
         os.makedirs(output_dir, exist_ok=True)
         
         # 保存详细的中间变量结果，重点关注产汇流模型的输入输出

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2025-08-19 09:35:20
+LastEditTime: 2025-08-23 18:26:36
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
 FilePath: /hydromodel/hydromodel/models/xaj.py
@@ -701,9 +701,16 @@ def xaj(
     params: np.ndarray,
     return_state=False,
     warmup_length=365,
+    return_warmup_states=False,
     normalized_params="auto",
     **kwargs,
-) -> Union[tuple, np.ndarray]:
+) -> Union[
+    tuple,  # (q_sim, es) - standard case
+    np.ndarray,  # This shouldn't happen but kept for legacy
+    tuple[
+        tuple, dict
+    ],  # ((q_sim, es), warmup_states) - return_state=False, return_warmup_states=True
+]:
     """
     run XAJ model
 
@@ -719,6 +726,9 @@ def xaj(
         if True, return state values, mainly for warmup periods
     warmup_length
         hydro models need a warm-up period to get good initial state values
+    return_warmup_states
+        if True, return initial states after warmup period (default: False)
+        Returns a dict with keys for XAJ state variables
     normalized_params
         parameter format specification:
         - "auto": automatically detect if parameters are normalized (0-1) or original scale (default)
@@ -741,11 +751,29 @@ def xaj(
         time_interval_hours:
             the time interval of the model, default is 1 hour, for daily case, it should be 24
             this is only used when source_type is "sources5mm"
+        initial_states (default: None)
+            dict to override specific initial state values after warmup,
+            e.g., {"wu": 10, "wl": 15, "wd": 20, "s": 5} will set these initial state values for all basins after warmup
+            Available states: "wu" (upper layer), "wl" (lower layer), "wd" (deep layer), "s" (free water storage),
+            "fr" (interflow), "qi" (interflow), "qg" (groundwater)
 
     Returns
     -------
-    Union[np.array, tuple]
-        streamflow or (streamflow, states)
+    result : tuple or np.ndarray
+        Depends on return_state and return_warmup_states parameters:
+
+        - return_state=False, return_warmup_states=False:
+          (q_sim, es) - streamflow and evapotranspiration
+
+        - return_state=False, return_warmup_states=True:
+          ((q_sim, es), warmup_states_dict) where warmup_states_dict contains
+          XAJ state variables after warmup
+
+        - return_state=True, return_warmup_states=False:
+          (q_sim, es, wu, wl, wd, s, fr, qi, qg) - full state variables
+
+        - return_state=True, return_warmup_states=True:
+          (q_sim, es, wu, wl, wd, s, fr, qi, qg, warmup_states_dict)
     """
     # default values for some function parameters
     model_name = kwargs.get("name", "xaj")
@@ -810,12 +838,16 @@ def xaj(
     # initialize state values
     if warmup_length > 0:
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
+        # Remove initial_states from kwargs for warmup period to avoid applying override during warmup
+        warmup_kwargs = {
+            k: v for k, v in kwargs.items() if k != "initial_states"
+        }
         _q, _e, *w0, s0, fr0, qi0, qg0 = xaj(
             p_and_e_warmup,
             params,
             return_state=True,
             warmup_length=0,
-            **kwargs,
+            **warmup_kwargs,
         )
     else:
         w0 = (0.5 * um, 0.5 * lm, 0.5 * dm)
@@ -823,6 +855,39 @@ def xaj(
         fr0 = np.full(ex.shape, 0.1)
         qi0 = np.full(ci.shape, 0.1)
         qg0 = np.full(cg.shape, 0.1)
+
+    # Save warmup states before applying overrides (for return_warmup_states)
+    warmup_states = None
+    if return_warmup_states:
+        warmup_states = {
+            "wu": w0[0].copy(),  # Upper layer moisture [basin] array
+            "wl": w0[1].copy(),  # Lower layer moisture [basin] array
+            "wd": w0[2].copy(),  # Deep layer moisture [basin] array
+            "s": s0.copy(),  # Free water storage [basin] array
+            "fr": fr0.copy(),  # Runoff fraction [basin] array
+            "qi": qi0.copy(),  # Interflow [basin] array
+            "qg": qg0.copy(),  # Groundwater flow [basin] array
+        }
+
+    # Apply initial state overrides if provided (only after warmup in main call)
+    # TODO: not fully tested yet
+    initial_states = kwargs.get("initial_states", None)
+    if initial_states is not None:
+        # Only apply initial_states when we just finished a warmup period or no warmup
+        if "wu" in initial_states:
+            w0 = (initial_states["wu"] * np.ones_like(w0[0]), w0[1], w0[2])
+        if "wl" in initial_states:
+            w0 = (w0[0], initial_states["wl"] * np.ones_like(w0[1]), w0[2])
+        if "wd" in initial_states:
+            w0 = (w0[0], w0[1], initial_states["wd"] * np.ones_like(w0[2]))
+        if "s" in initial_states:
+            s0.fill(initial_states["s"])
+        if "fr" in initial_states:
+            fr0.fill(initial_states["fr"])
+        if "qi" in initial_states:
+            qi0.fill(initial_states["qi"])
+        if "qg" in initial_states:
+            qg0.fill(initial_states["qg"])
 
     # state_variables
     inputs = p_and_e[warmup_length:, :, :]
@@ -930,5 +995,15 @@ def xaj(
     # seq, batch, feature
     q_sim = np.expand_dims(qs, axis=2)
     if return_state:
-        return q_sim, es, *w, s, fr, qi, qg
-    return q_sim, es
+        result = (q_sim, es, *w, s, fr, qi, qg)
+        # If warmup states are requested, add them as the last element
+        if return_warmup_states and warmup_states is not None:
+            return result + (warmup_states,)
+        else:
+            return result
+    else:
+        # For non-state return, only return warmup states if specifically requested
+        if return_warmup_states and warmup_states is not None:
+            return (q_sim, es), warmup_states
+        else:
+            return q_sim, es

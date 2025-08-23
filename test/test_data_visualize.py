@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
-LastEditTime: 2024-09-17 14:30:58
+LastEditTime: 2025-08-23 14:47:48
 LastEditors: Wenyu Ouyang
 Description: Test for results visualization
 FilePath: \hydromodel\test\test_data_visualize.py
@@ -14,7 +14,10 @@ import spotpy
 
 from hydroutils import hydro_time
 
-from hydromodel.datasets.data_visualize import show_events_result, show_ts_result
+from hydromodel.datasets.data_visualize import (
+    show_events_result,
+    show_ts_result,
+)
 from hydromodel.models.xaj import xaj
 from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
 from hydromodel.trainers.evaluate import _read_save_sceua_calibrated_params
@@ -36,7 +39,9 @@ def test_run_hymod_calibration(hymod_setup):
     best_model_run = results[bestindex]
 
     # 提取并绘制最佳模型运行的结果
-    fields = [word for word in best_model_run.dtype.names if word.startswith("sim")]
+    fields = [
+        word for word in best_model_run.dtype.names if word.startswith("sim")
+    ]
     best_simulation = list(best_model_run[fields])
 
     plt.figure(figsize=(16, 9))
@@ -46,14 +51,18 @@ def test_run_hymod_calibration(hymod_setup):
         linestyle="solid",
         label=f"Best objf.={str(bestobjf)}",
     )
-    plt.plot(hymod_setup.evaluation(), "r.", markersize=3, label="Observation data")
+    plt.plot(
+        hymod_setup.evaluation(), "r.", markersize=3, label="Observation data"
+    )
     plt.xlabel("Number of Observation Points")
     plt.ylabel("Discharge [l s-1]")
     plt.legend(loc="upper right")
     plt.show()
 
 
-def test_show_calibrate_sceua_result(p_and_e, qobs, warmup_length, db_name, basin_area):
+def test_show_calibrate_sceua_result(
+    p_and_e, qobs, warmup_length, db_name, basin_area
+):
     sampler = calibrate_by_sceua(
         p_and_e,
         qobs,

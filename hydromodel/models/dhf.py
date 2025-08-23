@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-30 16:44:15
-LastEditTime: 2025-08-22 11:19:46
+LastEditTime: 2025-08-23 17:41:32
 LastEditors: Wenyu Ouyang
 Description: Dahuofang Model - Python implementation based on Java version
 FilePath: \hydromodel\hydromodel\models\dhf.py
@@ -12,7 +12,6 @@ import json
 import numpy as np
 import pandas as pd
 from typing import Dict, Tuple, Union
-import traceback
 from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
@@ -325,10 +324,14 @@ def dhf(
     parameters: np.ndarray,
     warmup_length: int = 365,
     return_state: bool = False,
+    return_warmup_states: bool = False,
     normalized_params: Union[bool, str] = "auto",
     **kwargs,
 ) -> Union[
-    np.ndarray,
+    np.ndarray,  # return_state=False, return_warmup_states=False
+    Tuple[
+        np.ndarray, Dict[str, np.ndarray]
+    ],  # return_state=False, return_warmup_states=True
     Tuple[
         np.ndarray,
         np.ndarray,
@@ -339,7 +342,19 @@ def dhf(
         np.ndarray,
         np.ndarray,
         np.ndarray,
-    ],
+    ],  # return_state=True, return_warmup_states=False
+    Tuple[
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        Dict[str, np.ndarray],
+    ],  # return_state=True, return_warmup_states=True
 ]:
     """
     Vectorized DHF (Dahuofang) hydrological model - fully parallelized version
@@ -359,6 +374,9 @@ def dhf(
         the length of warmup period (default: 365)
     return_state : bool, optional
         if True, return internal state variables (default: False)
+    return_warmup_states : bool, optional
+        if True, return initial states after warmup period (default: False)
+        Returns a dict with keys: "sa0", "ua0", "ya0" containing initial states
     normalized_params : Union[bool, str], optional
         parameter format specification:
         - "auto": automatically detect parameter format (default)
@@ -367,25 +385,41 @@ def dhf(
     **kwargs
         Additional keyword arguments, including
         - time_interval_hours (default: 3.0)
-        - main_channel_length (default: None) means length of the main channel (km), for example, dahuofang's is 155.763
+        - main_river_length (default: None) means length of the main channel (km), for example, dahuofang's is 155.763
         - basin_area (default: None) means basin area (km^2), for example, dahuofang's is 5482.0
+        - initial_states (default: None) dict to override specific initial state values after warmup,
+          e.g., {"sa0": 10, "ya0": 15} will set sa0=10 and ya0=15 for all basins after warmup
 
     Returns
     -------
     result : np.ndarray or tuple
-        if return_state is False: QSim array [time, basin, 1]
-        if return_state is True: tuple of (QSim, runoffSim, y0, yu, yl, y, sa, ua, ya)
+        Depends on return_state and return_warmup_states parameters:
+
+        - return_state=False, return_warmup_states=False:
+          QSim array [time, basin, 1]
+
+        - return_state=False, return_warmup_states=True:
+          (QSim, warmup_states_dict) where warmup_states_dict contains
+          {"sa0": [basin], "ua0": [basin], "ya0": [basin]}
+
+        - return_state=True, return_warmup_states=False:
+          (QSim, runoffSim, y0, yu, yl, y, sa, ua, ya)
+
+        - return_state=True, return_warmup_states=True:
+          (QSim, runoffSim, y0, yu, yl, y, sa, ua, ya, warmup_states_dict)
     """
 
     # Get data dimensions
     time_steps, num_basins, _ = p_and_e.shape
     time_interval = kwargs.get("time_interval_hours", 3.0)
     pai = np.pi
-    l = kwargs.get("main_channel_length", None)  # km
+    l = kwargs.get("main_river_length", None)  # km
     f = kwargs.get("basin_area", None)  # km^2
 
     if l is None or f is None:
-        raise ValueError("l and f must be provided")
+        raise ValueError(
+            "main_river_length (l) and basin_area (f) must be provided for DHF model"
+        )
 
     # Process parameters using unified parameter handling
     processed_parameters = parameters.copy()
@@ -420,13 +454,17 @@ def dhf(
     # Handle warmup period
     if warmup_length > 0:
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
+        # Remove initial_states from kwargs for warmup period to avoid applying override during warmup
+        warmup_kwargs = {
+            k: v for k, v in kwargs.items() if k != "initial_states"
+        }
         *_, sa, ua, ya = dhf(
             p_and_e_warmup,
             parameters,
             warmup_length=0,
             return_state=True,
             normalized_params=False,  # Already processed
-            **kwargs,
+            **warmup_kwargs,
         )
         sa0 = sa[-1, :, 0].copy()
         ua0 = ua[-1, :, 0].copy()
@@ -437,6 +475,26 @@ def dhf(
         ua0 = np.zeros(u0.shape)
         # just use d0's shape, ya0 is not d0, it is Pa, while d0 is the deep storage capacity
         ya0 = np.full(d0.shape, 0.5)
+
+    # Save warmup states before applying overrides (for return_warmup_states)
+    warmup_states = None
+    if return_warmup_states:
+        warmup_states = {
+            "sa0": sa0.copy(),  # [basin] array
+            "ua0": ua0.copy(),  # [basin] array
+            "ya0": ya0.copy(),  # [basin] array
+        }
+
+    # Apply initial state overrides if provided (only after warmup in main call)
+    initial_states = kwargs.get("initial_states", None)
+    if initial_states is not None:
+        # Only apply initial_states when we just finished a warmup period
+        if "sa0" in initial_states:
+            sa0.fill(initial_states["sa0"])
+        if "ua0" in initial_states:
+            ua0.fill(initial_states["ua0"])
+        if "ya0" in initial_states:
+            ya0.fill(initial_states["ya0"])
 
     inputs = p_and_e[warmup_length:, :, :]
     # Get actual time steps after warmup
@@ -570,7 +628,7 @@ def dhf(
             eb = np.where(pc > 0.0, 0.0, eb)
 
             # Store results for basins with net precipitation
-            y0_out[i, net_precip_mask] = y0
+            y0_out[i, net_precip_mask] = y0[net_precip_mask]
             yu_out[i, net_precip_mask] = yu
             yl_out[i, net_precip_mask] = yl
             y_out[i, net_precip_mask] = y
@@ -778,7 +836,7 @@ def dhf(
     ya = np.expand_dims(ya, axis=2)
 
     if return_state:
-        return (
+        result = (
             q_sim,
             runoff_sim,
             y0_out,
@@ -789,5 +847,14 @@ def dhf(
             ua,
             ya,
         )
+        # If warmup states are requested, add them as the last element
+        if return_warmup_states and warmup_states is not None:
+            return result + (warmup_states,)
+        else:
+            return result
     else:
-        return q_sim
+        # For non-state return, only return warmup states if specifically requested
+        if return_warmup_states and warmup_states is not None:
+            return q_sim, warmup_states
+        else:
+            return q_sim

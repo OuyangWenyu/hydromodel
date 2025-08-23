@@ -119,6 +119,7 @@ class UnifiedSimulator:
     ):
         """
         Initialize the unified simulator with model configuration and basin information.
+        NOTE: Now we only support single basin simulation.
 
         Parameters
         ----------
@@ -169,69 +170,13 @@ class UnifiedSimulator:
             raise ValueError(
                 f"Model {self.model_name} requires parameters to be specified"
             )
-
-        if self.model_name in [
-            "unit_hydrograph",
-            "categorized_unit_hydrograph",
-        ]:
-            # Unit hydrograph models: parameters are the UH values
-            self._setup_unit_hydrograph_params()
-        else:
-            # Traditional models: parameters from parameter dictionary
-            self._setup_traditional_model_params()
-
-    def _setup_unit_hydrograph_params(self):
-        """Setup parameters for unit hydrograph models."""
-        if self.model_name == "unit_hydrograph":
-            # Single unit hydrograph: expect array or list of values
-            uh_values = self.parameters.get("uh_values")
-            if uh_values is None:
-                raise ValueError(
-                    "unit_hydrograph model requires 'uh_values' in parameters"
-                )
-
-            # Convert to numpy array and normalize to sum to 1
-            uh_array = np.array(uh_values)
-            uh_array = uh_array / np.sum(uh_array)
-
-            # Store as base parameters that will be replicated per basin as needed
-            self.base_uh_params = uh_array
-
-        elif self.model_name == "categorized_unit_hydrograph":
-            # Categorized unit hydrograph: expect dictionary with category values
-            uh_categories = self.parameters.get("uh_categories")
-            thresholds = self.parameters.get(
-                "thresholds", {"small_medium": 10.0, "medium_large": 25.0}
-            )
-
-            if uh_categories is None:
-                raise ValueError(
-                    "categorized_unit_hydrograph model requires 'uh_categories' in parameters"
-                )
-
-            # Convert to expected format
-            param_dict = {}
-            for category, values in uh_categories.items():
-                normalized_values = np.array(values) / np.sum(values)
-                param_dict[category] = normalized_values.reshape(1, -1)
-
-            param_dict["thresholds"] = thresholds
-            self.param_array = param_dict
-
-    def _setup_traditional_model_params(self):
-        """Setup parameters for traditional models (XAJ, GR series, etc.)."""
         # Convert parameter dictionary to list format
         param_names = list(self.parameters.keys())
         param_values = list(self.parameters.values())
 
         # Store parameter info for later use when we know number of basins
         self.param_names = param_names
-        self.param_values = param_values
-
-        # Check if basin-specific parameters are provided
-        self.has_basin_specific_params = self.parameters.get(
-            "basin_specific", False
-        ) and isinstance(param_values[0], (list, np.ndarray))
+        self.param_values = np.expand_dims(param_values, axis=0)
 
     def simulate(
         self,
@@ -240,6 +185,7 @@ class UnifiedSimulator:
         warmup_length: int = 365,
         is_event_data: bool = False,
         return_intermediate: bool = True,
+        return_warmup_states: bool = False,
         **kwargs,
     ) -> Dict[str, Any]:
         """
@@ -258,8 +204,14 @@ class UnifiedSimulator:
             Whether input data represents event-based data
         return_intermediate : bool, default True
             Whether to return intermediate results from model computation
+        return_warmup_states : bool, default False
+            Whether to return initial states after warmup period.
+            Returns warmup states in simulation result dict
         **kwargs
-            Additional arguments passed to the model function
+            Additional arguments passed to the model function.
+            Can include 'initial_states': Dict[str, Any] - Dictionary of initial
+            state values to override after warmup. For DHF model, keys can
+            include: "sa0", "ua0", "ya0"
 
         Returns
         -------
@@ -280,55 +232,87 @@ class UnifiedSimulator:
                 f"Input data must be 3D array [time, basin, features], got shape {inputs.shape}"
             )
 
-        # Get number of basins and setup parameters accordingly
-        n_basins = inputs.shape[1]
-        self.param_array = self._prepare_param_array(n_basins)
-
         # Handle different simulation scenarios
-        if is_event_data and self.model_name not in [
-            "unit_hydrograph",
-            "categorized_unit_hydrograph",
-        ]:
+        if is_event_data:
             # Event data with traditional models
             simulation_result = self._simulate_event_data(
-                inputs, warmup_length, return_intermediate, **kwargs
+                inputs,
+                warmup_length,
+                return_intermediate,
+                return_warmup_states,
+                **kwargs,
             )
         else:
             # Standard simulation
             simulation_result = self._simulate_continuous_data(
-                inputs, warmup_length, return_intermediate, **kwargs
+                inputs,
+                warmup_length,
+                return_intermediate,
+                return_warmup_states,
+                **kwargs,
             )
-        # Apply unit conversion if basin configuration and output unit are available
-        simulation_result["qsim"], unitconv_metadata = (
-            self._trans_sim_results_unit(
-                simulation_result["qsim"],
-                output_unit=kwargs.get("output_unit", "m^3/s"),
-                time_step_hours=kwargs.get("time_step_hours", 3.0),
-            )
-        )
-        # Prepare results
-        results = {
-            "simulation": simulation_result,
-            "observation": qobs,
-            "input_data": inputs,
-            "metadata": {
-                "model_name": self.model_name,
-                "model_params": self.model_params,
-                "parameters": self.parameters,
-                "warmup_length": warmup_length,
-                "is_event_data": is_event_data,
-                "return_intermediate": return_intermediate,
-                "output_variables": list(simulation_result.keys()),
-                "unit_conversion": unitconv_metadata,
-            },
-        }
-        return results
 
-    def _trans_sim_results_unit(
+        return simulation_result
+
+    def _process_model_result(
+        self,
+        model_result,
+        output_names,
+        return_warmup_states,
+    ):
+        """
+        Process model result into dictionary format.
+
+        Parameters
+        ----------
+        model_result : tuple or np.ndarray
+            Raw model output
+        output_names : list
+            List of output variable names
+        return_warmup_states : bool
+            Whether warmup states should be included
+
+        Returns
+        -------
+        dict
+            Dictionary containing processed model results
+        """
+        if isinstance(model_result, tuple):
+            # Check if last element is warmup_states dict
+            if (
+                return_warmup_states
+                and len(model_result) > len(output_names)
+                and isinstance(model_result[-1], dict)
+            ):
+                # Extract warmup states and process remaining results
+                warmup_states = model_result[-1]
+                model_arrays = model_result[:-1]
+                result_dict = {
+                    name: arr for name, arr in zip(output_names, model_arrays)
+                }
+                result_dict["warmup_states"] = warmup_states
+            else:
+                # Traditional case without warmup states
+                result_dict = {
+                    name: arr for name, arr in zip(output_names, model_result)
+                }
+        else:
+            # Handle single array or tuple with warmup_states
+            if return_warmup_states and isinstance(model_result, tuple):
+                # Single array + warmup_states case
+                result_dict = {output_names[0]: model_result[0]}
+                result_dict["warmup_states"] = model_result[1]
+            else:
+                # Unit hydrograph models return single array
+                result_dict = {output_names[0]: model_result}
+
+        return result_dict
+
+    def trans_sim_results_unit(
         self,
         simulation,
         output_unit="m^3/s",
-        time_step_hours=3.0,
+        time_interval_hours=3.0,
     ):
         """
         Apply unit conversion to simulation results using basin configuration.
@@ -339,10 +323,8 @@ class UnifiedSimulator:
             Simulation results
         output_unit : str, default "m^3/s"
             Target output unit for conversion
-        time_step_hours : float, default 3.0
+        time_interval_hours : float, default 3.0
             Time step in hours for the data
-        time_series : Optional
-            Time series data for detecting time interval (optional)
 
         Returns
         -------
@@ -356,16 +338,16 @@ class UnifiedSimulator:
             if simulation is not None:
                 # Detect time interval from time series or use provided time step
                 # Convert time_step_hours to integer format for time_interval
-                if time_step_hours.is_integer():
-                    time_interval = f"{int(time_step_hours)}h"
+                if time_interval_hours.is_integer():
+                    time_interval = f"{int(time_interval_hours)}h"
                 else:
                     # Handle fractional hours by converting to minutes if < 1 hour
-                    if time_step_hours < 1:
-                        time_interval_minutes = int(time_step_hours * 60)
+                    if time_interval_hours < 1:
+                        time_interval_minutes = int(time_interval_hours * 60)
                         time_interval = f"{time_interval_minutes}m"
                     else:
                         # Round to nearest hour for other cases
-                        time_interval = f"{round(time_step_hours)}h"
+                        time_interval = f"{round(time_interval_hours)}h"
 
                 # Convert simulation results from mm/time to m³/s
                 # simulation shape is [time, basin, 1]
@@ -395,13 +377,6 @@ class UnifiedSimulator:
                         "applied": True,
                         "source_unit": f"mm/{time_interval}",
                         "target_unit": output_unit,
-                        "basin_info": {
-                            "basin_id": self.basin.basin_id,
-                            "basin_name": self.basin.basin_name,
-                            "total_area_km2": self.basin.total_area_km2,
-                            "modeling_approach": self.basin.modeling_approach,
-                        },
-                        "time_interval": time_interval,
                     }
 
         else:
@@ -419,65 +394,14 @@ class UnifiedSimulator:
             }
         return converted_simulation, unitconv_metadata
 
-    def _prepare_param_array(self, n_basins: int) -> np.ndarray:
-        """
-        Prepare parameter array for the given number of basins.
-
-        Parameters
-        ----------
-        n_basins : int
-            Number of basins in the input data
-
-        Returns
-        -------
-        np.ndarray or dict
-            Parameter array with shape [n_basins, n_params] for traditional models
-            or parameter dictionary for unit hydrograph models
-        """
-        if self.model_name == "unit_hydrograph":
-            # Unit hydrograph: replicate base parameters for each basin
-            if hasattr(self, "base_uh_params"):
-                return np.tile(self.base_uh_params, (n_basins, 1))
-            else:
-                raise ValueError(
-                    "Unit hydrograph parameters not properly initialized"
-                )
-
-        elif self.model_name == "categorized_unit_hydrograph":
-            # Categorized unit hydrograph already has param_array as dict
-            if hasattr(self, "param_array"):
-                return self.param_array
-            else:
-                raise ValueError(
-                    "Categorized unit hydrograph parameters not properly initialized"
-                )
-
-        else:
-            # Traditional models: create param array from parameter values
-            if n_basins == 1:
-                param_array = np.array(self.param_values).reshape(1, -1)
-            else:
-                if self.has_basin_specific_params:
-                    # Basin-specific parameters provided
-                    param_array = np.array(self.param_values)
-                    if param_array.shape[0] != n_basins:
-                        raise ValueError(
-                            f"Basin-specific parameters shape {param_array.shape[0]} "
-                            f"does not match number of basins {n_basins}"
-                        )
-                else:
-                    # Replicate same parameters for all basins
-                    param_array = np.tile(self.param_values, (n_basins, 1))
-
-            return param_array
-
     def _simulate_continuous_data(
         self,
         inputs: np.ndarray,
         warmup_length: int,
         return_intermediate: bool,
+        return_warmup_states: bool,
         **kwargs,
-    ) -> Union[Dict[str, np.ndarray], Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """Standard simulation for continuous data."""
         # Prepare model configuration
         model_config = dict(self.model_params)
@@ -486,9 +410,10 @@ class UnifiedSimulator:
         # Run model simulation
         model_result = self.model_function(
             inputs,
-            self.param_array,
+            self.param_values,
             warmup_length=warmup_length,
             return_state=return_intermediate,
+            return_warmup_states=return_warmup_states,
             **model_config,
         )
 
@@ -497,14 +422,9 @@ class UnifiedSimulator:
             self.model_name, return_intermediate
         )
 
-        if isinstance(model_result, tuple):
-            # Traditional models return (simulation, states, ...)
-            result_dict = {
-                name: arr for name, arr in zip(output_names, model_result)
-            }
-        else:
-            # Unit hydrograph models return single array
-            result_dict = {output_names[0]: model_result}
+        result_dict = self._process_model_result(
+            model_result, output_names, return_warmup_states
+        )
 
         return result_dict
 
@@ -513,6 +433,7 @@ class UnifiedSimulator:
         inputs: np.ndarray,
         warmup_length: int,
         return_intermediate: bool,
+        return_warmup_states: bool,
         **kwargs,
     ) -> Dict[str, Any]:
         """Special simulation for event data with traditional models."""
@@ -524,8 +445,9 @@ class UnifiedSimulator:
                 f"but got shape {inputs.shape}."
             )
 
-        # Initialize output array
+        # Initialize output array and warmup states storage
         outputs = []
+        event_warmup_states = None
 
         # Process each basin separately
         for basin_idx in range(inputs.shape[1]):
@@ -537,11 +459,7 @@ class UnifiedSimulator:
                 flood_event_array, warmup_length
             )
 
-            # Get basin-specific parameters
-            if self.param_array.shape[0] > 1:
-                basin_params = self.param_array[basin_idx : basin_idx + 1, :]
-            else:
-                basin_params = self.param_array
+            basin_params = self.param_values
 
             # Process each event segment
             for j, (
@@ -565,6 +483,7 @@ class UnifiedSimulator:
                     basin_params,
                     warmup_length=warmup_length,
                     return_state=return_intermediate,
+                    return_warmup_states=return_warmup_states,
                     **model_config,
                 )
 
@@ -572,30 +491,36 @@ class UnifiedSimulator:
                 output_names = get_model_output_names(
                     self.model_name, return_intermediate
                 )
-                if isinstance(event_result, tuple):
-                    event_dict = {
-                        name: arr
-                        for name, arr in zip(output_names, event_result)
-                    }
-                else:
-                    # If single array returned, use first output name
-                    event_dict = {output_names[0]: event_result}
+
+                event_dict = self._process_model_result(
+                    event_result, output_names, return_warmup_states
+                )
+
+                # Store warmup states for later use (only from first event)
+                if j == 0 and "warmup_states" in event_dict:
+                    event_warmup_states = event_dict["warmup_states"]
 
                 if j == 0:
-                    # Initialize output dictionaries for each variable
+                    # Initialize output dictionaries for each variable (excluding warmup_states)
                     simulation_output = {}
                     for name, arr in event_dict.items():
-                        simulation_output[name] = np.zeros(
-                            (inputs.shape[0], inputs.shape[1], 1)
-                        )
+                        if (
+                            name != "warmup_states"
+                        ):  # Skip warmup_states as it's not a time series
+                            simulation_output[name] = np.zeros(
+                                (inputs.shape[0], inputs.shape[1], 1)
+                            )
 
-                # Save the event result to its location in long time series data
+                # Save the event result to its location in long time series data (excluding warmup_states)
                 for name, arr in event_dict.items():
-                    simulation_output[name][
-                        original_start : original_end + 1,
-                        basin_idx : basin_idx + 1,
-                        :,
-                    ] = arr
+                    if (
+                        name != "warmup_states"
+                    ):  # Skip warmup_states as it's not a time series
+                        simulation_output[name][
+                            original_start : original_end + 1,
+                            basin_idx : basin_idx + 1,
+                            :,
+                        ] = arr
 
             outputs.append(simulation_output)
 
@@ -604,5 +529,9 @@ class UnifiedSimulator:
         for var_name in outputs[0].keys():
             basin_arrays = [output[var_name] for output in outputs]
             final_output[var_name] = np.concatenate(basin_arrays, axis=1)
+
+        # Add warmup states if requested and available
+        if return_warmup_states and event_warmup_states is not None:
+            final_output["warmup_states"] = event_warmup_states
 
         return final_output

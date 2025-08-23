@@ -177,7 +177,7 @@ def run_dhf_comparison():
         return_state=False,
         normalized_params=False,
         time_interval_hours=time_interval,
-        main_channel_length=8.0,
+        main_river_length=8.0,
         basin_area=35.0,
     )
 
@@ -197,7 +197,7 @@ def run_dhf_comparison():
         return_state=True,
         normalized_params=False,
         time_interval_hours=time_interval,
-        main_channel_length=8.0,
+        main_river_length=8.0,
         basin_area=35.0,
     )
 

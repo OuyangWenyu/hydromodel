@@ -21,7 +21,7 @@ class BasinInfo:
 
     basin_id: str
     basin_name: str
-    area: float
+    basin_area: float
     location: Optional[str] = None
     description: Optional[str] = None
 
@@ -42,7 +42,7 @@ class BasinInfo:
         return {
             "basin_id": self.basin_id,
             "basin_name": self.basin_name,
-            "area": self.area,
+            "basin_area": self.basin_area,
             "location": self.location,
             "description": self.description,
             "centroid_lat": self.centroid_lat,
@@ -119,7 +119,7 @@ class Basin:
         """Setup configuration for lumped modeling."""
         # For lumped models, we use single basin area
         self.n_units = 1
-        self.unit_areas = np.array([self.basin_info.area])
+        self.unit_areas = np.array([self.basin_info.basin_area])
         self.unit_ids = [self.basin_info.basin_id]
 
     def _setup_semi_distributed_config(self):
@@ -130,16 +130,18 @@ class Basin:
 
         if sub_basins:
             self.n_units = len(sub_basins)
-            self.unit_areas = np.array([sub["area"] for sub in sub_basins])
+            self.unit_areas = np.array(
+                [sub["basin_area"] for sub in sub_basins]
+            )
             self.unit_ids = [sub["basin_id"] for sub in sub_basins]
         else:
             # Fallback to lumped if no sub-basins defined
             self._setup_lumped_config()
 
     @property
-    def area(self) -> float:
+    def basin_area(self) -> float:
         """Get total basin area in km²."""
-        return self.basin_info.area
+        return self.basin_info.basin_area
 
     @property
     def main_river_length(self) -> float:
@@ -198,7 +200,7 @@ class Basin:
         ----------
         basin_data : Dict[str, Any]
             Basin configuration data, supporting various field name formats:
-            - basin_id/basin_code, basin_name/name, area
+            - basin_id/basin_code, basin_name/name, basin_area
             - output_unit, time_step_hours, modeling_approach
             - geographical and hydrological attributes
 
@@ -215,7 +217,7 @@ class Basin:
             basin_name=basin_data.get(
                 "basin_name", basin_data.get("name", "Unknown Basin")
             ),
-            area=basin_data.get("area", basin_data.get("area", 0.0)),
+            basin_area=basin_data.get("basin_area", 0.0),
             main_river_length=basin_data.get("main_river_length"),
             location=basin_data.get("location"),
             description=basin_data.get("description"),
@@ -234,7 +236,7 @@ class Basin:
                 "basin_code",
                 "basin_name",
                 "name",
-                "area",
+                "basin_area",
                 "main_river_length",
                 "location",
                 "description",
@@ -252,7 +254,7 @@ class Basin:
         """String representation of Basin."""
         return (
             f"Basin(id='{self.basin_id}', name='{self.basin_name}', "
-            f"area={self.area}km², "
+            f"basin_area={self.basin_area}km², "
             f"main_river_length={self.main_river_length}km, "
             f"approach='{self.modeling_approach}')"
         )
@@ -270,7 +272,7 @@ def create_basin_from_attributes(
     Parameters
     ----------
     basin_attributes : Dict[str, Any]
-        Basin attributes dictionary with keys like basin_code, basin_name, area, etc.
+        Basin attributes dictionary with keys like basin_code, basin_name, basin_area, etc.
     **kwargs
         Additional configuration parameters
 

@@ -1,10 +1,10 @@
 """
 Author: zhuanglaihong
 Date: 2025-08-20 23:01:02
-LastEditTime: 2025-08-20 19:35:20
-LastEditors: zhuanglaihong
+LastEditTime: 2025-08-23 14:47:30
+LastEditors: Wenyu Ouyang
 Description: XinAnJiang Model - Python implementation based on Java version with vectorized operations
-FilePath: /hydromodel/hydromodel/models/xaj_songliao.py
+FilePath: \hydromodel\hydromodel\models\xaj_songliao.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
@@ -717,7 +717,7 @@ def xaj_songliao(
     # Get data dimensions
     time_steps, num_basins, _ = p_and_e.shape
     time_interval = kwargs.get("time_interval_hours", 1.0)
-    area = kwargs.get("area", 100.0)
+    area = kwargs.get("basin_area", 100.0)
 
     # Process parameters using unified parameter handling
     processed_parameters = parameters.copy()

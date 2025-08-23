@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2025-08-19 09:35:20
+LastEditTime: 2025-08-23 16:31:04
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
 FilePath: /hydromodel/hydromodel/models/xaj.py
@@ -741,6 +741,11 @@ def xaj(
         time_interval_hours:
             the time interval of the model, default is 1 hour, for daily case, it should be 24
             this is only used when source_type is "sources5mm"
+        initial_states (default: None)
+            dict to override specific initial state values after warmup,
+            e.g., {"wu": 10, "wl": 15, "wd": 20, "s": 5} will set these initial state values for all basins after warmup
+            Available states: "wu" (upper layer), "wl" (lower layer), "wd" (deep layer), "s" (free water storage),
+            "fr" (interflow), "qi" (interflow), "qg" (groundwater)
 
     Returns
     -------
@@ -810,12 +815,16 @@ def xaj(
     # initialize state values
     if warmup_length > 0:
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
+        # Remove initial_states from kwargs for warmup period to avoid applying override during warmup
+        warmup_kwargs = {
+            k: v for k, v in kwargs.items() if k != "initial_states"
+        }
         _q, _e, *w0, s0, fr0, qi0, qg0 = xaj(
             p_and_e_warmup,
             params,
             return_state=True,
             warmup_length=0,
-            **kwargs,
+            **warmup_kwargs,
         )
     else:
         w0 = (0.5 * um, 0.5 * lm, 0.5 * dm)
@@ -823,6 +832,26 @@ def xaj(
         fr0 = np.full(ex.shape, 0.1)
         qi0 = np.full(ci.shape, 0.1)
         qg0 = np.full(cg.shape, 0.1)
+
+    # Apply initial state overrides if provided (only after warmup in main call)
+    # TODO: not fully tested yet
+    initial_states = kwargs.get("initial_states", None)
+    if initial_states is not None:
+        # Only apply initial_states when we just finished a warmup period or no warmup
+        if "wu" in initial_states:
+            w0 = (initial_states["wu"] * np.ones_like(w0[0]), w0[1], w0[2])
+        if "wl" in initial_states:
+            w0 = (w0[0], initial_states["wl"] * np.ones_like(w0[1]), w0[2])
+        if "wd" in initial_states:
+            w0 = (w0[0], w0[1], initial_states["wd"] * np.ones_like(w0[2]))
+        if "s" in initial_states:
+            s0.fill(initial_states["s"])
+        if "fr" in initial_states:
+            fr0.fill(initial_states["fr"])
+        if "qi" in initial_states:
+            qi0.fill(initial_states["qi"])
+        if "qg" in initial_states:
+            qg0.fill(initial_states["qg"])
 
     # state_variables
     inputs = p_and_e[warmup_length:, :, :]

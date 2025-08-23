@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-30 16:44:15
-LastEditTime: 2025-08-23 16:12:16
+LastEditTime: 2025-08-23 17:41:32
 LastEditors: Wenyu Ouyang
 Description: Dahuofang Model - Python implementation based on Java version
 FilePath: \hydromodel\hydromodel\models\dhf.py
@@ -424,13 +424,17 @@ def dhf(
     # Handle warmup period
     if warmup_length > 0:
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
+        # Remove initial_states from kwargs for warmup period to avoid applying override during warmup
+        warmup_kwargs = {
+            k: v for k, v in kwargs.items() if k != "initial_states"
+        }
         *_, sa, ua, ya = dhf(
             p_and_e_warmup,
             parameters,
             warmup_length=0,
             return_state=True,
             normalized_params=False,  # Already processed
-            **kwargs,
+            **warmup_kwargs,
         )
         sa0 = sa[-1, :, 0].copy()
         ua0 = ua[-1, :, 0].copy()
@@ -442,9 +446,10 @@ def dhf(
         # just use d0's shape, ya0 is not d0, it is Pa, while d0 is the deep storage capacity
         ya0 = np.full(d0.shape, 0.5)
 
-    # Apply initial state overrides if provided
+    # Apply initial state overrides if provided (only after warmup in main call)
     initial_states = kwargs.get("initial_states", None)
     if initial_states is not None:
+        # Only apply initial_states when we just finished a warmup period
         if "sa0" in initial_states:
             sa0.fill(initial_states["sa0"])
         if "ua0" in initial_states:

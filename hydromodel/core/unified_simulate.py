@@ -204,7 +204,10 @@ class UnifiedSimulator:
         return_intermediate : bool, default True
             Whether to return intermediate results from model computation
         **kwargs
-            Additional arguments passed to the model function
+            Additional arguments passed to the model function.
+            Can include 'initial_states': Dict[str, Any] - Dictionary of initial
+            state values to override after warmup. For DHF model, keys can
+            include: "sa0", "ua0", "ya0"
 
         Returns
         -------
@@ -229,12 +232,18 @@ class UnifiedSimulator:
         if is_event_data:
             # Event data with traditional models
             simulation_result = self._simulate_event_data(
-                inputs, warmup_length, return_intermediate, **kwargs
+                inputs,
+                warmup_length,
+                return_intermediate,
+                **kwargs,
             )
         else:
             # Standard simulation
             simulation_result = self._simulate_continuous_data(
-                inputs, warmup_length, return_intermediate, **kwargs
+                inputs,
+                warmup_length,
+                return_intermediate,
+                **kwargs,
             )
 
         return simulation_result
@@ -331,7 +340,7 @@ class UnifiedSimulator:
         warmup_length: int,
         return_intermediate: bool,
         **kwargs,
-    ) -> Union[Dict[str, np.ndarray], Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """Standard simulation for continuous data."""
         # Prepare model configuration
         model_config = dict(self.model_params)

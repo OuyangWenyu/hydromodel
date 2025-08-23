@@ -4,7 +4,7 @@ Date: 2025-08-20 23:01:02
 LastEditTime: 2025-08-23 14:47:30
 LastEditors: Wenyu Ouyang
 Description: XinAnJiang Model - Python implementation based on Java version with vectorized operations
-FilePath: \hydromodel\hydromodel\models\xaj_songliao.py
+FilePath: /hydromodel/hydromodel/models/xaj_songliao.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 

@@ -311,7 +311,7 @@ class UnifiedSimulator:
                         "basin_info": {
                             "basin_id": self.basin.basin_id,
                             "basin_name": self.basin.basin_name,
-                            "total_area_km2": self.basin.total_area_km2,
+                            "total_area_km2": self.basin.area,
                             "modeling_approach": self.basin.modeling_approach,
                         },
                         "time_interval": time_interval,

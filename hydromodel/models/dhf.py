@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-30 16:44:15
-LastEditTime: 2025-08-23 10:40:21
+LastEditTime: 2025-08-23 16:12:16
 LastEditors: Wenyu Ouyang
 Description: Dahuofang Model - Python implementation based on Java version
-FilePath: \flooddataaugmentationd:\Code\hydromodel\hydromodel\models\dhf.py
+FilePath: \hydromodel\hydromodel\models\dhf.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -369,6 +369,8 @@ def dhf(
         - time_interval_hours (default: 3.0)
         - main_river_length (default: None) means length of the main channel (km), for example, dahuofang's is 155.763
         - basin_area (default: None) means basin area (km^2), for example, dahuofang's is 5482.0
+        - initial_states (default: None) dict to override specific initial state values after warmup,
+          e.g., {"sa0": 10, "ya0": 15} will set sa0=10 and ya0=15 for all basins after warmup
 
     Returns
     -------
@@ -385,7 +387,9 @@ def dhf(
     f = kwargs.get("basin_area", None)  # km^2
 
     if l is None or f is None:
-        raise ValueError("l and f must be provided")
+        raise ValueError(
+            "main_river_length (l) and basin_area (f) must be provided for DHF model"
+        )
 
     # Process parameters using unified parameter handling
     processed_parameters = parameters.copy()
@@ -437,6 +441,16 @@ def dhf(
         ua0 = np.zeros(u0.shape)
         # just use d0's shape, ya0 is not d0, it is Pa, while d0 is the deep storage capacity
         ya0 = np.full(d0.shape, 0.5)
+
+    # Apply initial state overrides if provided
+    initial_states = kwargs.get("initial_states", None)
+    if initial_states is not None:
+        if "sa0" in initial_states:
+            sa0.fill(initial_states["sa0"])
+        if "ua0" in initial_states:
+            ua0.fill(initial_states["ua0"])
+        if "ya0" in initial_states:
+            ya0.fill(initial_states["ya0"])
 
     inputs = p_and_e[warmup_length:, :, :]
     # Get actual time steps after warmup
@@ -570,7 +584,7 @@ def dhf(
             eb = np.where(pc > 0.0, 0.0, eb)
 
             # Store results for basins with net precipitation
-            y0_out[i, net_precip_mask] = y0
+            y0_out[i, net_precip_mask] = y0[net_precip_mask]
             yu_out[i, net_precip_mask] = yu
             yl_out[i, net_precip_mask] = yl
             y_out[i, net_precip_mask] = y

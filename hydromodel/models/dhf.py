@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-07-30 16:44:15
-LastEditTime: 2025-08-22 11:19:46
+LastEditTime: 2025-08-23 10:40:21
 LastEditors: Wenyu Ouyang
 Description: Dahuofang Model - Python implementation based on Java version
-FilePath: \hydromodel\hydromodel\models\dhf.py
+FilePath: \flooddataaugmentationd:\Code\hydromodel\hydromodel\models\dhf.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -367,7 +367,7 @@ def dhf(
     **kwargs
         Additional keyword arguments, including
         - time_interval_hours (default: 3.0)
-        - main_channel_length (default: None) means length of the main channel (km), for example, dahuofang's is 155.763
+        - main_river_length (default: None) means length of the main channel (km), for example, dahuofang's is 155.763
         - basin_area (default: None) means basin area (km^2), for example, dahuofang's is 5482.0
 
     Returns
@@ -381,7 +381,7 @@ def dhf(
     time_steps, num_basins, _ = p_and_e.shape
     time_interval = kwargs.get("time_interval_hours", 3.0)
     pai = np.pi
-    l = kwargs.get("main_channel_length", None)  # km
+    l = kwargs.get("main_river_length", None)  # km
     f = kwargs.get("basin_area", None)  # km^2
 
     if l is None or f is None:

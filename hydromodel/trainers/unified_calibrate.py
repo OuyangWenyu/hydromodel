@@ -245,7 +245,7 @@ class UnifiedModelSetup(ModelSetupBase):
             is_event_data=self.is_event_data,
         )
 
-        return results["simulation"]
+        return results
 
     # _params_array_to_dict removed: models now receive normalized params and param ranges, and handle scaling internally
 

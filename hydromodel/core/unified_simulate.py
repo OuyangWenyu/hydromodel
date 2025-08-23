@@ -119,6 +119,7 @@ class UnifiedSimulator:
     ):
         """
         Initialize the unified simulator with model configuration and basin information.
+        NOTE: Now we only support single basin simulation.
 
         Parameters
         ----------
@@ -169,69 +170,13 @@ class UnifiedSimulator:
             raise ValueError(
                 f"Model {self.model_name} requires parameters to be specified"
             )
-
-        if self.model_name in [
-            "unit_hydrograph",
-            "categorized_unit_hydrograph",
-        ]:
-            # Unit hydrograph models: parameters are the UH values
-            self._setup_unit_hydrograph_params()
-        else:
-            # Traditional models: parameters from parameter dictionary
-            self._setup_traditional_model_params()
-
-    def _setup_unit_hydrograph_params(self):
-        """Setup parameters for unit hydrograph models."""
-        if self.model_name == "unit_hydrograph":
-            # Single unit hydrograph: expect array or list of values
-            uh_values = self.parameters.get("uh_values")
-            if uh_values is None:
-                raise ValueError(
-                    "unit_hydrograph model requires 'uh_values' in parameters"
-                )
-
-            # Convert to numpy array and normalize to sum to 1
-            uh_array = np.array(uh_values)
-            uh_array = uh_array / np.sum(uh_array)
-
-            # Store as base parameters that will be replicated per basin as needed
-            self.base_uh_params = uh_array
-
-        elif self.model_name == "categorized_unit_hydrograph":
-            # Categorized unit hydrograph: expect dictionary with category values
-            uh_categories = self.parameters.get("uh_categories")
-            thresholds = self.parameters.get(
-                "thresholds", {"small_medium": 10.0, "medium_large": 25.0}
-            )
-
-            if uh_categories is None:
-                raise ValueError(
-                    "categorized_unit_hydrograph model requires 'uh_categories' in parameters"
-                )
-
-            # Convert to expected format
-            param_dict = {}
-            for category, values in uh_categories.items():
-                normalized_values = np.array(values) / np.sum(values)
-                param_dict[category] = normalized_values.reshape(1, -1)
-
-            param_dict["thresholds"] = thresholds
-            self.param_array = param_dict
-
-    def _setup_traditional_model_params(self):
-        """Setup parameters for traditional models (XAJ, GR series, etc.)."""
         # Convert parameter dictionary to list format
         param_names = list(self.parameters.keys())
         param_values = list(self.parameters.values())
 
         # Store parameter info for later use when we know number of basins
         self.param_names = param_names
-        self.param_values = param_values
-
-        # Check if basin-specific parameters are provided
-        self.has_basin_specific_params = self.parameters.get(
-            "basin_specific", False
-        ) and isinstance(param_values[0], (list, np.ndarray))
+        self.param_values = np.expand_dims(param_values, axis=0)
 
     def simulate(
         self,
@@ -280,15 +225,8 @@ class UnifiedSimulator:
                 f"Input data must be 3D array [time, basin, features], got shape {inputs.shape}"
             )
 
-        # Get number of basins and setup parameters accordingly
-        n_basins = inputs.shape[1]
-        self.param_array = self._prepare_param_array(n_basins)
-
         # Handle different simulation scenarios
-        if is_event_data and self.model_name not in [
-            "unit_hydrograph",
-            "categorized_unit_hydrograph",
-        ]:
+        if is_event_data:
             # Event data with traditional models
             simulation_result = self._simulate_event_data(
                 inputs, warmup_length, return_intermediate, **kwargs
@@ -298,37 +236,14 @@ class UnifiedSimulator:
             simulation_result = self._simulate_continuous_data(
                 inputs, warmup_length, return_intermediate, **kwargs
             )
-        # Apply unit conversion if basin configuration and output unit are available
-        simulation_result["qsim"], unitconv_metadata = (
-            self._trans_sim_results_unit(
-                simulation_result["qsim"],
-                output_unit=kwargs.get("output_unit", "m^3/s"),
-                time_step_hours=kwargs.get("time_step_hours", 3.0),
-            )
-        )
-        # Prepare results
-        results = {
-            "simulation": simulation_result,
-            "observation": qobs,
-            "input_data": inputs,
-            "metadata": {
-                "model_name": self.model_name,
-                "model_params": self.model_params,
-                "parameters": self.parameters,
-                "warmup_length": warmup_length,
-                "is_event_data": is_event_data,
-                "return_intermediate": return_intermediate,
-                "output_variables": list(simulation_result.keys()),
-                "unit_conversion": unitconv_metadata,
-            },
-        }
-        return results
 
-    def _trans_sim_results_unit(
+        return simulation_result
+
+    def trans_sim_results_unit(
         self,
         simulation,
         output_unit="m^3/s",
-        time_step_hours=3.0,
+        time_interval_hours=3.0,
     ):
         """
         Apply unit conversion to simulation results using basin configuration.
@@ -339,10 +254,8 @@ class UnifiedSimulator:
             Simulation results
         output_unit : str, default "m^3/s"
             Target output unit for conversion
-        time_step_hours : float, default 3.0
+        time_interval_hours : float, default 3.0
             Time step in hours for the data
-        time_series : Optional
-            Time series data for detecting time interval (optional)
 
         Returns
         -------
@@ -356,16 +269,16 @@ class UnifiedSimulator:
             if simulation is not None:
                 # Detect time interval from time series or use provided time step
                 # Convert time_step_hours to integer format for time_interval
-                if time_step_hours.is_integer():
-                    time_interval = f"{int(time_step_hours)}h"
+                if time_interval_hours.is_integer():
+                    time_interval = f"{int(time_interval_hours)}h"
                 else:
                     # Handle fractional hours by converting to minutes if < 1 hour
-                    if time_step_hours < 1:
-                        time_interval_minutes = int(time_step_hours * 60)
+                    if time_interval_hours < 1:
+                        time_interval_minutes = int(time_interval_hours * 60)
                         time_interval = f"{time_interval_minutes}m"
                     else:
                         # Round to nearest hour for other cases
-                        time_interval = f"{round(time_step_hours)}h"
+                        time_interval = f"{round(time_interval_hours)}h"
 
                 # Convert simulation results from mm/time to m³/s
                 # simulation shape is [time, basin, 1]
@@ -419,58 +332,6 @@ class UnifiedSimulator:
             }
         return converted_simulation, unitconv_metadata
 
-    def _prepare_param_array(self, n_basins: int) -> np.ndarray:
-        """
-        Prepare parameter array for the given number of basins.
-
-        Parameters
-        ----------
-        n_basins : int
-            Number of basins in the input data
-
-        Returns
-        -------
-        np.ndarray or dict
-            Parameter array with shape [n_basins, n_params] for traditional models
-            or parameter dictionary for unit hydrograph models
-        """
-        if self.model_name == "unit_hydrograph":
-            # Unit hydrograph: replicate base parameters for each basin
-            if hasattr(self, "base_uh_params"):
-                return np.tile(self.base_uh_params, (n_basins, 1))
-            else:
-                raise ValueError(
-                    "Unit hydrograph parameters not properly initialized"
-                )
-
-        elif self.model_name == "categorized_unit_hydrograph":
-            # Categorized unit hydrograph already has param_array as dict
-            if hasattr(self, "param_array"):
-                return self.param_array
-            else:
-                raise ValueError(
-                    "Categorized unit hydrograph parameters not properly initialized"
-                )
-
-        else:
-            # Traditional models: create param array from parameter values
-            if n_basins == 1:
-                param_array = np.array(self.param_values).reshape(1, -1)
-            else:
-                if self.has_basin_specific_params:
-                    # Basin-specific parameters provided
-                    param_array = np.array(self.param_values)
-                    if param_array.shape[0] != n_basins:
-                        raise ValueError(
-                            f"Basin-specific parameters shape {param_array.shape[0]} "
-                            f"does not match number of basins {n_basins}"
-                        )
-                else:
-                    # Replicate same parameters for all basins
-                    param_array = np.tile(self.param_values, (n_basins, 1))
-
-            return param_array
-
     def _simulate_continuous_data(
         self,
         inputs: np.ndarray,
@@ -486,7 +347,7 @@ class UnifiedSimulator:
         # Run model simulation
         model_result = self.model_function(
             inputs,
-            self.param_array,
+            self.param_values,
             warmup_length=warmup_length,
             return_state=return_intermediate,
             **model_config,
@@ -537,11 +398,7 @@ class UnifiedSimulator:
                 flood_event_array, warmup_length
             )
 
-            # Get basin-specific parameters
-            if self.param_array.shape[0] > 1:
-                basin_params = self.param_array[basin_idx : basin_idx + 1, :]
-            else:
-                basin_params = self.param_array
+            basin_params = self.param_values
 
             # Process each event segment
             for j, (

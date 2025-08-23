@@ -12,7 +12,6 @@ import json
 import numpy as np
 import pandas as pd
 from typing import Dict, Tuple, Union
-import traceback
 from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
@@ -325,10 +324,14 @@ def dhf(
     parameters: np.ndarray,
     warmup_length: int = 365,
     return_state: bool = False,
+    return_warmup_states: bool = False,
     normalized_params: Union[bool, str] = "auto",
     **kwargs,
 ) -> Union[
-    np.ndarray,
+    np.ndarray,  # return_state=False, return_warmup_states=False
+    Tuple[
+        np.ndarray, Dict[str, np.ndarray]
+    ],  # return_state=False, return_warmup_states=True
     Tuple[
         np.ndarray,
         np.ndarray,
@@ -339,7 +342,19 @@ def dhf(
         np.ndarray,
         np.ndarray,
         np.ndarray,
-    ],
+    ],  # return_state=True, return_warmup_states=False
+    Tuple[
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        Dict[str, np.ndarray],
+    ],  # return_state=True, return_warmup_states=True
 ]:
     """
     Vectorized DHF (Dahuofang) hydrological model - fully parallelized version
@@ -359,6 +374,9 @@ def dhf(
         the length of warmup period (default: 365)
     return_state : bool, optional
         if True, return internal state variables (default: False)
+    return_warmup_states : bool, optional
+        if True, return initial states after warmup period (default: False)
+        Returns a dict with keys: "sa0", "ua0", "ya0" containing initial states
     normalized_params : Union[bool, str], optional
         parameter format specification:
         - "auto": automatically detect parameter format (default)
@@ -375,8 +393,20 @@ def dhf(
     Returns
     -------
     result : np.ndarray or tuple
-        if return_state is False: QSim array [time, basin, 1]
-        if return_state is True: tuple of (QSim, runoffSim, y0, yu, yl, y, sa, ua, ya)
+        Depends on return_state and return_warmup_states parameters:
+
+        - return_state=False, return_warmup_states=False:
+          QSim array [time, basin, 1]
+
+        - return_state=False, return_warmup_states=True:
+          (QSim, warmup_states_dict) where warmup_states_dict contains
+          {"sa0": [basin], "ua0": [basin], "ya0": [basin]}
+
+        - return_state=True, return_warmup_states=False:
+          (QSim, runoffSim, y0, yu, yl, y, sa, ua, ya)
+
+        - return_state=True, return_warmup_states=True:
+          (QSim, runoffSim, y0, yu, yl, y, sa, ua, ya, warmup_states_dict)
     """
 
     # Get data dimensions
@@ -445,6 +475,15 @@ def dhf(
         ua0 = np.zeros(u0.shape)
         # just use d0's shape, ya0 is not d0, it is Pa, while d0 is the deep storage capacity
         ya0 = np.full(d0.shape, 0.5)
+
+    # Save warmup states before applying overrides (for return_warmup_states)
+    warmup_states = None
+    if return_warmup_states:
+        warmup_states = {
+            "sa0": sa0.copy(),  # [basin] array
+            "ua0": ua0.copy(),  # [basin] array
+            "ya0": ya0.copy(),  # [basin] array
+        }
 
     # Apply initial state overrides if provided (only after warmup in main call)
     initial_states = kwargs.get("initial_states", None)
@@ -797,7 +836,7 @@ def dhf(
     ya = np.expand_dims(ya, axis=2)
 
     if return_state:
-        return (
+        result = (
             q_sim,
             runoff_sim,
             y0_out,
@@ -808,5 +847,14 @@ def dhf(
             ua,
             ya,
         )
+        # If warmup states are requested, add them as the last element
+        if return_warmup_states and warmup_states is not None:
+            return result + (warmup_states,)
+        else:
+            return result
     else:
-        return q_sim
+        # For non-state return, only return warmup states if specifically requested
+        if return_warmup_states and warmup_states is not None:
+            return q_sim, warmup_states
+        else:
+            return q_sim

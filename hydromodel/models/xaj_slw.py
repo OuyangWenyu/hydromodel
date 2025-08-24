@@ -158,7 +158,7 @@ def sms3_runoff_generation_vectorized(
     # 主循环
     for i in range(time_steps - 1):
         # 直接使用输入的蒸散发数据
-        ek = kc *evapotranspiration[i]
+        ek = kc * evapotranspiration[i]
         pe = precipitation[i] - ek
 
         # 产流计算
@@ -295,7 +295,9 @@ def sms3_runoff_generation_vectorized(
     return wu_out, wl_out, wd_out, s_out, fr_out, rs, ri, rg, runoff_total
 
 
-def lchco_vectorized(mp: int, rq: float, qx: np.ndarray, c0: float, c1: float, c2: float) -> float:
+def lchco_vectorized(
+    mp: int, rq: float, qx: np.ndarray, c0: float, c1: float, c2: float
+) -> float:
     """
     向量化的LCHCO计算（对应Java版本的LCHCO方法）
     """
@@ -311,6 +313,7 @@ def lchco_vectorized(mp: int, rq: float, qx: np.ndarray, c0: float, c1: float, c
             rq = c0 * q1 + c1 * q2 + c2 * q3
         qx[int(im - 1)] = rq
     return rq
+
 
 def lag3_routing_vectorized(
     rs: np.ndarray,
@@ -430,13 +433,13 @@ def lag3_routing_vectorized(
         # 计算总入流并更新QSIG（与Java版本一致）
         qsig1 = qsig1 * cs + (qgp_curr + qip_curr + qsp_curr) * (1.0 - cs)
         qtsig = qsig1
-        
+
         # 使用LCHCO进行马斯京根演算
         qsig[i + t] = lchco_vectorized(mp, qtsig, qx, c0, c1, c2)
 
     # 提取最终结果（保留初始时间步，与Java版本一致）
     q_routing = qsig[:time_steps]
-    
+
     # 确保非负值
     q_routing = np.maximum(q_routing, 0.0)
 
@@ -448,7 +451,7 @@ def xaj_slw(
     parameters: np.ndarray,
     warmup_length: int = 365,
     return_state: bool = False,
-    return_warmup_states: bool = False,  
+    return_warmup_states: bool = False,
     normalized_params: Union[bool, str] = "auto",
     **kwargs,
 ) -> Union[
@@ -544,20 +547,20 @@ def xaj_slw(
     qip = processed_parameters[:, 24]  # Initial interflow
     qgp = processed_parameters[:, 25]  # Initial groundwater flow
 
-    # Default monthly evaporation (can be customized)
-    es = np.array([100, 90, 80, 70, 60, 50, 40, 50, 60, 70, 80, 90])
-
     # Handle warmup period
-    warmup_states = None
     if warmup_length > 0:
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
+        # Remove initial_states from kwargs for warmup period to avoid applying override during warmup
+        warmup_kwargs = {
+            k: v for k, v in kwargs.items() if k != "initial_states"
+        }
         *_, wu_init, wl_init, wd_init, s_init, fr_init = xaj_slw(
             p_and_e_warmup,
             parameters,
             warmup_length=0,
             return_state=True,
             normalized_params=False,  # Already processed
-            **kwargs,
+            **warmup_kwargs,
         )
         # Use final states as initial conditions
         wu0 = wu_init[-1, :, 0].copy()
@@ -565,16 +568,6 @@ def xaj_slw(
         wd0 = wd_init[-1, :, 0].copy()
         s0 = s_init[-1, :, 0].copy()
         fr0 = fr_init[-1, :, 0].copy()
-
-        # 保存预热期状态
-        if return_warmup_states:
-            warmup_states = {
-                "wu0": wu0.copy(),
-                "wl0": wl0.copy(),
-                "wd0": wd0.copy(),
-                "s0": s0.copy(),
-                "fr0": fr0.copy(),
-            }
     else:
         # Default initial states
         wu0 = wup.copy()
@@ -582,6 +575,31 @@ def xaj_slw(
         wd0 = wdp.copy()
         s0 = sp.copy()
         fr0 = frp.copy()
+
+    # Apply initial state overrides if provided (only after warmup in main call)
+    initial_states = kwargs.get("initial_states", None)
+    if initial_states is not None:
+        if "wu0" in initial_states:
+            wu0.fill(initial_states["wu0"])
+        if "wl0" in initial_states:
+            wl0.fill(initial_states["wl0"])
+        if "wd0" in initial_states:
+            wd0.fill(initial_states["wd0"])
+        if "s0" in initial_states:
+            s0.fill(initial_states["s0"])
+        if "fr0" in initial_states:
+            fr0.fill(initial_states["fr0"])
+
+    # Save warmup states before applying overrides (for return_warmup_states)
+    warmup_states = None
+    if return_warmup_states:
+        warmup_states = {
+            "wu0": wu0.copy(),  # [basin] array
+            "wl0": wl0.copy(),  # [basin] array
+            "wd0": wd0.copy(),  # [basin] array
+            "s0": s0.copy(),    # [basin] array
+            "fr0": fr0.copy(),  # [basin] array
+        }
 
     inputs = p_and_e[warmup_length:, :, :]
     actual_time_steps = inputs.shape[0]
@@ -593,9 +611,7 @@ def xaj_slw(
     ri_out = np.zeros((actual_time_steps, num_basins))
     rg_out = np.zeros((actual_time_steps, num_basins))
     pe_out = np.zeros((actual_time_steps, num_basins))
-    wu_out = np.zeros(
-        (actual_time_steps, num_basins)
-    )  
+    wu_out = np.zeros((actual_time_steps, num_basins))
     wl_out = np.zeros((actual_time_steps, num_basins))
     wd_out = np.zeros((actual_time_steps, num_basins))
 
@@ -628,7 +644,7 @@ def xaj_slw(
             runoff_basin,
         ) = sms3_runoff_generation_vectorized(
             prcp,
-            pet,  # 直接传递蒸散发数据
+            pet,  
             wu_init,
             wl_init,
             wd_init,
@@ -650,8 +666,14 @@ def xaj_slw(
         )
 
         # Run LAG3 routing
-        qsig_initial = np.zeros(max(int(lag[basin_idx]), 3))
-        qx_initial = np.zeros(int(mp[basin_idx]) + 1)
+        # 获取初始状态（从kwargs中获取，如果没有则使用零数组）
+        lag_initial_states = kwargs.get("lag_initial_states", None)
+        if lag_initial_states is not None:
+            qsig_initial = lag_initial_states.get("qsig_initial", np.zeros(max(int(lag[basin_idx]), 3)))
+            qx_initial = lag_initial_states.get("qx_initial", np.zeros(int(mp[basin_idx]) + 1))
+        else:
+            qsig_initial = np.zeros(max(int(lag[basin_idx]), 3))
+            qx_initial = np.zeros(int(mp[basin_idx]) + 1)
 
         q_basin = lag3_routing_vectorized(
             rs_basin,
@@ -787,12 +809,12 @@ def load_sms_lag_data_from_json(
     time_steps = len(rain)
     p_and_e = np.zeros((time_steps, 1, 2))
     p_and_e[:, 0, 0] = rain  # 降雨数据
-    
+
     # 根据ES数组计算蒸散发值
     if "ES" in sms_data:
         # 获取时间间隔参数
         time_interval = float(sms_data.get("clen", 1.0))
-        
+
         # 计算每个时间步的蒸散发值
         evap_values = np.zeros(time_steps)
         for i in range(time_steps):
@@ -809,7 +831,7 @@ def load_sms_lag_data_from_json(
                     month = 8  # 默认月份为8
             except:
                 month = 8  # 解析失败时使用默认月份
-            
+
             # 根据月份确定天数
             if month in [4, 6, 9, 11]:
                 iday = 30
@@ -817,14 +839,14 @@ def load_sms_lag_data_from_json(
                 iday = 28
             else:
                 iday = 31
-            
+
             # 计算蒸散发值：ES[month-1] / (IDAY * 24.0 / T)
             em = es[month - 1] / (iday * 24.0 / time_interval)
             evap_values[i] = em
     else:
         # 如果没有ES数组，使用输入的蒸散发数值
         evap_values = np.full(time_steps, default_evap)
-    
+
     p_and_e[:, 0, 1] = evap_values
 
     # 构建参数数组 [basin=1, parameter=26]
@@ -874,4 +896,3 @@ def load_sms_lag_data_from_json(
     )
 
     return p_and_e, parameters, dt, start_time, es
-

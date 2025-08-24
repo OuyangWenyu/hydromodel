@@ -61,6 +61,11 @@ markdown_extensions:
     - meta
     - md_in_html
     - pymdownx.superfences
+    - pymdownx.snippets:
+          base_path: '.'
+          url_download: true
+          url_timeout: 10
+          url_max_size: 0
     - pymdownx.highlight:
           linenums: true
     - toc:

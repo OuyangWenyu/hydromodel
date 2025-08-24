@@ -186,17 +186,17 @@ $ python scripts/visualize.py --exp changdian_91000
 
 You will see the results in the `example` directory.
 
-## Why does hydro-model-xaj exist
+## Why does hydromodel exist
 
 When we want to learn about the rainfall-runoff process and make forecasts for floods, etc. We often use classic hydrological
 models such as XAJ as a baseline because it is trusted by many engineers and researchers. However, after searching the website very few repositories could be found. One day I happened to start learning Python, so I decided to implement the
-model with Python. Previous commits for hydro-model-xaj have some errors, but now at least one executable version is
+model with Python. Previous commits for hydromodel have some errors, but now at least one executable version is
 provided.
 
 Actually open-source science has brought a great impact on hydrological modeling. For example, SWAT and VIC are very
 popular now as they are public with great performance and readable documents; as more and more people use them, they
 become more stable and powerful. XAJ is a nice model used by many engineers for practical production. We need to inherit
-and develop it. I think hydro-model-xaj is a good start.
+and develop it. I think hydromodel is a good start.
 
 ## What are the main features
 
@@ -256,11 +256,11 @@ Other implementations for XAJ:
 
 ## How to contribute
 
-If you want to add features for hydro-model-xaj, for example, write a distributed version for XAJ, please create a new
+If you want to add features for hydromodel, for example, write a distributed version for XAJ, please create a new
 git branch for your feature and send me a pull request.
 
-If you find any problems in hydro-model-xaj, please post your questions
-on [issues](https://github.com/OuyangWenyu/hydro-model-xaj/issues).
+If you find any problems in hydromodel, please post your questions
+on [issues](https://github.com/OuyangWenyu/hydromodel/issues).
 
 ## References
 

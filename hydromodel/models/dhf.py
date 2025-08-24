@@ -476,15 +476,6 @@ def dhf(
         # just use d0's shape, ya0 is not d0, it is Pa, while d0 is the deep storage capacity
         ya0 = np.full(d0.shape, 0.5)
 
-    # Save warmup states before applying overrides (for return_warmup_states)
-    warmup_states = None
-    if return_warmup_states:
-        warmup_states = {
-            "sa0": sa0.copy(),  # [basin] array
-            "ua0": ua0.copy(),  # [basin] array
-            "ya0": ya0.copy(),  # [basin] array
-        }
-
     # Apply initial state overrides if provided (only after warmup in main call)
     initial_states = kwargs.get("initial_states", None)
     if initial_states is not None:
@@ -495,6 +486,16 @@ def dhf(
             ua0.fill(initial_states["ua0"])
         if "ya0" in initial_states:
             ya0.fill(initial_states["ya0"])
+
+    # Save warmup states before applying overrides (for return_warmup_states)
+    # NOTE: this part must be set after the initial_states override, otherwise override initial states will be ignored
+    warmup_states = None
+    if return_warmup_states:
+        warmup_states = {
+            "sa0": sa0.copy(),  # [basin] array
+            "ua0": ua0.copy(),  # [basin] array
+            "ya0": ya0.copy(),  # [basin] array
+        }
 
     inputs = p_and_e[warmup_length:, :, :]
     # Get actual time steps after warmup

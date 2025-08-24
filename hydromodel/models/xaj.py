@@ -856,19 +856,6 @@ def xaj(
         qi0 = np.full(ci.shape, 0.1)
         qg0 = np.full(cg.shape, 0.1)
 
-    # Save warmup states before applying overrides (for return_warmup_states)
-    warmup_states = None
-    if return_warmup_states:
-        warmup_states = {
-            "wu": w0[0].copy(),  # Upper layer moisture [basin] array
-            "wl": w0[1].copy(),  # Lower layer moisture [basin] array
-            "wd": w0[2].copy(),  # Deep layer moisture [basin] array
-            "s": s0.copy(),  # Free water storage [basin] array
-            "fr": fr0.copy(),  # Runoff fraction [basin] array
-            "qi": qi0.copy(),  # Interflow [basin] array
-            "qg": qg0.copy(),  # Groundwater flow [basin] array
-        }
-
     # Apply initial state overrides if provided (only after warmup in main call)
     # TODO: not fully tested yet
     initial_states = kwargs.get("initial_states", None)
@@ -888,6 +875,20 @@ def xaj(
             qi0.fill(initial_states["qi"])
         if "qg" in initial_states:
             qg0.fill(initial_states["qg"])
+
+    # Save warmup states before applying overrides (for return_warmup_states)
+    # NOTE: this part must be set after the initial_states override, otherwise override initial states will be ignored
+    warmup_states = None
+    if return_warmup_states:
+        warmup_states = {
+            "wu": w0[0].copy(),  # Upper layer moisture [basin] array
+            "wl": w0[1].copy(),  # Lower layer moisture [basin] array
+            "wd": w0[2].copy(),  # Deep layer moisture [basin] array
+            "s": s0.copy(),  # Free water storage [basin] array
+            "fr": fr0.copy(),  # Runoff fraction [basin] array
+            "qi": qi0.copy(),  # Interflow [basin] array
+            "qg": qg0.copy(),  # Groundwater flow [basin] array
+        }
 
     # state_variables
     inputs = p_and_e[warmup_length:, :, :]

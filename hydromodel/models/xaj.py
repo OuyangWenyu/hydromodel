@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2021-12-10 23:01:02
-LastEditTime: 2025-08-23 18:26:36
+LastEditTime: 2025-08-24 17:42:37
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
-FilePath: /hydromodel/hydromodel/models/xaj.py
+FilePath: \hydromodel\hydromodel\models\xaj.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
@@ -25,32 +25,23 @@ PRECISION = 1e-5
 def calculate_evap(
     lm, c, wu0, wl0, prcp, pet
 ) -> tuple[np.array, np.array, np.array]:
-    """
-    Three-layers evaporation model from "Watershed Hydrologic Simulation" written by Prof. RenJun Zhao.
+    """Three-layers evaporation model from "Watershed Hydrologic Simulation" written by Prof. RenJun Zhao.
+
     The book is Chinese, and its name is 《流域水文模拟》;
     The three-layers evaporation model is described in Page 76;
     The method is same with that in Page 22-23 in "Hydrologic Forecasting (5-th version)" written by Prof. Weimin Bao.
     This book's Chinese name is 《水文预报》
 
-    Parameters
-    ----------
-    lm
-        average soil moisture storage capacity of lower layer
-    c
-        coefficient of deep layer
-    wu0
-        initial soil moisture of upper layer; update in each time step
-    wl0
-        initial soil moisture of lower layer; update in each time step
-    prcp
-        basin mean precipitation
-    pet
-        potential evapotranspiration
+    Args:
+        lm: Average soil moisture storage capacity of lower layer
+        c: Coefficient of deep layer
+        wu0: Initial soil moisture of upper layer; update in each time step
+        wl0: Initial soil moisture of lower layer; update in each time step
+        prcp: Basin mean precipitation
+        pet: Potential evapotranspiration
 
-    Returns
-    -------
-    tuple[np.array,np.array,np.array]
-        eu/el/ed are evaporation from upper/lower/deeper layer, respectively
+    Returns:
+        tuple[np.array, np.array, np.array]: eu/el/ed are evaporation from upper/lower/deeper layer, respectively
     """
     eu = np.where(wu0 + prcp >= pet, pet, wu0 + prcp)
     ed = np.where(
@@ -71,28 +62,19 @@ def calculate_evap(
 # @jit
 # @jit(nopython=True)
 def calculate_prcp_runoff(b, im, wm, w0, pe) -> tuple[np.array, np.array]:
-    """
-    Calculates the amount of runoff generated from rainfall after entering the underlying surface.
+    """Calculates the amount of runoff generated from rainfall after entering the underlying surface.
 
     Same in "Watershed Hydrologic Simulation" and "Hydrologic Forecasting (5-th version)"
 
-    Parameters
-    ----------
-    b
-        B; exponent coefficient
-    im
-        IMP; imperiousness coefficient
-    wm
-        average soil moisture storage capacity
-    w0
-        initial soil moisture
-    pe
-        net precipitation
+    Args:
+        b: B; exponent coefficient
+        im: IMP; imperiousness coefficient
+        wm: Average soil moisture storage capacity
+        w0: Initial soil moisture
+        pe: Net precipitation
 
-    Returns
-    -------
-    tuple[np.array,np.array]
-        r -- runoff; r_im -- runoff of impervious part
+    Returns:
+        tuple[np.array, np.array]: r -- runoff; r_im -- runoff of impervious part
     """
     wmm = wm * (1.0 + b)
     a = wmm * (1.0 - (1.0 - w0 / wm) ** (1.0 / (1.0 + b)))
@@ -122,40 +104,25 @@ def calculate_prcp_runoff(b, im, wm, w0, pe) -> tuple[np.array, np.array]:
 def calculate_w_storage(
     um, lm, dm, wu0, wl0, wd0, eu, el, ed, pe, r
 ) -> tuple[np.array, np.array, np.array]:
-    """
-    Update the soil moisture values of the three layers.
+    """Update the soil moisture values of the three layers.
 
     According to the equation 2.60 in the book《水文预报》
 
-    Parameters
-    ----------
-    um
-        average soil moisture storage capacity of the upper layer
-    lm
-        average soil moisture storage capacity of the lower layer
-    dm
-        average soil moisture storage capacity of the deep layer
-    wu0
-        initial values of soil moisture in upper layer
-    wl0
-        initial values of soil moisture in lower layer
-    wd0
-        initial values of soil moisture in deep layer
-    eu
-        evaporation of the upper layer; it isn't used in this function
-    el
-        evaporation of the lower layer
-    ed
-        evaporation of the deep layer
-    pe
-        net precipitation; it is able to be negative value in this function
-    r
-        runoff
+    Args:
+        um: Average soil moisture storage capacity of the upper layer
+        lm: Average soil moisture storage capacity of the lower layer
+        dm: Average soil moisture storage capacity of the deep layer
+        wu0: Initial values of soil moisture in upper layer
+        wl0: Initial values of soil moisture in lower layer
+        wd0: Initial values of soil moisture in deep layer
+        eu: Evaporation of the upper layer; it isn't used in this function
+        el: Evaporation of the lower layer
+        ed: Evaporation of the deep layer
+        pe: Net precipitation; it is able to be negative value in this function
+        r: Runoff
 
-    Returns
-    -------
-    tuple[np.array,np.array,np.array]
-        wu,wl,wd -- soil moisture in upper, lower and deep layer
+    Returns:
+        tuple[np.array, np.array, np.array]: wu,wl,wd -- soil moisture in upper, lower and deep layer
     """
     # pe>0: the upper soil moisture was added firstly, then lower layer, and the final is deep layer
     # pe<=0: no additional water, just remove evapotranspiration,
@@ -190,38 +157,23 @@ def calculate_w_storage(
 def generation(
     p_and_e, k, b, im, um, lm, dm, c, wu0=None, wl0=None, wd0=None
 ) -> tuple:
-    """
-    Single-step runoff generation in XAJ.
+    """Single-step runoff generation in XAJ.
 
-    Parameters
-    ----------
-    p_and_e
-        precipitation and potential evapotranspiration
-    k
-        ratio of potential evapotranspiration to reference crop evaporation
-    b
-        exponent parameter
-    um
-        average soil moisture storage capacity of the upper layer
-    lm
-        average soil moisture storage capacity of the lower layer
-    dm
-        average soil moisture storage capacity of the deep layer
-    im
-        impermeability coefficient
-    c
-        coefficient of deep layer
-    wu0
-        initial values of soil moisture in upper layer
-    wl0
-        initial values of soil moisture in lower layer
-    wd0
-        initial values of soil moisture in deep layer
+    Args:
+        p_and_e: Precipitation and potential evapotranspiration
+        k: Ratio of potential evapotranspiration to reference crop evaporation
+        b: Exponent parameter
+        um: Average soil moisture storage capacity of the upper layer
+        lm: Average soil moisture storage capacity of the lower layer
+        dm: Average soil moisture storage capacity of the deep layer
+        im: Impermeability coefficient
+        c: Coefficient of deep layer
+        wu0: Initial values of soil moisture in upper layer
+        wl0: Initial values of soil moisture in lower layer
+        wd0: Initial values of soil moisture in deep layer
 
-    Returns
-    -------
-    tuple[tuple, tuple]
-        (r, rim, e, pe), (wu, wl, wd); all variables are np.array
+    Returns:
+        tuple[tuple, tuple]: (r, rim, e, pe), (wu, wl, wd); all variables are np.array
     """
     # make sure physical variables' value ranges are correct
     prcp = np.maximum(p_and_e[:, 0], 0.0)
@@ -259,8 +211,7 @@ def generation(
 
 
 def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None, book="HF") -> tuple:
-    """
-    Divide the runoff to different sources
+    """Divide the runoff to different sources.
 
     We use the initial version from the paper of the inventor of the XAJ model -- Prof. Renjun Zhao:
     "Analysis of parameters of the XinAnJiang model". Its Chinese name is <<新安江模型参数的分析>>,
@@ -273,32 +224,20 @@ def sources(pe, r, sm, ex, ki, kg, s0=None, fr0=None, book="HF") -> tuple:
     the procedures in 《工程水文学》"Engineering Hydrology" (EH) the third version are different we also provide.
     they are in the "sources5mm" function.
 
-    Parameters
-    ------------
-    pe
-        net precipitation
-    r
-        runoff from xaj_generation
-    sm
-        areal mean free water capacity of the surface layer
-    ex
-        exponent of the free water capacity curve
-    ki
-        outflow coefficients of the free water storage to interflow relationships
-    kg
-        outflow coefficients of the free water storage to groundwater relationships
-    s0
-        free water capacity of last period
-    fr0
-        runoff area of last period
+    Args:
+        pe: Net precipitation
+        r: Runoff from xaj_generation
+        sm: Areal mean free water capacity of the surface layer
+        ex: Exponent of the free water capacity curve
+        ki: Outflow coefficients of the free water storage to interflow relationships
+        kg: Outflow coefficients of the free water storage to groundwater relationships
+        s0: Free water capacity of last period
+        fr0: Runoff area of last period
+        book: The methods implementation to use ("HF" or "EH")
 
-    Return
-    ------------
-    tuple[tuple, tuple]
-        rs -- surface runoff; ri-- interflow runoff; rg -- groundwater runoff;
-        s1 -- final free water capacity;
-        all variables are numpy array
-
+    Returns:
+        tuple[tuple, tuple]: rs -- surface runoff; ri-- interflow runoff; rg -- groundwater runoff;
+            s1 -- final free water capacity; all variables are numpy array
     """
     # maximum free water storage capacity in a basin
     ms = sm * (1.0 + ex)
@@ -444,40 +383,25 @@ def sources5mm(
     time_interval_hours=1,
     book="HF",
 ):
-    """
-    Divide the runoff to different sources according to books -- 《水文预报》HF 5th edition and 《工程水文学》EH 3rd edition
+    """Divide the runoff to different sources according to books -- 《水文预报》HF 5th edition and 《工程水文学》EH 3rd edition.
 
-    Parameters
-    ----------
-    pe
-        net precipitation
-    runoff
-        runoff from xaj_generation
-    sm
-        areal mean free water capacity of the surface layer
-    ex
-        exponent of the free water capacity curve
-    ki
-        outflow coefficients of the free water storage to interflow relationships
-    kg
-        outflow coefficients of the free water storage to groundwater relationships
-    s0
-        initial free water capacity
-    fr0
-        initial area of generation
-    time_interval_hours
-        由于Ki、Kg、Ci、Cg都是以24小时为时段长定义的,需根据时段长转换
-    book
-        the methods in 《水文预报》HF 5th edition and 《工程水文学》EH 3rd edition are different,
-        hence, both are provided, and the default is the former -- "ShuiWenYuBao";
-        the other one is "GongChengShuiWenXue"
+    Args:
+        pe: Net precipitation
+        runoff: Runoff from xaj_generation
+        sm: Areal mean free water capacity of the surface layer
+        ex: Exponent of the free water capacity curve
+        ki: Outflow coefficients of the free water storage to interflow relationships
+        kg: Outflow coefficients of the free water storage to groundwater relationships
+        s0: Initial free water capacity
+        fr0: Initial area of generation
+        time_interval_hours: 由于Ki、Kg、Ci、Cg都是以24小时为时段长定义的,需根据时段长转换
+        book: The methods in 《水文预报》HF 5th edition and 《工程水文学》EH 3rd edition are different,
+            hence, both are provided, and the default is the former -- "ShuiWenYuBao";
+            the other one is "GongChengShuiWenXue"
 
-    Returns
-    -------
-    tuple[tuple, tuple]
-        rs_s -- surface runoff; rss_s-- interflow runoff; rg_s -- groundwater runoff;
-        (fr_ds[-1], s_ds[-1]): state variables' final value;
-        all variables are numpy array
+    Returns:
+        tuple[tuple, tuple]: rs_s -- surface runoff; rss_s-- interflow runoff; rg_s -- groundwater runoff;
+            (fr_ds[-1], s_ds[-1]): state variables' final value; all variables are numpy array
     """
     # Convert Ki and Kg according to the time interval, as they are defined based on a 24-hour time interval
     hours_per_day = 24
@@ -633,22 +557,15 @@ def sources5mm(
 # @jit
 # @jit(nopython=True)
 def linear_reservoir(x, weight, last_y=None) -> np.array:
-    """
-    Linear reservoir's release function
+    """Linear reservoir's release function.
 
-    Parameters
-    ----------
-    x
-        the input to the linear reservoir
-    weight
-        the coefficient of linear reservoir
-    last_y
-        the output of last period
+    Args:
+        x: The input to the linear reservoir
+        weight: The coefficient of linear reservoir
+        last_y: The output of last period
 
-    Returns
-    -------
-    np.array
-        one-step forward result
+    Returns:
+        np.array: One-step forward result
     """
     weight1 = 1 - weight
     if last_y is None:
@@ -657,22 +574,17 @@ def linear_reservoir(x, weight, last_y=None) -> np.array:
 
 
 def uh_gamma(a, theta, len_uh=15):
-    """
-    A simple two-parameter Gamma distribution as a unit-hydrograph to route instantaneous runoff from a hydrologic model
+    """A simple two-parameter Gamma distribution as a unit-hydrograph to route instantaneous runoff from a hydrologic model.
+
     The method comes from mizuRoute -- http://www.geosci-model-dev.net/9/2223/2016/
 
-    Parameters
-    ----------
-    a
-        shape parameter
-    theta
-        timescale parameter
-    len_uh
-        the time length of the unit hydrograph
-    Returns
-    -------
-    torch.Tensor
-        the unit hydrograph, dim: [seq, batch, feature]
+    Args:
+        a: Shape parameter
+        theta: Timescale parameter
+        len_uh: The time length of the unit hydrograph
+
+    Returns:
+        torch.Tensor: The unit hydrograph, dim: [seq, batch, feature]
     """
     # dims of a: time_seq (same all time steps), batch, feature=1
     m = a.shape
@@ -711,69 +623,53 @@ def xaj(
         tuple, dict
     ],  # ((q_sim, es), warmup_states) - return_state=False, return_warmup_states=True
 ]:
-    """
-    run XAJ model
+    """Run XAJ model.
 
-    Parameters
-    ----------
-    p_and_e
-        prcp and pet; sequence-first (time is the first dim) 3-d np array: [time, basin, feature=2]
-    params
-        parameters of XAJ model for basin(s);
-        2-dim variable -- [basin, parameter]:
-        the parameters are B IM UM LM DM C SM EX KI KG A THETA CI CG (notice the sequence)
-    return_state
-        if True, return state values, mainly for warmup periods
-    warmup_length
-        hydro models need a warm-up period to get good initial state values
-    return_warmup_states
-        if True, return initial states after warmup period (default: False)
-        Returns a dict with keys for XAJ state variables
-    normalized_params
-        parameter format specification:
-        - "auto": automatically detect if parameters are normalized (0-1) or original scale (default)
-        - True: parameters are normalized (0-1 range), will be converted to original scale
-        - False: parameters are already in original scale, use as-is
-    kwargs
-        name
-            now we provide two ways: "xaj" (route:recession constant + lag time) and "xaj_mz" (route:method from mizuRoute)
-        source_type
-            default is "sources" and it will call "sources" function; the other is "sources5mm",
-            and we will divide the runoff to some <5mm pieces according to the books in this case
-        source_book
-            When source_type is "sources5mm" there are two implementions for dividing sources,
-            as the methods in "ShuiWenYuBao" and "GongChengShuiWenXue"" are different.
-            Hence, both are provided, and the default is the former.
-        kernel_size
-            the size of the kernel for the convolution operation, default is 15 periods
-            if time_interval_hours is 1, it is 15 hours; if time_interval_hours is 24, it is 15 days
-            It is the length of the unit hydrograph
-        time_interval_hours:
-            the time interval of the model, default is 1 hour, for daily case, it should be 24
-            this is only used when source_type is "sources5mm"
-        initial_states (default: None)
-            dict to override specific initial state values after warmup,
-            e.g., {"wu": 10, "wl": 15, "wd": 20, "s": 5} will set these initial state values for all basins after warmup
-            Available states: "wu" (upper layer), "wl" (lower layer), "wd" (deep layer), "s" (free water storage),
-            "fr" (interflow), "qi" (interflow), "qg" (groundwater)
+    Args:
+        p_and_e: Prcp and pet; sequence-first (time is the first dim) 3-d np array: [time, basin, feature=2]
+        params: Parameters of XAJ model for basin(s);
+            2-dim variable -- [basin, parameter]:
+            the parameters are B IM UM LM DM C SM EX KI KG A THETA CI CG (notice the sequence)
+        return_state: If True, return state values, mainly for warmup periods
+        warmup_length: Hydro models need a warm-up period to get good initial state values
+        return_warmup_states: If True, return initial states after warmup period (default: False)
+            Returns a dict with keys for XAJ state variables
+        normalized_params: Parameter format specification:
+            - "auto": automatically detect if parameters are normalized (0-1) or original scale (default)
+            - True: parameters are normalized (0-1 range), will be converted to original scale
+            - False: parameters are already in original scale, use as-is
+        **kwargs: Additional keyword arguments:
+            name: Now we provide two ways: "xaj" (route:recession constant + lag time) and "xaj_mz" (route:method from mizuRoute)
+            source_type: Default is "sources" and it will call "sources" function; the other is "sources5mm",
+                and we will divide the runoff to some <5mm pieces according to the books in this case
+            source_book: When source_type is "sources5mm" there are two implementions for dividing sources,
+                as the methods in "ShuiWenYuBao" and "GongChengShuiWenXue"" are different.
+                Hence, both are provided, and the default is the former.
+            kernel_size: The size of the kernel for the convolution operation, default is 15 periods
+                if time_interval_hours is 1, it is 15 hours; if time_interval_hours is 24, it is 15 days
+                It is the length of the unit hydrograph
+            time_interval_hours: The time interval of the model, default is 1 hour, for daily case, it should be 24
+                this is only used when source_type is "sources5mm"
+            initial_states (default: None): Dict to override specific initial state values after warmup,
+                e.g., {"wu": 10, "wl": 15, "wd": 20, "s": 5} will set these initial state values for all basins after warmup
+                Available states: "wu" (upper layer), "wl" (lower layer), "wd" (deep layer), "s" (free water storage),
+                "fr" (interflow), "qi" (interflow), "qg" (groundwater)
 
-    Returns
-    -------
-    result : tuple or np.ndarray
-        Depends on return_state and return_warmup_states parameters:
+    Returns:
+        tuple or np.ndarray: Depends on return_state and return_warmup_states parameters:
 
-        - return_state=False, return_warmup_states=False:
-          (q_sim, es) - streamflow and evapotranspiration
+            - return_state=False, return_warmup_states=False:
+              (q_sim, es) - streamflow and evapotranspiration
 
-        - return_state=False, return_warmup_states=True:
-          ((q_sim, es), warmup_states_dict) where warmup_states_dict contains
-          XAJ state variables after warmup
+            - return_state=False, return_warmup_states=True:
+              ((q_sim, es), warmup_states_dict) where warmup_states_dict contains
+              XAJ state variables after warmup
 
-        - return_state=True, return_warmup_states=False:
-          (q_sim, es, wu, wl, wd, s, fr, qi, qg) - full state variables
+            - return_state=True, return_warmup_states=False:
+              (q_sim, es, wu, wl, wd, s, fr, qi, qg) - full state variables
 
-        - return_state=True, return_warmup_states=True:
-          (q_sim, es, wu, wl, wd, s, fr, qi, qg, warmup_states_dict)
+            - return_state=True, return_warmup_states=True:
+              (q_sim, es, wu, wl, wd, s, fr, qi, qg, warmup_states_dict)
     """
     # default values for some function parameters
     model_name = kwargs.get("name", "xaj")

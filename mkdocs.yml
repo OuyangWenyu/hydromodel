@@ -88,4 +88,6 @@ nav:
         - examples/intro.ipynb
     - API Reference:
           - hydromodel module: hydromodel.md
-          - common module: common.md
+          - Common Utilities: common.md
+          - Models:
+              - XinAnJiang (XAJ): models/xaj.md

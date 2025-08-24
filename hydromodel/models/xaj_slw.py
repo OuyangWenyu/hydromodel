@@ -282,12 +282,12 @@ def sms3_runoff_generation_vectorized(
         rg_curr = max(0.0, rg_curr)
 
         # 存储结果
-        wu_out[i] = wu_curr  # 状态变量存储到i+1位置
+        wu_out[i] = wu_curr
         wl_out[i] = wl_curr
         wd_out[i] = wd_curr
         s_out[i] = s_curr
         fr_out[i] = fr_curr
-        rs[i] = rs_curr  # 产流存储到i位置
+        rs[i] = rs_curr
         ri[i] = ri_curr
         rg[i] = rg_curr
         runoff_total[i] = rs_curr + ri_curr + rg_curr
@@ -299,7 +299,7 @@ def lchco_vectorized(
     mp: int, rq: float, qx: np.ndarray, c0: float, c1: float, c2: float
 ) -> float:
     """
-    向量化的LCHCO计算（对应Java版本的LCHCO方法）
+    向量化的LCHCO计算
     """
     im = mp + 1
     if im == 1:
@@ -335,7 +335,7 @@ def lag3_routing_vectorized(
     qx_initial: np.ndarray = None,
 ) -> np.ndarray:
     """
-    向量化LAG3汇流模型（与Java版本保持一致的计算逻辑）
+    向量化LAG3汇流模型
 
     Parameters
     ----------
@@ -372,7 +372,7 @@ def lag3_routing_vectorized(
     # 单位转换系数
     cp = area / time_interval / 3.6
 
-    # 参数时段转换（与Java版本一致）
+    # 参数时段转换
     ci = np.power(ci, time_interval / 24.0)
     cg = np.power(cg, time_interval / 24.0)
 
@@ -382,7 +382,7 @@ def lag3_routing_vectorized(
     qg = np.zeros(time_steps)
     qsig = np.zeros(time_steps + int(lag))
 
-    # 初始化QSIG数组（与Java版本一致）
+    # 初始化QSIG数组
     t = int(lag)
     if qsig_initial is None:
         qsig_initial = np.zeros(max(t, 3))
@@ -414,13 +414,13 @@ def lag3_routing_vectorized(
             else:
                 qx[i] = qx[i - 1] if i > 0 else 0.0
 
-    # 主循环计算（与Java版本一致的逻辑）
+    # 主循环计算
     qip_curr = qip
     qgp_curr = qgp
     qsig1 = qsig[t - 1] if lag > 1 else qsig[0]
 
     for i in range(time_steps):
-        # 计算三水源汇流（与Java版本一致）
+        # 计算三水源汇流
         qgp_curr = qgp_curr * cg + rg[i] * (1.0 - cg) * cp
         qip_curr = qip_curr * ci + ri[i] * (1.0 - ci) * cp
         qsp_curr = rs[i] * cp
@@ -430,14 +430,14 @@ def lag3_routing_vectorized(
         qi[i] = qip_curr
         qs[i] = qsp_curr
 
-        # 计算总入流并更新QSIG（与Java版本一致）
+        # 计算总入流并更新QSIG
         qsig1 = qsig1 * cs + (qgp_curr + qip_curr + qsp_curr) * (1.0 - cs)
         qtsig = qsig1
 
         # 使用LCHCO进行马斯京根演算
         qsig[i + t] = lchco_vectorized(mp, qtsig, qx, c0, c1, c2)
 
-    # 提取最终结果（保留初始时间步，与Java版本一致）
+    # 提取最终结果
     q_routing = qsig[:time_steps]
 
     # 确保非负值
@@ -504,10 +504,12 @@ def xaj_slw(
         如果return_state为False: QSim数组 [时间, 流域, 1]
         如果return_state为True: (QSim, runoffSim, rs, ri, rg, pe, wu, wl, wd)元组
     """
-    # Get data dimensions
+    if "area" not in kwargs:
+        raise KeyError("area must be provided")
+
     time_steps, num_basins, _ = p_and_e.shape
     time_interval = kwargs.get("time_interval_hours", 1.0)
-    area = kwargs.get("area", 100.0)
+    area = kwargs.get("area", None)  # km^2
 
     # Process parameters using unified parameter handling
     processed_parameters = parameters.copy()
@@ -559,7 +561,7 @@ def xaj_slw(
             parameters,
             warmup_length=0,
             return_state=True,
-            normalized_params=False,  # Already processed
+            normalized_params=False,
             **warmup_kwargs,
         )
         # Use final states as initial conditions
@@ -597,7 +599,7 @@ def xaj_slw(
             "wu0": wu0.copy(),  # [basin] array
             "wl0": wl0.copy(),  # [basin] array
             "wd0": wd0.copy(),  # [basin] array
-            "s0": s0.copy(),    # [basin] array
+            "s0": s0.copy(),  # [basin] array
             "fr0": fr0.copy(),  # [basin] array
         }
 
@@ -622,7 +624,7 @@ def xaj_slw(
         pet = inputs[:, basin_idx, 1]
 
         # Calculate net precipitation
-        pe = prcp - pet  # 与Java版本一致
+        pe = prcp - pet
 
         # Initial states for this basin
         wu_init = np.array([wu0[basin_idx]])
@@ -644,7 +646,7 @@ def xaj_slw(
             runoff_basin,
         ) = sms3_runoff_generation_vectorized(
             prcp,
-            pet,  
+            pet,
             wu_init,
             wl_init,
             wd_init,
@@ -669,8 +671,12 @@ def xaj_slw(
         # 获取初始状态（从kwargs中获取，如果没有则使用零数组）
         lag_initial_states = kwargs.get("lag_initial_states", None)
         if lag_initial_states is not None:
-            qsig_initial = lag_initial_states.get("qsig_initial", np.zeros(max(int(lag[basin_idx]), 3)))
-            qx_initial = lag_initial_states.get("qx_initial", np.zeros(int(mp[basin_idx]) + 1))
+            qsig_initial = lag_initial_states.get(
+                "qsig_initial", np.zeros(max(int(lag[basin_idx]), 3))
+            )
+            qx_initial = lag_initial_states.get(
+                "qx_initial", np.zeros(int(mp[basin_idx]) + 1)
+            )
         else:
             qsig_initial = np.zeros(max(int(lag[basin_idx]), 3))
             qx_initial = np.zeros(int(mp[basin_idx]) + 1)

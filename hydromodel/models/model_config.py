@@ -239,63 +239,63 @@ MODEL_PARAM_DICT = {
             }
         ),
     },
-    "xaj_songliao": {
+    "xaj_slw": {
         "param_name": [
-            "WUP",  # Initial upper layer tension water
-            "WLP",  # Initial lower layer tension water
-            "WDP",  # Initial deep layer tension water
-            "SP",  # Initial free water storage
-            "FRP",  # Initial runoff area ratio
-            "WM",  # Total tension water capacity
-            "WUMx",  # Upper layer capacity ratio
-            "WLMx",  # Lower layer capacity ratio
-            "KC",  # Evaporation coefficient
-            "B",  # Exponent of tension water capacity curve
-            "C",  # Deep evapotranspiration coefficient
-            "IM",  # Impervious area ratio
-            "SM",  # Average free water capacity
-            "EX",  # Exponent of free water capacity curve
-            "KG",  # Groundwater outflow coefficient
-            "KI",  # Interflow outflow coefficient
-            "CS",  # Channel system recession constant
-            "CI",  # Lower interflow recession constant
-            "CG",  # Groundwater storage recession constant
-            "LAG",  # Lag time
-            "KK",  # Muskingum K parameter
-            "X",  # Muskingum X parameter
-            "MP",  # Number of Muskingum reaches
-            "QSP",  # Initial surface flow
-            "QIP",  # Initial interflow
-            "QGP",  # Initial groundwater flow
+            "WUP",  # 上层张力水蓄量初值
+            "WLP",  # 下层张力水蓄量初值
+            "WDP",  # 深层张力水蓄量初值
+            "SP",  # 自由水蓄量初值
+            "FRP",  # 产流面积比例初值
+            "WM",  # 流域平均蓄水容量
+            "WUMx",  # 上层蓄水容量比例
+            "WLMx",  # 下层蓄水容量比例
+            "K",  # 蒸发系数
+            "B",  # 蓄水容量曲线指数
+            "C",  # 深层蒸散发系数
+            "IM",  # 不透水面积比例
+            "SM",  # 表层自由水蓄水容量
+            "EX",  # 自由水蓄水容量曲线指数
+            "KG",  # 地下水出流系数
+            "KI",  # 壤中流出流系数
+            "CS",  # 地面径流消退系数
+            "CI",  # 壤中流消退系数
+            "CG",  # 地下水消退系数
+            "LAG",  # 滞时
+            "KK",  # 马斯京根K参数
+            "X",  # 马斯京根X参数
+            "MP",  # 河段数
+            "QSP",  # 地面径流初值
+            "QIP",  # 壤中流初值
+            "QGP",  # 地下径流初值
         ],
         "param_range": OrderedDict(
             {
-                "WUP": [0.0, 20.0],  # Initial upper layer tension water (mm)
-                "WLP": [30.0, 70.0],  # Initial lower layer tension water (mm)
-                "WDP": [30.0, 80.0],  # Initial deep layer tension water (mm)
-                "SP": [0.0, 20.0],  # Initial free water storage (mm)
-                "FRP": [0.0, 1.0],  # Initial runoff area ratio
-                "WM": [100.0, 200.0],  # Total tension water capacity (mm)
-                "WUMx": [0.1, 0.3],  # Upper layer capacity ratio
-                "WLMx": [0.4, 0.7],  # Lower layer capacity ratio
-                "KC": [0.5, 1.5],  # Evaporation coefficient
-                "B": [0.1, 0.4],  # Exponent of tension water capacity curve
-                "C": [0.0, 0.2],  # Deep evapotranspiration coefficient
-                "IM": [0.01, 0.1],  # Impervious area ratio
-                "SM": [1.0, 100.0],  # Average free water capacity (mm)
-                "EX": [1.0, 1.5],  # Exponent of free water capacity curve
-                "KG": [0.0, 0.7],  # Groundwater outflow coefficient
-                "KI": [0.0, 0.7],  # Interflow outflow coefficient
-                "CS": [0.0, 1.0],  # Channel system recession constant
-                "CI": [0.0, 0.9],  # Lower interflow recession constant
-                "CG": [0.98, 0.998],  # Groundwater storage recession constant
-                "LAG": [1.0, 10.0],  # Lag time (time steps)
-                "KK": [0.1, 10.0],  # Muskingum K parameter (hours)
-                "X": [0.0, 0.5],  # Muskingum X parameter
-                "MP": [1.0, 5.0],  # Number of Muskingum reaches
-                "QSP": [0.0, 10.0],  # Initial surface flow (m³/s)
-                "QIP": [0.0, 10.0],  # Initial interflow (m³/s)
-                "QGP": [0.0, 10.0],  # Initial groundwater flow (m³/s)
+                "WUP": [0.0, 20.0],  # 上层张力水蓄量初值 (mm)
+                "WLP": [0.0, 80.0],  # 下层张力水蓄量初值 (mm)
+                "WDP": [0.0, 100.0],  # 深层张力水蓄量初值 (mm)
+                "SP": [0.0, 20.0],  # 自由水蓄量初值 (mm)
+                "FRP": [0.0, 1.0],  # 产流面积比例初值
+                "WM": [100.0, 200.0],  # 流域平均蓄水容量 (mm)
+                "WUMx": [0.1, 0.4],  # 上层蓄水容量比例
+                "WLMx": [0.6, 0.9],  # 下层蓄水容量比例
+                "K": [0.8, 1.2],  # 蒸发系数
+                "B": [0.1, 0.4],  # 蓄水容量曲线指数
+                "C": [0.1, 0.2],  # 深层蒸散发系数
+                "IM": [0.01, 0.05],  # 不透水面积比例
+                "SM": [10.0, 50.0],  # 表层自由水蓄水容量 (mm)
+                "EX": [1.0, 2.0],  # 自由水蓄水容量曲线指数
+                "KG": [0.2, 0.4],  # 地下水出流系数
+                "KI": [0.2, 0.5],  # 壤中流出流系数
+                "CS": [0.2, 0.5],  # 地面径流消退系数
+                "CI": [0.6, 0.9],  # 壤中流消退系数
+                "CG": [0.9, 0.999],  # 地下水消退系数
+                "LAG": [1.0, 6.0],  # 滞时（时段数）
+                "KK": [2.0, 8.0],  # 马斯京根K参数（小时）
+                "X": [0.0, 0.3],  # 马斯京根X参数
+                "MP": [1.0, 3.0],  # 河段数
+                "QSP": [0.0, 1.0],  # 地面径流初值 (m³/s)
+                "QIP": [0.0, 2.0],  # 壤中流初值 (m³/s)
+                "QGP": [0.0, 1.0],  # 地下径流初值 (m³/s)
             }
         ),
     },

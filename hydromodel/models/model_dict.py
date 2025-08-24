@@ -35,7 +35,7 @@ from hydromodel.models.unit_hydrograph import (
     categorized_unit_hydrograph,
 )
 from hydromodel.models.dhf import dhf
-
+from hydromodel.models.xaj_slw import xaj_slw
 
 def rmse43darr(obs, sim):
     """RMSE for 3D array
@@ -87,4 +87,5 @@ MODEL_DICT = {
     "unit_hydrograph": unit_hydrograph,
     "categorized_unit_hydrograph": categorized_unit_hydrograph,
     "dhf": dhf,
+    "xaj_slw": xaj_slw,
 }

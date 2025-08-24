@@ -1,4 +1,4 @@
  
 # hydromodel module
 
-::: hydromodel.hydromodel
+::: hydromodel

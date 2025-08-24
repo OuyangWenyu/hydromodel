@@ -4,7 +4,7 @@ Date: 2025-08-06
 LastEditTime: 2025-08-06
 LastEditors: Wenyu Ouyang
 Description: Trainers module for hydrological model calibration
-FilePath: \hydromodel\hydromodel\trainers\__init__.py
+FilePath: /hydromodel/hydromodel/trainers/__init__.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 

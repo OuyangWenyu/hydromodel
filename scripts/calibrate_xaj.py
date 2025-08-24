@@ -4,7 +4,7 @@ Date: 2022-11-19 17:27:05
 LastEditTime: 2024-09-12 08:34:21
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
-FilePath: \hydromodel\scripts\calibrate_xaj.py
+FilePath: /hydromodel/scripts/calibrate_xaj.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 import json

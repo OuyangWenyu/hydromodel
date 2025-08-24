@@ -4,7 +4,7 @@ Date: 2025-02-21 15:36:42
 LastEditTime: 2025-08-19 09:32:16
 LastEditors: Wenyu Ouyang
 Description: Core code for GR1A model
-FilePath: \hydromodel\hydromodel\models\gr1a.py
+FilePath: /hydromodel/hydromodel/models/gr1a.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 """
 

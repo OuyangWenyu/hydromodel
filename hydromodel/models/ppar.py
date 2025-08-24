@@ -4,7 +4,7 @@ Date: 2025-07-09 09:27:32
 LastEditTime: 2025-07-11 17:38:47
 LastEditors: Wenyu Ouyang
 Description: 降雨径流相关法(P~Pa~R三变量相关图法)模型实现
-FilePath: \hydromodel_dev\hydromodel_dev\ppar.py
+FilePath: /hydromodel_dev/hydromodel_dev/ppar.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 

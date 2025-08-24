@@ -4,7 +4,7 @@ Date: 2025-08-08
 LastEditTime: 2025-08-17 10:04:16
 LastEditors: Wenyu Ouyang
 Description: Unified script utilities for all hydromodel scripts
-FilePath: \hydromodel\hydromodel\configs\script_utils.py
+FilePath: /hydromodel/hydromodel/configs/script_utils.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 

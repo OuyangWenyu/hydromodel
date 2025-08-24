@@ -4,7 +4,7 @@ Date: 2025-02-21 14:54:24
 LastEditTime: 2025-08-19 09:34:44
 LastEditors: Wenyu Ouyang
 Description:
-FilePath: \hydromodel\hydromodel\models\gr6j.py
+FilePath: /hydromodel/hydromodel/models/gr6j.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 """
 

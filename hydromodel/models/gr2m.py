@@ -4,7 +4,7 @@ Date: 2025-02-21 15:37:10
 LastEditTime: 2025-08-19 09:33:49
 LastEditors: Wenyu Ouyang
 Description: Core code for GR2M model
-FilePath: \hydromodel\hydromodel\models\gr2m.py
+FilePath: /hydromodel/hydromodel/models/gr2m.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 """
 

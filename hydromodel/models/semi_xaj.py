@@ -4,7 +4,7 @@ Date: 2025-08-19 10:00:07
 LastEditTime: 2025-08-19 10:02:29
 LastEditors: Wenyu Ouyang
 Description: TODO: Semi-distributed XAJ model implementation with topology support but not finished yet!!!
-FilePath: \hydromodel\hydromodel\models\semi_xaj.py
+FilePath: /hydromodel/hydromodel/models/semi_xaj.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 

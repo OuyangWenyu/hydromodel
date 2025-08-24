@@ -4,7 +4,7 @@ Date: 2025-08-07
 LastEditTime: 2025-08-08 18:54:26
 LastEditors: Wenyu Ouyang
 Description: Unified configuration management system for hydromodel
-FilePath: \hydromodel\hydromodel\configs\config_manager.py
+FilePath: /hydromodel/hydromodel/configs/config_manager.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 

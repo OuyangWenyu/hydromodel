@@ -4,7 +4,7 @@ Date: 2025-02-18 10:20:58
 LastEditTime: 2025-08-19 09:34:29
 LastEditors: Wenyu Ouyang
 Description: Core code for GR4J model
-FilePath: \hydromodel\hydromodel\models\gr4j.py
+FilePath: /hydromodel/hydromodel/models/gr4j.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 """
 

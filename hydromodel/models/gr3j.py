@@ -4,7 +4,7 @@ Date: 2025-03-13 09:35:22
 LastEditTime: 2025-08-19 09:34:15
 LastEditors: Wenyu Ouyang
 Description: Core code for GR3J model
-FilePath: \hydromodel\hydromodel\models\gr3j.py
+FilePath: /hydromodel/hydromodel/models/gr3j.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 """
 

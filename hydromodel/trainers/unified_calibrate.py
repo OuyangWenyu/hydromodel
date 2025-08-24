@@ -4,7 +4,7 @@ Date: 2025-08-07
 LastEditTime: 2025-08-11 17:40:30
 LastEditors: Wenyu Ouyang
 Description: Simplified unified calibration interface for all hydrological models
-FilePath: \hydromodel\hydromodel\trainers\unified_calibrate.py
+FilePath: /hydromodel/hydromodel/trainers/unified_calibrate.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 

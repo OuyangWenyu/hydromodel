@@ -4,7 +4,7 @@ Date: 2025-07-30 16:44:15
 LastEditTime: 2025-08-23 17:41:32
 LastEditors: Wenyu Ouyang
 Description: Dahuofang Model - Python implementation based on Java version
-FilePath: \hydromodel\hydromodel\models\dhf.py
+FilePath: /hydromodel/hydromodel/models/dhf.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 

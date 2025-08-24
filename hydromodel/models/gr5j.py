@@ -4,7 +4,7 @@ Date: 2025-02-21 14:54:24
 LastEditTime: 2025-08-19 09:34:36
 LastEditors: Wenyu Ouyang
 Description: Core code for GR5J model
-FilePath: \hydromodel\hydromodel\models\gr5j.py
+FilePath: /hydromodel/hydromodel/models/gr5j.py
 Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 """
 

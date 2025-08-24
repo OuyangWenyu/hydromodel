@@ -4,7 +4,7 @@ Date: 2022-10-25 21:16:22
 LastEditTime: 2025-08-22 11:06:58
 LastEditors: Wenyu Ouyang
 Description: some basic config for hydro-model-xaj models
-FilePath: \flooddataaugmentationd:\Code\hydromodel\hydromodel\models\model_config.py
+FilePath: /hydromodel/hydromodel/models/model_config.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 

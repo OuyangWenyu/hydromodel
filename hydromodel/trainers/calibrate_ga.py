@@ -4,7 +4,7 @@ Date: 2021-12-10 23:01:02
 LastEditTime: 2024-08-15 16:38:17
 LastEditors: Wenyu Ouyang
 Description: Calibrate XAJ model using DEAP
-FilePath: \hydromodel\hydromodel\trainers\calibrate_ga.py
+FilePath: /hydromodel/hydromodel/trainers/calibrate_ga.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 

@@ -4,7 +4,7 @@ Date: 2025-08-07
 LastEditTime: 2025-08-17 09:51:59
 LastEditors: Wenyu Ouyang
 Description: Unified configuration system for hydromodel - consistent with torchhydro
-FilePath: \hydromodel\hydromodel\configs\unified_config.py
+FilePath: /hydromodel/hydromodel/configs/unified_config.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 

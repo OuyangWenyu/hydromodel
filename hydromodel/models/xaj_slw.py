@@ -158,7 +158,7 @@ def sms3_runoff_generation_vectorized(
     # 主循环
     for i in range(time_steps - 1):
         # 直接使用输入的蒸散发数据
-        ek = evapotranspiration[i]
+        ek = kc *evapotranspiration[i]
         pe = precipitation[i] - ek
 
         # 产流计算
@@ -295,6 +295,23 @@ def sms3_runoff_generation_vectorized(
     return wu_out, wl_out, wd_out, s_out, fr_out, rs, ri, rg, runoff_total
 
 
+def lchco_vectorized(mp: int, rq: float, qx: np.ndarray, c0: float, c1: float, c2: float) -> float:
+    """
+    向量化的LCHCO计算（对应Java版本的LCHCO方法）
+    """
+    im = mp + 1
+    if im == 1:
+        qx[int(im - 1)] = rq
+    else:
+        for j in range(1, int(im)):
+            q1 = rq
+            q2 = qx[j - 1]
+            q3 = qx[j]
+            qx[j - 1] = rq
+            rq = c0 * q1 + c1 * q2 + c2 * q3
+        qx[int(im - 1)] = rq
+    return rq
+
 def lag3_routing_vectorized(
     rs: np.ndarray,
     ri: np.ndarray,
@@ -315,7 +332,7 @@ def lag3_routing_vectorized(
     qx_initial: np.ndarray = None,
 ) -> np.ndarray:
     """
-    向量化LAG3汇流模型
+    向量化LAG3汇流模型（与Java版本保持一致的计算逻辑）
 
     Parameters
     ----------
@@ -352,99 +369,76 @@ def lag3_routing_vectorized(
     # 单位转换系数
     cp = area / time_interval / 3.6
 
-    # 参数时段转换
-    d = 24 / time_interval
-    cid = np.power(ci, 1.0 / d)
-    cgd = np.power(cg, 1.0 / d)
+    # 参数时段转换（与Java版本一致）
+    ci = np.power(ci, time_interval / 24.0)
+    cg = np.power(cg, time_interval / 24.0)
 
-    # 线性水库汇流
+    # 初始化输出数组
     qs = np.zeros(time_steps)
     qi = np.zeros(time_steps)
     qg = np.zeros(time_steps)
+    qsig = np.zeros(time_steps + int(lag))
 
-    # 第一个时间步
-    qs[0] = rs[0] * cp
-    qi[0] = qip + ri[0] * (1 - cid) * cp
-    qg[0] = qgp + rg[0] * (1 - cgd) * cp
-
-    # 后续时间步
-    for i in range(1, time_steps):
-        qs[i] = rs[i] * cp
-        qi[i] = qi[i - 1] * cid + ri[i] * (1 - cid) * cp
-        qg[i] = qg[i - 1] * cgd + rg[i] * (1 - cgd) * cp
-
-    # 总入流
-    qtmp = qs + qi + qg
-    qtmp = np.maximum(qtmp, 0.0)
-
-    # 河网汇流-滞时法
-    qf = np.zeros(time_steps)
+    # 初始化QSIG数组（与Java版本一致）
     t = int(lag)
-
     if qsig_initial is None:
         qsig_initial = np.zeros(max(t, 3))
 
-    if t <= 0:
-        t = 0
-        for i in range(time_steps):
-            if i == 0:
-                qf[i] = qsig_initial[0]
-            else:
-                qf[i] = cs * qf[i - 1] + (1 - cs) * qtmp[i]
+    if lag <= 1:
+        qsig[0] = qsig_initial[0]
     else:
-        for i in range(time_steps):
-            if i < t:
-                if i < len(qsig_initial):
-                    qf[i] = qsig_initial[i]
-                else:
-                    qf[i] = qsig_initial[-1] if len(qsig_initial) > 0 else 0.0
+        for i in range(t):
+            if len(qsig_initial) >= t:
+                qsig[i] = qsig_initial[i]
             else:
-                qf[i] = cs * qf[i - 1] + (1 - cs) * qtmp[i - t]
+                if i < len(qsig_initial):
+                    qsig[i] = qsig_initial[i]
+                else:
+                    qsig[i] = qsig[i - 1]
 
-    # 河道演进-马斯京根法
-    if qx_initial is None:
-        qx_initial = np.zeros(mp + 1)
-
-    qc = np.zeros(mp + 1)
-    for j in range(mp + 1):
-        if j < len(qx_initial):
-            qc[j] = qx_initial[j]
-        else:
-            qc[j] = qc[j - 1] if j > 0 else 0.0
-
-    # 马斯京根系数（与Java版本一致）
+    # 初始化马斯京根参数
     fkt = kk - kk * x + 0.5 * time_interval
     c0 = (0.5 * time_interval - kk * x) / fkt
     c1 = (kk * x + 0.5 * time_interval) / fkt
     c2 = (kk - kk * x - 0.5 * time_interval) / fkt
 
-    q_routing = np.zeros(time_steps)
-
-    if c0 >= 0.0 and c2 >= 0.0:  # 满足马斯京根法的适用条件
-        for i in range(time_steps):
-            if i == 0:
-                qi1 = qf[i]
+    # 初始化QX数组
+    qx = np.zeros(mp + 1)
+    if qx_initial is not None:
+        for i in range(mp + 1):
+            if i < len(qx_initial):
+                qx[i] = qx_initial[i]
             else:
-                qi1 = qf[i - 1]
-            qi2 = qf[i]
+                qx[i] = qx[i - 1] if i > 0 else 0.0
 
-            # 分段计算
-            if mp > 0:
-                for j in range(mp):
-                    qo1 = qc[j]
-                    qo2 = c0 * qi2 + c1 * qi1 + c2 * qo1
-                    qi1 = qo1
-                    qi2 = qo2
-                    qc[j] = qo2
-            else:
-                qo2 = qf[i]
+    # 主循环计算（与Java版本一致的逻辑）
+    qip_curr = qip
+    qgp_curr = qgp
+    qsig1 = qsig[t - 1] if lag > 1 else qsig[0]
 
-            if qo2 < 0.0001:
-                qo2 = 0.0
-            q_routing[i] = qo2
-    else:
-        # 不考虑河道演进
-        q_routing = qf.copy()
+    for i in range(time_steps):
+        # 计算三水源汇流（与Java版本一致）
+        qgp_curr = qgp_curr * cg + rg[i] * (1.0 - cg) * cp
+        qip_curr = qip_curr * ci + ri[i] * (1.0 - ci) * cp
+        qsp_curr = rs[i] * cp
+
+        # 存储结果
+        qg[i] = qgp_curr
+        qi[i] = qip_curr
+        qs[i] = qsp_curr
+
+        # 计算总入流并更新QSIG（与Java版本一致）
+        qsig1 = qsig1 * cs + (qgp_curr + qip_curr + qsp_curr) * (1.0 - cs)
+        qtsig = qsig1
+        
+        # 使用LCHCO进行马斯京根演算
+        qsig[i + t] = lchco_vectorized(mp, qtsig, qx, c0, c1, c2)
+
+    # 提取最终结果（保留初始时间步，与Java版本一致）
+    q_routing = qsig[:time_steps]
+    
+    # 确保非负值
+    q_routing = np.maximum(q_routing, 0.0)
 
     return q_routing
 
@@ -454,6 +448,7 @@ def xaj_slw(
     parameters: np.ndarray,
     warmup_length: int = 365,
     return_state: bool = False,
+    return_warmup_states: bool = False,  
     normalized_params: Union[bool, str] = "auto",
     **kwargs,
 ) -> Union[
@@ -469,12 +464,13 @@ def xaj_slw(
         np.ndarray,
         np.ndarray,
     ],
+    Tuple[
+        np.ndarray,
+        Dict[str, np.ndarray],
+    ],
 ]:
     """
     向量化新安江松辽水文模型（使用SMS3和LAG3算法）
-
-    该函数实现了新安江模型的完全NumPy向量化，
-    使用[时间, 流域, 特征]张量操作同时处理所有流域。
 
     Parameters
     ----------
@@ -489,6 +485,8 @@ def xaj_slw(
         预热期长度 (默认: 365)
     return_state : bool, optional
         如果为True，返回内部状态变量 (默认: False)
+    return_warmup_states : bool, optional
+        如果为True，返回预热期后的初始状态 (默认: False)
     normalized_params : Union[bool, str], optional
         参数格式说明:
         - "auto": 自动检测参数格式 (默认)
@@ -550,6 +548,7 @@ def xaj_slw(
     es = np.array([100, 90, 80, 70, 60, 50, 40, 50, 60, 70, 80, 90])
 
     # Handle warmup period
+    warmup_states = None
     if warmup_length > 0:
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
         *_, wu_init, wl_init, wd_init, s_init, fr_init = xaj_slw(
@@ -566,6 +565,16 @@ def xaj_slw(
         wd0 = wd_init[-1, :, 0].copy()
         s0 = s_init[-1, :, 0].copy()
         fr0 = fr_init[-1, :, 0].copy()
+
+        # 保存预热期状态
+        if return_warmup_states:
+            warmup_states = {
+                "wu0": wu0.copy(),
+                "wl0": wl0.copy(),
+                "wd0": wd0.copy(),
+                "s0": s0.copy(),
+                "fr0": fr0.copy(),
+            }
     else:
         # Default initial states
         wu0 = wup.copy()
@@ -586,7 +595,7 @@ def xaj_slw(
     pe_out = np.zeros((actual_time_steps, num_basins))
     wu_out = np.zeros(
         (actual_time_steps, num_basins)
-    )  # 改回与SMS函数返回值一致的长度
+    )  
     wl_out = np.zeros((actual_time_steps, num_basins))
     wd_out = np.zeros((actual_time_steps, num_basins))
 
@@ -597,9 +606,7 @@ def xaj_slw(
         pet = inputs[:, basin_idx, 1]
 
         # Calculate net precipitation
-        pe, edt = calculate_net_precipitation(
-            prcp, pet, np.full_like(prcp, kc[basin_idx])
-        )
+        pe = prcp - pet  # 与Java版本一致
 
         # Initial states for this basin
         wu_init = np.array([wu0[basin_idx]])
@@ -692,7 +699,7 @@ def xaj_slw(
     wd_out = np.expand_dims(wd_out, axis=2)
 
     if return_state:
-        return (
+        result = (
             q_sim,
             runoff_sim,
             rs_out,
@@ -703,90 +710,15 @@ def xaj_slw(
             wl_out,
             wd_out,
         )
+        if return_warmup_states and warmup_states is not None:
+            return result, warmup_states
+        else:
+            return result
     else:
-        return q_sim
-
-
-def load_xaj_data_from_json(
-    json_file_path: str,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    从JSON文件加载XAJ模型所需的时序数据和参数
-
-    Parameters
-    ----------
-    json_file_path : str
-        JSON文件路径，包含时间序列、降雨数据和模型参数
-
-    Returns
-    -------
-    p_and_e : np.ndarray
-        降雨和蒸发数据 [time, basin=1, feature=2]
-    parameters : np.ndarray
-        模型参数 [basin=1, parameter=26]
-    """
-    # 读取JSON文件
-    with open(json_file_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    # 解析时间序列、降雨和蒸散发数据
-    dt = (
-        json.loads(data["dt"]) if isinstance(data["dt"], str) else data["dt"]
-    )  # 时间序列
-    rain = (
-        json.loads(data["rain"])
-        if isinstance(data["rain"], str)
-        else data["rain"]
-    )  # 降雨数据
-    evap = (
-        json.loads(data["evaporation"])
-        if isinstance(data["evaporation"], str)
-        else data["evaporation"]
-    )  # 蒸散发数据
-
-    # 构建p_and_e数组 [time, basin=1, feature=2]
-    time_steps = len(rain)
-    p_and_e = np.zeros((time_steps, 1, 2))
-    p_and_e[:, 0, 0] = rain  # 降雨数据
-    p_and_e[:, 0, 1] = evap  # 蒸散发数据
-
-    # 构建参数数组 [basin=1, parameter=26]
-    # 参数顺序: [WUP, WLP, WDP, SP, FRP, WM, WUMx, WLMx, K, B, C, IM,
-    #          SM, EX, KG, KI, CS, CI, CG, LAG, KK, X, MP, QSP, QIP, QGP]
-    parameters = np.array(
-        [
-            [
-                float(data["WUP"]),
-                float(data["WLP"]),
-                float(data["WDP"]),
-                float(data["SP"]),
-                float(data["FRP"]),
-                float(data["WM"]),
-                float(data["WUMx"]),
-                float(data["WLMx"]),
-                float(data["K"]),
-                float(data["B"]),
-                float(data["C"]),
-                float(data["IM"]),
-                float(data["SM"]),
-                float(data["EX"]),
-                float(data["KG"]),
-                float(data["KI"]),
-                float(data["CS"]),
-                float(data["CI"]),
-                float(data["CG"]),
-                float(data["LAG"]),
-                float(data["KK"]),
-                float(data["X"]),
-                float(data["MP"]),
-                float(data["QSP"]),
-                float(data["QIP"]),
-                float(data["QGP"]),
-            ]
-        ]
-    )
-
-    return p_and_e, parameters
+        if return_warmup_states and warmup_states is not None:
+            return q_sim, warmup_states
+        else:
+            return q_sim
 
 
 def load_sms_lag_data_from_json(
@@ -855,7 +787,45 @@ def load_sms_lag_data_from_json(
     time_steps = len(rain)
     p_and_e = np.zeros((time_steps, 1, 2))
     p_and_e[:, 0, 0] = rain  # 降雨数据
-    p_and_e[:, 0, 1] = default_evap  # 使用默认蒸散发值
+    
+    # 根据ES数组计算蒸散发值
+    if "ES" in sms_data:
+        # 获取时间间隔参数
+        time_interval = float(sms_data.get("clen", 1.0))
+        
+        # 计算每个时间步的蒸散发值
+        evap_values = np.zeros(time_steps)
+        for i in range(time_steps):
+            # 从时间字符串中提取月份，默认为8月
+            try:
+                if dt and i < len(dt):
+                    time_str = dt[i]
+                    # 尝试解析时间字符串获取月份
+                    if ":" in time_str:  # 包含时间的格式
+                        month = int(time_str.split("-")[1])  # 提取月份
+                    else:  # 只有日期的格式
+                        month = int(time_str.split("-")[1])  # 提取月份
+                else:
+                    month = 8  # 默认月份为8
+            except:
+                month = 8  # 解析失败时使用默认月份
+            
+            # 根据月份确定天数
+            if month in [4, 6, 9, 11]:
+                iday = 30
+            elif month == 2:
+                iday = 28
+            else:
+                iday = 31
+            
+            # 计算蒸散发值：ES[month-1] / (IDAY * 24.0 / T)
+            em = es[month - 1] / (iday * 24.0 / time_interval)
+            evap_values[i] = em
+    else:
+        # 如果没有ES数组，使用输入的蒸散发数值
+        evap_values = np.full(time_steps, default_evap)
+    
+    p_and_e[:, 0, 1] = evap_values
 
     # 构建参数数组 [basin=1, parameter=26]
     # 参数顺序: [WUP, WLP, WDP, SP, FRP, WM, WUMx, WLMx, KC, B, C, IM,
@@ -905,51 +875,3 @@ def load_sms_lag_data_from_json(
 
     return p_and_e, parameters, dt, start_time, es
 
-
-def test_sms_lag_integration():
-    """
-    测试SMS和LAG数据集成的示例函数
-    """
-    try:
-        # 加载数据
-        p_and_e, parameters, time_dates, start_time = (
-            load_sms_lag_data_from_json(
-                "src/main/resources/sms_3_data.json",
-                "src/main/resources/lag_3_data.json",
-            )
-        )
-
-        print("数据加载成功:")
-        print(f"时间序列长度: {p_and_e.shape[0]}")
-        print(f"流域数量: {p_and_e.shape[1]}")
-        print(f"特征数量: {p_and_e.shape[2]}")
-        print(f"参数数量: {parameters.shape[1]}")
-        print(f"降雨数据前5个值: {p_and_e[:5, 0, 0]}")
-        print(f"蒸散发数据前5个值: {p_and_e[:5, 0, 1]}")
-
-        # 运行模型
-        print("\n运行XAJ模型...")
-        result = xaj_slw(
-            p_and_e,
-            parameters,
-            warmup_length=0,
-            return_state=False,
-            normalized_params=False,
-            time_interval_hours=6.0,  # 根据JSON数据中的clen参数
-            area=2163.0,  # 根据JSON数据中的F参数
-        )
-
-        print(f"模型运行成功，输出形状: {result.shape}")
-        print(f"流量模拟前10个值: {result[:10, 0, 0]}")
-
-        return p_and_e, parameters, result
-
-    except Exception as e:
-        print(f"测试失败: {e}")
-        traceback.print_exc()
-        return None, None, None
-
-
-if __name__ == "__main__":
-    # 运行测试
-    test_sms_lag_integration()

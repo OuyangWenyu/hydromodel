@@ -15,7 +15,7 @@ jobs:
             - name: Setup Python
               uses: actions/setup-python@v4
               with:
-                  python-version: "3.10"
+                  python-version: "3.11"
             - name: Install uv
               uses: astral-sh/setup-uv@v3
               with:
@@ -24,7 +24,7 @@ jobs:
               uses: conda-incubator/setup-miniconda@v2
               with:
                   auto-activate-base: true
-                  python-version: "3.10"
+                  python-version: "3.11"
             - name: Install GDAL
               run: conda install -c conda-forge gdal --yes
             - name: Test GDAL installation

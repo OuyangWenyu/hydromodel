@@ -320,7 +320,7 @@ def lag3_routing_vectorized(
     ri: np.ndarray,
     rg: np.ndarray,
     time_interval: float,
-    area: float,
+    basin_area: float,
     ci: float,
     cg: float,
     lag: float,
@@ -343,7 +343,7 @@ def lag3_routing_vectorized(
         地表水、壤中水、地下水产流量
     time_interval : float
         时间间隔
-    area : float
+    basin_area : float
         流域面积
     ci, cg : float
         消退系数
@@ -370,7 +370,7 @@ def lag3_routing_vectorized(
     time_steps = len(rs)
 
     # 单位转换系数
-    cp = area / time_interval / 3.6
+    cp = basin_area / time_interval / 3.6
 
     # 参数时段转换
     ci = np.power(ci, time_interval / 24.0)
@@ -504,12 +504,12 @@ def xaj_slw(
         如果return_state为False: QSim数组 [时间, 流域, 1]
         如果return_state为True: (QSim, runoffSim, rs, ri, rg, pe, wu, wl, wd)元组
     """
-    if "area" not in kwargs:
-        raise KeyError("area must be provided")
+    if "basin_area" not in kwargs:
+        raise KeyError("basin_area must be provided")
 
     time_steps, num_basins, _ = p_and_e.shape
     time_interval = kwargs.get("time_interval_hours", 1.0)
-    area = kwargs.get("area", None)  # km^2
+    basin_area = kwargs.get("basin_area", None)  # km^2
 
     # Process parameters using unified parameter handling
     processed_parameters = parameters.copy()
@@ -526,14 +526,14 @@ def xaj_slw(
     wlp = processed_parameters[:, 1]  # Initial lower layer tension water
     wdp = processed_parameters[:, 2]  # Initial deep layer tension water
     sp = processed_parameters[:, 3]  # Initial free water storage
-    frp = processed_parameters[:, 4]  # Initial runoff area ratio
+    frp = processed_parameters[:, 4]  # Initial runoff basin_area ratio
     wm = processed_parameters[:, 5]  # Total tension water capacity
     wumx = processed_parameters[:, 6]  # Upper layer capacity ratio
     wlmx = processed_parameters[:, 7]  # Lower layer capacity ratio
     kc = processed_parameters[:, 8]  # Evaporation coefficient
     b = processed_parameters[:, 9]  # Exponent of tension water capacity curve
     c = processed_parameters[:, 10]  # Deep evapotranspiration coefficient
-    im = processed_parameters[:, 11]  # Impervious area ratio
+    im = processed_parameters[:, 11]  # Impervious basin_area ratio
     sm = processed_parameters[:, 12]  # Average free water capacity
     ex = processed_parameters[:, 13]  # Exponent of free water capacity curve
     kg = processed_parameters[:, 14]  # Groundwater outflow coefficient
@@ -686,7 +686,7 @@ def xaj_slw(
             ri_basin,
             rg_basin,
             time_interval,
-            area,
+            basin_area,
             ci[basin_idx],
             cg[basin_idx],
             lag[basin_idx],
@@ -865,7 +865,7 @@ def load_sms_lag_data_from_json(
                 float(sms_data["WLP"]),  # 1: Initial lower layer tension water
                 float(sms_data["WDP"]),  # 2: Initial deep layer tension water
                 float(sms_data["SP"]),  # 3: Initial free water storage
-                float(sms_data["FRP"]),  # 4: Initial runoff area ratio
+                float(sms_data["FRP"]),  # 4: Initial runoff basin_area ratio
                 float(sms_data["WM"]),  # 5: Total tension water capacity
                 float(sms_data["WUMx"]),  # 6: Upper layer capacity ratio
                 float(sms_data["WLMx"]),  # 7: Lower layer capacity ratio
@@ -876,7 +876,7 @@ def load_sms_lag_data_from_json(
                 float(
                     sms_data["C"]
                 ),  # 10: Deep evapotranspiration coefficient
-                float(sms_data["IM"]),  # 11: Impervious area ratio
+                float(sms_data["IM"]),  # 11: Impervious basin_area ratio
                 float(sms_data["SM"]),  # 12: Average free water capacity
                 float(
                     sms_data["EX"]

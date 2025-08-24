@@ -24,10 +24,17 @@ def calculate_dhf_evapotranspiration(
     potential_evapotranspiration: np.ndarray,
     kc: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Calculate evapotranspiration and net precipitation for DHF model
+    """Calculate evapotranspiration and net precipitation for DHF model.
 
     TODO: We writes some atomic functions for DHF model, but it is not used yet.
 
+    Args:
+        precipitation (np.ndarray): Precipitation values
+        potential_evapotranspiration (np.ndarray): Potential evapotranspiration values
+        kc (np.ndarray): Evaporation coefficient
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Net precipitation (pe) and evapotranspiration (edt)
     """
     edt = kc * potential_evapotranspiration
     pe = precipitation - edt  # net precipitation
@@ -42,7 +49,18 @@ def calculate_dhf_surface_runoff(
     a: np.ndarray,
     g: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Calculate surface runoff and impervious area runoff"""
+    """Calculate surface runoff and impervious area runoff.
+
+    Args:
+        pe (np.ndarray): Net precipitation
+        sa (np.ndarray): Surface water storage
+        s0 (np.ndarray): Surface storage capacity
+        a (np.ndarray): Surface storage exponent
+        g (np.ndarray): Impervious area ratio
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, np.ndarray]: Impervious area runoff (y0), net infiltration (pc), and surface runoff (rr)
+    """
     y0 = g * pe  # impervious area runoff
     pc = pe - y0  # net infiltration
 
@@ -75,7 +93,21 @@ def calculate_dhf_subsurface_flow(
     kw: np.ndarray,
     time_interval: float,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Calculate subsurface flow components"""
+    """Calculate subsurface flow components.
+
+    Args:
+        rr (np.ndarray): Surface runoff
+        ua (np.ndarray): Subsurface water storage
+        u0 (np.ndarray): Subsurface storage capacity
+        d0 (np.ndarray): Deep storage capacity
+        b (np.ndarray): Subsurface storage exponent
+        k2 (np.ndarray): Percolation coefficient
+        kw (np.ndarray): Subsurface flow coefficient
+        time_interval (float): Time interval in hours
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, np.ndarray]: Total flow (y), interflow (yu), and groundwater runoff (yl)
+    """
     # Calculate subsurface flow parameters
     temp = np.where(ua > 0, (1 - ua / u0) ** (1 / b), 0.0)
     un = b * u0 * (1 - temp)
@@ -121,7 +153,21 @@ def calculate_dhf_storage_update(
     u0: np.ndarray,
     a: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Update water storage states"""
+    """Update water storage states.
+
+    Args:
+        sa (np.ndarray): Surface water storage
+        ua (np.ndarray): Subsurface water storage
+        pc (np.ndarray): Net infiltration
+        rr (np.ndarray): Surface runoff
+        y (np.ndarray): Total flow
+        s0 (np.ndarray): Surface storage capacity
+        u0 (np.ndarray): Subsurface storage capacity
+        a (np.ndarray): Surface storage exponent
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Updated surface storage (sa_new) and subsurface storage (ua_new)
+    """
     # Calculate surface water storage parameters
     temp = np.where(sa > 0, (1 - sa / s0) ** (1 / a), 0.0)
     sm = a * s0 * (1 - temp)
@@ -155,7 +201,20 @@ def calculate_dhf_evaporation_deficit(
     u0: np.ndarray,
     a: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Calculate evaporation when precipitation is insufficient"""
+    """Calculate evaporation when precipitation is insufficient.
+
+    Args:
+        precipitation (np.ndarray): Precipitation values
+        edt (np.ndarray): Evapotranspiration demand
+        sa (np.ndarray): Surface water storage
+        ua (np.ndarray): Subsurface water storage
+        s0 (np.ndarray): Surface storage capacity
+        u0 (np.ndarray): Subsurface storage capacity
+        a (np.ndarray): Surface storage exponent
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Updated surface storage (sa_new) and subsurface storage (ua_new) after evaporation
+    """
     ec = edt - precipitation
     eb = ec  # accumulated deficit
 
@@ -198,7 +257,26 @@ def calculate_dhf_routing_params(
     time_interval: float,
     pai: float,
 ):
-    """Calculate routing parameters for DHF model"""
+    """Calculate routing parameters for DHF model.
+
+    Args:
+        ya (np.ndarray): Precedent rain parameter
+        runoff_sim (np.ndarray): Simulated runoff
+        l (np.ndarray): Main channel length
+        b0 (np.ndarray): Routing parameter b0
+        k0 (np.ndarray): Routing parameter k0
+        n (np.ndarray): Routing parameter n
+        coe (np.ndarray): Routing coefficient
+        dd (np.ndarray): Surface routing parameter dd
+        cc (np.ndarray): Surface routing parameter cc
+        ddl (np.ndarray): Subsurface routing parameter ddl
+        ccl (np.ndarray): Subsurface routing parameter ccl
+        time_interval (float): Time interval in hours
+        pai (float): Pi constant
+
+    Returns:
+        Tuple[np.ndarray, ...]: Routing parameters including tm, k3, k3l, aa, aal, tt, ts
+    """
     # Ensure ya >= 0.5 for stability
     ya = np.maximum(ya, 0.5)
 
@@ -272,7 +350,28 @@ def calculate_dhf_routing(
     time_steps: int,
     pai: float,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Calculate routing for DHF model"""
+    """Calculate routing for DHF model.
+
+    Args:
+        runoff_sim (np.ndarray): Simulated runoff
+        rl (np.ndarray): Subsurface flow
+        tm (np.ndarray): Time parameter
+        k3 (np.ndarray): Surface routing coefficient
+        k3l (np.ndarray): Subsurface routing coefficient
+        aa (np.ndarray): Surface routing parameter aa
+        aal (np.ndarray): Subsurface routing parameter aal
+        tt (np.ndarray): Time index for subsurface flow
+        ts (np.ndarray): Time index for surface flow
+        dd (np.ndarray): Surface routing parameter dd
+        cc (np.ndarray): Surface routing parameter cc
+        ddl (np.ndarray): Subsurface routing parameter ddl
+        ccl (np.ndarray): Subsurface routing parameter ccl
+        time_steps (int): Number of time steps
+        pai (float): Pi constant
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Surface flow (qs) and subsurface flow (ql)
+    """
     qs = np.zeros_like(runoff_sim)
     ql = np.zeros_like(runoff_sim)
 
@@ -356,57 +455,46 @@ def dhf(
         Dict[str, np.ndarray],
     ],  # return_state=True, return_warmup_states=True
 ]:
-    """
-    Vectorized DHF (Dahuofang) hydrological model - fully parallelized version
+    """Vectorized DHF (Dahuofang) hydrological model - fully parallelized version.
 
     This function implements the DHF model with full NumPy vectorization,
     processing all basins simultaneously using [seq, basin, feature] tensor operations.
 
-    Parameters
-    ----------
-    p_and_e : np.ndarray
-        precipitation and potential evapotranspiration, 3-dim: [time, basin, feature=2]
-        where feature=0 is precipitation, feature=1 is potential evapotranspiration
-    parameters : np.ndarray
-        model parameters, 2-dim: [basin, parameter]
-        Parameters: [S0, U0, D0, KC, KW, K2, KA, G, A, B, B0, K0, N, DD, CC, COE, DDL, CCL]
-    warmup_length : int, optional
-        the length of warmup period (default: 365)
-    return_state : bool, optional
-        if True, return internal state variables (default: False)
-    return_warmup_states : bool, optional
-        if True, return initial states after warmup period (default: False)
-        Returns a dict with keys: "sa0", "ua0", "ya0" containing initial states
-    normalized_params : Union[bool, str], optional
-        parameter format specification:
-        - "auto": automatically detect parameter format (default)
-        - True: parameters are normalized (0-1 range), convert to original scale
-        - False: parameters are already in original scale, use as-is
-    **kwargs
-        Additional keyword arguments, including
-        - time_interval_hours (default: 3.0)
-        - main_river_length (default: None) means length of the main channel (km), for example, dahuofang's is 155.763
-        - basin_area (default: None) means basin area (km^2), for example, dahuofang's is 5482.0
-        - initial_states (default: None) dict to override specific initial state values after warmup,
-          e.g., {"sa0": 10, "ya0": 15} will set sa0=10 and ya0=15 for all basins after warmup
+    Args:
+        p_and_e (np.ndarray): Precipitation and potential evapotranspiration, 3-dim: [time, basin, feature=2]
+            where feature=0 is precipitation, feature=1 is potential evapotranspiration
+        parameters (np.ndarray): Model parameters, 2-dim: [basin, parameter]
+            Parameters: [S0, U0, D0, KC, KW, K2, KA, G, A, B, B0, K0, N, DD, CC, COE, DDL, CCL]
+        warmup_length (int, optional): The length of warmup period (default: 365)
+        return_state (bool, optional): If True, return internal state variables (default: False)
+        return_warmup_states (bool, optional): If True, return initial states after warmup period (default: False)
+            Returns a dict with keys: "sa0", "ua0", "ya0" containing initial states
+        normalized_params (Union[bool, str], optional): Parameter format specification:
+            - "auto": automatically detect parameter format (default)
+            - True: parameters are normalized (0-1 range), convert to original scale
+            - False: parameters are already in original scale, use as-is
+        **kwargs: Additional keyword arguments, including:
+            - time_interval_hours (default: 3.0)
+            - main_river_length (default: None) means length of the main channel (km), for example, dahuofang's is 155.763
+            - basin_area (default: None) means basin area (km^2), for example, dahuofang's is 5482.0
+            - initial_states (default: None) dict to override specific initial state values after warmup,
+              e.g., {"sa0": 10, "ya0": 15} will set sa0=10 and ya0=15 for all basins after warmup
 
-    Returns
-    -------
-    result : np.ndarray or tuple
-        Depends on return_state and return_warmup_states parameters:
+    Returns:
+        Union[np.ndarray, Tuple]: Depends on return_state and return_warmup_states parameters:
 
         - return_state=False, return_warmup_states=False:
-          QSim array [time, basin, 1]
+            QSim array [time, basin, 1]
 
         - return_state=False, return_warmup_states=True:
-          (QSim, warmup_states_dict) where warmup_states_dict contains
-          {"sa0": [basin], "ua0": [basin], "ya0": [basin]}
+            (QSim, warmup_states_dict) where warmup_states_dict contains
+            {"sa0": [basin], "ua0": [basin], "ya0": [basin]}
 
         - return_state=True, return_warmup_states=False:
-          (QSim, runoffSim, y0, yu, yl, y, sa, ua, ya)
+            (QSim, runoffSim, y0, yu, yl, y, sa, ua, ya)
 
         - return_state=True, return_warmup_states=True:
-          (QSim, runoffSim, y0, yu, yl, y, sa, ua, ya, warmup_states_dict)
+            (QSim, runoffSim, y0, yu, yl, y, sa, ua, ya, warmup_states_dict)
     """
 
     # Get data dimensions

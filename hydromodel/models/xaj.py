@@ -4,7 +4,7 @@ Date: 2021-12-10 23:01:02
 LastEditTime: 2025-08-24 17:42:37
 LastEditors: Wenyu Ouyang
 Description: Core code for XinAnJiang model
-FilePath: \hydromodel\hydromodel\models\xaj.py
+FilePath: /hydromodel/hydromodel/models/xaj.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 

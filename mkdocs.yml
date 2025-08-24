@@ -43,6 +43,7 @@ plugins:
     - git-revision-date-localized:
           enable_creation_date: true
           type: timeago
+          enable_git_follow: false
     # - pdf-export
     - mkdocs-jupyter:
           include_source: True
@@ -91,3 +92,4 @@ nav:
           - Common Utilities: common.md
           - Models:
               - XinAnJiang (XAJ): models/xaj.md
+              - Dahuofang (DHF): models/dhf.md

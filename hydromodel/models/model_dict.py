@@ -1,14 +1,4 @@
 """
-Author: zhuanglaihong
-Date: 2025-03-24 13:43:14
-LastEditTime: 2025-03-29 01:03:48
-LastEditors: zhuanglaihong
-Description:
-FilePath: /zlh/hydromodel/hydromodel/models/model_dict.py
-Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
-"""
-
-"""
 Author: Wenyu Ouyang
 Date: 2025-02-18 10:20:58
 LastEditTime: 2025-03-17 11:59:09
@@ -35,7 +25,7 @@ from hydromodel.models.unit_hydrograph import (
     categorized_unit_hydrograph,
 )
 from hydromodel.models.dhf import dhf
-
+from hydromodel.models.xaj_slw import xaj_slw
 
 def rmse43darr(obs, sim):
     """RMSE for 3D array
@@ -87,4 +77,5 @@ MODEL_DICT = {
     "unit_hydrograph": unit_hydrograph,
     "categorized_unit_hydrograph": categorized_unit_hydrograph,
     "dhf": dhf,
+    "xaj_slw": xaj_slw,
 }

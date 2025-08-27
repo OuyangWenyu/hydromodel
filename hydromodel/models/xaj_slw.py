@@ -739,7 +739,7 @@ def xaj_slw(
             wd_out,
         )
         if return_warmup_states and warmup_states is not None:
-            return result, warmup_states
+            return result + (warmup_states,)
         else:
             return result
     else:

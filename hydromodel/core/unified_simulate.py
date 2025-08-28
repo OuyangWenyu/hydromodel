@@ -15,82 +15,7 @@ from collections import OrderedDict
 from hydroutils.hydro_event import find_flood_event_segments_as_tuples
 from hydromodel.models.model_dict import MODEL_DICT
 from .basin import Basin
-
-
-def get_model_output_names(model_name, return_state=False):
-    """
-    Get the names of output variables for different models.
-
-    Parameters
-    ----------
-    model_name : str
-        Name of the model
-    return_state : bool
-        Whether state variables are returned
-
-    Returns
-    -------
-    list
-        List of output variable names
-    """
-    # Base output for most models
-    base_outputs = {
-        "xaj": (
-            ["qsim", "es"]
-            if not return_state
-            else ["qsim", "es", "w", "s", "fr", "qi", "qg"]
-        ),
-        "xaj_mz": (
-            ["qsim", "es"]
-            if not return_state
-            else ["qsim", "es", "w", "s", "fr", "qi", "qg"]
-        ),
-        "dhf": (
-            ["qsim"]
-            if not return_state
-            else [
-                "qsim",
-                "runoff",
-                "y0",
-                "yu",
-                "yl",
-                "y",
-                "sa",
-                "ua",
-                "Pa",
-            ]
-        ),
-        "hymod": (
-            ["qsim", "et"]
-            if not return_state
-            else ["qsim", "et", "x_slow", "x_quick", "x_loss"]
-        ),
-        "gr1a": (
-            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s"]
-        ),
-        "gr2m": (
-            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s"]
-        ),
-        "gr3j": (
-            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s", "r"]
-        ),
-        "gr4j": (
-            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s", "r"]
-        ),
-        "gr5j": (
-            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s", "r"]
-        ),
-        "gr6j": (
-            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s", "r"]
-        ),
-        "semi_xaj": ["qsim"],  # Semi-XAJ typically returns only streamflow
-        "unit_hydrograph": ["qsim"],
-        "categorized_unit_hydrograph": ["qsim"],
-    }
-
-    return base_outputs.get(
-        model_name, ["output_0", "output_1", "output_2"]
-    )  # fallback names
+from .model_factory import model_factory
 
 
 class UnifiedSimulator:
@@ -134,13 +59,6 @@ class UnifiedSimulator:
             If None, unit conversion will be disabled.
         """
         self.model_config = model_config
-
-        # Extract model information
-        self.model_name = self.model_config["model_name"]
-        self.model_params = self.model_config.get("model_params", {})
-        self.parameters = OrderedDict(self.model_config.get("parameters", {}))
-
-        # Store basin configuration
         if basin_config is not None:
             if isinstance(basin_config, dict):
                 self.basin = Basin.from_config(basin_config)
@@ -149,34 +67,8 @@ class UnifiedSimulator:
         else:
             self.basin = None
 
-        # Validate model exists
-        if self.model_name not in MODEL_DICT:
-            raise ValueError(
-                f"Model '{self.model_name}' not found in MODEL_DICT"
-            )
-
-        # Get model function
-        self.model_function = MODEL_DICT[self.model_name]
-
-        # Setup parameter handling (convert dict to array format)
-        self._setup_parameters()
-
-    def _setup_parameters(self):
-        """
-        Setup model parameters for simulation.
-        Convert parameter dictionary to array format expected by models.
-        """
-        if not self.parameters:
-            raise ValueError(
-                f"Model {self.model_name} requires parameters to be specified"
-            )
-        # Convert parameter dictionary to list format
-        param_names = list(self.parameters.keys())
-        param_values = list(self.parameters.values())
-
-        # Store parameter info for later use when we know number of basins
-        self.param_names = param_names
-        self.param_values = np.expand_dims(param_values, axis=0)
+        # Use the factory to get the correct model instance
+        self.model = model_factory(self.model_config, self.basin)
 
     def simulate(
         self,
@@ -232,29 +124,17 @@ class UnifiedSimulator:
                 f"Input data must be 3D array [time, basin, features], got shape {inputs.shape}"
             )
 
-        # Handle different simulation scenarios
-        if is_event_data:
-            # Event data with traditional models
-            simulation_result = self._simulate_event_data(
-                inputs,
-                warmup_length,
-                return_intermediate,
-                return_warmup_states,
-                **kwargs,
-            )
-        else:
-            # Standard simulation
-            simulation_result = self._simulate_continuous_data(
-                inputs,
-                warmup_length,
-                return_intermediate,
-                return_warmup_states,
-                **kwargs,
-            )
+        return self.model.simulate(
+            inputs,
+            qobs,
+            warmup_length,
+            is_event_data,
+            return_intermediate,
+            return_warmup_states,
+            **kwargs
+        )
 
-        return simulation_result
-
-    def _process_model_result(
+    '''def _process_model_result(
         self,
         model_result,
         output_names,
@@ -306,7 +186,7 @@ class UnifiedSimulator:
                 # Unit hydrograph models return single array
                 result_dict = {output_names[0]: model_result}
 
-        return result_dict
+        return result_dict'''
 
     def trans_sim_results_unit(
         self,
@@ -394,7 +274,7 @@ class UnifiedSimulator:
             }
         return converted_simulation, unitconv_metadata
 
-    def _simulate_continuous_data(
+    '''def _simulate_continuous_data(
         self,
         inputs: np.ndarray,
         warmup_length: int,
@@ -534,4 +414,4 @@ class UnifiedSimulator:
         if return_warmup_states and event_warmup_states is not None:
             final_output["warmup_states"] = event_warmup_states
 
-        return final_output
+        return final_output'''

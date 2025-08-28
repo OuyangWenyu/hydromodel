@@ -6,11 +6,85 @@ from hydroutils import find_flood_event_segments_as_tuples
 from joblib.testing import param
 
 from hydromodel.models.model_dict import MODEL_DICT
-from hydromodel.core.unified_simulate import get_model_output_names, UnifiedSimulator
 from .basin import Basin
 
 
 ModelResult = np.ndarray | tuple[Any, ...]
+
+def get_model_output_names(model_name, return_state=False):
+    """
+    Get the names of output variables for different models.
+
+    Parameters
+    ----------
+    model_name : str
+        Name of the model
+    return_state : bool
+        Whether state variables are returned
+
+    Returns
+    -------
+    list
+        List of output variable names
+    """
+    # Base output for most models
+    base_outputs = {
+        "xaj": (
+            ["qsim", "es"]
+            if not return_state
+            else ["qsim", "es", "w", "s", "fr", "qi", "qg"]
+        ),
+        "xaj_mz": (
+            ["qsim", "es"]
+            if not return_state
+            else ["qsim", "es", "w", "s", "fr", "qi", "qg"]
+        ),
+        "dhf": (
+            ["qsim"]
+            if not return_state
+            else [
+                "qsim",
+                "runoff",
+                "y0",
+                "yu",
+                "yl",
+                "y",
+                "sa",
+                "ua",
+                "Pa",
+            ]
+        ),
+        "hymod": (
+            ["qsim", "et"]
+            if not return_state
+            else ["qsim", "et", "x_slow", "x_quick", "x_loss"]
+        ),
+        "gr1a": (
+            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s"]
+        ),
+        "gr2m": (
+            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s"]
+        ),
+        "gr3j": (
+            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s", "r"]
+        ),
+        "gr4j": (
+            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s", "r"]
+        ),
+        "gr5j": (
+            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s", "r"]
+        ),
+        "gr6j": (
+            ["qsim", "ets"] if not return_state else ["qsim", "ets", "s", "r"]
+        ),
+        "semi_xaj": ["qsim"],  # Semi-XAJ typically returns only streamflow
+        "unit_hydrograph": ["qsim"],
+        "categorized_unit_hydrograph": ["qsim"],
+    }
+
+    return base_outputs.get(
+        model_name, ["output_0", "output_1", "output_2"]
+    )  # fallback names
 
 class TraditionalModel:
     """
@@ -63,6 +137,9 @@ class TraditionalModel:
         # Get model function
         self.model_function = MODEL_DICT[self.model_name]
 
+        # Setup parameter handling (convert dict to array format)
+        self._setup_parameters()
+
     def _setup_parameters(self):
         """
         Setup model parameters for simulation.
@@ -72,9 +149,9 @@ class TraditionalModel:
             raise ValueError(
                 f"Model '{self.model_name}' requires parameters to be specified"
             )
-        #Convert parameter dictionary to lisr format
+        #Convert parameter dictionary to list format
         param_names = list(self.parameters.keys())
-        param_values = self.parameters.values()
+        param_values = list(self.parameters.values())
 
         #Store parameter info for later use when we know number of basins
         self.param_names = param_names
@@ -156,8 +233,9 @@ class TraditionalModel:
 
         return simulation_result
 
-    @staticmethod
+
     def _process_model_result(
+        self,
         model_result: ModelResult,
         output_names: List[str],
         return_warmup_states: bool,
@@ -188,9 +266,9 @@ class TraditionalModel:
             ):
                 # Extract warmup states and process remaining results
                 warmup_states = model_result[-1]
-                model_array = model_result[-1]
+                model_arrays = model_result[:-1]
                 result_dict = {
-                    name: arr for name, arr in zip(output_names, model_result)
+                    name: arr for name, arr in zip(output_names, model_arrays)
                 }
                 result_dict["warmup_states"] = warmup_states
             else:
@@ -202,12 +280,13 @@ class TraditionalModel:
             # Handle single array or tuple with warmup_states
             if return_warmup_states and isinstance(model_result, tuple):
                 # Single array + warmup_states case
-                result_dict = {
-                    output_names[0]: model_result[0],
-                    "warmup_states": model_result[1]
-                }
+                result_dict = {output_names[0]: model_result[0]}
+                result_dict["warmup_states"] = model_result[1]
             else:
+                # Unit hydrograph models return single array
                 result_dict = {output_names[0]: model_result}
+
+        return result_dict
 
     def _simulate_continuous_data(
         self,
@@ -217,9 +296,9 @@ class TraditionalModel:
         return_warmup_states: bool,
         **kwargs,
     ) -> Dict[str, Any]:
-        """Standard simulation with continuous data."""
+        """Standard simulation for continuous data."""
         # Prepare model configuration
-        model_config = dict(self.model_config)
+        model_config = dict(self.model_params)
         model_config.update(kwargs)
 
         # Run model simulation
@@ -229,13 +308,12 @@ class TraditionalModel:
             warmup_length=warmup_length,
             return_state=return_intermediate,
             return_warmup_states=return_warmup_states,
-            **model_config
+            **model_config,
         )
 
         # Convert model_result to dictionary based on model output names
         output_names = get_model_output_names(
-            self.model_name,
-            return_intermediate
+            self.model_name, return_intermediate
         )
 
         result_dict = self._process_model_result(
@@ -252,55 +330,55 @@ class TraditionalModel:
         return_warmup_states: bool,
         **kwargs,
     ) -> Dict[str, Any]:
-        """Special simulation for event data with traditional models"""
+        """Special simulation for event data with traditional models."""
         # Validate that flood_event markers are present
         if inputs.shape[2] < 3:
             raise ValueError(
                 "Event data simulation requires flood_event markers. "
                 f"Expected input shape [time, basin, 3] with features [rain, pet, flood_event], "
-                f"but got shape {inputs.shape}"
+                f"but got shape {inputs.shape}."
             )
 
-        # Initialize output array and warmup stated storage
+        # Initialize output array and warmup states storage
         outputs = []
         event_warmup_states = None
 
         # Process each basin separately
         for basin_idx in range(inputs.shape[1]):
-            # Find event segment using flood_event markers (including warmup period)
+            # Find event segments using flood_event markers (including warmup period)
             flood_event_array = inputs[
                 :, basin_idx, 2
             ]  # feature index 2 is flood_event
             event_segments = find_flood_event_segments_as_tuples(
-                flood_event_array,
-                warmup_length
+                flood_event_array, warmup_length
             )
+
+            basin_params = self.param_values
 
             # Process each event segment
             for j, (
-                extended_start,
-                extended_end,
-                original_start,
-                original_end,
+                    extended_start,
+                    extended_end,
+                    original_start,
+                    original_end,
             ) in enumerate(event_segments):
                 # Extract event data (including warmup period)
                 event_inputs = inputs[
                     extended_start: extended_end + 1,
-                    original_start: original_end + 1,
+                    basin_idx: basin_idx + 1,
                     :,
                 ]
                 # Run model on this event segment
                 model_config = dict(self.model_params)
                 model_config.update(kwargs)
 
-                # Run model simulation
                 event_result = self.model_function(
-                    inputs,
-                    self.param_values,
+                    event_inputs,
+                    basin_params,
                     warmup_length=warmup_length,
                     return_state=return_intermediate,
                     return_warmup_states=return_warmup_states,
-                    **model_config
+                    **model_config,
                 )
 
                 # Convert event_result tuple to dictionary based on model output names
@@ -313,8 +391,8 @@ class TraditionalModel:
                 )
 
                 # Store warmup states for later use (only from first event)
-                if j == 0 and 'warmup_states' in event_dict:
-                    event_warmup_states = event_dict['warmup_states']
+                if j == 0 and "warmup_states" in event_dict:
+                    event_warmup_states = event_dict["warmup_states"]
 
                 if j == 0:
                     # Initialize output dictionaries for each variable (excluding warmup_states)
@@ -334,12 +412,13 @@ class TraditionalModel:
                     ):  # Skip warmup_states as it's not a time series
                         simulation_output[name][
                             original_start : original_end + 1,
-                            basin_idx : basin_idx + 1,
+                            basin_idx: basin_idx + 1,
                             :,
                         ] = arr
+
             outputs.append(simulation_output)
 
-        # Conbine outputs from all basins into final output dictionary
+        # Combine outputs from all basins into final output dictionary
         final_output = {}
         for var_name in outputs[0].keys():
             basin_arrays = [output[var_name] for output in outputs]

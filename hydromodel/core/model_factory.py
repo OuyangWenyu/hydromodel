@@ -1,9 +1,9 @@
 from typing import Dict, Any
-from traditional_model import TraditionalModel
+from hydromodel.core.traditional_model import TraditionalModel
 
 # We need to handle the case where torch is not installed
 try:
-    from hydromodel.models.torch_model import PytorchModel
+    from hydromodel.core.torch_model import PytorchModel
 
     TORCH_AVAILABLE = True
 except ImportError:

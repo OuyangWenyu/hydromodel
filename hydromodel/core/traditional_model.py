@@ -1,13 +1,16 @@
 import numpy as np
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, List
 from collections import OrderedDict
 
+from hydroutils import find_flood_event_segments_as_tuples
 from joblib.testing import param
 
 from hydromodel.models.model_dict import MODEL_DICT
 from hydromodel.core.unified_simulate import get_model_output_names, UnifiedSimulator
 from .basin import Basin
 
+
+ModelResult = np.ndarray | tuple[Any, ...]
 
 class TraditionalModel:
     """
@@ -131,23 +134,219 @@ class TraditionalModel:
                 f"Input data must be 3D array [time, basin, features], got shape {inputs.ndim}"
             )
 
+        # Handle different simulation scenarios
+        if is_event_data:
+            # Event data with traditional models
+            simulation_result = self._simulate_event_data(
+                inputs,
+                warmup_length,
+                return_intermediate,
+                return_warmup_states,
+                **kwargs,
+            )
+        else:
+            # Standard simulation
+            simulation_result = self._simulate_continuous_data(
+                inputs,
+                warmup_length,
+                return_intermediate,
+                return_warmup_states,
+                **kwargs,
+            )
+
+        return simulation_result
+
+    @staticmethod
+    def _process_model_result(
+        model_result: ModelResult,
+        output_names: List[str],
+        return_warmup_states: bool,
+    ):
+        """
+        Process model result into dictionary format.
+
+        Parameters
+        ----------
+        model_result : tuple or np.ndarray
+            Raw model output
+        output_names : list
+            List of output variable names
+        return_warmup_states : bool
+            Whether warmup states should be included
+
+        Returns
+        -------
+        dict
+            Dictionary containing processed model results
+        """
+        if isinstance(model_result, tuple):
+            # Check if last element is warmup_states dict
+            if (
+                return_warmup_states
+                and len(model_result) > len(output_names)
+                and isinstance(model_result[-1], dict)
+            ):
+                # Extract warmup states and process remaining results
+                warmup_states = model_result[-1]
+                model_array = model_result[-1]
+                result_dict = {
+                    name: arr for name, arr in zip(output_names, model_result)
+                }
+                result_dict["warmup_states"] = warmup_states
+            else:
+                # Traditional case without warmup states
+                result_dict = {
+                    name: arr for name, arr in zip(output_names, model_result)
+                }
+        else:
+            # Handle single array or tuple with warmup_states
+            if return_warmup_states and isinstance(model_result, tuple):
+                # Single array + warmup_states case
+                result_dict = {
+                    output_names[0]: model_result[0],
+                    "warmup_states": model_result[1]
+                }
+            else:
+                result_dict = {output_names[0]: model_result}
+
+    def _simulate_continuous_data(
+        self,
+        inputs: np.ndarray,
+        warmup_length: int,
+        return_intermediate: bool,
+        return_warmup_states: bool,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Standard simulation with continuous data."""
+        # Prepare model configuration
+        model_config = dict(self.model_config)
+        model_config.update(kwargs)
+
+        # Run model simulation
         model_result = self.model_function(
             inputs,
             self.param_values,
             warmup_length=warmup_length,
             return_state=return_intermediate,
             return_warmup_states=return_warmup_states,
-            **self.model_params
+            **model_config
         )
 
-        output_names = get_model_output_names(self.model_name, return_intermediate)
+        # Convert model_result to dictionary based on model output names
+        output_names = get_model_output_names(
+            self.model_name,
+            return_intermediate
+        )
 
-        # This processing logic is simplified from UnifiedSimulator._process_model_result
-        if isinstance(model_result, tuple):
-            result_dict = {name: arr for name, arr in zip(output_names, model_result)}
-        else:
-            result_dict = {output_names[0]: model_result}
+        result_dict = self._process_model_result(
+            model_result, output_names, return_warmup_states
+        )
 
         return result_dict
 
+    def _simulate_event_data(
+        self,
+        inputs: np.ndarray,
+        warmup_length: int,
+        return_intermediate: bool,
+        return_warmup_states: bool,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Special simulation for event data with traditional models"""
+        # Validate that flood_event markers are present
+        if inputs.shape[2] < 3:
+            raise ValueError(
+                "Event data simulation requires flood_event markers. "
+                f"Expected input shape [time, basin, 3] with features [rain, pet, flood_event], "
+                f"but got shape {inputs.shape}"
+            )
 
+        # Initialize output array and warmup stated storage
+        outputs = []
+        event_warmup_states = None
+
+        # Process each basin separately
+        for basin_idx in range(inputs.shape[1]):
+            # Find event segment using flood_event markers (including warmup period)
+            flood_event_array = inputs[
+                :, basin_idx, 2
+            ]  # feature index 2 is flood_event
+            event_segments = find_flood_event_segments_as_tuples(
+                flood_event_array,
+                warmup_length
+            )
+
+            # Process each event segment
+            for j, (
+                extended_start,
+                extended_end,
+                original_start,
+                original_end,
+            ) in enumerate(event_segments):
+                # Extract event data (including warmup period)
+                event_inputs = inputs[
+                    extended_start: extended_end + 1,
+                    original_start: original_end + 1,
+                    :,
+                ]
+                # Run model on this event segment
+                model_config = dict(self.model_params)
+                model_config.update(kwargs)
+
+                # Run model simulation
+                event_result = self.model_function(
+                    inputs,
+                    self.param_values,
+                    warmup_length=warmup_length,
+                    return_state=return_intermediate,
+                    return_warmup_states=return_warmup_states,
+                    **model_config
+                )
+
+                # Convert event_result tuple to dictionary based on model output names
+                output_names = get_model_output_names(
+                    self.model_name, return_intermediate
+                )
+
+                event_dict = self._process_model_result(
+                    event_result, output_names, return_warmup_states
+                )
+
+                # Store warmup states for later use (only from first event)
+                if j == 0 and 'warmup_states' in event_dict:
+                    event_warmup_states = event_dict['warmup_states']
+
+                if j == 0:
+                    # Initialize output dictionaries for each variable (excluding warmup_states)
+                    simulation_output = {}
+                    for name, arr in event_dict.items():
+                        if (
+                            name != "warmup_states"
+                        ):  # Skip warmup_states as it's not a time series
+                            simulation_output[name] = np.zeros(
+                                (inputs.shape[0], inputs.shape[1], 1)
+                            )
+
+                # Save the event result to its location in long time series data (excluding warmup_states)
+                for name, arr in event_dict.items():
+                    if (
+                        name != "warmup_states"
+                    ):  # Skip warmup_states as it's not a time series
+                        simulation_output[name][
+                            original_start : original_end + 1,
+                            basin_idx : basin_idx + 1,
+                            :,
+                        ] = arr
+            outputs.append(simulation_output)
+
+        # Conbine outputs from all basins into final output dictionary
+        final_output = {}
+        for var_name in outputs[0].keys():
+            basin_arrays = [output[var_name] for output in outputs]
+            final_output[var_name] = np.concatenate(basin_arrays, axis=1)
+
+        # Add warmup states if requested and available
+        if return_warmup_states and event_warmup_states is not None:
+            final_output["warmup_states"] = event_warmup_states
+
+        return final_output

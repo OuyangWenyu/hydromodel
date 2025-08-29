@@ -14,15 +14,46 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from hydromodel.models.xaj_slw import xaj_slw, load_sms_lag_data_from_json
 
 
-def test_xaj_slw_with_example_data():
+def load_data_from_csv(csv_file_path):
+    """
+    从CSV文件中读取降雨和蒸发数据
+    Args:
+        csv_file_path: CSV文件路径
+    Returns:
+        p_and_e: numpy数组，shape为(n, 1, 2)，其中n为时间步数，
+                第一列为降雨，第二列为蒸发
+        dt: 时间序列列表
+    """
+    # 读取CSV文件
+    df = pd.read_csv(csv_file_path)
+
+    # 获取降雨和ES数据
+    rain = df["rain"].values
+    es = df["ES"].values
+    dt = df["time"].values
+
+    # 构建p_and_e数组
+    p_and_e = np.zeros((len(rain), 1, 2))
+    p_and_e[:, 0, 0] = rain
+
+    # 设置每个时间步的ES值
+    p_and_e[:, 0, 1] = es
+
+    return p_and_e, dt.tolist()
+
+
+def test_xaj_slw_with_example_data(use_csv=False):
     """
     使用示例数据测试XAJ-SLW模型，输出中间变量用于与Java版本对比
+    Args:
+        use_csv: 是否使用CSV文件读取降雨和蒸发数据，默认为False使用JSON文件
     """
     print("开始测试XAJ-SLW模型...")
 
     # 加载测试数据
-    sms_json_file = "/home/zlh/hydromodel/data/sms_3_data.json"
-    lag_json_file = "/home/zlh/hydromodel/data/lag_3_data.json"
+    sms_json_file = "hydromodel/data/sms_3_data.json"
+    lag_json_file = "hydromodel/data/lag_3_data.json"
+    csv_file = "hydromodel/data/xaj_java_data.csv"
 
     try:
         # 加载和解析数据
@@ -31,26 +62,43 @@ def test_xaj_slw_with_example_data():
         with open(lag_json_file, "r", encoding="utf-8") as f:
             lag_data = json.load(f)
 
-        # 构建输入数据
-        rain = np.array(sms_data["rain"])
-        dt = sms_data["dt"]
-        es = np.array(sms_data["ES"])
-        time_interval = float(sms_data.get("clen", 6.0))
+        # 根据数据来源选择不同的数据加载方式
+        if use_csv:
+            # 从CSV文件读取降雨和蒸发数据
+            p_and_e, dt = load_data_from_csv(csv_file)
+            time_interval = float(sms_data.get("clen", 6.0))
+        else:
+            # 使用原有的JSON文件方式
+            rain = np.array(sms_data["rain"])
+            dt = sms_data["dt"]
+            es = np.array(sms_data["ES"])
+            time_interval = float(sms_data.get("clen", 6.0))
 
-        # 计算蒸发量
-        evap = np.zeros_like(rain)
-        for i, time_str in enumerate(dt):
-            dt_obj = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
-            month = dt_obj.month - 1
-            days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][
-                month
-            ]
-            evap[i] = es[month] / (days_in_month * 24.0 / time_interval)
+            # 计算蒸发量
+            evap = np.zeros_like(rain)
+            for i, time_str in enumerate(dt):
+                dt_obj = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+                month = dt_obj.month - 1
+                days_in_month = [
+                    31,
+                    28,
+                    31,
+                    30,
+                    31,
+                    30,
+                    31,
+                    31,
+                    30,
+                    31,
+                    30,
+                    31,
+                ][month]
+                evap[i] = es[month] / (days_in_month * 24.0 / time_interval)
 
-        # 构建p_and_e数组
-        p_and_e = np.zeros((len(rain), 1, 2))
-        p_and_e[:, 0, 0] = rain
-        p_and_e[:, 0, 1] = evap
+            # 构建p_and_e数组
+            p_and_e = np.zeros((len(rain), 1, 2))
+            p_and_e[:, 0, 0] = rain
+            p_and_e[:, 0, 1] = evap
 
         # 构建参数数组
         parameters = np.array(
@@ -142,4 +190,10 @@ def test_xaj_slw_with_example_data():
 
 
 if __name__ == "__main__":
-    success, results = test_xaj_slw_with_example_data()
+    # 使用JSON文件测试
+    # print("\n使用JSON文件测试:")
+    # success_json, results_json = test_xaj_slw_with_example_data(use_csv=False)
+
+    # 使用CSV文件测试
+    print("\n使用CSV文件测试:")
+    success_csv, results_csv = test_xaj_slw_with_example_data(use_csv=True)

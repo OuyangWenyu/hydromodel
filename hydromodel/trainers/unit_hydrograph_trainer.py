@@ -1,10 +1,10 @@
 """
-Author: Wenyu Ouyang
+Author: Zheng Zhang
 Date: 2025-08-07
-LastEditTime: 2025-08-07 14:51:12
+LastEditTime: 2025-08-29 17:07:59
 LastEditors: Wenyu Ouyang
 Description: Unit hydrograph training, optimization and evaluation functions
-FilePath: /hydromodel/hydromodel/trainers/unit_hydrograph_trainer.py
+FilePath: \hydromodel\hydromodel\trainers\unit_hydrograph_trainer.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
@@ -17,7 +17,7 @@ from scipy.optimize import minimize
 
 from hydroutils.hydro_stat import stat_error
 
-
+# TODO: ALL FUNCTIONS IN THIS FILE ARE TO BE REFACTORED
 # =============================================================================
 # OBJECTIVE FUNCTIONS FOR OPTIMIZATION
 # =============================================================================

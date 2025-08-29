@@ -19,266 +19,190 @@ sys.path.append(repo_path)
 
 from hydromodel import SETTING
 from hydromodel.trainers.unified_calibrate import calibrate  # noqa: E402
-from hydromodel.configs.script_utils import ScriptUtils  # noqa: E402
-from hydromodel.core.results_manager import results_manager  # noqa: E402
+from hydromodel.configs.config_manager import (  # noqa: E402
+    setup_configuration_from_args,
+    validate_and_show_config,
+    save_config_to_file,
+)
+
+
+def load_simplified_config(
+    config_path: str = None, simple_config: dict = None
+) -> dict:
+    """加载简化的配置文件并转换为统一格式"""
+    import yaml
+
+    if config_path:
+        with open(config_path, "r", encoding="utf-8") as f:
+            simple_config = yaml.safe_load(f)
+    elif simple_config is None:
+        raise ValueError("必须提供config_path或simple_config参数")
+
+    # 验证简化配置的完整性
+    required_sections = ["data", "model", "training", "evaluation"]
+    for section in required_sections:
+        if section not in simple_config:
+            raise ValueError(f"配置缺少必需部分: {section}")
+
+    data_cfg = simple_config["data"]
+    model_cfg = simple_config["model"]
+    training_cfg = simple_config["training"]
+    eval_cfg = simple_config["evaluation"]
+
+    # 转换为统一配置格式
+    unified_config = {
+        "data_cfgs": {
+            "data_source_type": data_cfg["dataset"],
+            "data_source_path": data_cfg["path"],
+            "dataset_name": data_cfg["dataset"],
+            "basin_ids": data_cfg["basin_ids"],
+            "variables": data_cfg.get(
+                "variables", ["prcp", "PET", "streamflow"]
+            ),
+            "train_period": data_cfg["train_period"],
+            "test_period": data_cfg["test_period"],
+            "warmup_length": data_cfg.get("warmup_length", 360),
+        },
+        "model_cfgs": {
+            "model_name": model_cfg["name"],
+            **model_cfg.get("params", {}),
+        },
+        "training_cfgs": {
+            "algorithm": training_cfg["algorithm"],
+            "loss_func": training_cfg["loss"],
+            "output_dir": data_cfg.get("output_dir", "results"),
+            "experiment_name": f"{model_cfg['name']}_{training_cfg['algorithm']}",
+            # 根据算法添加对应参数
+            **training_cfg.get(training_cfg["algorithm"], {}),
+        },
+        "evaluation_cfgs": {
+            "metrics": eval_cfg["metrics"],
+        },
+    }
+
+    # 添加验证期（如果有）
+    if "valid_period" in data_cfg:
+        unified_config["data_cfgs"]["valid_period"] = data_cfg["valid_period"]
+
+    return unified_config
 
 
 def parse_arguments():
-    """Parse command line arguments"""
+    """解析命令行参数 - 彻底简化，只保留必要参数"""
     parser = argparse.ArgumentParser(
-        description="XAJ Model Calibration using Latest Unified Architecture",
+        description="简化的XAJ模型校准脚本 - 支持四要素配置",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-XAJ Model Types Supported:
-  - xaj: XinAnJiang model (original version with routing)
-  - xaj_mz: XinAnJiang model (with mizuRoute routing)
+配置文件格式（四个要素）:
+  data:     # 数据配置
+    dataset: "camels"          # 数据集类型
+    path: "/path/to/data"      # 数据路径 
+    basin_ids: ["01013500"]    # 流域ID列表
+    warmup_length: 360         # 预热期
+    train_period: ["1990-10-01", "1995-09-30"]  # 训练期
+    test_period: ["1995-10-01", "2000-09-30"]   # 测试期
+    output_dir: "results"      # 结果目录
+  
+  model:    # 模型配置
+    name: "xaj_mz"             # 模型类型
+    params:                    # 模型参数
+      source_type: "sources"
+      source_book: "HF"
+      kernel_size: 15
+  
+  training: # 训练配置（每次只允许一个算法！）
+    algorithm: "SCE_UA"        # 算法类型（SCE_UA/GA/scipy）
+    SCE_UA:                    # 对应算法的参数
+      rep: 5000
+      ngs: 1000
+    loss: "RMSE"               # 损失函数
+  
+  evaluation: # 评估配置  
+    metrics: ["NSE", "KGE", "RMSE"]  # 评估指标
 
-Algorithm Types Supported:
-  - SCE_UA: Shuffled Complex Evolution via spotpy (default)
-  - genetic_algorithm: Genetic algorithm via DEAP (if installed)
-  - scipy_minimize: SciPy optimization methods
-
-Usage Examples:
-  # Basic XAJ calibration with default settings
-  python run_xaj_calibration.py --model-type xaj_mz --algorithm SCE_UA
-
-  # XAJ calibration with custom time periods
-  python run_xaj_calibration.py --model-type xaj_mz --algorithm SCE_UA --train-period 1990-10-01 1995-09-30 --test-period 1995-10-01 2000-09-30
-
-  # Configuration file approach (recommended)
-  python run_xaj_calibration.py --config config.yaml
+使用示例:
+  # 使用简化配置文件（推荐）
+  python run_xaj_calibration.py --config simplified_config.yaml
+  
+  # 快速测试
+  python run_xaj_calibration.py --quick-test
         """,
     )
 
-    # Add common arguments
-    ScriptUtils.add_common_arguments(parser)
-
-    # XAJ-specific arguments
+    # 核心参数 - 只保留最必要的
     parser.add_argument(
-        "--data-source-type",
+        "--config",
         type=str,
-        default="camels",
-        choices=["camels", "selfmadehydrodataset", "owndata"],
-        help="Dataset type (default: camels)",
+        help="简化配置文件路径（YAML格式，包含四要素配置）",
     )
 
     parser.add_argument(
-        "--data-source-path",
-        type=str,
-        default=os.path.join(
-            SETTING["local_data_path"]["datasets-origin"],
-            "camels",
-            "camels_us",
-        ),
-        help="Data directory path (uses default if not specified)",
-    )
-
-    parser.add_argument(
-        "--dataset-name",
-        type=str,
-        default="camelsus",
-        help="Dataset name for CAMELS data (default: camelsus)",
-    )
-
-    parser.add_argument(
-        "--basin-ids",
-        nargs="+",
-        default=["01013500"],
-        help="Basin IDs to calibrate (default: 01013500)",
-    )
-
-    parser.add_argument(
-        "--variables",
-        nargs="+",
-        default=["prcp", "PET", "streamflow"],
-        help="Variables to calibrate (default: prcp, PET, streamflow)",
-    )
-
-    # Time range configuration
-    parser.add_argument(
-        "--train-period",
-        nargs=2,
-        default=["1990-10-01", "1995-09-30"],
-        help="Training period as start and end dates (default: 1990-10-01 1995-09-30)",
-    )
-
-    parser.add_argument(
-        "--test-period",
-        nargs=2,
-        default=["1995-10-01", "2000-09-30"],
-        help="Testing period as start and end dates (default: 1995-10-01 2000-09-30)",
-    )
-
-    parser.add_argument(
-        "--model-type",
-        type=str,
-        default="xaj_mz",
-        choices=["xaj", "xaj_mz"],
-        help="XAJ model variant (default: xaj_mz)",
-    )
-
-    parser.add_argument(
-        "--source-type",
-        type=str,
-        default="sources",
-        choices=["sources", "sources5mm"],
-        help="XAJ source data type (default: sources)",
-    )
-
-    parser.add_argument(
-        "--source-book",
-        type=str,
-        default="HF",
-        choices=["HF", "EH"],
-        help="XAJ computation method (default: HF)",
-    )
-
-    parser.add_argument(
-        "--kernel-size",
-        type=int,
-        default=15,
-        help="XAJ convolutional kernel size (default: 15)",
-    )
-
-    # Algorithm-specific parameters
-    parser.add_argument(
-        "--rep",
-        type=int,
-        default=5000,
-        help="SCE-UA repetitions (default: 5000)",
-    )
-
-    parser.add_argument(
-        "--ngs",
-        type=int,
-        default=1000,
-        help="SCE-UA number of complexes (default: 1000)",
-    )
-
-    parser.add_argument(
-        "--pop-size",
-        type=int,
-        default=80,
-        help="GA population size (default: 80)",
-    )
-
-    parser.add_argument(
-        "--n-generations",
-        type=int,
-        default=50,
-        help="GA number of generations (default: 50)",
-    )
-
-    parser.add_argument(
-        "--scipy-method",
-        type=str,
-        default="L-BFGS-B",
-        help="SciPy optimization method (default: L-BFGS-B)",
-    )
-
-    parser.add_argument(
-        "--max-iterations",
-        type=int,
-        default=1000,
-        help="Maximum iterations for scipy (default: 1000)",
-    )
-
-    parser.add_argument(
-        "--obj-func",
-        type=str,
-        default="RMSE",
-        choices=["RMSE", "NSE", "KGE"],
-        help="Objective function (default: RMSE)",
-    )
-
-    parser.add_argument(
-        "--param-range-file",
-        type=str,
-        help="Parameter range file path (uses default if not specified)",
-    )
-
-    parser.add_argument(
-        "--random-seed",
-        type=int,
-        default=1234,
-        help="Random seed for reproducibility (default: 1234)",
-    )
-
-    parser.add_argument(
-        "--quiet",
-        "-q",
+        "--dry-run",
         action="store_true",
-        help="Quiet mode - minimal output",
+        help="只验证配置，不执行率定",
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        help="覆盖配置中的输出目录",
+    )
+
+    parser.add_argument(
+        "--experiment-name",
+        type=str,
+        help="覆盖配置中的实验名称",
     )
 
     parser.add_argument(
         "--save-config",
         action="store_true",
-        help="Save configuration to file after run",
+        help="运行后保存配置文件",
     )
 
     return parser.parse_args()
 
 
-def process_results(results: dict, config: dict, args):
-    """Process and display calibration results using unified ResultsManager"""
-    # Use the unified results manager
-    processed_results = results_manager.process_results(results, config, args)
-
-    # Return processed results for potential further use
-    return processed_results
-
-
 def main():
-    """Main execution function"""
+    """主执行函数 - 简化版"""
     args = parse_arguments()
-    verbose = not args.quiet
 
     try:
-        # Setup configuration using unified workflow
-        # Ensure correct model defaults for quick setup
-        if not getattr(args, "model_type", None) and not getattr(
-            args, "model", None
-        ):
-            args.model = "xaj_mz"
+        # 只支持两种方式：配置文件 或 解析器默认值
+        if args.config:
+            # 方式1：从简化配置文件加载
+            if not os.path.exists(args.config):
+                print(f"❌ 配置文件不存在: {args.config}")
+                return 1
 
-        config = ScriptUtils.setup_configuration(
-            args,
-        )
+            config = load_simplified_config(args.config)
+
+        else:
+            # 方式2：使用解析器默认值
+            config = setup_configuration_from_args(args)
+
         if config is None:
+            print("❌ 配置创建失败")
             return 1
 
-        # Apply overrides
-        ScriptUtils.apply_overrides(config, args.override)
-
-        # Apply command line overrides for output settings
+        # 应用命令行覆盖
         if args.output_dir:
             config["training_cfgs"]["output_dir"] = args.output_dir
         if args.experiment_name:
             config["training_cfgs"]["experiment_name"] = args.experiment_name
 
-        # Validate configuration
-        if not ScriptUtils.validate_and_show_config(
-            config, verbose, "XAJ Model"
-        ):
+        # 验证配置
+        if not validate_and_show_config(config, True, "XAJ Model"):
             return 1
 
         if args.dry_run:
-            print("\n🔍 Dry run completed - configuration is valid")
+            print("配置验证完成")
             return 0
 
-        # Run calibration using unified interface
-        if verbose:
-            print("\n🚀 Starting XAJ calibration with unified architecture...")
-            print("📦 Using unified calibrate(config) interface")
-
-        # The new unified calibration call - single function, single parameter!
+        # 执行率定
         results = calibrate(config)
 
-        # Process and display results using unified ResultsManager
-        _ = process_results(results, config, args)
-
-        # Save configuration file if requested
+        # 保存配置文件（如果需要）
         if args.save_config:
             training_cfgs = config.get("training_cfgs", {})
             output_dir = os.path.join(
@@ -288,20 +212,20 @@ def main():
             config_output_path = os.path.join(
                 output_dir, "calibration_config.yaml"
             )
-            ScriptUtils.save_config_file(config, config_output_path)
+            os.makedirs(os.path.dirname(config_output_path), exist_ok=True)
+            save_config_to_file(config, config_output_path)
 
-        ScriptUtils.print_completion_message(config, "XAJ calibration")
+        print("XAJ校准完成")
         return 0
 
     except KeyboardInterrupt:
-        print("\n👋 Calibration interrupted by user")
+        print("校准被用户中断")
         return 1
     except Exception as e:
-        print(f"\n❌ ERROR: Calibration failed: {e}")
-        if verbose:
-            import traceback
+        print(f"错误: {e}")
+        import traceback
 
-            traceback.print_exc()
+        traceback.print_exc()
         return 1
 
 

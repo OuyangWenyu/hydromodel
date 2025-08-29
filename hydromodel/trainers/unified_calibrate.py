@@ -32,7 +32,6 @@ except ImportError:
 
 from hydromodel.models.model_config import read_model_param_dict
 from hydromodel.models.model_dict import LOSS_DICT, MODEL_DICT
-from hydromodel.configs.unified_config import UnifiedConfig
 from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
 from hydromodel.core.unified_simulate import UnifiedSimulator
 from hydromodel.trainers.calibrate_sceua import SpotSetup
@@ -77,14 +76,12 @@ class UnifiedModelSetup(ModelSetupBase):
     """
     Completely unified setup for all hydrological models using the MODEL_DICT interface.
 
-    This class provides a truly unified interface where all models (unit hydrograph,
-    categorized unit hydrograph, XAJ, GR series, etc.) are treated identically.
-    The only difference is in parameter setup and normalization - the simulation
-    interface is now completely unified with no conditional logic.
+    This class provides a truly unified interface where all models (XAJ, GR series, etc.) are treated identically.
+    The only difference is in parameter setup and normalization - the simulation interface is now completely unified with no conditional logic.
 
     Key unified features:
     - All models use the same MODEL_DICT calling convention
-    - All models receive param_range (empty dict for unit hydrograph models)
+    - All models receive param_range
     - Return value normalization handles tuple vs single array returns
     - No if/else model type distinctions in simulation method
     """
@@ -121,18 +118,9 @@ class UnifiedModelSetup(ModelSetupBase):
         # Store whether this is event data for special handling
         self.is_event_data = self.data_loader.is_event_data()
 
-        # Handle unit hydrograph models vs traditional models
-        if self.model_name in [
-            "unit_hydrograph",
-            "categorized_unit_hydrograph",
-        ]:
-            self._setup_unit_hydrograph_params()
-            # Unit hydrograph models don't need param_range
-            self.param_range = {}
-        else:
-            # Traditional models (XAJ, GR series, etc.)
-            param_file = self.training_config.get("param_range_file")
-            self._setup_traditional_model_params(param_file)
+        # Traditional models (XAJ, GR series, etc.)
+        param_file = self.training_config.get("param_range_file")
+        self._setup_traditional_model_params(param_file)
 
         # Create base model config for UnifiedSimulator (without specific parameter values)
         self.base_model_config = {
@@ -140,19 +128,6 @@ class UnifiedModelSetup(ModelSetupBase):
             "model_params": model_config.copy(),
             "parameters": {},  # Will be filled in during simulation
         }
-
-        # For traditional models, embed the per-model param dict into model_params so simulator forwards it
-        if self.model_name not in [
-            "unit_hydrograph",
-            "categorized_unit_hydrograph",
-        ]:
-            if (
-                isinstance(self.param_range, dict)
-                and self.model_name in self.param_range
-            ):
-                self.base_model_config["model_params"][self.model_name] = (
-                    self.param_range[self.model_name]
-                )
 
         # Create spotpy parameters
         self.params = []
@@ -162,26 +137,6 @@ class UnifiedModelSetup(ModelSetupBase):
                 self.parameter_names, self.parameter_bounds
             )
         )
-
-    def _setup_unit_hydrograph_params(self):
-        """Setup parameters for unit hydrograph models."""
-        if self.model_name == "unit_hydrograph":
-            n_uh = self.model_config.get("n_uh", 24)
-            self.parameter_names = [f"uh_{i+1}" for i in range(n_uh)]
-            self.parameter_bounds = [(0.001, 1.0) for _ in range(n_uh)]
-
-        elif self.model_name == "categorized_unit_hydrograph":
-            # Handle categorized unit hydrograph parameters
-            uh_lengths = self.model_config.get(
-                "uh_lengths", {"small": 8, "medium": 16, "large": 24}
-            )
-            self.parameter_names = []
-            self.parameter_bounds = []
-
-            for category, length in uh_lengths.items():
-                for i in range(length):
-                    self.parameter_names.append(f"uh_{category}_{i+1}")
-                    self.parameter_bounds.append((0.001, 1.0))
 
     def _setup_traditional_model_params(self, param_file):
         """Setup parameters for traditional models."""
@@ -198,38 +153,14 @@ class UnifiedModelSetup(ModelSetupBase):
 
     def simulate(self, params: np.ndarray) -> np.ndarray:
         """Run model simulation using unified UnifiedSimulator interface."""
-        # Build parameters without denormalization; models will handle scaling using provided param ranges
-        if self.model_name == "unit_hydrograph":
-            params_normalized = params / np.sum(params)
-            parameter_value = {"uh_values": params_normalized.tolist()}
-        elif self.model_name == "categorized_unit_hydrograph":
-            uh_lengths = self.model_config.get(
-                "uh_lengths", {"small": 8, "medium": 16, "large": 24}
-            )
-            uh_categories = {}
-            param_idx = 0
-            for category, length in uh_lengths.items():
-                category_params = params[param_idx : param_idx + length]
-                uh_categories[category] = (
-                    category_params / np.sum(category_params)
-                ).tolist()
-                param_idx += length
-            thresholds = self.model_config.get(
-                "thresholds", {"small_medium": 10.0, "medium_large": 25.0}
-            )
-            parameter_value = {
-                "uh_categories": uh_categories,
-                "thresholds": thresholds,
-            }
-        else:
-            # Traditional models: preserve parameter order and keep normalized values in [0,1]
-            from collections import OrderedDict
+        # Traditional models: preserve parameter order and keep normalized values in [0,1]
+        from collections import OrderedDict
 
-            ordered_params = OrderedDict(
-                (name, float(params[i]))
-                for i, name in enumerate(self.parameter_names)
-            )
-            parameter_value = ordered_params
+        ordered_params = OrderedDict(
+            (name, float(params[i]))
+            for i, name in enumerate(self.parameter_names)
+        )
+        parameter_value = ordered_params
 
         # Create model config with specific parameters for this simulation
         model_config = self.base_model_config.copy()
@@ -274,10 +205,9 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
 
     Parameters
     ----------
-    config : UnifiedConfig or Dict
-        Configuration object or dictionary containing all settings.
-        If UnifiedConfig object: Uses the structured configuration
-        If Dict: Should contain 'data_cfgs', 'model_cfgs', 'training_cfgs' keys
+    config : Dict
+        Configuration dictionary containing all settings.
+        Must contain 'data_cfgs', 'model_cfgs', 'training_cfgs' keys
     **kwargs
         Additional arguments
 
@@ -287,35 +217,27 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
         Dictionary containing calibration results
     """
 
-    # Handle different config types
-    if hasattr(config, "data_cfgs"):
-        # UnifiedConfig object
-        data_config = config.data_cfgs
-        model_config = config.get_model_config()
-        training_config = config.training_cfgs
-    elif isinstance(config, dict):
-        # Dictionary with expected structure
-        if (
-            "data_cfgs" not in config
-            or "model_cfgs" not in config
-            or "training_cfgs" not in config
-        ):
-            raise ValueError(
-                "Config dictionary must contain 'data_cfgs', 'model_cfgs', and 'training_cfgs' keys"
-            )
-        data_config = config["data_cfgs"]
-        # Extract model config
-        model_cfgs = config["model_cfgs"]
-        model_config = {
-            "name": model_cfgs.get("model_name"),
-            **model_cfgs.get("model_params", {}),
-        }
-        training_config = config["training_cfgs"]
-    else:
+    # Validate config structure
+    if not isinstance(config, dict):
+        raise ValueError("Config must be a dictionary")
+    
+    if (
+        "data_cfgs" not in config
+        or "model_cfgs" not in config
+        or "training_cfgs" not in config
+    ):
         raise ValueError(
-            "Config must be either a UnifiedConfig object or a dictionary with "
-            "'data_cfgs', 'model_cfgs', 'training_cfgs' keys"
+            "Config dictionary must contain 'data_cfgs', 'model_cfgs', and 'training_cfgs' keys"
         )
+    
+    data_config = config["data_cfgs"]
+    # Extract model config
+    model_cfgs = config["model_cfgs"]
+    model_config = {
+        "name": model_cfgs.get("model_name"),
+        **model_cfgs.get("model_params", {}),
+    }
+    training_config = config["training_cfgs"]
 
     # Extract components from training_config
     algorithm_config = {
@@ -407,19 +329,7 @@ def _calibrate_with_scipy(model_setup, algorithm_config, output_dir, basin_id):
     # Get initial parameters
     bounds = model_setup.get_parameter_bounds()
     initial_params = np.array([np.mean(bound) for bound in bounds])
-
-    # Special handling for unit hydrograph models
-    if model_setup.model_name == "unit_hydrograph":
-        # Initialize with gamma distribution
-        from hydromodel.models.unit_hydrograph import init_unit_hydrograph
-
-        n_uh = len(model_setup.parameter_names)
-        initial_params = init_unit_hydrograph(n_uh)
-
-        # Add constraint for sum to 1.0
-        constraints = {"type": "eq", "fun": lambda x: np.sum(x) - 1.0}
-    else:
-        constraints = None
+    constraints = None
 
     # Objective function for scipy
     def objective_func(params):

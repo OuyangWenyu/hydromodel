@@ -139,6 +139,14 @@ class UnifiedSimulator:
             If None, unit conversion will be disabled.
         """
         self.model_config = model_config
+
+        # Extract model information
+        self.model_type = self.model_config["type"]
+        self.model_name = self.model_config["model_name"]
+        self.model_params = self.model_config.get("model_params", {})
+        self.parameters = OrderedDict(self.model_config.get("parameters", {}))
+
+        # Store basin configuration
         if basin_config is not None:
             if isinstance(basin_config, dict):
                 self.basin = Basin.from_config(basin_config)
@@ -146,9 +154,34 @@ class UnifiedSimulator:
                 self.basin = basin_config
         else:
             self.basin = None
+            # Validata model exists
+        if self.model_name not in MODEL_DICT:
+            raise ValueError(
+                f"Model '{self.model_name}' not found in MODEL_DICT"
+            )
 
-        # Use the factory to get the correct model instance
-        self.model = model_factory(self.model_config, self.basin)
+        # Get model function
+        self.model_function = MODEL_DICT[self.model_name]
+
+        # Setup parameter handling (convert dict to array format)
+        self._setup_parameters()
+
+    def _setup_parameters(self):
+        """
+        Setup model parameters for simulation.
+        Convert parameter dictionary to array format expected by models
+        """
+        if not self.parameters:
+            raise ValueError(
+                f"Model '{self.model_name}' requires parameters to be specified"
+            )
+        # Convert parameter dictionary to list format
+        param_names = list(self.parameters.keys())
+        param_values = list(self.parameters.values())
+
+        # Store parameter info for later use when we know number of basins
+        self.param_names = param_names
+        self.param_values = np.expand_dims(param_values, axis=0)
 
     def simulate(
         self,
@@ -435,7 +468,7 @@ class UnifiedSimulator:
             print(f"流域数量: {inputs.shape[1]}")
             print(f"预热长度: {warmup_length}")
             print(f"{'='*60}")
-        
+
         for basin_idx in range(inputs.shape[1]):
             # Find event segments using flood_event markers (including warmup period)
             flood_event_array = inputs[
@@ -446,7 +479,7 @@ class UnifiedSimulator:
             )
 
             basin_params = self.param_values
-            
+
             if debug_arrays:
                 print(f"\n流域 {basin_idx}:")
                 print(f"  找到 {len(event_segments)} 个事件段")
@@ -463,7 +496,7 @@ class UnifiedSimulator:
                     print(f"\n  事件 {j}:")
                     print(f"    扩展范围: {extended_start} -> {extended_end}")
                     print(f"    原始范围: {original_start} -> {original_end}")
-                    
+
                 # Extract event data (including warmup period)
                 event_inputs = inputs[
                     extended_start : extended_end + 1,
@@ -515,17 +548,25 @@ class UnifiedSimulator:
                         # 打印调试信息
                         print(f"变量: {name}")
                         print(f"arr.shape: {arr.shape}")
-                        print(f"arr所有值: {arr.flatten() if arr.size > 0 else '空数组'}")
-                        print(f"simulation_output[{name}].shape: {simulation_output[name].shape}")
-                        print(f"目标切片shape: {simulation_output[name][original_start : original_end + 1, basin_idx : basin_idx + 1, :].shape}")
-                        print(f"切片索引: [{original_start}:{original_end + 1}, {basin_idx}:{basin_idx + 1}, :]")
-                        
+                        print(
+                            f"arr所有值: {arr.flatten() if arr.size > 0 else '空数组'}"
+                        )
+                        print(
+                            f"simulation_output[{name}].shape: {simulation_output[name].shape}"
+                        )
+                        print(
+                            f"目标切片shape: {simulation_output[name][original_start : original_end + 1, basin_idx : basin_idx + 1, :].shape}"
+                        )
+                        print(
+                            f"切片索引: [{original_start}:{original_end + 1}, {basin_idx}:{basin_idx + 1}, :]"
+                        )
+
                         simulation_output[name][
                             original_start : original_end + 1,
                             basin_idx : basin_idx + 1,
                             :,
                         ] = arr
-                        
+
                         print(f"赋值完成")
                         print("-" * 50)
 

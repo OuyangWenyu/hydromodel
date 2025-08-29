@@ -508,7 +508,7 @@ def xaj_slw(
         raise KeyError("basin_area must be provided")
 
     time_steps, num_basins, _ = p_and_e.shape
-    time_interval = kwargs.get("time_interval_hours", 1.0)
+    time_interval = kwargs.get("time_interval_hours", 3.0)
     basin_area = kwargs.get("basin_area", None)  # km^2
 
     # Process parameters using unified parameter handling
@@ -558,7 +558,7 @@ def xaj_slw(
         }
         *_, wu_init, wl_init, wd_init, s_init, fr_init = xaj_slw(
             p_and_e_warmup,
-            parameters,
+            processed_parameters,
             warmup_length=0,
             return_state=True,
             normalized_params=False,

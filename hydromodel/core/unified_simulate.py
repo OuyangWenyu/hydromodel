@@ -559,33 +559,12 @@ class UnifiedSimulator:
 
                 # Save the event result to its location in long time series data (excluding warmup_states)
                 for name, arr in event_dict.items():
-                    if (
-                        name != "warmup_states"
-                    ):  # Skip warmup_states as it's not a time series
-                        # 打印调试信息
-                        print(f"变量: {name}")
-                        print(f"arr.shape: {arr.shape}")
-                        print(
-                            f"arr所有值: {arr.flatten() if arr.size > 0 else '空数组'}"
-                        )
-                        print(
-                            f"simulation_output[{name}].shape: {simulation_output[name].shape}"
-                        )
-                        print(
-                            f"目标切片shape: {simulation_output[name][original_start : original_end + 1, basin_idx : basin_idx + 1, :].shape}"
-                        )
-                        print(
-                            f"切片索引: [{original_start}:{original_end + 1}, {basin_idx}:{basin_idx + 1}, :]"
-                        )
-
+                    if name != "warmup_states":
                         simulation_output[name][
                             original_start : original_end + 1,
                             basin_idx : basin_idx + 1,
                             :,
                         ] = arr
-
-                        print(f"赋值完成")
-                        print("-" * 50)
 
             outputs.append(simulation_output)
 

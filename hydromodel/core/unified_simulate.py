@@ -15,6 +15,7 @@ from collections import OrderedDict
 from hydroutils.hydro_event import find_flood_event_segments_as_tuples
 from hydromodel.models.model_dict import MODEL_DICT
 from .basin import Basin
+from .model_factory import model_factory
 
 
 def get_model_output_names(model_name, return_state=False):
@@ -385,7 +386,7 @@ class UnifiedSimulator:
         model_config.update(kwargs)
 
         # Run model simulation
-        model_result = self.model_function(
+        model_result = self.model.model_function(
             inputs,
             self.param_values,
             warmup_length=warmup_length,
@@ -396,7 +397,7 @@ class UnifiedSimulator:
 
         # Convert model_result to dictionary based on model output names
         output_names = get_model_output_names(
-            self.model_name, return_intermediate
+            self.model.model_name, return_intermediate
         )
 
         result_dict = self._process_model_result(
@@ -435,7 +436,7 @@ class UnifiedSimulator:
             print(f"流域数量: {inputs.shape[1]}")
             print(f"预热长度: {warmup_length}")
             print(f"{'='*60}")
-        
+
         for basin_idx in range(inputs.shape[1]):
             # Find event segments using flood_event markers (including warmup period)
             flood_event_array = inputs[
@@ -445,8 +446,8 @@ class UnifiedSimulator:
                 flood_event_array, warmup_length
             )
 
-            basin_params = self.param_values
-            
+            basin_params = self.model.param_values
+
             if debug_arrays:
                 print(f"\n流域 {basin_idx}:")
                 print(f"  找到 {len(event_segments)} 个事件段")
@@ -463,7 +464,7 @@ class UnifiedSimulator:
                     print(f"\n  事件 {j}:")
                     print(f"    扩展范围: {extended_start} -> {extended_end}")
                     print(f"    原始范围: {original_start} -> {original_end}")
-                    
+
                 # Extract event data (including warmup period)
                 event_inputs = inputs[
                     extended_start : extended_end + 1,
@@ -471,10 +472,10 @@ class UnifiedSimulator:
                     :,
                 ]
                 # Run model on this event segment
-                model_config = dict(self.model_params)
+                model_config = dict(self.model.model_params)
                 model_config.update(kwargs)
 
-                event_result = self.model_function(
+                event_result = self.model.model_function(
                     event_inputs,
                     basin_params,
                     warmup_length=warmup_length,
@@ -485,7 +486,7 @@ class UnifiedSimulator:
 
                 # Convert event_result tuple to dictionary based on model output names
                 output_names = get_model_output_names(
-                    self.model_name, return_intermediate
+                    self.model.model_name, return_intermediate
                 )
 
                 event_dict = self._process_model_result(
@@ -513,21 +514,21 @@ class UnifiedSimulator:
                         name != "warmup_states"
                     ):  # Skip warmup_states as it's not a time series
                         # 打印调试信息
-                        print(f"变量: {name}")
-                        print(f"arr.shape: {arr.shape}")
-                        print(f"arr所有值: {arr.flatten() if arr.size > 0 else '空数组'}")
-                        print(f"simulation_output[{name}].shape: {simulation_output[name].shape}")
-                        print(f"目标切片shape: {simulation_output[name][original_start : original_end + 1, basin_idx : basin_idx + 1, :].shape}")
-                        print(f"切片索引: [{original_start}:{original_end + 1}, {basin_idx}:{basin_idx + 1}, :]")
-                        
+                        # print(f"变量: {name}")
+                        # print(f"arr.shape: {arr.shape}")
+                        # print(f"arr所有值: {arr.flatten() if arr.size > 0 else '空数组'}")
+                        # print(f"simulation_output[{name}].shape: {simulation_output[name].shape}")
+                        # print(f"目标切片shape: {simulation_output[name][original_start : original_end + 1, basin_idx : basin_idx + 1, :].shape}")
+                        # print(f"切片索引: [{original_start}:{original_end + 1}, {basin_idx}:{basin_idx + 1}, :]")
+
                         simulation_output[name][
                             original_start : original_end + 1,
                             basin_idx : basin_idx + 1,
                             :,
                         ] = arr
-                        
-                        print(f"赋值完成")
-                        print("-" * 50)
+
+                        # print(f"赋值完成")
+                        # print("-" * 50)
 
             outputs.append(simulation_output)
 

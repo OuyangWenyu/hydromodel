@@ -10,7 +10,9 @@ except ImportError:
     TORCH_AVAILABLE = False
 
 
-def model_factory(model_config: Dict[str, Any], basin_config: Any = None) -> Any:
+def model_factory(
+    model_config: Dict[str, Any], basin_config: Any = None
+) -> Any:
     """
     Factory function to instantiate a model based on its type.
 
@@ -22,11 +24,15 @@ def model_factory(model_config: Dict[str, Any], basin_config: Any = None) -> Any
     Returns:
         An instance of a model wrapper (e.g., TraditionalModel, PytorchModel).
     """
-    model_type = model_config.get("type", "traditional")  # Default to traditional for backward compatibility
+    model_type = model_config.get(
+        "type", "traditional"
+    )  # Default to traditional for backward compatibility
 
     if model_type == "pytorch":
         if not TORCH_AVAILABLE:
-            raise ImportError("PyTorch is not installed. Please install it to use PyTorch models.")
+            raise ImportError(
+                "PyTorch is not installed. Please install it to use PyTorch models."
+            )
         # Note: The PytorchModel class needs to be defined and accessible.
         # This assumes it's in the specified path.
         return PytorchModel(model_config, basin_config)

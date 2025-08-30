@@ -11,6 +11,7 @@ from .basin import Basin
 
 ModelResult = np.ndarray | tuple[Any, ...]
 
+
 def get_model_output_names(model_name, return_state=False):
     """
     Get the names of output variables for different models.
@@ -86,10 +87,12 @@ def get_model_output_names(model_name, return_state=False):
         model_name, ["output_0", "output_1", "output_2"]
     )  # fallback names
 
+
 class TraditionalModel:
     """
     传统水文模型接口
     """
+
     def __init__(
         self,
         model_config: Dict[str, Any],
@@ -114,12 +117,12 @@ class TraditionalModel:
         self.model_config = model_config
 
         # Extract model information
-        self.model_type = self.model_config["type"]
+        # self.model_type = self.model_config["type"]
         self.model_name = self.model_config["model_name"]
         self.model_params = self.model_config.get("model_params", {})
         self.parameters = OrderedDict(self.model_config.get("parameters", {}))
 
-        #Store basin configuration
+        # Store basin configuration
         if basin_config is not None:
             if isinstance(basin_config, dict):
                 self.basin = Basin.from_config(basin_config)
@@ -149,11 +152,11 @@ class TraditionalModel:
             raise ValueError(
                 f"Model '{self.model_name}' requires parameters to be specified"
             )
-        #Convert parameter dictionary to list format
+        # Convert parameter dictionary to list format
         param_names = list(self.parameters.keys())
         param_values = list(self.parameters.values())
 
-        #Store parameter info for later use when we know number of basins
+        # Store parameter info for later use when we know number of basins
         self.param_names = param_names
         self.param_values = np.expand_dims(param_values, axis=0)
 
@@ -232,7 +235,6 @@ class TraditionalModel:
             )
 
         return simulation_result
-
 
     def _process_model_result(
         self,
@@ -357,15 +359,15 @@ class TraditionalModel:
 
             # Process each event segment
             for j, (
-                    extended_start,
-                    extended_end,
-                    original_start,
-                    original_end,
+                extended_start,
+                extended_end,
+                original_start,
+                original_end,
             ) in enumerate(event_segments):
                 # Extract event data (including warmup period)
                 event_inputs = inputs[
-                    extended_start: extended_end + 1,
-                    basin_idx: basin_idx + 1,
+                    extended_start : extended_end + 1,
+                    basin_idx : basin_idx + 1,
                     :,
                 ]
                 # Run model on this event segment
@@ -412,7 +414,7 @@ class TraditionalModel:
                     ):  # Skip warmup_states as it's not a time series
                         simulation_output[name][
                             original_start : original_end + 1,
-                            basin_idx: basin_idx + 1,
+                            basin_idx : basin_idx + 1,
                             :,
                         ] = arr
 

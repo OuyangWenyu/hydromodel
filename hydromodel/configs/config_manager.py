@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-08-07
-LastEditTime: 2025-08-29 16:36:35
+LastEditTime: 2025-08-30 08:57:53
 LastEditors: Wenyu Ouyang
 Description: Unified configuration management system for hydromodel
 FilePath: \hydromodel\hydromodel\configs\config_manager.py
@@ -81,15 +81,14 @@ def get_default_calibration_config() -> Dict[str, Any]:
     """
     return {
         "data_cfgs": {
-            "data_source_type": "selfmadehydrodataset",
+            "data_source_type": "camels",
             "data_source_path": None,  # Will be filled from hydro_setting.yml
-            "basin_ids": ["basin_001"],
+            "basin_ids": ["01013500"],
             "warmup_length": 365,
-            "variables": ["prcp", "pet", "streamflow"],
-            "time_range": None,
-            "train_period": None,
-            "valid_period": None,
-            "test_period": None,
+            "variables": ["prcp", "PET", "streamflow"],
+            "train_period": ["1985-10-01", "1995-09-30"],
+            "valid_period": ["1995-10-01", "2005-09-30"],
+            "test_period": ["2005-10-01", "2014-09-30"],
         },
         "model_cfgs": {
             "model_name": "xaj_mz",
@@ -107,7 +106,7 @@ def get_default_calibration_config() -> Dict[str, Any]:
             },
             "loss_config": {
                 "type": "time_series",
-                "obj_func": "NSE",
+                "obj_func": "RMSE",
             },
             "param_range_file": None,
             "output_dir": "results",

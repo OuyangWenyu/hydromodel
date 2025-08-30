@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-08-06
-LastEditTime: 2025-08-06
+LastEditTime: 2025-08-29 17:14:18
 LastEditors: Wenyu Ouyang
 Description: Trainers module for hydrological model calibration
 FilePath: /hydromodel/hydromodel/trainers/__init__.py
@@ -20,15 +20,6 @@ from .unified_calibrate import (
     DEAP_AVAILABLE,
 )
 
-# Import unit hydrograph training functions
-from .unit_hydrograph_trainer import (
-    objective_function_multi_event,
-    optimize_shared_unit_hydrograph,
-    evaluate_single_event_from_uh,
-    print_report_preview,
-    save_results_to_csv,
-)
-
 __all__ = [
     # Traditional interfaces
     "SpotSetup",
@@ -38,10 +29,4 @@ __all__ = [
     "ModelSetupBase",
     "UnifiedModelSetup",
     "DEAP_AVAILABLE",
-    # Unit hydrograph training functions
-    "objective_function_multi_event",
-    "optimize_shared_unit_hydrograph",
-    "evaluate_single_event_from_uh",
-    "print_report_preview",
-    "save_results_to_csv",
 ]

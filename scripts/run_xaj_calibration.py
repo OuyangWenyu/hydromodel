@@ -90,7 +90,7 @@ def load_simplified_config(
 def parse_arguments():
     """解析命令行参数 - 彻底简化，只保留必要参数"""
     parser = argparse.ArgumentParser(
-        description="简化的XAJ模型校准脚本 - 支持四要素配置",
+        description="简化的XAJ模型率定脚本 - 支持四要素配置",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 配置文件格式（四个要素）:
@@ -215,11 +215,11 @@ def main():
             os.makedirs(os.path.dirname(config_output_path), exist_ok=True)
             save_config_to_file(config, config_output_path)
 
-        print("XAJ校准完成")
+        print("XAJ率定完成")
         return 0
 
     except KeyboardInterrupt:
-        print("校准被用户中断")
+        print("率定被用户中断")
         return 1
     except Exception as e:
         print(f"错误: {e}")

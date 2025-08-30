@@ -8,24 +8,14 @@ FilePath: /hydromodel/hydromodel/datasets/unified_data_loader.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
-import os
 import re
 import numpy as np
 import xarray as xr
-from typing import Dict, List, Optional, Union, Tuple, Any
-from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Any
 
-from hydrodatasource.utils.utils import streamflow_unit_conv
+from hydroutils.hydro_units import streamflow_unit_conv
 
 # Import different datasource types
-try:
-    from hydrodatasource.reader.floodevent import FloodEventDatasource
-
-    FLOODEVENT_AVAILABLE = True
-except ImportError:
-    FLOODEVENT_AVAILABLE = False
-    FloodEventDatasource = None
-
 try:
     from hydrodataset import Camels
 
@@ -42,9 +32,7 @@ except ImportError:
     SELFMADE_AVAILABLE = False
     SelfMadeHydroDataset = None
 
-HYDRODATASOURCE_AVAILABLE = (
-    FLOODEVENT_AVAILABLE or CAMELS_AVAILABLE or SELFMADE_AVAILABLE
-)
+HYDRODATASOURCE_AVAILABLE = CAMELS_AVAILABLE or SELFMADE_AVAILABLE
 
 
 class UnifiedDataLoader:
@@ -62,7 +50,29 @@ class UnifiedDataLoader:
     - Supports both event-based and continuous data seamlessly
     """
 
-    def __init__(self, data_config: Dict[str, Any]):
+    # Unified variable mapping for all data sources
+    VAR_MAPPING = {
+        "prcp": ["prcp", "precipitation", "P", "rain", "rainfall"],
+        "pet": ["PET", "pet", "potential_evapotranspiration", "E"],
+        "flow": [
+            "streamflow",
+            "flow",
+            "Q",
+            "discharge",
+            "inflow",
+            "Q_obs",
+        ],
+        "area": [
+            "area_gages2",
+            "area",
+            "basin_area",
+            "drainage_area",
+        ],
+    }
+
+    def __init__(
+        self, data_config: Dict[str, Any], is_train_val_test: str = "train"
+    ):
         """
         Initialize the unified data loader.
 
@@ -77,38 +87,29 @@ class UnifiedDataLoader:
             - variables: List of variables to load
             - warmup_length: Warmup period length
             - **kwargs: Additional datasource-specific parameters
+        is_train_val_test : str
+            "train", "valid", "test"
         """
         self.config = data_config
         # Support both naming conventions for backward compatibility
-        self.data_type = data_config.get(
-            "data_source_type"
-        ) or data_config.get("data_type", "selfmade")
-        self.data_path = data_config.get(
-            "data_source_path"
-        ) or data_config.get("data_path")
+        self.data_type = data_config.get("data_source_type")
+        self.data_path = data_config.get("data_source_path")
         self.basin_ids = data_config.get("basin_ids", [])
         self.warmup_length = data_config.get("warmup_length", 365)
 
         # Get time periods
-        time_periods = data_config.get("time_periods", {})
-        self.time_range = time_periods.get(
-            "calibration", ["2014-10-01", "2019-09-30"]
-        )
-
-        # Get variable names with data type specific defaults
-        if self.data_type == "floodevent":
-            # For flood event data, ensure flood_event is included
-            default_vars = ["P_eff", "Q_obs_eff", "flood_event"]
-            self.variables = data_config.get("variables", default_vars)
-
-            # Ensure flood_event is always included for floodevent data type
-            if "flood_event" not in self.variables:
-                self.variables.append("flood_event")
+        if is_train_val_test == "train":
+            self.time_range = data_config.get("train_period", None)
+        elif is_train_val_test == "valid":
+            self.time_range = data_config.get("valid_period", None)
+        elif is_train_val_test == "test":
+            self.time_range = data_config.get("test_period", None)
         else:
-            # For other data types
-            self.variables = data_config.get(
-                "variables", ["prcp", "PET", "streamflow"]
-            )
+            raise ValueError(f"Invalid is_train_val_test: {is_train_val_test}")
+        self.is_train_val_test = is_train_val_test
+        self.variables = data_config.get(
+            "variables", ["prcp", "PET", "streamflow"]
+        )
 
         # Initialize the appropriate datasource
         self.datasource = self._create_datasource()
@@ -120,30 +121,14 @@ class UnifiedDataLoader:
                 "hydrodatasource package is required for unified data loading"
             )
 
-        if self.data_type == "floodevent":
-            # Flood event data source
-            if not FLOODEVENT_AVAILABLE:
-                raise ImportError(
-                    "FloodEventDatasource not available. Please install hydrodatasource."
-                )
-            return FloodEventDatasource(
-                data_path=self.data_path,
-                dataset_name=self.config.get("dataset_name", "events"),
-                time_unit=self.config.get("time_unit", ["3h"]),
-                rain_key=self.config.get("rain_key"),
-                net_rain_key=self.config.get("net_rain_key"),
-                obs_flow_key=self.config.get("obs_flow_key"),
-                warmup_length=self.warmup_length,
-                **self.config.get("datasource_kwargs", {}),
-            )
-        elif self.data_type == "camels":
+        if self.data_type == "camels":
             # CAMELS data source
             if not CAMELS_AVAILABLE:
                 raise ImportError(
                     "Camels not available. Please install hydrodatasource."
                 )
             return Camels(self.data_path)
-        elif self.data_type in ["selfmade", "selfmadehydrodataset"]:
+        elif self.data_type in ["floodevent", "selfmadehydrodataset"]:
             # Self-made hydro dataset
             if not SELFMADE_AVAILABLE:
                 raise ImportError(
@@ -191,79 +176,9 @@ class UnifiedDataLoader:
         xr_dataset = self._check_and_convert_units(xr_dataset)
 
         # Convert to standard (p_and_e, qobs) format
-        return self._convert_xr_to_standard_format(xr_dataset)
+        return self._xrdataset_to_ndarray(xr_dataset)
 
-    def _convert_xr_to_standard_format(
-        self, xr_dataset: xr.Dataset
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Convert xarray dataset to standard (p_and_e, qobs) format.
-
-        Parameters
-        ----------
-        xr_dataset : xr.Dataset
-            Input xarray dataset from read_ts_xrdataset
-
-        Returns
-        -------
-        Tuple[np.ndarray, np.ndarray]
-            (p_and_e, qobs) in standard format
-        """
-        if self.data_type == "floodevent":
-            return self._convert_event_data(xr_dataset)
-        else:
-            return self._convert_continuous_data(xr_dataset)
-
-    def _convert_event_data(
-        self, xr_dataset: xr.Dataset
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Convert flood event data to standard format.
-
-        For flood events, the data comes with event markers and may have gaps.
-        We need to handle this appropriately for different model types.
-        """
-        # Extract variables based on data_type configuration
-        net_rain_key = self.config.get("net_rain_key")
-        obs_flow_key = self.config.get("obs_flow_key")
-
-        # Check if we have the expected variables
-        if net_rain_key not in xr_dataset.data_vars:
-            raise ValueError(
-                f"Expected variable '{net_rain_key}' not found in dataset"
-            )
-        if obs_flow_key not in xr_dataset.data_vars:
-            raise ValueError(
-                f"Expected variable '{obs_flow_key}' not found in dataset"
-            )
-
-        # For event data, we typically only have net rain, not separate P and PET
-        # Extract data with explicit dimension order [time, basin]
-        net_rain = xr_dataset[net_rain_key].transpose("time", "basin").values
-        obs_flow = xr_dataset[obs_flow_key].transpose("time", "basin").values
-
-        # Create dummy PET (zeros) to maintain the standard format
-        dummy_pet = np.zeros_like(net_rain)
-
-        # For flood event data, flood_event markers are mandatory
-        if "flood_event" not in xr_dataset.data_vars:
-            raise ValueError(
-                "flood_event markers are required for floodevent data type. "
-                "Please ensure the dataset contains 'flood_event' variable."
-            )
-
-        flood_event_markers = (
-            xr_dataset["flood_event"].transpose("time", "basin").values
-        )
-        # Stack P, E, and flood_event: [basin, time, features=3]
-        p_and_e = np.stack([net_rain, dummy_pet, flood_event_markers], axis=2)
-
-        # Expand qobs: [basin, time, features=1]
-        qobs = np.expand_dims(obs_flow, axis=2)
-
-        return p_and_e, qobs
-
-    def _convert_continuous_data(
+    def _xrdataset_to_ndarray(
         self, xr_dataset: xr.Dataset
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -271,17 +186,14 @@ class UnifiedDataLoader:
 
         This handles traditional continuous data sources like CAMELS.
         """
-        # Standard variable names for continuous data
-        var_mapping = {
-            "prcp": ["prcp", "precipitation", "P"],
-            "pet": ["PET", "pet", "potential_evapotranspiration", "E"],
-            "flow": ["streamflow", "flow", "Q", "discharge"],
-        }
-
-        # Find the actual variable names in the dataset
-        prcp_var = self._find_variable_name(xr_dataset, var_mapping["prcp"])
-        pet_var = self._find_variable_name(xr_dataset, var_mapping["pet"])
-        flow_var = self._find_variable_name(xr_dataset, var_mapping["flow"])
+        # Find the actual variable names in the dataset using unified mapping
+        prcp_var = self._find_variable_name(
+            xr_dataset, self.VAR_MAPPING["prcp"]
+        )
+        pet_var = self._find_variable_name(xr_dataset, self.VAR_MAPPING["pet"])
+        flow_var = self._find_variable_name(
+            xr_dataset, self.VAR_MAPPING["flow"]
+        )
 
         if not all([prcp_var, pet_var, flow_var]):
             raise ValueError(
@@ -300,6 +212,55 @@ class UnifiedDataLoader:
         qobs = np.expand_dims(flow, axis=2)
 
         return p_and_e, qobs
+
+    def get_basin_configs(self) -> Dict[str, Any]:
+        """
+        Get basin configuration information for all basins.
+
+        Parameters
+        ----------
+        attr_list : List[str], optional
+            List of specific attributes to read. If None, defaults to ["area"]
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary containing basin configurations for each basin
+        """
+        basin_configs = {}
+
+        # Get all basin attributes at once
+        areas = self.datasource.read_area(
+            gage_id_lst=self.basin_ids,
+        )
+
+        # Process each basin
+        for basin_id in self.basin_ids:
+            # Get attributes for this basin from xarray.Dataset
+            basin_attrs = {}
+            if isinstance(areas, xr.Dataset):
+                basin_idx = list(areas.basin.values).index(basin_id)
+                # Extract all data variables for this basin
+                for var_name in areas.data_vars:
+                    value = float(areas[var_name].isel(basin=basin_idx).values)
+                    # Map area variables to basin_area
+                    if var_name in self.VAR_MAPPING["area"]:
+                        basin_attrs["basin_area"] = value
+                    else:
+                        basin_attrs[var_name] = value
+            else:
+                raise ValueError(f"Unsupported areas type: {type(areas)}")
+
+            # Create basin config from attributes
+            basin_config = {
+                "basin_id": basin_id,
+                "basin_name": f"Basin_{basin_id}",
+                **basin_attrs,  # Add all attributes directly
+            }
+
+            basin_configs[basin_id] = basin_config
+
+        return basin_configs
 
     def _find_variable_name(
         self, xr_dataset: xr.Dataset, possible_names: List[str]
@@ -335,153 +296,38 @@ class UnifiedDataLoader:
             unit = re.sub(r"hour", "h", unit)
             return unit
 
-        if self.data_type == "floodevent":
-            # For flood event data, check net rain and observed flow units
-            net_rain_key = self.config.get("net_rain_key")
-            obs_flow_key = self.config.get("obs_flow_key")
+        # For continuous data, check precipitation and streamflow units
+        prcp_var = self._find_variable_name(
+            xr_dataset, self.VAR_MAPPING["prcp"]
+        )
+        flow_var = self._find_variable_name(
+            xr_dataset, self.VAR_MAPPING["flow"]
+        )
 
-            if (
-                net_rain_key in xr_dataset.data_vars
-                and obs_flow_key in xr_dataset.data_vars
-            ):
-                # Get units from attributes
-                net_rain_unit = xr_dataset[net_rain_key].attrs.get(
-                    "units", "mm/d"
-                )
-                obs_flow_unit = xr_dataset[obs_flow_key].attrs.get(
-                    "units", "mm/d"
-                )
+        if prcp_var and flow_var:
+            # Get units from attributes
+            prcp_unit = xr_dataset[prcp_var].attrs.get("units", "mm/d")
+            flow_unit = xr_dataset[flow_var].attrs.get("units", "m3/s")
 
-                # Standardize units for comparison
-                standardized_rain_unit = standardize_unit(net_rain_unit)
-                standardized_flow_unit = standardize_unit(obs_flow_unit)
+            # Standardize units for comparison
+            standardized_prcp_unit = standardize_unit(prcp_unit)
+            standardized_flow_unit = standardize_unit(flow_unit)
 
-                if standardized_rain_unit != standardized_flow_unit:
-                    # Convert streamflow to match precipitation unit
-                    if hasattr(self.datasource, "read_area"):
-                        basin_areas = self.datasource.read_area(self.basin_ids)
-                        obs_flow_dataset = xr_dataset[[obs_flow_key]]
-                        converted_flow_dataset = streamflow_unit_conv(
-                            obs_flow_dataset,
-                            basin_areas,
-                            target_unit=net_rain_unit,
-                        )
-                        xr_dataset[obs_flow_key] = converted_flow_dataset[
-                            obs_flow_key
-                        ]
-                    else:
-                        print(
-                            f"Warning: Cannot convert units - datasource doesn't support read_area()"
-                        )
-                        print(
-                            f"Precipitation unit: {net_rain_unit}, Flow unit: {obs_flow_unit}"
-                        )
-        else:
-            # For continuous data, check precipitation and streamflow units
-            var_mapping = {
-                "prcp": ["prcp", "precipitation", "P"],
-                "flow": ["streamflow", "flow", "Q", "discharge"],
-            }
-
-            prcp_var = self._find_variable_name(
-                xr_dataset, var_mapping["prcp"]
-            )
-            flow_var = self._find_variable_name(
-                xr_dataset, var_mapping["flow"]
-            )
-
-            if prcp_var and flow_var:
-                # Get units from attributes
-                prcp_unit = xr_dataset[prcp_var].attrs.get("units", "mm/d")
-                flow_unit = xr_dataset[flow_var].attrs.get("units", "m3/s")
-
-                # Standardize units for comparison
-                standardized_prcp_unit = standardize_unit(prcp_unit)
-                standardized_flow_unit = standardize_unit(flow_unit)
-
-                if standardized_prcp_unit != standardized_flow_unit:
-                    # Convert streamflow to match precipitation unit
-                    if hasattr(self.datasource, "read_area"):
-                        basin_areas = self.datasource.read_area(self.basin_ids)
-                        flow_dataset = xr_dataset[[flow_var]]
-                        converted_flow_dataset = streamflow_unit_conv(
-                            flow_dataset, basin_areas, target_unit=prcp_unit
-                        )
-                        xr_dataset[flow_var] = converted_flow_dataset[flow_var]
-                    else:
-                        print(
-                            f"Warning: Cannot convert units - datasource doesn't support read_area()"
-                        )
-                        print(
-                            f"Precipitation unit: {prcp_unit}, Flow unit: {flow_unit}"
-                        )
+            if standardized_prcp_unit != standardized_flow_unit:
+                # Convert streamflow to match precipitation unit
+                if hasattr(self.datasource, "read_area"):
+                    basin_areas = self.datasource.read_area(self.basin_ids)
+                    flow_dataset = xr_dataset[[flow_var]]
+                    converted_flow_dataset = streamflow_unit_conv(
+                        flow_dataset, basin_areas, target_unit=prcp_unit
+                    )
+                    xr_dataset[flow_var] = converted_flow_dataset[flow_var]
+                else:
+                    print(
+                        f"Warning: Cannot convert units - datasource doesn't support read_area()"
+                    )
+                    print(
+                        f"Precipitation unit: {prcp_unit}, Flow unit: {flow_unit}"
+                    )
 
         return xr_dataset
-
-    def get_event_metadata(self) -> Optional[Dict[str, Any]]:
-        """
-        Get event metadata if available (for flood event data).
-
-        Returns
-        -------
-        Optional[Dict[str, Any]]
-            Event metadata if available, None otherwise
-        """
-        if self.data_type == "floodevent" and hasattr(
-            self.datasource, "get_event_metadata"
-        ):
-            return self.datasource.get_event_metadata()
-        return None
-
-    def is_event_data(self) -> bool:
-        """Check if this is event-based data."""
-        return self.data_type == "floodevent"
-
-    def get_data_info(self) -> Dict[str, Any]:
-        """Get information about the loaded data."""
-        return {
-            "data_type": self.data_type,
-            "data_path": self.data_path,
-            "basin_ids": self.basin_ids,
-            "time_range": self.time_range,
-            "variables": self.variables,
-            "warmup_length": self.warmup_length,
-            "is_event_data": self.is_event_data(),
-        }
-
-
-def create_data_loader(data_config: Dict[str, Any]) -> UnifiedDataLoader:
-    """
-    Factory function to create a unified data loader.
-
-    Parameters
-    ----------
-    data_config : Dict[str, Any]
-        Data configuration dictionary
-
-    Returns
-    -------
-    UnifiedDataLoader
-        Configured data loader instance
-    """
-    return UnifiedDataLoader(data_config)
-
-
-def load_data_from_config(
-    data_config: Dict[str, Any],
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Convenient function to load data directly from config.
-
-    Parameters
-    ----------
-    data_config : Dict[str, Any]
-        Data configuration dictionary
-
-    Returns
-    -------
-    Tuple[np.ndarray, np.ndarray]
-        (p_and_e, qobs) in standard format
-    """
-    loader = create_data_loader(data_config)
-    return loader.load_data()

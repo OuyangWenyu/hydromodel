@@ -66,7 +66,7 @@ class ModelSetupBase(ABC):
 
     @abstractmethod
     def calculate_objective(
-        self, params: np.ndarray, observation=None
+        self, simulation: np.ndarray, observation: np.ndarray
     ) -> float:
         """Calculate objective function value."""
         pass
@@ -116,18 +116,41 @@ class UnifiedModelSetup(ModelSetupBase):
         ]  # Remove warmup period from observation
 
         # Store whether this is event data for special handling
-        self.is_event_data = self.data_loader.is_event_data()
+        self.is_event_data = data_config.get("is_event_data", False)
 
         # Traditional models (XAJ, GR series, etc.)
         param_file = self.training_config.get("param_range_file")
-        self._setup_traditional_model_params(param_file)
+        self._setup_model_params(param_file)
 
         # Create base model config for UnifiedSimulator (without specific parameter values)
         self.base_model_config = {
+            "type": "lumped",
             "model_name": self.model_name,
             "model_params": model_config.copy(),
             "parameters": {},  # Will be filled in during simulation
         }
+
+        # Get basin configurations from data loader
+        self.basin_configs = self.data_loader.get_basin_configs()
+
+        # Initialize UnifiedSimulator once during setup
+        # Use dummy parameters initially - will be updated during simulation
+        dummy_params = {name: 0.5 for name in self.parameter_names}
+        init_config = self.base_model_config.copy()
+        init_config["parameters"] = dummy_params
+
+        # For now, use the first basin's config for initialization
+        # Multi-basin support can be added later
+        first_basin_id = (
+            str(self.data_loader.basin_ids[0])
+            if self.data_loader.basin_ids
+            else "default"
+        )
+        basin_config = self.basin_configs.get(
+            first_basin_id, {"basin_area": 1000.0}
+        )
+
+        self.simulator = UnifiedSimulator(init_config, basin_config)
 
         # Create spotpy parameters
         self.params = []
@@ -138,8 +161,8 @@ class UnifiedModelSetup(ModelSetupBase):
             )
         )
 
-    def _setup_traditional_model_params(self, param_file):
-        """Setup parameters for traditional models."""
+    def _setup_model_params(self, param_file):
+        """Setup parameters for models."""
         # Load parameter configuration
         self.param_range = read_model_param_dict(param_file)
         self.parameter_names = self.param_range[self.model_name]["param_name"]
@@ -152,7 +175,7 @@ class UnifiedModelSetup(ModelSetupBase):
         return self.parameter_bounds
 
     def simulate(self, params: np.ndarray) -> np.ndarray:
-        """Run model simulation using unified UnifiedSimulator interface."""
+        """Run model simulation using pre-initialized UnifiedSimulator."""
         # Traditional models: preserve parameter order and keep normalized values in [0,1]
         from collections import OrderedDict
 
@@ -160,23 +183,30 @@ class UnifiedModelSetup(ModelSetupBase):
             (name, float(params[i]))
             for i, name in enumerate(self.parameter_names)
         )
-        parameter_value = ordered_params
 
-        # Create model config with specific parameters for this simulation
-        model_config = self.base_model_config.copy()
-        model_config["parameters"] = parameter_value
-
-        # Create simulator instance
-        simulator = UnifiedSimulator(model_config)
+        # Update parameters in existing simulator (much more efficient than recreating)
+        self.simulator.update_parameters(ordered_params)
 
         # Run simulation with flexible interface
-        results = simulator.simulate(
+        results = self.simulator.simulate(
             inputs=self.p_and_e,
             warmup_length=self.warmup_length,
             is_event_data=self.is_event_data,
         )
 
-        return results
+        # Extract simulation output (qsim) - most calibration only needs this
+        # This avoids returning the full results dict every time
+        if isinstance(results, dict) and "qsim" in results:
+            return results["qsim"]
+        elif isinstance(results, np.ndarray):
+            return results
+        else:
+            # Fallback: return first available result
+            return (
+                list(results.values())[0]
+                if isinstance(results, dict)
+                else results
+            )
 
     # _params_array_to_dict removed: models now receive normalized params and param ranges, and handle scaling internally
 
@@ -220,7 +250,7 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
     # Validate config structure
     if not isinstance(config, dict):
         raise ValueError("Config must be a dictionary")
-    
+
     if (
         "data_cfgs" not in config
         or "model_cfgs" not in config
@@ -229,7 +259,7 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
         raise ValueError(
             "Config dictionary must contain 'data_cfgs', 'model_cfgs', and 'training_cfgs' keys"
         )
-    
+
     data_config = config["data_cfgs"]
     # Extract model config
     model_cfgs = config["model_cfgs"]

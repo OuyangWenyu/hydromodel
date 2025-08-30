@@ -183,6 +183,23 @@ class UnifiedSimulator:
         self.param_names = param_names
         self.param_values = np.expand_dims(param_values, axis=0)
 
+    def update_parameters(self, new_parameters: Dict[str, Any]):
+        """
+        Update model parameters without reinitializing the entire simulator.
+        This is useful for calibration where parameters change frequently.
+
+        Parameters
+        ----------
+        new_parameters : Dict[str, Any]
+            New parameter values as key-value pairs
+        """
+        self.parameters = OrderedDict(new_parameters)
+        # Update internal parameter arrays
+        self.param_names = list(self.parameters.keys())
+        self.param_values = np.expand_dims(
+            list(self.parameters.values()), axis=0
+        )
+
     def simulate(
         self,
         inputs: np.ndarray,

@@ -1,7 +1,7 @@
 """
 Author: Wenyu Ouyang
 Date: 2025-08-07
-LastEditTime: 2025-08-30 08:57:53
+LastEditTime: 2025-08-31 10:21:28
 LastEditors: Wenyu Ouyang
 Description: Unified configuration management system for hydromodel
 FilePath: \hydromodel\hydromodel\configs\config_manager.py
@@ -61,7 +61,7 @@ def get_default_data_path(
     if data_source_type == "camels" and datasets_origin:
         return os.path.join(datasets_origin, "camels", "camels_us")
     elif data_source_type == "selfmadehydrodataset" and datasets_interim:
-        return os.path.join(datasets_interim, "songliaorrevents")
+        return os.path.join(datasets_interim, "songliaorrevent")
     elif data_source_type == "floodevent" and datasets_interim:
         return os.path.join(datasets_interim, "songliaorrevent")
     elif basins_origin:
@@ -172,6 +172,44 @@ def update_config_from_args(
 
     if hasattr(args, "variables") and args.variables is not None:
         config["data_cfgs"]["variables"] = args.variables
+
+    if hasattr(args, "time_unit") and args.time_unit is not None:
+        config["data_cfgs"]["time_unit"] = [args.time_unit]
+
+        # Convert time_unit to time_interval_hours for models that need it
+        time_unit = args.time_unit
+        if isinstance(time_unit, list) and len(time_unit) > 0:
+            time_unit = time_unit[0]  # Take first element if it's a list
+
+        # Convert time unit to hours using pandas functionality
+        import pandas as pd
+
+        time_unit_str = str(time_unit).strip()
+
+        # Handle special cases and normalize
+        if time_unit_str.lower() in ["daily", "1d", "d"]:
+            time_unit_str = "1D"
+        # Convert deprecated 'H' to 'h' to avoid pandas warning
+        time_unit_str = time_unit_str.replace("H", "h")
+
+        # Use pandas to parse the frequency and convert to hours
+        try:
+            freq = pd.Timedelta(time_unit_str)
+            time_interval_hours = freq.total_seconds() / 3600
+            # Put time_interval_hours in model_params where it belongs
+            if "model_params" not in config["model_cfgs"]:
+                config["model_cfgs"]["model_params"] = {}
+            config["model_cfgs"]["model_params"][
+                "time_interval_hours"
+            ] = time_interval_hours
+        except Exception:
+            # Fallback to default if parsing fails
+            if "model_params" not in config["model_cfgs"]:
+                config["model_cfgs"]["model_params"] = {}
+            config["model_cfgs"]["model_params"]["time_interval_hours"] = 24
+
+    if hasattr(args, "is_event") and args.is_event is not None:
+        config["data_cfgs"]["is_event_data"] = args.is_event
 
     # Update model configuration
     if hasattr(args, "model_type") and args.model_type is not None:

@@ -110,13 +110,18 @@ class UnifiedModelSetup(ModelSetupBase):
         self.data_loader = UnifiedDataLoader(data_config)
         self.p_and_e, qobs = self.data_loader.load_data()
 
-        # Store observation data (remove warmup period); seq-first data
-        self.true_obs = qobs[
-            warmup_length:, :, :
-        ]  # Remove warmup period from observation
-
         # Store whether this is event data for special handling
         self.is_event_data = data_config.get("is_event_data", False)
+
+        # Store observation data with different handling for continuous vs event data
+        if self.is_event_data:
+            # For event data: keep full observation time series
+            # Simulation results only have values during events (warmup periods are zeros)
+            # Loss calculation will naturally focus on event periods where both have values
+            self.true_obs = qobs  # Keep complete time series
+        else:
+            # For continuous data: remove warmup period from both simulation and observation
+            self.true_obs = qobs[warmup_length:, :, :]  # Remove warmup period
 
         # Traditional models (XAJ, GR series, etc.)
         param_file = self.training_config.get("param_range_file")

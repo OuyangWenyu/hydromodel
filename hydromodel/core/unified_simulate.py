@@ -9,6 +9,7 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
 import numpy as np
+import pandas as pd
 from typing import Dict, Any, Optional, Union
 from collections import OrderedDict
 
@@ -208,7 +209,6 @@ class UnifiedSimulator:
         is_event_data: bool = False,
         return_intermediate: bool = True,
         return_warmup_states: bool = False,
-        debug_arrays: bool = False,
         **kwargs,
     ) -> Dict[str, Any]:
         """
@@ -230,9 +230,6 @@ class UnifiedSimulator:
         return_warmup_states : bool, default False
             Whether to return initial states after warmup period.
             Returns warmup states in simulation result dict
-        debug_arrays : bool, default False
-            Whether to print detailed debugging information about array shapes,
-            values, and assignments during simulation
         **kwargs
             Additional arguments passed to the model function.
             Can include 'initial_states': Dict[str, Any] - Dictionary of initial
@@ -266,7 +263,6 @@ class UnifiedSimulator:
                 warmup_length,
                 return_intermediate,
                 return_warmup_states,
-                debug_arrays,
                 **kwargs,
             )
         else:
@@ -461,7 +457,6 @@ class UnifiedSimulator:
         warmup_length: int,
         return_intermediate: bool,
         return_warmup_states: bool,
-        debug_arrays: bool = False,
         **kwargs,
     ) -> Dict[str, Any]:
         """Special simulation for event data with traditional models."""
@@ -478,29 +473,16 @@ class UnifiedSimulator:
         event_warmup_states = None
 
         # Process each basin separately
-        if debug_arrays:
-            print(f"\n{'='*60}")
-            print(f"开始处理事件数据模拟")
-            print(f"输入数据形状: {inputs.shape}")
-            print(f"流域数量: {inputs.shape[1]}")
-            print(f"预热长度: {warmup_length}")
-            print(f"{'='*60}")
-
         for basin_idx in range(inputs.shape[1]):
             # Find event segments using flood_event markers (including warmup period)
             flood_event_array = inputs[
-                :, basin_idx, 2
-            ]  # feature index 2 is flood_event
+                :, basin_idx, -1
+            ]  # feature index of final dimension is flood_event
             event_segments = find_flood_event_segments_as_tuples(
                 flood_event_array, warmup_length
             )
 
             basin_params = self.param_values
-
-            if debug_arrays:
-                print(f"\n流域 {basin_idx}:")
-                print(f"  找到 {len(event_segments)} 个事件段")
-                print(f"  事件段索引范围: {event_segments}")
 
             # Process each event segment
             for j, (
@@ -509,11 +491,6 @@ class UnifiedSimulator:
                 original_start,
                 original_end,
             ) in enumerate(event_segments):
-                if debug_arrays:
-                    print(f"\n  事件 {j}:")
-                    print(f"    扩展范围: {extended_start} -> {extended_end}")
-                    print(f"    原始范围: {original_start} -> {original_end}")
-
                 # Extract event data (including warmup period)
                 event_inputs = inputs[
                     extended_start : extended_end + 1,

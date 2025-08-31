@@ -53,7 +53,7 @@ class UnifiedDataLoader:
     # Unified variable mapping for all data sources
     VAR_MAPPING = {
         "prcp": ["prcp", "precipitation", "P", "rain", "rainfall"],
-        "pet": ["PET", "pet", "potential_evapotranspiration", "E"],
+        "pet": ["PET", "pet", "potential_evapotranspiration", "ES"],
         "flow": [
             "streamflow",
             "flow",
@@ -68,6 +68,7 @@ class UnifiedDataLoader:
             "basin_area",
             "drainage_area",
         ],
+        "flood_event": ["flood_event", "event", "flood_indicator"],
     }
 
     def __init__(
@@ -184,7 +185,7 @@ class UnifiedDataLoader:
         """
         Convert continuous time series data to standard format.
 
-        This handles traditional continuous data sources like CAMELS.
+        This handles traditional continuous data sources and event data.
         """
         # Find the actual variable names in the dataset using unified mapping
         prcp_var = self._find_variable_name(
@@ -200,15 +201,27 @@ class UnifiedDataLoader:
                 f"Could not find required variables in dataset. Available: {list(xr_dataset.data_vars)}"
             )
 
-        # Extract data with explicit dimension order [time, basin]
+        # Extract basic data with explicit dimension order [time, basin]
         prcp = xr_dataset[prcp_var].transpose("time", "basin").values
         pet = xr_dataset[pet_var].transpose("time", "basin").values
         flow = xr_dataset[flow_var].transpose("time", "basin").values
 
-        # Stack P and E: [basin, time, features=2]
-        p_and_e = np.stack([prcp, pet], axis=2)
+        # Check if flood_event variable exists
+        flood_event_var = self._find_variable_name(
+            xr_dataset, self.VAR_MAPPING["flood_event"]
+        )
 
-        # Expand qobs: [basin, time, features=1]
+        if flood_event_var:
+            # Event data with flood_event: [time, basin, features=3]
+            flood_event = (
+                xr_dataset[flood_event_var].transpose("time", "basin").values
+            )
+            p_and_e = np.stack([prcp, pet, flood_event], axis=2)
+        else:
+            # Traditional continuous data: [time, basin, features=2]
+            p_and_e = np.stack([prcp, pet], axis=2)
+
+        # Expand qobs: [time, basin, features=1]
         qobs = np.expand_dims(flow, axis=2)
 
         return p_and_e, qobs

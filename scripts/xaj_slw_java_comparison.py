@@ -51,9 +51,9 @@ def test_xaj_slw_with_example_data(use_csv=False):
     print("开始测试XAJ-SLW模型...")
 
     # 加载测试数据
-    sms_json_file = "data/sms_3_data.json"
-    lag_json_file = "data/lag_3_data.json"
-    csv_file = "data/xaj_java_data.csv"
+    sms_json_file = "/home/zlh/hydromodeljava/src/main/resources/event24.json"
+    lag_json_file = "/home/zlh/hydromodeljava/src/main/resources/event24_lag_data.json"
+    csv_file = "/home/zlh/hydromodel/data/event24.csv"
 
     try:
         # 加载和解析数据
@@ -136,49 +136,41 @@ def test_xaj_slw_with_example_data(use_csv=False):
 
         # 运行模型
         print("\n运行XAJ-SLW模型...")
+        warmup_length = 480  # 预热期步长
         result = xaj_slw(
             p_and_e,
             parameters,
-            warmup_length=0,
+            warmup_length=warmup_length, 
             return_state=True,
             normalized_params=False,
             time_interval_hours=time_interval,
             basin_area=float(lag_data["F"]),
-            lag_initial_states={
-                "qsig_initial": np.array(lag_data["QSIG"], dtype=float),
-                "qx_initial": np.array(lag_data["QXSIG"], dtype=float),
-            },
         )
 
         # 解析结果
-        q_sim, runoff_sim, rs, ri, rg, pe, wu, wl, wd = result
+        q_sim, runoff_sim, rs, ri, rg, pe, wu, wl, wd= result
 
         # 创建结果数据框
         df_result = pd.DataFrame(
             {
-                "datetime": dt,
-                "rs": rs[:, 0, 0],
-                "ri": ri[:, 0, 0],
-                "rg": rg[:, 0, 0],
-                "runoff_total": runoff_sim[:, 0, 0],
+                "time": dt[warmup_length:],
                 "q_sim": q_sim[:, 0, 0],
+                "runoff_sim": runoff_sim[:, 0, 0],
             }
         )
 
-        # 输出结果
-        # print("\n产流结果:")
-        # print("\nrSim (地表径流、壤中流、地下径流):")
-        # print("时间                   RS         RI         RG")
-        # print("-" * 55)
-        # for i in range(len(dt)):
-        #     print(f"{dt[i]}  {rs[i,0,0]:9.6f}  {ri[i,0,0]:9.6f}  {rg[i,0,0]:9.6f}")
-
         print("\n最终流量:")
-        print("时间                 q_sim")
+        print("时间                 q_sim          runoff_sim ")
         print("-" * 35)
-        for i in range(len(dt)):
-            print(f"{dt[i]}  {q_sim[i,0,0]:9.6f}")
-
+        for i in range(len(q_sim)):
+            print(f"{dt[i+warmup_length]}  {q_sim[i,0,0]:9.6f} {runoff_sim[i,0,0]:9.6f}")
+            
+        inflow_df = pd.read_csv(csv_file)
+        nse_from_df(df_result, inflow_df, warmup_length=480)    
+            
+        print("\n结果已保存到 output_csv.csv 文件中")
+        df_result.to_csv('output_csv.csv', index=False)
+        
         return True, df_result
 
     except Exception as e:
@@ -189,6 +181,54 @@ def test_xaj_slw_with_example_data(use_csv=False):
         return False, None
 
 
+def calculate_nse(observed, simulated):
+    """
+    计算 Nash-Sutcliffe 效率系数 (NSE)
+    
+    Args:
+        observed (np.ndarray): 观测值
+        simulated (np.ndarray): 模拟值
+    
+    Returns:
+        float: NSE 值
+    """
+    if len(observed) != len(simulated):
+        raise ValueError("观测值和模拟值的长度必须相等")
+    
+    mean_observed = np.mean(observed)
+    numerator = np.sum((observed - simulated) ** 2)
+    denominator = np.sum((observed - mean_observed) ** 2)
+    return 1 - (numerator / denominator)
+
+def nse_from_df(df_result, inflow_df, warmup_length=480):
+    """
+    从 DataFrame 中读取数据并计算 q_sim 和 inflow 列的 NSE
+    
+    Args:
+        df_result (pd.DataFrame): 包含 q_sim 列的结果 DataFrame
+        inflow_df (pd.DataFrame): 包含 inflow 列的输入 DataFrame
+        warmup_length (int): 预热期长度，默认为 480
+    """
+    # 确保列存在
+    if 'q_sim' not in df_result.columns:
+        raise ValueError("df_result 中缺少列: q_sim")
+    if 'inflow' not in inflow_df.columns:
+        raise ValueError("inflow_df 中缺少列: inflow")
+    
+    # 提取 q_sim 和 inflow 列
+    q_sim = df_result['q_sim'].values
+    inflow = inflow_df['inflow'].values[warmup_length:]  # 减去预热期长度
+    
+    # 确保长度一致
+    if len(q_sim) != len(inflow):
+        raise ValueError("q_sim 和 inflow 的长度不一致，无法计算 NSE")
+    
+    # 计算 NSE
+    q_sim_nse = calculate_nse(q_sim,inflow)
+    
+    # 输出结果
+    print(f"q_sim 列的 NSE: {q_sim_nse:.4f}")
+    
 if __name__ == "__main__":
     # 使用JSON文件测试
     # print("\n使用JSON文件测试:")

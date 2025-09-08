@@ -27,25 +27,18 @@ def calculate_net_precipitation(
     potential_evapotranspiration: np.ndarray,
     kc: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    计算净雨和实际蒸散发
+    """Calculate net precipitation and actual evapotranspiration.
 
-    Parameters
-    ----------
-    precipitation : np.ndarray
-        降水量
-    potential_evapotranspiration : np.ndarray
-        潜在蒸散发
-    kc : np.ndarray
-        蒸散发系数
+    Args:
+        precipitation: Precipitation array.
+        potential_evapotranspiration: Potential evapotranspiration array.
+        kc: Evapotranspiration coefficient array.
 
-    Returns
-    -------
-    tuple
-        (净雨, 实际蒸散发)
+    Returns:
+        Tuple containing net precipitation and actual evapotranspiration (pe, edt).
     """
-    edt = kc * potential_evapotranspiration  # 实际蒸散发
-    pe = precipitation - edt  # 净雨
+    edt = kc * potential_evapotranspiration  # Actual evapotranspiration
+    pe = precipitation - edt  # Net precipitation
     return pe, edt
 
 
@@ -81,49 +74,48 @@ def sms3_runoff_generation_vectorized(
     np.ndarray,
     np.ndarray,
 ]:
-    """
-    向量化SMS3产流模型
+    """Vectorized SMS3 runoff generation model.
 
-    Parameters
-    ----------
-    precipitation : np.ndarray
-        降水量时间序列
-    evapotranspiration : np.ndarray
-        蒸发量时间序列
-    wu, wl, wd : np.ndarray
-        初始张力水含量
-    s : np.ndarray
-        初始自由水蓄量
-    fr : np.ndarray
-        初始产流面积系数
-    wm, wumx, wlmx, kc, b, c, im, sm, ex, kg, ki : float
-        模型参数
-    time_interval : float
-        时间间隔
-    es : np.ndarray
-        月蒸发量
-    time_steps : int
-        时间步数
+    Args:
+        precipitation: Precipitation time series.
+        evapotranspiration: Evapotranspiration time series.
+        wu: Initial upper layer tension water content.
+        wl: Initial lower layer tension water content.
+        wd: Initial deep layer tension water content.
+        s: Initial free water storage.
+        fr: Initial runoff area ratio.
+        wm: Total tension water capacity.
+        wumx: Upper layer capacity ratio.
+        wlmx: Lower layer capacity ratio.
+        kc: Evapotranspiration coefficient.
+        b: Exponent of tension water capacity curve.
+        c: Deep evapotranspiration coefficient.
+        im: Impervious area ratio.
+        sm: Average free water capacity.
+        ex: Exponent of free water capacity curve.
+        kg: Groundwater outflow coefficient.
+        ki: Interflow outflow coefficient.
+        time_interval: Time interval.
+        time_steps: Number of time steps.
 
-    Returns
-    -------
-    tuple
-        产流结果和状态变量
+    Returns:
+        Tuple containing runoff results and state variables:
+        (wu_out, wl_out, wd_out, s_out, fr_out, rs, ri, rg, runoff_total)
     """
-    # 计算衍生参数
+    # Calculate derived parameters
     wum = wumx * wm
     wlm = (1.0 - wumx) * wlmx * wm
     wdm = wm - wum - wlm
     wmm = (1.0 + b) * wm / (1.0 - im)
     smm = (1.0 + ex) * sm
 
-    # 调整KG和KI
+    # Adjust KG and KI
     if kg + ki > 0.9:
         tmp = (kg + ki - 0.9) / (kg + ki)
         kg = kg - kg * tmp
         ki = ki - ki * tmp
 
-    # 计算HGI并调整KG和KI
+    # Calculate HGI and adjust KG and KI
     hgi = (1.0 - np.power((1.0 - kg - ki), (time_interval / 24.0))) / (kg + ki)
     kg = hgi * kg
     ki = hgi * ki
@@ -297,8 +289,18 @@ def sms3_runoff_generation_vectorized(
 def lchco_vectorized(
     mp: int, rq: float, qx: np.ndarray, c0: float, c1: float, c2: float
 ) -> float:
-    """
-    向量化的LCHCO计算
+    """Vectorized LCHCO calculation.
+
+    Args:
+        mp: Number of river reaches.
+        rq: Inflow rate.
+        qx: Flow array.
+        c0: Muskingum coefficient 0.
+        c1: Muskingum coefficient 1.
+        c2: Muskingum coefficient 2.
+
+    Returns:
+        Calculated flow value.
     """
     im = mp + 1
     if im == 1:
@@ -332,58 +334,37 @@ def lag3_routing_vectorized(
     qgp: float = 0.0,
     qsig_initial: np.ndarray = None,
     qx_initial: np.ndarray = None,
-    start_time: str = None,
     return_states: bool = False,
 ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[str, np.ndarray]]]:
-    """
-    向量化LAG3汇流模型
+    """Vectorized LAG3 routing model.
 
-    Parameters
-    ----------
-    rs, ri, rg : np.ndarray
-        地表水、壤中水、地下水产流量
-    time_interval : float
-        时间间隔
-    basin_area : float
-        流域面积
-    ci, cg : float
-        消退系数
-    lag : float
-        滞时
-    cs : float
-        地面径流消退系数
-    kk : float
-        马斯京根K参数
-    x : float
-        马斯京根X参数
-    mp : int
-        河段数
-    qsp, qip, qgp : float
-        初始流量
-    qsig_initial, qx_initial : np.ndarray
-        初始状态数组
-    start_time : str, optional
-        预报开始时间，格式为"YYYY-MM-DD HH:mm:ss"
-    Returns
-    -------
-    np.ndarray
-        最终流量
+    Args:
+        rs: Surface runoff.
+        ri: Interflow runoff.
+        rg: Groundwater runoff.
+        time_interval: Time interval.
+        basin_area: Basin area.
+        ci: Interflow recession coefficient.
+        cg: Groundwater recession coefficient.
+        lag: Lag time.
+        cs: Surface runoff recession coefficient.
+        kk: Muskingum K parameter.
+        x: Muskingum X parameter.
+        mp: Number of river reaches.
+        qsp: Initial surface flow.
+        qip: Initial interflow.
+        qgp: Initial groundwater flow.
+        qsig_initial: Initial qsig state array.
+        qx_initial: Initial qx state array.
+        return_states: Whether to return state variables.
+
+    Returns:
+        If return_states is False, returns final flow array.
+        If return_states is True, returns (flow_array, state_dict) tuple.
     """
     time_steps = len(rs)
     t_steps = int(round(lag / time_interval))  # 新的滞时步数计算
     t = max(t_steps, 0)  # 确保非负值
-    # 解析预报开始时间
-    start_month = None
-    start_year = None
-    if start_time:
-        try:
-            from datetime import datetime
-
-            start_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
-            start_month = start_dt.month
-            start_year = start_dt.year
-        except:
-            pass
 
     # 单位转换系数
     cp = basin_area / time_interval / 3.6
@@ -452,24 +433,6 @@ def lag3_routing_vectorized(
         # 使用LCHCO进行马斯京根演算
         qsig[i + t] = lchco_vectorized(mp, qtsig, qx, c0, c1, c2)
 
-        # 添加陡降处理
-        if start_time:
-            try:
-                current_time = start_dt + timedelta(hours=i * time_interval)
-                current_month = current_time.month
-                current_year = current_time.year
-
-                if (
-                    current_year > 2012
-                    and current_month > 8
-                    and start_year > 2012
-                    and start_month > 8
-                ):
-                    qsig[i + t] *= 0.9
-            except:
-                # 如果时间处理出错，跳过陡降处理
-                pass
-
     # 提取最终结果
     q_routing = qsig[:time_steps]
 
@@ -479,9 +442,9 @@ def lag3_routing_vectorized(
     if return_states:
         # 返回最终状态
         final_states = {
-            "qsig_final": qsig[time_steps:],  # 最终的qsig状态
-            "qx_final": qx.copy(),  # 最终的qx状态
-            "qsig1_final": qsig1,  # 最终的qsig1状态
+            "qsig_final": qsig[time_steps:],  
+            "qx_final": qx.copy(),  
+            "qsig1_final": qsig1,  
         }
         return q_routing, final_states
     else:
@@ -514,43 +477,36 @@ def xaj_slw(
         Dict[str, np.ndarray],
     ],
 ]:
-    """
-    向量化新安江松辽水文模型（使用SMS3和LAG3算法）
+    """Vectorized XinAnJiang Songliao hydrological model using SMS3 and LAG3 algorithms.
 
-    Parameters
-    ----------
-    p_and_e : np.ndarray
-        降雨和潜在蒸散发数据，3维: [时间, 流域, 特征=2]
-        其中特征=0为降雨量，特征=1为潜在蒸散发
-    parameters : np.ndarray
-        模型参数，2维: [流域, 参数]
-        参数顺序: [WUP, WLP, WDP, SP, FRP, WM, WUMx, WLMx, KC, B, C, IM,
-                 SM, EX, KG, KI, CS, CI, CG, LAG, KK, X, MP, QSP, QIP, QGP]
-    warmup_length : int, optional
-        预热期长度 (默认: 365)
-    return_state : bool, optional
-        如果为True，返回内部状态变量 (默认: False)
-    return_warmup_states : bool, optional
-        如果为True，返回预热期后的初始状态 (默认: False)
-    normalized_params : Union[bool, str], optional
-        参数格式说明:
-        - "auto": 自动检测参数格式 (默认)
-        - True: 参数已归一化 (0-1范围)，转换为原始尺度
-        - False: 参数已在原始尺度，直接使用
-    **kwargs
-        其他关键字参数，包括time_interval_hours (默认: 1.0)
+    Args:
+        p_and_e: Precipitation and potential evapotranspiration data, 3D array [time, basin, feature=2].
+            Feature 0 is precipitation, feature 1 is potential evapotranspiration.
+        parameters: Model parameters, 2D array [basin, parameter].
+            Parameter order: [WUP, WLP, WDP, SP, FRP, WM, WUMx, WLMx, KC, B, C, IM,
+                             SM, EX, KG, KI, CS, CI, CG, LAG, KK, X, MP, QSP, QIP, QGP].
+        warmup_length: Warmup period length, default is 365.
+        return_state: If True, returns internal state variables, default is False.
+        return_warmup_states: If True, returns initial states after warmup, default is False.
+        normalized_params: Parameter format specification:
+            - "auto": Automatically detect parameter format (default)
+            - True: Parameters are normalized (0-1 range), convert to original scale
+            - False: Parameters are in original scale, use directly
+        **kwargs: Other keyword arguments, including time_interval_hours (default: 1.0).
 
-    Returns
-    -------
-    result : np.ndarray or tuple
-        如果return_state为False且return_warmup_states为False:
-            QSim数组 [时间, 流域, 1]
-        如果return_state为False且return_warmup_states为True:
-            (QSim, warmup_states)，其中warmup_states包含所有状态变量（包括SMS和LAG状态）
-        如果return_state为True且return_warmup_states为False:
-            (QSim, runoffSim, rs, ri, rg, pe, wu, wl, wd)元组
-        如果return_state为True且return_warmup_states为True:
-            (QSim, runoffSim, rs, ri, rg, pe, wu, wl, wd, warmup_states)元组
+    Returns:
+        Results in different formats based on parameters:
+        - If return_state is False and return_warmup_states is False:
+          Returns QSim array [time, basin, 1]
+        - If return_state is False and return_warmup_states is True:
+          Returns (QSim, warmup_states) tuple, where warmup_states contains all state variables
+        - If return_state is True and return_warmup_states is False:
+          Returns (QSim, runoffSim, rs, ri, rg, pe, wu, wl, wd) tuple
+        - If return_state is True and return_warmup_states is True:
+          Returns (QSim, runoffSim, rs, ri, rg, pe, wu, wl, wd, warmup_states) tuple
+
+    Raises:
+        KeyError: If basin_area parameter is not provided.
     """
     if "basin_area" not in kwargs:
         raise KeyError("basin_area must be provided")
@@ -643,7 +599,7 @@ def xaj_slw(
                 warmup_lag_final_states,
             ) = warmup_result[:12]
         else:
-            # 向后兼容：如果没有LAG状态，使用默认值
+            # 如果没有LAG状态，使用默认值
             _, _, _, _, _, _, wu_final, wl_final, wd_final = warmup_result[:9]
             warmup_lag_final_states = {}
             for basin_idx in range(num_basins):
@@ -657,18 +613,17 @@ def xaj_slw(
         # 获取s和fr的最终状态
         warmup_s_final = np.zeros(num_basins)
         warmup_fr_final = np.zeros(num_basins)
-        warmup_s_final[basin_idx] = s_final[-1]
-        warmup_fr_final[basin_idx] = fr_final[-1]
+        for basin_idx in range(num_basins):
+            warmup_s_final[basin_idx] = s_final[-1]
+            warmup_fr_final[basin_idx] = fr_final[-1]
+
 
         # 使用预热期结果作为初始条件
-        # wu_final, wl_final, wd_final 是 [time, basin, 1] 格式，取最后一个时间步
         wu0 = wu_final[-1, :, 0]  # [basin]
         wl0 = wl_final[-1, :, 0]  # [basin]
         wd0 = wd_final[-1, :, 0]  # [basin]
         s0 = warmup_s_final  # [basin]
         fr0 = warmup_fr_final  # [basin]
-
-        # 保存LAG状态供主计算使用
         kwargs["lag_initial_states"] = warmup_lag_final_states
 
     else:
@@ -795,7 +750,6 @@ def xaj_slw(
         )
 
         # Run LAG3 routing
-        # 获取初始状态（从kwargs中获取，如果没有则使用零数组）
         lag_initial_states = kwargs.get("lag_initial_states", None)
         if lag_initial_states is not None:
             qsig_initial = lag_initial_states.get(
@@ -900,28 +854,20 @@ def load_sms_lag_data_from_json(
     lag_json_path: str,
     default_evap: float,
 ) -> Tuple[np.ndarray, np.ndarray, List[str], str]:
-    """
-    从SMS和LAG的JSON文件加载XAJ模型所需的数据
+    """Load XAJ model data from SMS and LAG JSON files.
 
-    Parameters
-    ----------
-    sms_json_path : str
-        SMS_3模型的JSON文件路径
-    lag_json_path : str
-        LAG_3模型的JSON文件路径
-    default_evap : float, optional
-        默认蒸散发值 (默认: 2.0)
+    Args:
+        sms_json_path: Path to SMS_3 model JSON file.
+        lag_json_path: Path to LAG_3 model JSON file.
+        default_evap: Default evapotranspiration value.
 
-    Returns
-    -------
-    p_and_e : np.ndarray
-        降雨和蒸发数据 [time, basin=1, feature=2]
-    parameters : np.ndarray
-        模型参数 [basin=1, parameter=26]
-    time_dates : List[str]
-        时间日期列表
-    start_time : str
-        开始时间
+    Returns:
+        Tuple containing:
+        - p_and_e: Precipitation and evapotranspiration data [time, basin=1, feature=2]
+        - parameters: Model parameters [basin=1, parameter=26]
+        - time_dates: List of time dates
+        - start_time: Start time
+        - es: Monthly evapotranspiration array
     """
     # 读取SMS JSON文件
     with open(sms_json_path, "r", encoding="utf-8") as f:

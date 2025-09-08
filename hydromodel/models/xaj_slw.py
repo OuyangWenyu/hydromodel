@@ -157,7 +157,6 @@ def sms3_runoff_generation_vectorized(
 
     # 主循环
     for i in range(time_steps - 1):
-        # 直接使用输入的蒸散发数据
         ek = kc * evapotranspiration[i]
         pe = precipitation[i] - ek
 
@@ -282,11 +281,11 @@ def sms3_runoff_generation_vectorized(
         rg_curr = max(0.0, rg_curr)
 
         # 存储结果
-        wu_out[i+1] = wu_curr
-        wl_out[i+1] = wl_curr
-        wd_out[i+1] = wd_curr
-        s_out[i+1] = s_curr
-        fr_out[i+1] = fr_curr
+        wu_out[i + 1] = wu_curr
+        wl_out[i + 1] = wl_curr
+        wd_out[i + 1] = wd_curr
+        s_out[i + 1] = s_curr
+        fr_out[i + 1] = fr_curr
         rs[i] = rs_curr
         ri[i] = ri_curr
         rg[i] = rg_curr
@@ -371,6 +370,8 @@ def lag3_routing_vectorized(
         最终流量
     """
     time_steps = len(rs)
+    t_steps = int(round(lag / time_interval))  # 新的滞时步数计算
+    t = max(t_steps, 0)  # 确保非负值
     # 解析预报开始时间
     start_month = None
     start_year = None
@@ -395,12 +396,11 @@ def lag3_routing_vectorized(
     qs = np.zeros(time_steps)
     qi = np.zeros(time_steps)
     qg = np.zeros(time_steps)
-    qsig = np.zeros(time_steps + int(lag))
+    qsig = np.zeros(time_steps + t)
 
     # 初始化QSIG数组
-    t = int(lag)
     if qsig_initial is None:
-        qsig_initial = np.zeros(max(t, 6))
+        qsig_initial = np.zeros(max(t, 3))
 
     if lag <= 1:
         qsig[0] = qsig_initial[0]
@@ -543,13 +543,13 @@ def xaj_slw(
     Returns
     -------
     result : np.ndarray or tuple
-        如果return_state为False且return_warmup_states为False: 
+        如果return_state为False且return_warmup_states为False:
             QSim数组 [时间, 流域, 1]
-        如果return_state为False且return_warmup_states为True: 
+        如果return_state为False且return_warmup_states为True:
             (QSim, warmup_states)，其中warmup_states包含所有状态变量（包括SMS和LAG状态）
-        如果return_state为True且return_warmup_states为False: 
+        如果return_state为True且return_warmup_states为False:
             (QSim, runoffSim, rs, ri, rg, pe, wu, wl, wd)元组
-        如果return_state为True且return_warmup_states为True: 
+        如果return_state为True且return_warmup_states为True:
             (QSim, runoffSim, rs, ri, rg, pe, wu, wl, wd, warmup_states)元组
     """
     if "basin_area" not in kwargs:
@@ -609,7 +609,7 @@ def xaj_slw(
         warmup_lag_states = {}
         for basin_idx in range(num_basins):
             warmup_lag_states[f"qsig_initial_{basin_idx}"] = np.zeros(
-                max(int(lag[basin_idx]), 6)
+                max(int(lag[basin_idx]), 3)
             )
             warmup_lag_states[f"qx_initial_{basin_idx}"] = np.zeros(
                 int(mp[basin_idx]) + 1
@@ -627,72 +627,38 @@ def xaj_slw(
         )
 
         # 解析预热期结果
-        if len(warmup_result) >= 10:
-            _, _, _, _, _, _, wu_final, wl_final, wd_final, warmup_lag_final_states = warmup_result[:10]
+        if len(warmup_result) >= 12:
+            (
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                wu_final,
+                wl_final,
+                wd_final,
+                s_final,
+                fr_final,
+                warmup_lag_final_states,
+            ) = warmup_result[:12]
         else:
             # 向后兼容：如果没有LAG状态，使用默认值
             _, _, _, _, _, _, wu_final, wl_final, wd_final = warmup_result[:9]
             warmup_lag_final_states = {}
             for basin_idx in range(num_basins):
-                warmup_lag_final_states[f"qsig_initial_{basin_idx}"] = np.zeros(
-                    max(int(lag[basin_idx]), 6)
+                warmup_lag_final_states[f"qsig_initial_{basin_idx}"] = (
+                    np.zeros(max(int(lag[basin_idx]), 3))
                 )
                 warmup_lag_final_states[f"qx_initial_{basin_idx}"] = np.zeros(
                     int(mp[basin_idx]) + 1
                 )
 
-        # 运行预热期SMS计算来获取s和fr的最终状态
+        # 获取s和fr的最终状态
         warmup_s_final = np.zeros(num_basins)
         warmup_fr_final = np.zeros(num_basins)
-        
-        for basin_idx in range(num_basins):
-            # 提取预热期数据
-            warmup_prcp = p_and_e_warmup[:, basin_idx, 0]
-            warmup_pet = p_and_e_warmup[:, basin_idx, 1]
-
-            # 初始SMS状态
-            wu_warmup = np.array([wup[basin_idx]])
-            wl_warmup = np.array([wlp[basin_idx]])
-            wd_warmup = np.array([wdp[basin_idx]])
-            s_warmup = np.array([sp[basin_idx]])
-            fr_warmup = np.array([frp[basin_idx]])
-
-            # 运行SMS产流计算获取最终状态
-            (
-                _,
-                _,
-                _,
-                s_final_basin,
-                fr_final_basin,
-                _,
-                _,
-                _,
-                _,
-            ) = sms3_runoff_generation_vectorized(
-                warmup_prcp,
-                warmup_pet,
-                wu_warmup,
-                wl_warmup,
-                wd_warmup,
-                s_warmup,
-                fr_warmup,
-                wm[basin_idx],
-                wumx[basin_idx],
-                wlmx[basin_idx],
-                kc[basin_idx],
-                b[basin_idx],
-                c[basin_idx],
-                im[basin_idx],
-                sm[basin_idx],
-                ex[basin_idx],
-                kg[basin_idx],
-                ki[basin_idx],
-                time_interval,
-                len(warmup_prcp),
-            )
-            
-            warmup_s_final[basin_idx] = s_final_basin[-1]
-            warmup_fr_final[basin_idx] = fr_final_basin[-1]
+        warmup_s_final[basin_idx] = s_final[-1]
+        warmup_fr_final[basin_idx] = fr_final[-1]
 
         # 使用预热期结果作为初始条件
         # wu_final, wl_final, wd_final 是 [time, basin, 1] 格式，取最后一个时间步
@@ -706,12 +672,12 @@ def xaj_slw(
         kwargs["lag_initial_states"] = warmup_lag_final_states
 
     else:
-        # Default initial states
-        wu0 = wup.copy() # 上层张力水含量
-        wl0 = wlp.copy() # 下层张力水含量
-        wd0 = wdp.copy() # 深层张力水含量
-        s0 = sp.copy() # 自由水蓄量
-        fr0 = frp.copy() # 产流面积系数
+        # 默认状态从参数中获取
+        wu0 = wup.copy()  # 上层张力水含量
+        wl0 = wlp.copy()  # 下层张力水含量
+        wd0 = wdp.copy()  # 深层张力水含量
+        s0 = sp.copy()  # 自由水蓄量
+        fr0 = frp.copy()  # 产流面积系数
 
     # Apply initial state overrides if provided (only after warmup in main call)
     initial_states = kwargs.get("initial_states", None)
@@ -727,7 +693,7 @@ def xaj_slw(
             s0[0] = float(initial_states["s0"])
         if "fr0" in initial_states:
             fr0[0] = float(initial_states["fr0"])
-        
+
         # LAG states - 数组状态
         if "qsig" in initial_states:
             qsig_len = max(int(lag[0]), 6)
@@ -740,21 +706,23 @@ def xaj_slw(
             if len(initial_states["qx"]) >= qx_len:
                 if "lag_initial_states" not in kwargs:
                     kwargs["lag_initial_states"] = {}
-                kwargs["lag_initial_states"]["qx_initial_0"] = initial_states["qx"][:qx_len].copy()
+                kwargs["lag_initial_states"]["qx_initial_0"] = initial_states[
+                    "qx"
+                ][:qx_len].copy()
 
     # Save warmup states before applying overrides (for return_warmup_states)
     warmup_states = None
     if return_warmup_states:
         warmup_states = {
             # SMS states (scalar)
-            "wu0": float(wu0[0]),  
+            "wu0": float(wu0[0]),
             "wl0": float(wl0[0]),
             "wd0": float(wd0[0]),
             "s0": float(s0[0]),
             "fr0": float(fr0[0]),
             # LAG states (array)
             "qsig": warmup_lag_final_states["qsig_initial_0"],  # 保持数组形式
-            "qx": warmup_lag_final_states["qx_initial_0"]
+            "qx": warmup_lag_final_states["qx_initial_0"],
         }
 
     inputs = p_and_e[warmup_length:, :, :]
@@ -770,7 +738,9 @@ def xaj_slw(
     wu_out = np.zeros((actual_time_steps, num_basins))
     wl_out = np.zeros((actual_time_steps, num_basins))
     wd_out = np.zeros((actual_time_steps, num_basins))
-    
+    s_out = np.zeros((actual_time_steps, num_basins))
+    fr_out = np.zeros((actual_time_steps, num_basins))
+
     # Initialize LAG final states dictionary
     final_lag_states = {}
 
@@ -830,13 +800,13 @@ def xaj_slw(
         if lag_initial_states is not None:
             qsig_initial = lag_initial_states.get(
                 f"qsig_initial_{basin_idx}",
-                np.zeros(max(int(lag[basin_idx]), 6)),
+                np.zeros(max(int(lag[basin_idx]), 3)),
             )
             qx_initial = lag_initial_states.get(
                 f"qx_initial_{basin_idx}", np.zeros(int(mp[basin_idx]) + 1)
             )
         else:
-            qsig_initial = np.zeros(max(int(lag[basin_idx]), 6))
+            qsig_initial = np.zeros(max(int(lag[basin_idx]), 3))
             qx_initial = np.zeros(int(mp[basin_idx]) + 1)
 
         # Run LAG3 routing and collect final states
@@ -861,10 +831,14 @@ def xaj_slw(
             kwargs.get("start_time", None),  # 从kwargs中获取start_time
             return_states=True,
         )
-        
+
         # Store LAG final states for this basin
-        final_lag_states[f"qsig_initial_{basin_idx}"] = lag_final_states["qsig_final"]
-        final_lag_states[f"qx_initial_{basin_idx}"] = lag_final_states["qx_final"]
+        final_lag_states[f"qsig_initial_{basin_idx}"] = lag_final_states[
+            "qsig_final"
+        ]
+        final_lag_states[f"qx_initial_{basin_idx}"] = lag_final_states[
+            "qx_final"
+        ]
 
         # Store results
         q_sim[:, basin_idx] = q_basin
@@ -876,6 +850,8 @@ def xaj_slw(
         wu_out[:, basin_idx] = wu_new
         wl_out[:, basin_idx] = wl_new
         wd_out[:, basin_idx] = wd_new
+        s_out[:, basin_idx] = s_new
+        fr_out[:, basin_idx] = fr_new
 
     # Ensure non-negative discharge
     q_sim = np.maximum(q_sim, 0.0)
@@ -890,6 +866,8 @@ def xaj_slw(
     wu_out = np.expand_dims(wu_out, axis=2)
     wl_out = np.expand_dims(wl_out, axis=2)
     wd_out = np.expand_dims(wd_out, axis=2)
+    s_out = np.expand_dims(s_out, axis=2)
+    fr_out = np.expand_dims(fr_out, axis=2)
 
     if return_state:
         result = (
@@ -902,6 +880,9 @@ def xaj_slw(
             wu_out,
             wl_out,
             wd_out,
+            s_out,
+            fr_out,
+            final_lag_states,  # 返回最终的LAG状态
         )
         if return_warmup_states and warmup_states is not None:
             return result + (warmup_states,)

@@ -148,7 +148,7 @@ def test_xaj_slw_with_example_data(use_csv=False):
         )
 
         # 解析结果
-        q_sim, runoff_sim, rs, ri, rg, pe, wu, wl, wd= result
+        q_sim, runoff_sim, rs, ri, rg, pe, wu, wl, wd,s,fr,final_lag_states= result
 
         # 创建结果数据框
         df_result = pd.DataFrame(
@@ -218,7 +218,7 @@ def nse_from_df(df_result, inflow_df, warmup_length=480):
     # 提取 q_sim 和 inflow 列
     q_sim = df_result['q_sim'].values
     inflow = inflow_df['inflow'].values[warmup_length:]  # 减去预热期长度
-    
+    inflow = np.nan_to_num(inflow, nan=0)
     # 确保长度一致
     if len(q_sim) != len(inflow):
         raise ValueError("q_sim 和 inflow 的长度不一致，无法计算 NSE")

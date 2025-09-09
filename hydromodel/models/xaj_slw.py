@@ -782,7 +782,6 @@ def xaj_slw(
             qgp[basin_idx],
             qsig_initial,
             qx_initial,
-            kwargs.get("start_time", None),  # 从kwargs中获取start_time
             return_states=True,
         )
 

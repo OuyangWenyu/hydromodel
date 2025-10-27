@@ -32,7 +32,7 @@ for local_pkg in ["hydroutils", "hydrodatasource", "hydrodataset"]:
         sys.path.insert(0, local_path)
 
 # Import the new runtime simulation utilities
-from hydromodel.core.unified_simulate import UnifiedSimulator
+from hydromodel.trainers.unified_simulate import UnifiedSimulator
 
 # Import RuntimeDataLoader directly
 try:
@@ -42,7 +42,7 @@ try:
 except ImportError:
     RUNTIME_DATA_AVAILABLE = False
     load_runtime_data = None
-from hydromodel.configs.config_manager import ConfigManager
+from hydromodel.configs.config_manager import *
 
 
 def parse_arguments():
@@ -211,8 +211,8 @@ def load_dhf_parameters_from_file(params_file: str) -> dict:
     """
     Load DHF-specific parameters from JSON file.
 
-    DHF model has 19 parameters in specific order:
-    [S0, U0, D0, K, KW, K2, KA, G, A, B, B0, K0, N, L, DD, CC, COE, DDL, CCL]
+    DHF model has 18 parameters in specific order:
+    [S0, U0, D0, K, KW, K2, KA, G, A, B, B0, K0, N, DD, CC, COE, DDL, CCL]
     """
     try:
         if params_file.endswith(".json"):
@@ -235,7 +235,6 @@ def load_dhf_parameters_from_file(params_file: str) -> dict:
                     "B0": float(data["B0"]),
                     "K0": float(data["K0"]),
                     "N": float(data["N"]),
-                    "L": float(data["L"]),
                     "DD": float(data["DD"]),
                     "CC": float(data["CC"]),
                     "COE": float(data["COE"]),
@@ -245,7 +244,7 @@ def load_dhf_parameters_from_file(params_file: str) -> dict:
             )
             return dhf_params
         else:
-            return ConfigManager.load_config_from_file(params_file)
+            return load_config_from_file(params_file)
     except Exception as e:
         raise ValueError(
             f"Failed to load DHF parameters from {params_file}: {e}"
@@ -268,176 +267,12 @@ def get_dhf_default_parameters() -> dict:
         "B0": 1.5,
         "K0": 0.5,
         "N": 2.0,
-        "L": 100.0,
         "DD": 1.2,
         "CC": 0.8,
         "COE": 0.6,
         "DDL": 1.0,
         "CCL": 0.7,
     }
-
-
-def save_simulation_results(
-    results: Dict[str, Any],
-    basin_ids: List[str],
-    output_dir: Union[str, Path],
-    experiment_name: str = "simulation",
-    time_range: Optional[Tuple[str, str]] = None,
-    freq: str = "D",
-) -> List[Path]:
-    """
-    Save simulation results to files.
-
-    Parameters
-    ----------
-    results : Dict[str, Any]
-        Simulation results from run_runtime_simulation()
-    basin_ids : List[str]
-        Basin identifiers for output files
-    output_dir : Union[str, Path]
-        Output directory for results
-    experiment_name : str, default "simulation"
-        Experiment name for output files
-    time_range : Optional[Tuple[str, str]], default None
-        Time range for creating time index (start_date, end_date)
-    freq : str, default "D"
-        Frequency for time index generation
-
-    Returns
-    -------
-    List[Path]
-        List of saved file paths
-
-    Examples
-    --------
-    >>> saved_files = save_simulation_results(
-    ...     results=simulation_results,
-    ...     basin_ids=["basin_001"],
-    ...     output_dir="results",
-    ...     experiment_name="xaj_simulation",
-    ...     time_range=("2024-01-01", "2024-12-31")
-    ... )
-    """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    saved_files = []
-    simulation = results["simulation"]
-
-    # Save simulation output for each basin
-    for basin_idx, basin_id in enumerate(basin_ids):
-        basin_sim = simulation[:, basin_idx, 0]
-
-        # Create time index
-        if time_range:
-            start_date = pd.to_datetime(time_range[0])
-            time_index = pd.date_range(
-                start_date, periods=len(basin_sim), freq=freq
-            )
-        else:
-            time_index = pd.RangeIndex(len(basin_sim), name="time_step")
-
-        # Create DataFrame
-        df = pd.DataFrame(
-            {
-                "simulation": basin_sim,
-            },
-            index=time_index,
-        )
-
-        # Add observations if available
-        if "observation" in results and results["observation"] is not None:
-            basin_obs = results["observation"][:, basin_idx, 0]
-            df["observation"] = basin_obs
-
-        # Save to CSV
-        csv_path = output_dir / f"{basin_id}_{experiment_name}.csv"
-        df.to_csv(csv_path, index=True)
-        saved_files.append(csv_path)
-        print(f"💾 Saved simulation results: {csv_path}")
-
-    # Save metadata
-    metadata_path = output_dir / f"{experiment_name}_metadata.yaml"
-    with open(metadata_path, "w") as f:
-        yaml.dump(results["metadata"], f, default_flow_style=False)
-    saved_files.append(metadata_path)
-    print(f"💾 Saved simulation metadata: {metadata_path}")
-
-    return saved_files
-
-
-def print_simulation_summary(
-    results: Dict[str, Any],
-    basin_ids: List[str],
-    model_name: str = "Model",
-    verbose: bool = True,
-) -> None:
-    """
-    Print comprehensive simulation results summary.
-
-    Parameters
-    ----------
-    results : Dict[str, Any]
-        Simulation results dictionary
-    basin_ids : List[str]
-        Basin identifiers for detailed output
-    model_name : str, default "Model"
-        Model name for display
-    verbose : bool, default True
-        Whether to print detailed statistics
-
-    Examples
-    --------
-    >>> print_simulation_summary(
-    ...     results=simulation_results,
-    ...     basin_ids=["basin_001"],
-    ...     model_name="XAJ"
-    ... )
-    """
-    if not verbose:
-        return
-
-    metadata = results["metadata"]
-    simulation = results["simulation"]
-
-    print("\n" + "=" * 60)
-    print(f"{model_name.upper()} SIMULATION RESULTS SUMMARY")
-    print("=" * 60)
-
-    print(f"Model: {metadata.get('model_name', model_name)}")
-    print(
-        f"Simulation shape: {metadata.get('simulation_shape', simulation.shape)}"
-    )
-    print(f"Time steps: {metadata.get('time_steps', simulation.shape[0])}")
-    print(f"Number of basins: {metadata.get('n_basins', simulation.shape[1])}")
-    print(f"Warmup length: {metadata.get('warmup_length', 'Unknown')}")
-
-    # Overall statistics
-    sim_stats = {
-        "Mean": np.nanmean(simulation),
-        "Std": np.nanstd(simulation),
-        "Min": np.nanmin(simulation),
-        "Max": np.nanmax(simulation),
-    }
-
-    print("\nOverall Simulation Statistics:")
-    for stat, value in sim_stats.items():
-        print(f"  {stat}: {value:.4f}")
-
-    # Basin-specific summary
-    if basin_ids and len(basin_ids) > 0:
-        print("\nBasin-specific Statistics:")
-        for basin_idx, basin_id in enumerate(basin_ids):
-            if basin_idx < simulation.shape[1]:
-                basin_sim = simulation[:, basin_idx, 0]
-                basin_mean = np.nanmean(basin_sim)
-                basin_std = np.nanstd(basin_sim)
-                basin_max = np.nanmax(basin_sim)
-                basin_min = np.nanmin(basin_sim)
-                print(
-                    f"  {basin_id}: Mean={basin_mean:.3f}, Std={basin_std:.3f}, "
-                    f"Min={basin_min:.3f}, Max={basin_max:.3f}"
-                )
 
 
 def validate_runtime_simulation_inputs(
@@ -626,7 +461,10 @@ def main():
         # Create model configuration and run simulation directly
         model_config = {
             "model_name": args.model_type,
-            "model_params": {},
+            "model_params": {
+                "main_river_length": 155.763,
+                "basin_area": 5482.0,
+            },
             "parameters": parameters,
         }
 
@@ -646,23 +484,12 @@ def main():
         )
 
         if verbose:
-            sim_shape = results["simulation"].shape
+            sim_shape = results["qsim"].shape
             print(f"✅ Simulation completed: {sim_shape}")
-
-        # Display results
-        print_simulation_summary(results, args.basin_ids, "DHF", verbose)
-
-        save_simulation_results(
-            results=results,
-            basin_ids=args.basin_ids,
-            output_dir=args.output_dir,
-            experiment_name=args.experiment_name,
-            time_range=tuple(args.time_range),
-        )
 
         if verbose:
             print(f"\n✅ DHF simulation completed successfully!")
-            print(f"   Final simulation shape: {results['simulation'].shape}")
+            print(f"   Final simulation shape: {results['qsim'].shape}")
 
         return 0
 

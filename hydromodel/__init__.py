@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-02-09 15:56:48
-LastEditTime: 2025-08-18 07:50:03
+LastEditTime: 2025-10-27 11:03:18
 LastEditors: Wenyu Ouyang
 Description: Top-level package for hydromodel with unified interfaces
-FilePath: /hydromodel/hydromodel/__init__.py
+FilePath: \hydromodel\hydromodel\__init__.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
@@ -16,8 +16,8 @@ import yaml
 # Import unified interfaces for easy access
 try:
     from .trainers.unified_calibrate import calibrate
-    from .core.unified_simulate import UnifiedSimulator
-    from .core.basin import Basin
+    from .trainers.unified_simulate import UnifiedSimulator
+    from .trainers.basin import Basin
 
     # Import unit conversion functions from hydroutils
     from hydroutils.hydro_units import (

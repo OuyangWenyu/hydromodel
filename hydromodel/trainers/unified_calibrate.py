@@ -33,7 +33,7 @@ except ImportError:
 from hydromodel.models.model_config import read_model_param_dict
 from hydromodel.models.model_dict import LOSS_DICT, MODEL_DICT
 from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
-from hydromodel.core.unified_simulate import UnifiedSimulator
+from hydromodel.trainers.unified_simulate import UnifiedSimulator
 from hydromodel.trainers.calibrate_sceua import SpotSetup
 
 

@@ -81,11 +81,11 @@ def get_default_calibration_config() -> Dict[str, Any]:
     """
     return {
         "data_cfgs": {
-            "data_source_type": "camels",
+            "data_source_type": "camels_us",
             "data_source_path": None,  # Will be filled from hydro_setting.yml
             "basin_ids": ["01013500"],
             "warmup_length": 365,
-            "variables": ["prcp", "PET", "streamflow"],
+            "variables": ["precipitation", "potential_evapotranspiration", "streamflow"],
             "train_period": ["1985-10-01", "1995-09-30"],
             "valid_period": ["1995-10-01", "2005-09-30"],
             "test_period": ["2005-10-01", "2014-09-30"],
@@ -101,7 +101,7 @@ def get_default_calibration_config() -> Dict[str, Any]:
         "training_cfgs": {
             "algorithm_name": "SCE_UA",
             "algorithm_params": {
-                "rep": 5000,
+                "rep": 500,
                 "ngs": 1000,
             },
             "loss_config": {

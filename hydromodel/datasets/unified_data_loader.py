@@ -18,6 +18,7 @@ from hydroutils.hydro_units import streamflow_unit_conv
 # Import different datasource types
 try:
     from hydrodataset import Camels
+    from hydrodataset import CamelsUs
 
     CAMELS_AVAILABLE = True
 except ImportError:
@@ -122,13 +123,13 @@ class UnifiedDataLoader:
                 "hydrodatasource package is required for unified data loading"
             )
 
-        if self.data_type == "camels":
+        if self.data_type == "camels_us":
             # CAMELS data source
             if not CAMELS_AVAILABLE:
                 raise ImportError(
                     "Camels not available. Please install hydrodatasource."
                 )
-            return Camels(self.data_path)
+            return CamelsUs(self.data_path)
         elif self.data_type in ["floodevent", "selfmadehydrodataset"]:
             # Self-made hydro dataset
             if not SELFMADE_AVAILABLE:

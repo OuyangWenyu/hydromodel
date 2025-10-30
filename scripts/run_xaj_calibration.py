@@ -159,6 +159,7 @@ def parse_arguments():
     parser.add_argument(
         "--save-config",
         action="store_true",
+        default=True,
         help="运行后保存配置文件",
     )
 

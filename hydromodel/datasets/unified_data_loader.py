@@ -177,6 +177,9 @@ class UnifiedDataLoader:
         # Check and convert units before converting to standard format
         xr_dataset = self._check_and_convert_units(xr_dataset)
 
+        # Store the xarray dataset for later use (e.g., in evaluation)
+        self.ds = xr_dataset
+
         # Convert to standard (p_and_e, qobs) format
         return self._xrdataset_to_ndarray(xr_dataset)
 

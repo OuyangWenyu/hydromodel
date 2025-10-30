@@ -9,6 +9,7 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
 from hydrodataset import Camels
+from hydrodataset import CamelsUs
 from hydrodatasource.reader.data_source import SelfMadeHydroDataset
 
 # Import new unified data loader
@@ -85,12 +86,14 @@ def get_unit_from_name(name_with_unit):
 
 datasource_dict = {
     "camels": Camels,
+    "camels_us":CamelsUs,
     "selfmadehydrodataset": SelfMadeHydroDataset,
 }
 
 datasource_vars_dict = {
     # all vars are in the sequence of [pr, pet, flow] with different names
     "camels": ["prcp", "PET", "streamflow"],
+    "camels_us": ["precipitation", "potential_evapotranspiration", "streamflow"],
     "selfmadehydrodataset": [
         "total_precipitation_hourly",
         "potential_evaporation_hourly",

@@ -20,12 +20,16 @@ from .unified_calibrate import (
     DEAP_AVAILABLE,
 )
 
+# Import unified evaluation interface
+from .unified_evaluate import evaluate
+
 __all__ = [
     # Traditional interfaces
     "SpotSetup",
     "calibrate_by_sceua_old",
     # Unified interfaces
     "calibrate",
+    "evaluate",
     "ModelSetupBase",
     "UnifiedModelSetup",
     "DEAP_AVAILABLE",

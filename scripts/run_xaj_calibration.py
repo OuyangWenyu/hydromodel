@@ -12,6 +12,8 @@ import argparse
 import sys
 import os
 from pathlib import Path
+import shutil
+import yaml
 
 # Add hydromodel to path
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
@@ -24,7 +26,7 @@ from hydromodel.configs.config_manager import (  # noqa: E402
     validate_and_show_config,
     save_config_to_file,
 )
-
+from hydromodel.models.model_config import MODEL_PARAM_DICT
 
 def load_simplified_config(
     config_path: str = None, simple_config: dict = None
@@ -209,11 +211,39 @@ def main():
                 training_cfgs.get("output_dir", "results"),
                 training_cfgs.get("experiment_name", "experiment"),
             )
+            os.makedirs(output_dir, exist_ok=True)
+
+            # 保存配置文件
             config_output_path = os.path.join(
                 output_dir, "calibration_config.yaml"
             )
-            os.makedirs(os.path.dirname(config_output_path), exist_ok=True)
+
+            # 保存 param_range 文件
+            param_range_file = training_cfgs.get("param_range_file")
+            param_range_saved = False
+
+            if param_range_file and os.path.exists(param_range_file):
+                # 如果指定了参数文件且存在，复制它
+                param_range_target = os.path.join(
+                    output_dir, os.path.basename(param_range_file)
+                )
+                shutil.copy(param_range_file, param_range_target)
+                # 更新配置中的路径为文件名（相对于输出目录）
+                config["training_cfgs"]["param_range_file"] = os.path.basename(param_range_file)
+                param_range_saved = True
+                print(f"Saved param_range file to: {param_range_target}")
+            elif param_range_file is None or not os.path.exists(param_range_file):
+                # 如果没有指定或文件不存在，保存默认的 MODEL_PARAM_DICT
+                param_range_target = os.path.join(output_dir, "param_range.yaml")
+                with open(param_range_target, "w", encoding="utf-8") as f:
+                    yaml.dump(MODEL_PARAM_DICT, f, default_flow_style=False, allow_unicode=True)
+                # 更新配置中的路径
+                config["training_cfgs"]["param_range_file"] = "param_range.yaml"
+                param_range_saved = True
+                print(f"Saved default param_range to: {param_range_target}")
+
             save_config_to_file(config, config_output_path)
+            print(f"Saved calibration config to: {config_output_path}")
 
         print("XAJ率定完成")
         return 0

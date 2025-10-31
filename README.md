@@ -113,66 +113,83 @@ basin_ids = ds.read_object_ids()  # Get basin IDs
 
 **Using Custom Data (hydrodatasource):**
 
+For your own data, use the `selfmadehydrodataset` format:
+
 ```bash
 pip install hydrodatasource
 ```
 
+**Data structure:**
+```
+my_basin_data/
+├── attributes/
+│   └── attributes.csv              # Basin metadata (required)
+├── timeseries/
+│   ├── 1D/                         # Daily time series
+│   │   ├── basin_001.csv          # One file per basin
+│   │   ├── basin_002.csv
+│   │   └── ...
+│   └── 1D_units_info.json          # Variable units (required)
+```
+
+**Required files:**
+- `attributes.csv`: Must have `basin_id` and `area` (km²) columns
+- `{basin_id}.csv`: Time series with `time` column + variables (`prcp`, `PET`, `streamflow`)
+- `{time_scale}_units_info.json`: Units for each variable (e.g., `{"prcp": "mm/day"}`)
+
+**Usage in hydromodel:**
 ```python
-from hydrodatasource import read_and_save_camels_format
-
-# Convert your CSV files to NetCDF format
-read_and_save_camels_format(
-    input_dir="path/to/your/data",
-    output_dir="path/to/output"
-)
+config = {
+    "data_cfgs": {
+        "data_source_type": "selfmadehydrodataset",  # Use this for custom data
+        "data_source_path": "D:/my_basin_data",      # Path to your data
+        "basin_ids": ["basin_001"],
+        ...
+    }
+}
 ```
 
-**Required variables:** `prcp` (precipitation), `PET` (potential ET), `streamflow`, `area` (basin area)
+For detailed format specifications and examples, see:
+- [selfmade_data_guide.md](docs/selfmade_data_guide.md) - Complete guide
+- [hydrodatasource documentation](https://github.com/OuyangWenyu/hydrodatasource) - Source package
 
-For details, see [hydrodatasource documentation](https://github.com/OuyangWenyu/hydrodatasource).
+### 2. Quick Start: Calibration, Evaluation, and Visualization
 
-### 2. Quick Start: Calibration and Evaluation
+**Option 1: Use Command-Line Scripts (Recommended for Beginners)**
 
-Create a configuration file `config.yaml`:
+We provide ready-to-use scripts for model calibration, evaluation, and visualization:
 
-```yaml
-data:
-  dataset: "camels_us"
-  basin_ids: ["01013500"]
-  train_period: ["1990-10-01", "2000-09-30"]
-  test_period: ["2000-10-01", "2010-09-30"]
+```bash
+# 1. Calibration
+python scripts/run_xaj_calibration.py --config configs/example_config.yaml
 
-model:
-  name: "xaj_mz"
+# 2. Evaluation on test period
+python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA --eval-period test
 
-training:
-  algorithm: "SCE_UA"
-  loss: "RMSE"
+# 3. Visualization
+python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
 ```
 
-Run calibration and evaluation:
+Edit `configs/example_config.yaml` to customize your basin IDs, time periods, and parameters.
+
+**Option 2: Use Python API (For Advanced Users)**
 
 ```python
 from hydromodel.trainers.unified_calibrate import calibrate
 from hydromodel.trainers.unified_evaluate import evaluate
-import yaml
 
-# Load config
-with open("config.yaml") as f:
-    config = yaml.safe_load(f)
+config = {
+    "data_cfgs": {"data_source_type": "camels_us", "basin_ids": ["01013500"], ...},
+    "model_cfgs": {"model_name": "xaj_mz"},
+    "training_cfgs": {"algorithm": "SCE_UA", "loss_func": "RMSE"},
+    "evaluation_cfgs": {"metrics": ["NSE", "KGE"]}
+}
 
-# Calibrate
-results = calibrate(config)
-
-# Evaluate
-eval_results = evaluate(config, param_dir="results", eval_period="test")
-
-# Print metrics
-for basin, metrics in eval_results['metrics'].items():
-    print(f"{basin}: NSE={metrics['NSE']:.3f}, KGE={metrics['KGE']:.3f}")
+results = calibrate(config)  # Calibrate
+evaluate(config, param_dir="results", eval_period="test")  # Evaluate
 ```
 
-That's it! The calibrated parameters and evaluation results are saved in the `results/` directory.
+Results are saved in the `results/` directory.
 
 ## Core API
 
@@ -249,26 +266,6 @@ custom_results = evaluate(
 - `xaj_mz_evaluation_results.nc` - Full simulation results
 
 **Available metrics:** NSE, KGE, RMSE, PBIAS, FHV, FLV, FMS
-
-### Direct Model Simulation
-
-For advanced users who want direct model control:
-
-```python
-from hydromodel.models.model_factory import model_factory
-import numpy as np
-
-# Create model
-model = model_factory(model_name="xaj_mz")
-
-# Prepare data
-p = np.random.rand(1, 1000) * 10      # Precipitation (mm/day)
-pet = np.random.rand(1, 1000) * 5     # PET (mm/day)
-params = np.random.rand(1, 15)        # Parameters [0, 1]
-
-# Simulate
-q_sim, states = model.run(p, pet, params)
-```
 
 ## Project Structure
 

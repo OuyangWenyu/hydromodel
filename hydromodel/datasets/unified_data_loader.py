@@ -12,7 +12,9 @@ import re
 import numpy as np
 import xarray as xr
 from typing import Dict, List, Optional, Tuple, Any
-
+import os
+import yaml
+from pathlib import Path
 from hydroutils.hydro_units import streamflow_unit_conv
 
 # Import different datasource types
@@ -96,6 +98,11 @@ class UnifiedDataLoader:
         # Support both naming conventions for backward compatibility
         self.data_type = data_config.get("data_source_type")
         self.data_path = data_config.get("data_source_path")
+
+        # Handle None data_path: try hydro_setting.yml first, then use default
+        if self.data_path is None:
+            self.data_path = self._get_default_data_path()
+
         self.basin_ids = data_config.get("basin_ids", [])
         self.warmup_length = data_config.get("warmup_length", 365)
 
@@ -115,6 +122,59 @@ class UnifiedDataLoader:
 
         # Initialize the appropriate datasource
         self.datasource = self._create_datasource()
+
+    def _get_default_data_path(self) -> str:
+        """
+        Get default data path based on data_source_type.
+        Tries to load from hydro_setting.yml first, then uses default ~/hydromodel_data/.
+
+        Returns
+        -------
+        str
+            Data path
+        """
+        data_path = None
+
+        # Try to load from hydro_setting.yml
+        try:
+            setting_file = os.path.join(Path.home(), "hydro_setting.yml")
+            if os.path.exists(setting_file):
+                with open(setting_file, "r", encoding="utf-8") as f:
+                    settings = yaml.safe_load(f)
+
+                if settings and "local_data_path" in settings:
+                    datasets_origin = settings["local_data_path"].get("datasets-origin")
+                    basins_origin = settings["local_data_path"].get("basins-origin")
+
+                    # Determine path based on data_source_type
+                    if self.data_type in ["selfmadehydrodataset", "floodevent"]:
+                        # For custom data, use basins-origin directly
+                        if basins_origin:
+                            data_path = basins_origin
+                    else:
+                        # For standard datasets (camels_us, etc.), append dataset name to datasets-origin
+                        if datasets_origin:
+                            data_path = os.path.join(datasets_origin, self.data_type)
+
+                    if data_path:
+                        print(f"使用 hydro_setting.yml 中的路径: {data_path}")
+        except Exception as e:
+            print(f"Warning: 无法从 hydro_setting.yml 加载路径: {e}")
+
+        # If still None, use default path (consistent with hydromodel.__init__.py)
+        if data_path is None:
+            default_root = os.path.join(Path.home(), "hydromodel_data")
+
+            if self.data_type in ["selfmadehydrodataset", "floodevent"]:
+                # For custom data
+                data_path = os.path.join(default_root, "basins-origin")
+            else:
+                # For standard datasets: {default_root}/datasets-origin/{dataset_type}
+                data_path = os.path.join(default_root, "datasets-origin", self.data_type)
+
+            print(f"使用默认路径: {data_path}")
+
+        return data_path
 
     def _create_datasource(self) -> Any:
         """Create the appropriate datasource based on data_type."""

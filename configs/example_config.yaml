@@ -1,0 +1,69 @@
+# Example Configuration for XAJ Model Calibration and Evaluation
+# This configuration follows the format defined in hydromodel.configs.config_manager
+
+data:
+  # Data source configuration
+  dataset: "camels_us"              # Dataset type: camels_us, camels_aus, selfmadehydrodataset, etc.
+  path: null                        # Data path (null = auto-detect from hydro_setting.yml or use ~/hydromodel_data/)
+                                    # If specified, provide the datasets-origin directory only
+                                    # Example: "D:/project/data" (NOT "D:/project/data/camels_us")
+                                    # The program will automatically append the dataset name
+  basin_ids: ["01013500"]           # List of basin IDs to calibrate
+  warmup_length: 365                # Warmup period in days
+  variables: ["precipitation", "potential_evapotranspiration", "streamflow"]  # Input variables
+
+  # Time periods
+  train_period: ["1985-10-01", "1995-09-30"]   # Training period
+  valid_period: ["1995-10-01", "2005-09-30"]   # Validation period
+  test_period: ["2005-10-01", "2014-09-30"]    # Testing period
+
+  # Output configuration
+  output_dir: "results"             # Output directory for results
+
+model:
+  # Model configuration
+  name: "xaj_mz"                    # Model type: xaj, xaj_mz
+  params:                           # Model parameters
+    source_type: "sources"          # XAJ source type
+    source_book: "HF"               # HF (Hydrological Forecast) computation method
+    kernel_size: 15                 # Kernel size for Muskingum routing
+
+training:
+  # Training configuration
+  algorithm: "SCE_UA"               # Calibration algorithm: SCE_UA, GA, scipy
+  SCE_UA:                           # Algorithm-specific parameters
+    rep: 500                        # Number of iterations (500 for testing, 5000+ recommended)
+    ngs: 1000                       # Number of complexes
+  # GA:                             # For Genetic Algorithm (if using GA)
+  #   npop: 100
+  #   ngen: 100
+  # scipy:                          # For scipy optimizer (if using scipy)
+  #   method: "L-BFGS-B"
+  loss: "RMSE"                      # Loss function: RMSE, NSE, KGE
+
+evaluation:
+  # Evaluation configuration
+  metrics: ["NSE", "RMSE", "KGE", "PBIAS"]   # Evaluation metrics
+  save_results: true                # Save detailed results
+  plot_results: true                # Generate visualization plots
+  validation_split: 0.2             # Hold-out validation fraction (if needed)
+  bootstrap_samples: null           # Bootstrap confidence intervals (null = disabled)
+
+
+# Path Configuration Notes:
+# 1. If path is null: automatically uses hydro_setting.yml or ~/hydromodel_data/
+# 2. If path is specified: provide datasets-origin directory only
+#    - Correct: "D:/project/data" (if your data is in D:/project/data/CAMELS_US/)
+#    - Wrong: "D:/project/data/camels_us" (don't manually append dataset name)
+# 3. The program automatically appends the dataset name based on 'dataset' field
+#
+# Available Options:
+# - Datasets: camels_us, camels_aus, camels_br, camels_ch, selfmadehydrodataset, etc.
+# - Algorithms: SCE_UA (recommended), GA, scipy
+# - Loss functions: RMSE, NSE, KGE
+# - Metrics: NSE, KGE, RMSE, PBIAS, FHV, FLV, FMS
+#
+# Usage:
+#   python scripts/run_xaj_calibration.py --config configs/example_config.yaml
+#   python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA --eval-period test
+#   python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test

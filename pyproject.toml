@@ -36,6 +36,8 @@ dependencies = [
     "wheel",
     "muskingumcunge",
     "hydrodatasource",
+    "hydrodataset",
+    "hydroutils",
     "pytest-mock",
     "rich>=14.0.0",
     "pandas>=2.3.1",

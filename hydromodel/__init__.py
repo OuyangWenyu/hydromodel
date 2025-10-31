@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-02-09 15:56:48
-LastEditTime: 2025-10-27 11:03:18
+LastEditTime: 2025-10-30 21:45:00
 LastEditors: Wenyu Ouyang
 Description: Top-level package for hydromodel with unified interfaces
-FilePath: \hydromodel\hydromodel\__init__.py
+FilePath: \\hydromodel\\hydromodel\\__init__.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
@@ -110,6 +110,33 @@ def read_setting(setting_path):
 try:
     SETTING = read_setting(SETTING_FILE)
 except ValueError as e:
-    print(e)
+    print(f"Warning: {e}")
+    # Set default values when hydro_setting.yml is not found or invalid
+    print(f"Using default data paths in home directory: {Path.home()}/hydromodel_data")
+    SETTING = None
+    # Create default setting structure
+    default_root = os.path.join(Path.home(), "hydromodel_data")
+    SETTING = {
+        "local_data_path": {
+            "root": default_root,
+            "datasets-origin": os.path.join(default_root, "datasets-origin"),
+            "datasets-interim": os.path.join(default_root, "datasets-interim"),
+            "basins-origin": os.path.join(default_root, "basins-origin"),
+            "basins-interim": os.path.join(default_root, "basins-interim"),
+        }
+    }
 except Exception as e:
     print(f"Unexpected error: {e}")
+    # Set default values for unexpected errors
+    print(f"Using default data paths in home directory: {Path.home()}/hydromodel_data")
+    SETTING = None
+    default_root = os.path.join(Path.home(), "hydromodel_data")
+    SETTING = {
+        "local_data_path": {
+            "root": default_root,
+            "datasets-origin": os.path.join(default_root, "datasets-origin"),
+            "datasets-interim": os.path.join(default_root, "datasets-interim"),
+            "basins-origin": os.path.join(default_root, "basins-origin"),
+            "basins-interim": os.path.join(default_root, "basins-interim"),
+        }
+    }

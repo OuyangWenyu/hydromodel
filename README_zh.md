@@ -72,10 +72,13 @@ uv sync --all-extras
 - **Windows:** `C:\Users\YourUsername\hydromodel_data\`
 - **macOS/Linux:** `~/hydromodel_data/`
 
-默认结构：
+默认结构（aqua_fetch 会自动创建大写的数据集目录）：
 ```
 ~/hydromodel_data/
-├── datasets-origin/      # CAMELS 和其他数据集
+├── datasets-origin/
+│   ├── CAMELS_US/        # CAMELS US 数据集（由 aqua_fetch 创建）
+│   ├── CAMELS_AUS/       # CAMELS Australia 数据集（如果使用）
+│   └── ...               # 其他数据集
 ├── basins-origin/        # 你的自定义流域数据
 └── ...
 ```
@@ -87,9 +90,11 @@ uv sync --all-extras
 ```yaml
 local_data_path:
   root: 'D:/data'
-  datasets-origin: 'D:/data/camels'      # CAMELS 数据集
+  datasets-origin: 'D:/data'             # CAMELS 数据集（aqua_fetch 会自动添加 CAMELS_US）
   basins-origin: 'D:/data/my_basins'     # 自定义数据
 ```
+
+**重要说明**：对于 CAMELS 数据集，只需提供 `datasets-origin` 目录。系统会自动添加大写的数据集目录名（如 `CAMELS_US`、`CAMELS_AUS`）。例如数据在 `D:/data/CAMELS_US/`，则设置 `datasets-origin: 'D:/data'`。
 
 ## 使用方法
 
@@ -104,10 +109,13 @@ pip install hydrodataset
 ```python
 from hydrodataset.camels_us import CamelsUs
 
-# 首次使用自动下载
-ds = CamelsUs(data_path, download=True)
+# 自动下载（如不存在）。提供 datasets-origin 目录（例如 "D:/data"）
+# aqua_fetch 会自动添加数据集名称，创建 "D:/data/CAMELS_US/"
+ds = CamelsUs(data_path)
 basin_ids = ds.read_object_ids()  # 获取流域 ID
 ```
+
+**注意：** 首次下载可能需要一段时间，完整的 CAMELS 数据集约为 70GB。
 
 **可用数据集：** camels_us, camels_aus, camels_br, camels_ch, camels_cl, camels_gb, camels_de, camels_dk, camels_fr, camels_nz, camels_se
 
@@ -179,14 +187,31 @@ from hydromodel.trainers.unified_calibrate import calibrate
 from hydromodel.trainers.unified_evaluate import evaluate
 
 config = {
-    "data_cfgs": {"data_source_type": "camels_us", "basin_ids": ["01013500"], ...},
-    "model_cfgs": {"model_name": "xaj_mz"},
-    "training_cfgs": {"algorithm": "SCE_UA", "loss_func": "RMSE"},
-    "evaluation_cfgs": {"metrics": ["NSE", "KGE"]}
+    "data_cfgs": {
+        "data_source_type": "camels_us",
+        "basin_ids": ["01013500"],
+        "train_period": ["1985-10-01", "1995-09-30"],
+        "test_period": ["2005-10-01", "2014-09-30"],
+        "warmup_length": 365,
+        "variables": ["precipitation", "potential_evapotranspiration", "streamflow"]
+    },
+    "model_cfgs": {
+        "model_name": "xaj_mz",
+    },
+    "training_cfgs": {
+        "algorithm_name": "SCE_UA",
+        "algorithm_params": {"rep": 5000, "ngs": 1000},
+        "loss_config": {"type": "time_series", "obj_func": "RMSE"},
+        "output_dir": "results",
+        "experiment_name": "my_experiment",
+    },
+    "evaluation_cfgs": {
+        "metrics": ["NSE", "KGE", "RMSE"],
+    },
 }
 
 results = calibrate(config)  # 率定
-evaluate(config, param_dir="results", eval_period="test")  # 评估
+evaluate(config, param_dir="results/my_experiment", eval_period="test")  # 评估
 ```
 
 结果保存在 `results/` 目录中。
@@ -205,19 +230,27 @@ config = {
         "train_period": ["1990-10-01", "2000-09-30"],
         "test_period": ["2000-10-01", "2010-09-30"],
         "warmup_length": 365,                  # 预热天数
+        "variables": ["precipitation", "potential_evapotranspiration", "streamflow"],
     },
     "model_cfgs": {
         "model_name": "xaj_mz",                # 模型变体
-        "source_type": "sources",
-        "source_book": "HF",
+        "model_params": {
+            "source_type": "sources",
+            "source_book": "HF",
+        },
     },
     "training_cfgs": {
-        "algorithm": "SCE_UA",                 # SCE_UA、GA 或 scipy
-        "loss_func": "RMSE",                   # RMSE、NSE 或 KGE
+        "algorithm_name": "SCE_UA",            # SCE_UA、GA 或 scipy
+        "algorithm_params": {
+            "rep": 1000,                      # 迭代次数
+            "ngs": 1000,                        # 复形数（SCE_UA）
+        },
+        "loss_config": {
+            "type": "time_series",
+            "obj_func": "RMSE",                # RMSE、NSE 或 KGE
+        },
         "output_dir": "results",
         "experiment_name": "my_exp",
-        "rep": 10000,                          # 迭代次数
-        "ngs": 100,                            # 复形数（SCE_UA）
     },
     "evaluation_cfgs": {
         "metrics": ["NSE", "KGE", "RMSE", "PBIAS"],
@@ -274,7 +307,7 @@ hydromodel/
 ├── hydromodel/
 │   ├── models/                    # 模型实现
 │   │   ├── xaj.py                 # 标准 XAJ 模型
-│   │   └── xaj_mz.py              # 带 Muskingum 汇流的 XAJ
+│   │   ...
 │   ├── trainers/                  # 率定和评估
 │   │   ├── unified_calibrate.py   # 率定 API
 │   │   └── unified_evaluate.py    # 评估 API

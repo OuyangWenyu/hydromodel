@@ -101,7 +101,7 @@ def get_default_calibration_config() -> Dict[str, Any]:
         "training_cfgs": {
             "algorithm_name": "SCE_UA",
             "algorithm_params": {
-                "rep": 500,
+                "rep": 5000,
                 "ngs": 1000,
             },
             "loss_config": {
@@ -345,7 +345,7 @@ def setup_configuration_from_args(args) -> Dict[str, Any]:
             config = load_config_from_file(args.config)
             return config
         except Exception as e:
-            print(f"�?Failed to load configuration: {e}")
+            print(f"Error: Failed to load configuration: {e}")
             return None
     else:
         # Use default configuration
@@ -379,7 +379,7 @@ def validate_and_show_config(
     required_sections = ["data_cfgs", "model_cfgs", "training_cfgs"]
     for section in required_sections:
         if section not in config:
-            print(f"�?Missing required config section: {section}")
+            print(f"Error: Missing required config section: {section}")
             return False
 
     return True

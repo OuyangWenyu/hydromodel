@@ -152,9 +152,10 @@ class UnifiedDataLoader:
                         if basins_origin:
                             data_path = basins_origin
                     else:
-                        # For standard datasets (camels_us, etc.), append dataset name to datasets-origin
+                        # For standard datasets (camels_us, etc.), use datasets-origin directly
+                        # aqua_fetch will automatically append the dataset directory name (e.g., CAMELS_US)
                         if datasets_origin:
-                            data_path = os.path.join(datasets_origin, self.data_type)
+                            data_path = datasets_origin
 
                     if data_path:
                         print(f"使用 hydro_setting.yml 中的路径: {data_path}")
@@ -169,8 +170,9 @@ class UnifiedDataLoader:
                 # For custom data
                 data_path = os.path.join(default_root, "basins-origin")
             else:
-                # For standard datasets: {default_root}/datasets-origin/{dataset_type}
-                data_path = os.path.join(default_root, "datasets-origin", self.data_type)
+                # For standard datasets: use datasets-origin directly
+                # aqua_fetch will automatically append the dataset directory name (e.g., CAMELS_US)
+                data_path = os.path.join(default_root, "datasets-origin")
 
             print(f"使用默认路径: {data_path}")
 

@@ -72,10 +72,13 @@ No configuration needed! `hydromodel` automatically uses default paths:
 - **Windows:** `C:\Users\YourUsername\hydromodel_data\`
 - **macOS/Linux:** `~/hydromodel_data/`
 
-The default structure:
+The default structure (aqua_fetch automatically creates uppercase dataset directories):
 ```
 ~/hydromodel_data/
-├── datasets-origin/      # CAMELS and other datasets
+├── datasets-origin/
+│   ├── CAMELS_US/        # CAMELS US dataset (created by aqua_fetch)
+│   ├── CAMELS_AUS/       # CAMELS Australia dataset (if used)
+│   └── ...               # Other datasets
 ├── basins-origin/        # Your custom basin data
 └── ...
 ```
@@ -87,9 +90,11 @@ Create `~/hydro_setting.yml` to specify custom paths:
 ```yaml
 local_data_path:
   root: 'D:/data'
-  datasets-origin: 'D:/data/camels'      # For CAMELS datasets
+  datasets-origin: 'D:/data'             # For CAMELS datasets (aqua_fetch adds CAMELS_US automatically)
   basins-origin: 'D:/data/my_basins'     # For custom data
 ```
+
+**Important**: For CAMELS datasets, provide only the `datasets-origin` directory. The system automatically appends the uppercase dataset directory name (e.g., `CAMELS_US`, `CAMELS_AUS`). If your data is in `D:/data/CAMELS_US/`, set `datasets-origin: 'D:/data'`.
 
 ## How to Use
 
@@ -104,10 +109,13 @@ pip install hydrodataset
 ```python
 from hydrodataset.camels_us import CamelsUs
 
-# Auto-download on first use
-ds = CamelsUs(data_path, download=True)
+# Auto-downloads if not found. Provide datasets-origin directory (e.g., "D:/data")
+# aqua_fetch automatically appends dataset name, creating "D:/data/CAMELS_US/"
+ds = CamelsUs(data_path)
 basin_ids = ds.read_object_ids()  # Get basin IDs
 ```
+
+**Note:** First-time download may take some time. The complete CAMELS dataset is approximately 70GB.
 
 **Available datasets:** camels_us, camels_aus, camels_br, camels_ch, camels_cl, camels_gb, camels_de, camels_dk, camels_fr, camels_nz, camels_se
 
@@ -179,14 +187,31 @@ from hydromodel.trainers.unified_calibrate import calibrate
 from hydromodel.trainers.unified_evaluate import evaluate
 
 config = {
-    "data_cfgs": {"data_source_type": "camels_us", "basin_ids": ["01013500"], ...},
-    "model_cfgs": {"model_name": "xaj_mz"},
-    "training_cfgs": {"algorithm": "SCE_UA", "loss_func": "RMSE"},
-    "evaluation_cfgs": {"metrics": ["NSE", "KGE"]}
+    "data_cfgs": {
+        "data_source_type": "camels_us",
+        "basin_ids": ["01013500"],
+        "train_period": ["1985-10-01", "1995-09-30"],
+        "test_period": ["2005-10-01", "2014-09-30"],
+        "warmup_length": 365,
+        "variables": ["precipitation", "potential_evapotranspiration", "streamflow"]
+    },
+    "model_cfgs": {
+        "model_name": "xaj_mz",
+    },
+    "training_cfgs": {
+        "algorithm_name": "SCE_UA",
+        "algorithm_params": {"rep": 5000, "ngs": 1000},
+        "loss_config": {"type": "time_series", "obj_func": "RMSE"},
+        "output_dir": "results",
+        "experiment_name": "my_experiment",
+    },
+    "evaluation_cfgs": {
+        "metrics": ["NSE", "KGE", "RMSE"],
+    },
 }
 
 results = calibrate(config)  # Calibrate
-evaluate(config, param_dir="results", eval_period="test")  # Evaluate
+evaluate(config, param_dir="results/my_experiment", eval_period="test")  # Evaluate
 ```
 
 Results are saved in the `results/` directory.
@@ -205,19 +230,27 @@ config = {
         "train_period": ["1990-10-01", "2000-09-30"],
         "test_period": ["2000-10-01", "2010-09-30"],
         "warmup_length": 365,                  # Warmup days
+        "variables": ["precipitation", "potential_evapotranspiration", "streamflow"],
     },
     "model_cfgs": {
         "model_name": "xaj_mz",                # Model variant
-        "source_type": "sources",
-        "source_book": "HF",
+        "model_params": {
+            "source_type": "sources",
+            "source_book": "HF",
+        },
     },
     "training_cfgs": {
-        "algorithm": "SCE_UA",                 # SCE_UA, GA, or scipy
-        "loss_func": "RMSE",                   # RMSE, NSE, or KGE
+        "algorithm_name": "SCE_UA",            # SCE_UA, GA, or scipy
+        "algorithm_params": {
+            "rep": 1000,                      # Iterations
+            "ngs": 1000,                        # Complexes (for SCE_UA)
+        },
+        "loss_config": {
+            "type": "time_series",
+            "obj_func": "RMSE",                # RMSE, NSE, or KGE
+        },
         "output_dir": "results",
         "experiment_name": "my_exp",
-        "rep": 10000,                          # Iterations
-        "ngs": 100,                            # Complexes (for SCE_UA)
     },
     "evaluation_cfgs": {
         "metrics": ["NSE", "KGE", "RMSE", "PBIAS"],
@@ -274,7 +307,7 @@ hydromodel/
 ├── hydromodel/
 │   ├── models/                    # Model implementations
 │   │   ├── xaj.py                 # Standard XAJ model
-│   │   └── xaj_mz.py              # XAJ with Muskingum routing
+│   │   ...
 │   ├── trainers/                  # Calibration and evaluation
 │   │   ├── unified_calibrate.py   # Calibration API
 │   │   └── unified_evaluate.py    # Evaluation API

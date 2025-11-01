@@ -6,15 +6,15 @@ data:
   dataset: "camels_us"              # Dataset type: camels_us, camels_aus, selfmadehydrodataset, etc.
   path: null                        # Data path (null = auto-detect from hydro_setting.yml or use ~/hydromodel_data/)
                                     # If specified, provide the datasets-origin directory only
-                                    # Example: "D:/project/data" (NOT "D:/project/data/camels_us")
-                                    # The program will automatically append the dataset name
+                                    # Example: "D:/project/data" (NOT "D:/project/data/CAMELS_US")
+                                    # aqua_fetch will automatically append "CAMELS_US" directory name
   basin_ids: ["01013500"]           # List of basin IDs to calibrate
   warmup_length: 365                # Warmup period in days
   variables: ["precipitation", "potential_evapotranspiration", "streamflow"]  # Input variables
 
   # Time periods
   train_period: ["1985-10-01", "1995-09-30"]   # Training period
-  valid_period: ["1995-10-01", "2005-09-30"]   # Validation period
+  # valid_period: ["1995-10-01", "2005-09-30"]   # Validation period
   test_period: ["2005-10-01", "2014-09-30"]    # Testing period
 
   # Output configuration
@@ -54,8 +54,8 @@ evaluation:
 # 1. If path is null: automatically uses hydro_setting.yml or ~/hydromodel_data/
 # 2. If path is specified: provide datasets-origin directory only
 #    - Correct: "D:/project/data" (if your data is in D:/project/data/CAMELS_US/)
-#    - Wrong: "D:/project/data/camels_us" (don't manually append dataset name)
-# 3. The program automatically appends the dataset name based on 'dataset' field
+#    - Wrong: "D:/project/data/CAMELS_US" (don't manually append directory name)
+# 3. aqua_fetch automatically appends uppercase directory name (CAMELS_US, CAMELS_AUS, etc.)
 #
 # Available Options:
 # - Datasets: camels_us, camels_aus, camels_br, camels_ch, selfmadehydrodataset, etc.

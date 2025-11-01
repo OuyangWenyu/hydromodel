@@ -28,6 +28,7 @@ from hydromodel.configs.config_manager import (  # noqa: E402
 )
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 
+
 def load_simplified_config(
     config_path: str = None, simple_config: dict = None
 ) -> dict:
@@ -70,12 +71,15 @@ def load_simplified_config(
             **model_cfg.get("params", {}),
         },
         "training_cfgs": {
-            "algorithm": training_cfg["algorithm"],
-            "loss_func": training_cfg["loss"],
+            "algorithm_name": training_cfg["algorithm"],
+            "algorithm_params": training_cfg.get(training_cfg["algorithm"], {}),
+            "loss_config": {
+                "type": "time_series",
+                "obj_func": training_cfg["loss"],
+            },
             "output_dir": data_cfg.get("output_dir", "results"),
             "experiment_name": f"{model_cfg['name']}_{training_cfg['algorithm']}",
-            # 根据算法添加对应参数
-            **training_cfg.get(training_cfg["algorithm"], {}),
+            "random_seed": 1234,
         },
         "evaluation_cfgs": {
             "metrics": eval_cfg["metrics"],
@@ -124,7 +128,7 @@ def parse_arguments():
 
 使用示例:
   # 使用简化配置文件（推荐）
-  python run_xaj_calibration.py --config simplified_config.yaml
+  python run_xaj_calibration.py --config example_config.yaml
   
   # 快速测试
   python run_xaj_calibration.py --quick-test
@@ -230,16 +234,29 @@ def main():
                 )
                 shutil.copy(param_range_file, param_range_target)
                 # 更新配置中的路径为文件名（相对于输出目录）
-                config["training_cfgs"]["param_range_file"] = os.path.basename(param_range_file)
+                config["training_cfgs"]["param_range_file"] = os.path.basename(
+                    param_range_file
+                )
                 param_range_saved = True
                 print(f"Saved param_range file to: {param_range_target}")
-            elif param_range_file is None or not os.path.exists(param_range_file):
+            elif param_range_file is None or not os.path.exists(
+                param_range_file
+            ):
                 # 如果没有指定或文件不存在，保存默认的 MODEL_PARAM_DICT
-                param_range_target = os.path.join(output_dir, "param_range.yaml")
+                param_range_target = os.path.join(
+                    output_dir, "param_range.yaml"
+                )
                 with open(param_range_target, "w", encoding="utf-8") as f:
-                    yaml.dump(MODEL_PARAM_DICT, f, default_flow_style=False, allow_unicode=True)
+                    yaml.dump(
+                        MODEL_PARAM_DICT,
+                        f,
+                        default_flow_style=False,
+                        allow_unicode=True,
+                    )
                 # 更新配置中的路径
-                config["training_cfgs"]["param_range_file"] = "param_range.yaml"
+                config["training_cfgs"][
+                    "param_range_file"
+                ] = "param_range.yaml"
                 param_range_saved = True
                 print(f"Saved default param_range to: {param_range_target}")
 

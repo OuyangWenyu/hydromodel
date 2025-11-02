@@ -6,7 +6,6 @@ LastEditors: zhuanglaihong
 Description: preprocess data for models in hydro-model-xaj
 FilePath: /hydromodel/hydromodel/datasets/data_preprocess.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
-以前的data_preprocess文件，需保留后整合
 """
 
 import os

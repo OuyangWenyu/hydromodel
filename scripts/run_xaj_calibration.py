@@ -1,7 +1,7 @@
 r"""
 Author: Wenyu Ouyang
 Date: 2025-08-07
-LastEditTime: 2025-08-08 19:17:46
+LastEditTime: 2025-11-02 19:17:46
 LastEditors: Wenyu Ouyang
 Description: XAJ model calibration script using the latest unified architecture
 FilePath: \hydromodel\scripts\run_xaj_calibration_unified.py
@@ -233,10 +233,8 @@ def main():
                     output_dir, os.path.basename(param_range_file)
                 )
                 shutil.copy(param_range_file, param_range_target)
-                # 更新配置中的路径为文件名（相对于输出目录）
-                config["training_cfgs"]["param_range_file"] = os.path.basename(
-                    param_range_file
-                )
+                # 更新配置中的路径为 None，让评估脚本自动从输出目录加载
+                config["training_cfgs"]["param_range_file"] = None
                 param_range_saved = True
                 print(f"Saved param_range file to: {param_range_target}")
             elif param_range_file is None or not os.path.exists(
@@ -253,10 +251,8 @@ def main():
                         default_flow_style=False,
                         allow_unicode=True,
                     )
-                # 更新配置中的路径
-                config["training_cfgs"][
-                    "param_range_file"
-                ] = "param_range.yaml"
+                # 更新配置中的路径为 None，让评估脚本自动从输出目录加载
+                config["training_cfgs"]["param_range_file"] = None
                 param_range_saved = True
                 print(f"Saved default param_range to: {param_range_target}")
 

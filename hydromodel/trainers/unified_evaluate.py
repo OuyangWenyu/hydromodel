@@ -1,8 +1,8 @@
 r"""
-Author: Wenyu Ouyang
-Date: 2025-08-11
-LastEditTime: 2025-08-11 20:00:00
-LastEditors: Wenyu Ouyang
+Author: zhuanglaihong
+Date: 2025-10-31
+LastEditTime: 2025-11-01 20:00:00
+LastEditors: zhuanglaihong
 Description: Unified evaluation interface for all hydrological models
 FilePath: /hydromodel/hydromodel/trainers/unified_evaluate.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
@@ -223,6 +223,7 @@ def evaluate(config: Dict[str, Any], param_dir: str = None, **kwargs) -> Dict[st
         warmup_length,
         is_event_data,
         eval_data_config,
+        data_path=data_loader.data_path,  # Pass resolved data path
     )
 
     # Save metrics summary
@@ -340,6 +341,7 @@ def _save_evaluation_results(
     warmup_length: int,
     is_event_data: bool,
     data_config: Dict,
+    data_path: Optional[str] = None,
 ):
     """Save evaluation results to NetCDF file."""
     os.makedirs(output_dir, exist_ok=True)
@@ -379,7 +381,8 @@ def _save_evaluation_results(
     # Convert units if needed
     if "data_source_type" in data_config:
         data_type = data_config["data_source_type"]
-        data_dir = data_config.get("data_source_path", "")
+        # Use provided data_path (already resolved by UnifiedDataLoader) or fall back to config
+        data_dir = data_path if data_path is not None else data_config.get("data_source_path", "")
         basin_area = get_basin_area(basins, data_type, data_dir)
 
         # Convert to m³/s

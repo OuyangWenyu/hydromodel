@@ -300,6 +300,68 @@ custom_results = evaluate(
 
 **Available metrics:** NSE, KGE, RMSE, PBIAS, FHV, FLV, FMS
 
+### Simulation API
+
+**Important:** Simulation does NOT require prior calibration!
+
+`UnifiedSimulator` provides a flexible interface for running model simulations with any parameter values:
+
+```python
+from hydromodel.trainers.unified_simulate import UnifiedSimulator
+from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
+
+# Load data
+data_loader = UnifiedDataLoader(config["data_cfgs"])
+p_and_e, qobs = data_loader.load_data()
+
+# Define parameters (from calibration, literature, or custom values)
+parameters = {
+    "K": 0.75, "B": 0.25, "IM": 0.06,
+    "UM": 18.0, "LM": 80.0, "DM": 95.0,
+    # ... other parameters
+}
+
+# Create simulator
+model_config = {
+    "model_name": "xaj_mz",
+    "parameters": parameters
+}
+simulator = UnifiedSimulator(model_config, basin_config)
+
+# Run simulation
+results = simulator.simulate(
+    inputs=p_and_e,
+    qobs=qobs,
+    warmup_length=365
+)
+
+# Extract results
+qsim = results["qsim"]  # Simulated streamflow
+```
+
+**Command-line usage:**
+
+```bash
+# Using calibrated parameters
+python scripts/run_xaj_simulate.py \
+    --param-file results/xaj_mz_SCE_UA/01013500_sceua.csv \
+    --plot
+
+# Using custom parameters
+python scripts/run_xaj_simulate.py \
+    --config configs/example_simulate_config.yaml \
+    --param-file configs/example_xaj_params.yaml \
+    --output simulation_results.csv
+```
+
+**Use cases:**
+- Parameter sensitivity analysis
+- Model comparison
+- Scenario testing with custom parameters
+- Literature parameter validation
+
+See [docs/simulation_guide.md](docs/simulation_guide.md) for complete documentation.
+
 ## Project Structure
 
 ```

@@ -1,8 +1,8 @@
 r"""
 Author: Wenyu Ouyang
 Date: 2025-08-11
-LastEditTime: 2025-08-11 20:30:00
-LastEditors: Wenyu Ouyang
+LastEditTime: 2025-11-01 20:30:00
+LastEditors: zhuanglaihong
 Description: XAJ model evaluation script using the unified architecture
 FilePath: \hydromodel\scripts\run_xaj_evaluate.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.

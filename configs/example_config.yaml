@@ -14,7 +14,7 @@ data:
 
   # Time periods
   train_period: ["1985-10-01", "1995-09-30"]   # Training period
-  # valid_period: ["1995-10-01", "2005-09-30"]   # Validation period
+  valid_period: ["1995-10-01", "2005-09-30"]   # Validation period
   test_period: ["2005-10-01", "2014-09-30"]    # Testing period
 
   # Output configuration
@@ -32,7 +32,7 @@ training:
   # Training configuration
   algorithm: "SCE_UA"               # Calibration algorithm: SCE_UA, GA, scipy
   SCE_UA:                           # Algorithm-specific parameters
-    rep: 500                        # Number of iterations (500 for testing, 5000+ recommended)
+    rep: 5000                        # Number of iterations (500 for testing, 5000+ recommended)
     ngs: 1000                       # Number of complexes
   # GA:                             # For Genetic Algorithm (if using GA)
   #   npop: 100

@@ -1,10 +1,10 @@
-site_name: hydro-model-xaj
+site_name: hydromodel
 site_description: Hydromodel is a python implementation for common hydrological models such as the XinAnJiang (XAJ) model, which is one of the most famous conceptual hydrological models, especially in Southern China.
 site_author: OuyangWenyu
-site_url: https://OuyangWenyu.github.io/hydro-model-xaj
-repo_url: https://github.com/OuyangWenyu/hydro-model-xaj
+site_url: https://OuyangWenyu.github.io/hydromodel
+repo_url: https://github.com/OuyangWenyu/hydromodel
 
-copyright: "Copyright &copy; 2023 - 2023 Wenyu Ouyang"
+copyright: "Copyright &copy; 2023 - 2025 Wenyu Ouyang"
 
 theme:
     palette:
@@ -43,6 +43,7 @@ plugins:
     - git-revision-date-localized:
           enable_creation_date: true
           type: timeago
+          enable_git_follow: false
     # - pdf-export
     - mkdocs-jupyter:
           include_source: True
@@ -61,6 +62,11 @@ markdown_extensions:
     - meta
     - md_in_html
     - pymdownx.superfences
+    - pymdownx.snippets:
+          base_path: '.'
+          url_download: true
+          url_timeout: 10
+          url_max_size: 0
     - pymdownx.highlight:
           linenums: true
     - toc:
@@ -78,9 +84,12 @@ nav:
     - Contributing: contributing.md
     - FAQ: faq.md
     - Changelog: changelog.md
-    - Report Issues: https://github.com/OuyangWenyu/hydro-model-xaj/issues
+    - Report Issues: https://github.com/OuyangWenyu/hydromodel/issues
     - Examples:
         - examples/intro.ipynb
     - API Reference:
           - hydromodel module: hydromodel.md
-          - common module: common.md
+          - Common Utilities: common.md
+          - Models:
+              - XinAnJiang (XAJ): models/xaj.md
+              - Dahuofang (DHF): models/dhf.md

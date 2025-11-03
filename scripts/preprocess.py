@@ -35,7 +35,9 @@ def main(args):
     if os.path.exists(where_save) is False:
         os.makedirs(where_save)
     if rr_event > 0:
-        ts_data = get_ts_from_diffsource(data_type, data_path, periods, basin_ids)
+        ts_data = get_ts_from_diffsource(
+            data_type, data_path, periods, basin_ids
+        )
         basin_area = get_basin_area(basin_ids, data_type, data_path)
         rr_events = get_rr_events(ts_data["prcp"], ts_data["flow"], basin_area)
         for basin, event in rr_events.items():

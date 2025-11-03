@@ -1,0 +1,152 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hydromodel"
+version = "0.2.11"
+description = "Hydrological modeling package"
+authors = [
+    {name = "Wenyu Ouyang", email = "wenyuouyang@outlook.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+    # Core scientific computing
+    "ipykernel",
+    "numba",
+    "scikit-learn",
+    "deap",
+    "spotpy",
+    "pyyaml", # conda yaml package
+    "bmipy",
+    "pyarrow",
+    "pytest",
+    "requests",
+    # Pip dependencies from conda environment
+    "setuptools",
+    "wheel",
+    "muskingumcunge",
+    "hydrodatasource",
+    "hydrodataset",
+    "hydroutils",
+    "pytest-mock",
+    "rich>=14.0.0",
+    "pandas>=2.3.1",
+    "numpy>=2.2.6",
+    "netcdf4",
+    "aqua-fetch[all]",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Development tools
+    "sphinx",
+    "black[jupyter]",
+    "flake8",
+    "twine",
+    "bump2version",
+    "watchdog",
+    "tox",
+    "coverage",
+    "pytest-runner",
+    # Additional dev tools that might be useful
+    "pytest-cov",
+    "pre-commit",
+]
+
+docs = [
+    # Documentation tools
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocs-jupyter",
+    "mkdocs-git-revision-date-plugin",
+    "mkdocs-git-revision-date-localized-plugin",
+    "mkdocs-pdf-export-plugin",
+    "mkdocstrings",
+    "mkdocstrings-python",
+    "mkdocstrings-python-legacy",
+    "mkdocstrings-crystal",
+    "pygments",
+    "pymdown-extensions",
+    "livereload",
+    "nbconvert",
+    "nbformat",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/hydromodel"
+Repository = "https://github.com/yourusername/hydromodel.git"
+Issues = "https://github.com/yourusername/hydromodel/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hydromodel*"]
+
+[tool.black]
+line-length = 79
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.flake8]
+max-line-length = 79
+extend-ignore = ["E203", "W503"]
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    ".eggs",
+    "*.egg-info",
+    ".venv",
+    "docs",
+]
+
+[tool.pytest.ini_options]
+collect_ignore = ["setup.py"]
+testpaths = ["test"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.wheel]
+universal = true
+
+[tool.bumpversion]
+current_version = "0.2.10"
+commit = true
+tag = true
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "hydromodel/__init__.py"
+search = "__version__ = '{current_version}'"
+replace = "__version__ = '{new_version}'" 
+
+[tool.uv.sources]
+aqua-fetch = { git = "https://github.com/iHeadWater/AquaFetch.git", rev = "dev" }

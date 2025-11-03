@@ -105,7 +105,7 @@ if __name__ == "__main__":
         help="An exp is corresponding to a data plan from calibrate_xaj.py",
         # default="expbiliuhe001",
         # default="exp21113800test001",
-        default="expselfmadehydrodataset001",
+        default="yanwangbizi01",
         type=str,
     )
     the_args = parser.parse_args()

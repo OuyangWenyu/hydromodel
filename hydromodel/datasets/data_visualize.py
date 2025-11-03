@@ -5,7 +5,22 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from hydroutils import hydro_file, hydro_stat
+from hydroutils import hydro_file, hydro_stat, hydro_plot
+from hydrodatasource.reader.data_source import SelfMadeHydroDataset
+
+
+# 新增读取降雨数据的函数，根据流域 ID 读取相关 csv 文件
+def read_rainfall_data(basin_id, start_time, end_time):
+    print(
+        f"Reading rainfall data for {basin_id} from {start_time} to {end_time}"
+    )
+    rainfall_csv_path = f"/ftproot/basins-interim/timeseries/1D/{basin_id}.csv"
+    rainfall_data = pd.read_csv(rainfall_csv_path, parse_dates=["time"])
+    rainfall_data = rainfall_data.set_index("time")
+    rainfall_filtered = rainfall_data[start_time:end_time]
+    # 检查读取的数据
+    print(rainfall_filtered["total_precipitation_hourly"].head())
+    return rainfall_filtered["total_precipitation_hourly"]
 
 
 def plot_precipitation(precipitation, ax=None):
@@ -89,10 +104,46 @@ def plot_sim_and_obs(
     plot_precipitation(prcp, ax=ax1)
 
     # Plot the comparison between simulated and observed values
-    plot_sim_and_obs_streamflow(date, sim, obs, ax=ax2, xlabel=xlabel, ylabel=ylabel)
+    plot_sim_and_obs_streamflow(
+        date, sim, obs, ax=ax2, xlabel=xlabel, ylabel=ylabel
+    )
     plt.tight_layout()
     plt.savefig(save_fig, bbox_inches="tight")
     plt.close()
+
+
+# def plot_sim_and_obs(
+#     date,
+#     sim,
+#     obs,
+#     save_fig,
+#     xlabel="Date",
+#     ylabel=None,
+# ):
+#     # matplotlib.use("Agg")
+#     fig = plt.figure(figsize=(9, 6))
+#     ax = fig.subplots()
+#     ax.plot(
+#         date,
+#         sim,
+#         color="black",
+#         linestyle="solid",
+#         label="Simulation",
+#     )
+#     ax.plot(
+#         date,
+#         obs,
+#         "r.",
+#         markersize=3,
+#         label="Observation",
+#     )
+#     ax.set_xlabel(xlabel)
+#     ax.set_ylabel(ylabel)
+#     plt.legend(loc="upper right")
+#     plt.tight_layout()
+#     plt.savefig(save_fig, bbox_inches="tight")
+#     # plt.cla()
+#     plt.close()
 
 
 def plot_train_iteration(likelihood, save_fig):
@@ -145,7 +196,10 @@ def show_events_result(
     best_simulation = [
         x * (basin_area * 1000000 / 1000 / 3600) for x in best_simulation
     ]
-    obs = [x * (basin_area * 1000000 / 1000 / 3600) for x in spot_setup.evaluation()]
+    obs = [
+        x * (basin_area * 1000000 / 1000 / 3600)
+        for x in spot_setup.evaluation()
+    ]
     time["starttime"] = pd.to_datetime(time["starttime"])
     time["endtime"] = pd.to_datetime(time["endtime"])
     Prcp_list = []
@@ -169,12 +223,16 @@ def show_events_result(
                 - pd.Timedelta(hours=warmup_length)
             ) / pd.Timedelta(hours=1)
             end_num = (
-                row["endtime"] - calibrate_starttime - pd.Timedelta(hours=warmup_length)
+                row["endtime"]
+                - calibrate_starttime
+                - pd.Timedelta(hours=warmup_length)
             ) / pd.Timedelta(hours=1)
-            start_period = (row["endtime"] - calibrate_starttime) / pd.Timedelta(
+            start_period = (
+                row["endtime"] - calibrate_starttime
+            ) / pd.Timedelta(hours=1)
+            end_period = (row["endtime"] - calibrate_starttime) / pd.Timedelta(
                 hours=1
             )
-            end_period = (row["endtime"] - calibrate_starttime) / pd.Timedelta(hours=1)
             start_period = int(start_period)
             end_period = int(end_period)
             start_num = int(start_num)
@@ -182,7 +240,9 @@ def show_events_result(
             t_range_train_changci = pd.date_range(
                 row["starttime"], row["endtime"], freq="H"
             )
-            save_fig = os.path.join(save_dir, "train_results" + str(i) + ".png")
+            save_fig = os.path.join(
+                save_dir, "train_results" + str(i) + ".png"
+            )
             best_simulation_changci = best_simulation[start_num : end_num + 1]
             plot_sim_and_obs(
                 t_range_train_changci,
@@ -193,9 +253,19 @@ def show_events_result(
             )
             Prcp = sum(prcp[start_num : end_num + 1])
             W_obs = (
-                sum(obs[start_num : end_num + 1]) * 3600 * 1000 / basin_area / 1000000
+                sum(obs[start_num : end_num + 1])
+                * 3600
+                * 1000
+                / basin_area
+                / 1000000
             )
-            W_sim = sum(best_simulation_changci) * 3600 * 1000 / basin_area / 1000000
+            W_sim = (
+                sum(best_simulation_changci)
+                * 3600
+                * 1000
+                / basin_area
+                / 1000000
+            )
             W_bias_abs = W_sim - W_obs
             W_bias_rela = W_bias_abs / W_obs
             Q_max_obs = np.max(obs[start_num : end_num + 1])
@@ -284,13 +354,21 @@ def show_ts_result(basin_id, test_date, qsim, obs, save_dir):
     for i, row in time.iterrows():
         if test_starttime < row["starttime"] < test_endtime:
             start_num = (
-                row["starttime"] - test_starttime - pd.Timedelta(hours=warmup_length)
+                row["starttime"]
+                - test_starttime
+                - pd.Timedelta(hours=warmup_length)
             ) / pd.Timedelta(hours=1)
             end_num = (
-                row["endtime"] - test_starttime - pd.Timedelta(hours=warmup_length)
+                row["endtime"]
+                - test_starttime
+                - pd.Timedelta(hours=warmup_length)
             ) / pd.Timedelta(hours=1)
-            start_period = (row["endtime"] - test_starttime) / pd.Timedelta(hours=1)
-            end_period = (row["endtime"] - test_starttime) / pd.Timedelta(hours=1)
+            start_period = (row["endtime"] - test_starttime) / pd.Timedelta(
+                hours=1
+            )
+            end_period = (row["endtime"] - test_starttime) / pd.Timedelta(
+                hours=1
+            )
             start_period = int(start_period)
             end_period = int(end_period)
             start_num = int(start_num)

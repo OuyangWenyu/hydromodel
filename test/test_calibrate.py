@@ -17,7 +17,9 @@ from hydromodel.trainers.calibrate_sceua import calibrate_by_sceua
 @pytest.fixture()
 def db_dir():
     the_dir = os.path.join(
-        os.path.abspath(os.path.join(__file__, "..", "..")), "result", "test_camels_us"
+        os.path.abspath(os.path.join(__file__, "..", "..")),
+        "result",
+        "test_camels_us",
     )
     if not os.path.exists(the_dir):
         os.makedirs(the_dir)

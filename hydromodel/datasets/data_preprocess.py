@@ -2,9 +2,9 @@
 Author: Wenyu Ouyang
 Date: 2022-10-25 21:16:22
 LastEditTime: 2025-01-14 13:16:23
-LastEditors: Wenyu Ouyang
+LastEditors: zhuanglaihong
 Description: preprocess data for models in hydro-model-xaj
-FilePath: \hydromodel\hydromodel\datasets\data_preprocess.py
+FilePath: /hydromodel/hydromodel/datasets/data_preprocess.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
 
@@ -80,13 +80,17 @@ def check_tsdata_format(file_path):
             col for col in data.columns if re.match(r"node\d+_flow", col)
         ]
         if not node_flow_columns:
-            print(f"No 'node_flow' columns found in file: {file_path}, but it's okay.")
+            print(
+                f"No 'node_flow' columns found in file: {file_path}, but it's okay."
+            )
 
         # Check time format and sorting
         time_parsed = False
         for time_format in POSSIBLE_TIME_FORMATS:
             try:
-                data[TIME_NAME] = pd.to_datetime(data[TIME_NAME], format=time_format)
+                data[TIME_NAME] = pd.to_datetime(
+                    data[TIME_NAME], format=time_format
+                )
                 time_parsed = True
                 break
             except ValueError:
@@ -105,7 +109,9 @@ def check_tsdata_format(file_path):
             data[TIME_NAME].diff().dropna()
         )  # Calculate differences and remove NaN
         if not all(time_differences == time_differences.iloc[0]):
-            print(f"Time series is not at consistent intervals in file: {file_path}")
+            print(
+                f"Time series is not at consistent intervals in file: {file_path}"
+            )
             return False
 
         return True
@@ -182,100 +188,177 @@ def check_folder_contents(folder_path, basin_attr_file="basin_attributes.csv"):
         file_path = os.path.join(folder_path, file_name)
 
         if not os.path.exists(file_path):
-            print(f"Missing time series data file for basin {basin_id}: {file_path}")
+            print(
+                f"Missing time series data file for basin {basin_id}: {file_path}"
+            )
             return False
 
         if not check_tsdata_format(file_path):
-            print(f"Time series data format check failed for file: {file_path}")
+            print(
+                f"Time series data format check failed for file: {file_path}"
+            )
             return False
 
     return True
 
 
+def _transform_timescale(df, target_scale="D"):
+    """Transforms the timescale of the input DataFrame.
+
+    Args:
+        df: pandas.DataFrame, input data.
+        target_scale: Target timescale ('D', 'M', 'YE', 'H').
+        hour_source: Whether the source data is hourly.
+
+    Returns:
+        pandas.DataFrame: Transformed data.
+
+    Raises:
+        ValueError: If the time column cannot be parsed or the target scale is unsupported.
+    """
+    for time_format in POSSIBLE_TIME_FORMATS:
+        try:
+            df["time"] = pd.to_datetime(df["time"], format=time_format)
+            break
+        except ValueError:
+            continue
+    else:
+        raise ValueError(
+            "Could not parse time column. Please check the time format."
+        )
+
+    df.set_index("time", inplace=True)
+
+    if target_scale == "H" or "3H":
+        df.reset_index(inplace=True)
+        return df[["time", "prcp", "pet", "flow"]]
+
+    result_data = pd.DataFrame()
+
+    result_data["prcp"] = df["prcp"].resample(target_scale).sum()
+    result_data["pet"] = df["pet"].resample(target_scale).sum()
+    result_data["flow"] = df["flow"].resample(target_scale).mean()
+
+    result_data.reset_index(inplace=True)
+
+    if target_scale == "M":
+        result_data["time"] = result_data["time"].dt.strftime("%Y-%m-01")
+    elif target_scale == "YE":
+        result_data["time"] = result_data["time"].dt.strftime("%Y-01-01")
+
+    return result_data[["time", "prcp", "pet", "flow"]]
+
+
 def process_and_save_data_as_nc(
     folder_path,
+    target_data_scale,
     save_folder=CACHE_DIR,
     nc_attrs_file="attributes.nc",
     nc_ts_file="timeseries.nc",
 ):
-    # 验证文件夹内容
+    """Processes data from a folder and saves it as NetCDF files.
+
+    Args:
+        folder_path (str): Path to the folder containing the data.
+        target_data_scale (str): Target data timescale ('D', 'M', 'YE').
+        save_folder (str, optional): Folder to save NetCDF files. Defaults to CACHE_DIR.
+        nc_attrs_file (str, optional): Filename for attributes NetCDF. Defaults to "attributes.nc".
+        nc_ts_file (str, optional): Filename for timeseries NetCDF. Defaults to "timeseries.nc".
+
+    Returns:
+        bool: True if successful, False otherwise.
+    """
     if not check_folder_contents(folder_path):
         print("Folder contents validation failed.")
         return False
 
-    # 读取流域属性
+    basin_attrs, ds_attrs = _process_basin_attributes(folder_path)
+    ds_ts = _process_timeseries_data(
+        folder_path, target_data_scale, basin_attrs
+    )
+
+    ts_path = os.path.join(save_folder, nc_ts_file)
+    if os.path.exists(ts_path):
+        print("-" * 50)
+        print(
+            "Found existing timeseries.nc file. Removing and creating a new one..."
+        )
+        os.remove(ts_path)
+
+    ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
+    ds_ts.to_netcdf(os.path.join(save_folder, nc_ts_file))
+    print(ds_ts.head())
+    print("-" * 50)
+    return True
+
+
+def _process_basin_attributes(folder_path):
+    """Processes basin attributes and creates an xarray Dataset."""
     basin_attr_file = os.path.join(folder_path, "basin_attributes.csv")
-    # id must be str
     basin_attrs = pd.read_csv(basin_attr_file, dtype={ID_NAME: str})
 
-    # 创建属性数据集
-    ds_attrs = xr.Dataset.from_dataframe(basin_attrs.set_index(ID_NAME))
     new_column_names = {}
     units = {}
-
     for col in basin_attrs.columns:
         new_name = remove_unit_from_name(col)
         unit = get_unit_from_name(col)
         new_column_names[col] = new_name
         if unit:
             units[new_name] = unit
-
     basin_attrs.rename(columns=new_column_names, inplace=True)
 
-    # 创建不带单位的数据集
     ds_attrs = xr.Dataset.from_dataframe(basin_attrs.set_index(ID_NAME))
-
-    # 为有单位的变量添加单位属性
     for var_name, unit in units.items():
         ds_attrs[var_name].attrs["units"] = unit
-    # 初始化时序数据集
+    return basin_attrs, ds_attrs
+
+
+def _process_timeseries_data(folder_path, target_data_scale, basin_attrs):
+    """Processes timeseries data for each basin and creates an xarray Dataset."""
     ds_ts = xr.Dataset()
-
-    # 初始化用于保存单位的字典
     units = {}
-
-    # id must be str
     basin_ids = basin_attrs[ID_NAME].astype(str).tolist()
 
-    # 为每个流域读取并处理时序数据
     for i, basin_id in enumerate(basin_ids):
-        file_name = f"basin_{basin_id}.csv"
-        file_path = os.path.join(folder_path, file_name)
-        data = pd.read_csv(file_path)
+        file_path = os.path.join(folder_path, f"basin_{basin_id}.csv")
+        df = pd.read_csv(file_path)
+
+        if i == 0:
+            renamed_columns = {}
+            for col in df.columns:
+                name = remove_unit_from_name(col)
+                unit = get_unit_from_name(col)
+                renamed_columns[col] = name
+                if unit:
+                    units[name] = unit
+
+        df.rename(columns=renamed_columns, inplace=True)
+
+        try:
+            data = _transform_timescale(df, target_data_scale)
+        except Exception as e:
+            print(f"Error transforming timescale for basin {basin_id}: {e}")
+            raise ValueError(
+                f"Unsupported scale transformation: {target_data_scale}"
+            ) from e
+
         for time_format in POSSIBLE_TIME_FORMATS:
             try:
-                data[TIME_NAME] = pd.to_datetime(data[TIME_NAME], format=time_format)
+                data[TIME_NAME] = pd.to_datetime(
+                    data[TIME_NAME], format=time_format
+                )
                 break
             except ValueError:
                 continue
-        # 在处理第一个流域时构建单位字典
-        if i == 0:
-            for col in data.columns:
-                new_name = remove_unit_from_name(col)
-                if unit := get_unit_from_name(col):
-                    units[new_name] = unit
 
-        # 修改列名以移除单位
-        renamed_columns = {col: remove_unit_from_name(col) for col in data.columns}
-        data.rename(columns=renamed_columns, inplace=True)
-
-        # 将 DataFrame 转换为 xarray Dataset
         ds_basin = xr.Dataset.from_dataframe(data.set_index(TIME_NAME))
-
-        # 为每个变量设置单位属性
         for var in ds_basin.data_vars:
             if var in units:
                 ds_basin[var].attrs["units"] = units[var]
-        # 添加 basin 坐标
         ds_basin = ds_basin.expand_dims({"basin": [basin_id]})
-        # 合并到主数据集
         ds_ts = xr.merge([ds_ts, ds_basin], compat="no_conflicts")
 
-    # 保存为 NetCDF 文件
-    ds_attrs.to_netcdf(os.path.join(save_folder, nc_attrs_file))
-    ds_ts.to_netcdf(os.path.join(save_folder, nc_ts_file))
-
-    return True
+    return ds_ts
 
 
 def split_train_test(ts_data, train_period, test_period):
@@ -455,15 +538,22 @@ def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
     if data_type in datasource_dict.keys():
         datasource = datasource_dict[data_type](data_dir)
         p_pet_flow_vars = datasource_vars_dict[data_type]
-        ts_data = datasource.read_ts_xrdataset(basin_ids, periods, p_pet_flow_vars)
+        ts_data = datasource.read_ts_xrdataset(
+            basin_ids, periods, p_pet_flow_vars
+        )
         if isinstance(ts_data, dict):
             # We only support one time-unit in the data source, we select the first
             ts_data = ts_data[list(ts_data.keys())[0]]
         # get streamflow and convert the unit
         qobs_ = ts_data[p_pet_flow_vars[-1:]]
         target_unit = ts_data[p_pet_flow_vars[0]].attrs.get("units", "unknown")
-        if qobs_[p_pet_flow_vars[-1]].attrs.get("units", "unknown") != target_unit:
-            r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
+        if (
+            qobs_[p_pet_flow_vars[-1]].attrs.get("units", "unknown")
+            != target_unit
+        ):
+            r_mmd = streamflow_unit_conv(
+                qobs_, basin_area, target_unit=target_unit
+            )
             ts_data[flow_name] = r_mmd[p_pet_flow_vars[-1]]
             ts_data[flow_name].attrs["units"] = target_unit
         ts_data = ts_data.rename(
@@ -477,8 +567,11 @@ def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
         ts_data = xr.open_dataset(os.path.join(data_dir, "timeseries.nc"))
         target_unit = ts_data[prcp_name].attrs.get("units", "unknown")
         qobs_ = ts_data[[flow_name]]
+
         if qobs_[flow_name].attrs.get("units", "unknown") != target_unit:
-            r_mmd = streamflow_unit_conv(qobs_, basin_area, target_unit=target_unit)
+            r_mmd = streamflow_unit_conv(
+                qobs_, basin_area, target_unit=target_unit
+            )  # 流量单位从 m³/s 转换为 mm/d
             ts_data[flow_name] = r_mmd[flow_name]
             ts_data[flow_name].attrs["units"] = target_unit
         ts_data = ts_data.sel(time=slice(periods[0], periods[1]))
@@ -507,15 +600,27 @@ def _get_pe_q_from_ts(ts_xr_dataset):
     pet_name = remove_unit_from_name(PET_NAME)
     flow_name = remove_unit_from_name(FLOW_NAME)
     p_and_e = (
-        ts_xr_dataset[[prcp_name, pet_name]].to_array().to_numpy().transpose(2, 1, 0)
+        ts_xr_dataset[[prcp_name, pet_name]]
+        .to_array()
+        .to_numpy()
+        .transpose(2, 1, 0)
     )
-    qobs = np.expand_dims(ts_xr_dataset[flow_name].to_numpy().transpose(1, 0), axis=2)
+    qobs = np.expand_dims(
+        ts_xr_dataset[flow_name].to_numpy().transpose(1, 0), axis=2
+    )
 
     return p_and_e, qobs
 
 
 def cross_val_split_tsdata(
-    data_type, data_dir, cv_fold, train_period, test_period, periods, warmup, basin_ids
+    data_type,
+    data_dir,
+    cv_fold,
+    train_period,
+    test_period,
+    periods,
+    warmup,
+    basin_ids,
 ):
     """Prepare the time series data for cross-validation or no cross-validation
 

@@ -1,10 +1,21 @@
+"""
+Author: Wenyu Ouyang
+Date: 2025-02-18 10:20:58
+LastEditTime: 2025-08-19 09:34:29
+LastEditors: Wenyu Ouyang
+Description: Core code for GR4J model
+FilePath: /hydromodel/hydromodel/models/gr4j.py
+Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
+"""
+
 import math
 from typing import Optional, Tuple
 import numpy as np
 from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
-from hydromodel.models.xaj import uh_conv
+from hydromodel.models.param_utils import process_parameters
+from hydromodel.models.unit_hydrograph import uh_conv
 
 
 # @jit
@@ -152,7 +163,9 @@ def uh_gr4j(x4):
     return uh1_ordinates, uh2_ordinates
 
 
-def routing(q9: np.array, q1: np.array, x2, x3, r_level: Optional[np.array] = None):
+def routing(
+    q9: np.array, q1: np.array, x2, x3, r_level: Optional[np.array] = None
+):
     """
     the GR4J routing-module unit cell for time-sequence loop
     Parameters
@@ -173,7 +186,9 @@ def routing(q9: np.array, q1: np.array, x2, x3, r_level: Optional[np.array] = No
     # r_level should not be larger than self.x3
     r_level = np.clip(r_level, a_min=np.full(r_level.shape, 0.0), a_max=x3)
     groundwater_ex = x2 * (r_level / x3) ** 3.5
-    r_updated = np.maximum(np.full(r_level.shape, 0.0), r_level + q9 + groundwater_ex)
+    r_updated = np.maximum(
+        np.full(r_level.shape, 0.0), r_level + q9 + groundwater_ex
+    )
 
     qr = r_updated * (1.0 - (1.0 + (r_updated / x3) ** 4) ** -0.25)
     r_updated = r_updated - qr
@@ -183,7 +198,14 @@ def routing(q9: np.array, q1: np.array, x2, x3, r_level: Optional[np.array] = No
     return q, r_updated
 
 
-def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
+def gr4j(
+    p_and_e,
+    parameters,
+    warmup_length: int,
+    return_state=False,
+    normalized_params="auto",
+    **kwargs,
+):
     """
     run GR4J model
 
@@ -198,6 +220,11 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         length of warmup period
     return_state
         if True, return state values, mainly for warmup periods
+    normalized_params
+        parameter format specification:
+        - "auto": automatically detect if parameters are normalized (0-1) or original scale (default)
+        - True: parameters are normalized (0-1 range), will be converted to original scale
+        - False: parameters are already in original scale, use as-is
 
     Returns
     -------
@@ -209,20 +236,27 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
         model_param_dict = MODEL_PARAM_DICT["gr4j"]
     # params
     param_ranges = model_param_dict["param_range"]
-    x1_scale = param_ranges["x1"]
-    x2_sacle = param_ranges["x2"]
-    x3_scale = param_ranges["x3"]
-    x4_scale = param_ranges["x4"]
-    x1 = x1_scale[0] + parameters[:, 0] * (x1_scale[1] - x1_scale[0])
-    x2 = x2_sacle[0] + parameters[:, 1] * (x2_sacle[1] - x2_sacle[0])
-    x3 = x3_scale[0] + parameters[:, 2] * (x3_scale[1] - x3_scale[0])
-    x4 = x4_scale[0] + parameters[:, 3] * (x4_scale[1] - x4_scale[0])
+
+    # Process parameters using unified parameter handling
+    processed_params = process_parameters(
+        parameters, param_ranges, normalized=normalized_params
+    )
+
+    # Extract individual parameters from processed array
+    x1 = processed_params[:, 0]
+    x2 = processed_params[:, 1]
+    x3 = processed_params[:, 2]
+    x4 = processed_params[:, 3]
 
     if warmup_length > 0:
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]
         _, _, s0, r0 = gr4j(
-            p_and_e_warmup, parameters, warmup_length=0, return_state=True, **kwargs
+            p_and_e_warmup,
+            parameters,
+            warmup_length=0,
+            return_state=True,
+            **kwargs,
         )
     else:
         s0 = 0.5 * x1
@@ -238,10 +272,12 @@ def gr4j(p_and_e, parameters, warmup_length: int, return_state=False, **kwargs):
             pr, et, s = production(inputs[i, :, :], x1, s)
         prs[i, :] = pr
         ets[i, :] = et
+
     prs_x = np.expand_dims(prs, axis=2)
     conv_q9, conv_q1 = uh_gr4j(x4)
     q9 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
     q1 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
+
     for j in range(inputs.shape[1]):
         q9[:, j : j + 1, :] = uh_conv(
             prs_x[:, j : j + 1, :], conv_q9[j].reshape(-1, 1, 1)

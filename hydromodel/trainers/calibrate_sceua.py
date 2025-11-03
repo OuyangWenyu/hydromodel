@@ -10,7 +10,13 @@ from hydromodel.models.model_dict import LOSS_DICT, MODEL_DICT
 
 class SpotSetup(object):
     def __init__(
-        self, p_and_e, qobs, warmup_length=365, model=None, param_file=None, loss=None
+        self,
+        p_and_e,
+        qobs,
+        warmup_length=365,
+        model=None,
+        param_file=None,
+        loss=None,
     ):
         """
         Set up for Spotpy
@@ -24,7 +30,7 @@ class SpotSetup(object):
         qobs
             observation data
         warmup_length
-            GR4J model need warmup period
+            models need warmup period
         model
             we support "gr4j", "hymod", and "xaj"
         param_range
@@ -52,7 +58,8 @@ class SpotSetup(object):
         self.model = model
         self.params = []
         self.params.extend(
-            Uniform(par_name, low=0.0, high=1.0) for par_name in self.parameter_names
+            Uniform(par_name, low=0.0, high=1.0)
+            for par_name in self.parameter_names
         )
         # Just a way to keep this example flexible and applicable to various examples
         self.loss = loss
@@ -89,7 +96,7 @@ class SpotSetup(object):
             params,
             warmup_length=self.warmup_length,
             **self.model,
-            **self.param_range
+            **self.param_range,
         )
         return sim
 
@@ -141,15 +148,20 @@ class SpotSetup(object):
         for i in range(len(time)):
             if time.iloc[i, 0] < calibrate_endtime:
                 start_num = (
-                    time.iloc[i, 0] - calibrate_starttime - pd.Timedelta(hours=365)
+                    time.iloc[i, 0]
+                    - calibrate_starttime
+                    - pd.Timedelta(hours=365)
                 ) / pd.Timedelta(hours=1)
                 end_num = (
-                    time.iloc[i, 1] - calibrate_starttime - pd.Timedelta(hours=365)
+                    time.iloc[i, 1]
+                    - calibrate_starttime
+                    - pd.Timedelta(hours=365)
                 ) / pd.Timedelta(hours=1)
                 start_num = int(start_num)
                 end_num = int(end_num)
                 like_ = LOSS_DICT[self.loss["obj_func"]](
-                    evaluation[start_num:end_num,], simulation[start_num:end_num,]
+                    evaluation[start_num:end_num,],
+                    simulation[start_num:end_num,],
                 )
                 count += 1
 
@@ -170,40 +182,11 @@ def calibrate_by_sceua(
 ):
     """
     Function for calibrating model by SCE-UA
-
     Now we only support one basin's calibration in one sampler
-
-    Parameters
-    ----------
-    basins
-        basin ids
-    p_and_e
-        inputs of model
-    qobs
-        observation data
-    dbname
-        where save the result file of sampler
-    warmup_length
-        the length of warmup period
-    model
-        we support "gr4j", "hymod", and "xaj", parameters for hydro model
-    algorithm
-        calibrate algorithm. For example, if you want to calibrate xaj model,
-        and use sce-ua algorithm -- random seed=2000, rep=5000, ngs=7, kstop=3, peps=0.1, pcento=0.1
-    loss
-        loss configs for events calculation or
-        just one long time-series calculation
-        with an objective function, typically RMSE
-    param_file
-        the file of the parameter range, yaml file
-
-    Returns
-    -------
-    None
     """
     if model is None:
         model = {
-            "name": "xaj_mz",  # 模型
+            "name": "xaj_mz",
             "source_type": "sources5mm",
             "source_book": "HF",
             "kernel_size": 15,
@@ -223,7 +206,6 @@ def calibrate_by_sceua(
         loss = {
             "type": "time_series",
             "obj_func": "RMSE",
-            # when "type" is "events", this is not None, but idxs of events in time series
             "events": None,
         }
     random_seed = algorithm["random_seed"]
@@ -233,6 +215,8 @@ def calibrate_by_sceua(
     peps = algorithm["peps"]
     pcento = algorithm["pcento"]
     np.random.seed(random_seed)  # Makes the results reproduceable
+
+    samplers = []
     for i in range(len(basins)):
         # Initialize the xaj example
         # In this case, we tell the setup which algorithm we want to use, so
@@ -258,4 +242,124 @@ def calibrate_by_sceua(
         # Start the sampler, one can specify ngs, kstop, peps and pcento id desired
         sampler.sample(rep, ngs=ngs, kstop=kstop, peps=peps, pcento=pcento)
         print("Calibrate Finished!")
-    return sampler
+
+        # 修改获取最佳参数的方式
+        best_params = {basins[i]: {}}
+        # 打印模型参数信息
+        print(f"模型名称: {model['name']}")
+        # print(f"参数名称列表: {spot_setup.parameter_names}")
+        # print(f"参数数量: {len(spot_setup.parameter_names)}")
+        # 获取数据并转换为DataFrame
+        results = sampler.getdata()
+        df_results = pd.DataFrame(results)
+
+        # 调试：打印DataFrame的列名
+        # print(f"📊 SPOTPY返回的数据列名: {list(df_results.columns)}")
+        print(f"🔢 参数名称: {spot_setup.parameter_names}")
+
+        # 获取最佳参数组合
+        best_run = df_results.loc[
+            df_results["like1"].idxmin()
+        ]  # 目标函数最小值
+
+        # 获取参数值 - 智能检测列名格式
+        param_columns = []
+
+        # 方法1: 尝试使用 parx1, parx2 格式
+        for j in range(len(spot_setup.parameter_names)):
+            param_col = f"parx{j+1}"
+            if param_col in df_results.columns:
+                param_columns.append(param_col)
+
+        # 方法2: 如果方法1失败，尝试使用 par{param_name} 格式
+        if len(param_columns) != len(spot_setup.parameter_names):
+            param_columns = []
+            for param_name in spot_setup.parameter_names:
+                param_col = f"par{param_name}"
+                if param_col in df_results.columns:
+                    param_columns.append(param_col)
+
+        # 方法3: 如果前面都失败，尝试直接使用参数名
+        if len(param_columns) != len(spot_setup.parameter_names):
+            param_columns = []
+            for param_name in spot_setup.parameter_names:
+                if param_name in df_results.columns:
+                    param_columns.append(param_name)
+
+        # 方法4: 如果还是失败，使用数字索引查找包含参数相关的列
+        if len(param_columns) != len(spot_setup.parameter_names):
+            param_columns = []
+            # 查找所有以'par'开头的列
+            par_cols = [
+                col for col in df_results.columns if str(col).startswith("par")
+            ]
+            if len(par_cols) >= len(spot_setup.parameter_names):
+                param_columns = sorted(par_cols)[
+                    : len(spot_setup.parameter_names)
+                ]
+
+        print(f"🎯 检测到的参数列: {param_columns}")
+
+        # 验证参数列数量
+        if len(param_columns) != len(spot_setup.parameter_names):
+            print(
+                f"❌ 错误：参数列数量({len(param_columns)})与参数名称数量({len(spot_setup.parameter_names)})不匹配"
+            )
+            print(f"   可用列名: {list(df_results.columns)}")
+            # 使用前N列作为参数（排除目标函数列）
+            exclude_cols = [
+                "like1",
+                "chain",
+                "simulation",
+                "chain1",
+            ]  # 常见的非参数列
+            available_cols = [
+                col for col in df_results.columns if col not in exclude_cols
+            ]
+
+            # 进一步过滤：只保留数值型列
+            numeric_cols = []
+            for col in available_cols:
+                try:
+                    pd.to_numeric(df_results[col])
+                    numeric_cols.append(col)
+                except:
+                    continue
+
+            param_columns = numeric_cols[: len(spot_setup.parameter_names)]
+            print(f"   使用备用方案（数值型列）：{param_columns}")
+
+            # 最后的备用方案：如果还是不够，使用前几列
+            if len(param_columns) < len(spot_setup.parameter_names):
+                all_cols = list(df_results.columns)
+                param_columns = all_cols[: len(spot_setup.parameter_names)]
+                print(f"   使用最终备用方案（前几列）：{param_columns}")
+
+        # 获取参数值
+        for j, param_name in enumerate(spot_setup.parameter_names):
+            if j < len(param_columns):
+                param_col = param_columns[j]
+                try:
+                    best_params[basins[i]][param_name] = float(
+                        best_run[param_col]
+                    )
+                    print(
+                        f"   ✅ {param_name} = {best_run[param_col]} (来自列: {param_col})"
+                    )
+                except Exception as e:
+                    print(f"   ❌ 获取参数 {param_name} 失败: {e}")
+                    best_params[basins[i]][param_name] = 0.0  # 设置默认值
+            else:
+                print(f"   ⚠️  参数 {param_name} 没有对应的列，使用默认值")
+                best_params[basins[i]][param_name] = 0.0
+
+        # 保存为JSON文件
+        import json
+
+        best_params_file = os.path.join(dbname, "best_params.json")
+        with open(best_params_file, "w") as f:
+            json.dump(best_params, f, indent=4)
+
+        samplers.append(sampler)
+
+    return samplers

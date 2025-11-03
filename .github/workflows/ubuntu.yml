@@ -15,7 +15,7 @@ jobs:
             fail-fast: false
             matrix:
                 config:
-                    - { os: ubuntu-latest, py: "3.10" }
+                    - { os: ubuntu-latest, py: "3.11" }
         steps:
             - name: Checkout Code
               uses: actions/checkout@v3
@@ -23,20 +23,21 @@ jobs:
               uses: actions/setup-python@v4
               with:
                   python-version: ${{ matrix.config.py }}
+            - name: Install uv
+              uses: astral-sh/setup-uv@v3
+              with:
+                  version: "latest"
             - name: Install GDAL
               run: |
-                  python -m pip install --upgrade pip
-                  pip install --no-cache-dir Cython
-                  pip install --find-links=https://girder.github.io/large_image_wheels --no-cache GDAL
+                  uv pip install --system --no-cache-dir Cython
+                  uv pip install --system --find-links=https://girder.github.io/large_image_wheels --no-cache GDAL
             - name: Test GDAL installation
               run: |
                   python -c "from osgeo import gdal"
                   gdalinfo --version
             - name: Install dependencies
               run: |
-                  pip install --user -r requirements.txt
-                  pip install --user -r requirements_dev.txt
-                  pip install .
+                  uv sync --extra dev
             - name: Create hydro_setting.yml
               run: |
                   echo 'local_data_path:' > hydro_setting.yml

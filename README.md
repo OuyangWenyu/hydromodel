@@ -158,7 +158,7 @@ config = {
 ```
 
 For detailed format specifications and examples, see:
-- [selfmade_data_guide.md](docs/selfmade_data_guide.md) - Complete guide
+- [Data Guide](docs/data_guide.md) - Complete guide for both CAMELS and custom data
 - [hydrodatasource documentation](https://github.com/OuyangWenyu/hydrodatasource) - Source package
 
 ### 2. Quick Start: Calibration, Evaluation, Simulation, and Visualization
@@ -367,7 +367,7 @@ python scripts/run_xaj_simulate.py \
 - Scenario testing with custom parameters
 - Literature parameter validation
 
-See [docs/simulation_guide.md](docs/simulation_guide.md) for complete documentation.
+For detailed API documentation and advanced usage, see [Usage Guide - Model Simulation](docs/usage.md#model-simulation).
 
 ## Project Structure
 

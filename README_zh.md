@@ -158,7 +158,7 @@ config = {
 ```
 
 详细格式规范和示例，请参见：
-- [selfmade_data_guide.md](docs/selfmade_data_guide.md) - 完整指南
+- [数据准备指南](docs/data_guide.md) - CAMELS 和自定义数据的完整指南
 - [hydrodatasource 文档](https://github.com/OuyangWenyu/hydrodatasource) - 源包
 
 ### 2. 快速开始：率定、评估、模拟和可视化
@@ -367,7 +367,7 @@ python scripts/run_xaj_simulate.py \
 - 使用自定义参数进行情景测试
 - 验证文献参数
 
-详见 [docs/simulation_guide.md](docs/simulation_guide.md)。
+详细的 API 文档和高级用法，请参见 [使用指南 - 模型模拟](docs/usage.md#model-simulation)。
 
 ## 项目结构
 

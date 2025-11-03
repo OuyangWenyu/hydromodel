@@ -161,11 +161,11 @@ config = {
 - [selfmade_data_guide.md](docs/selfmade_data_guide.md) - 完整指南
 - [hydrodatasource 文档](https://github.com/OuyangWenyu/hydrodatasource) - 源包
 
-### 2. 快速开始：率定、评估和可视化
+### 2. 快速开始：率定、评估、模拟和可视化
 
 **方式 1: 使用命令行脚本（推荐初学者）**
 
-我们提供了现成的脚本用于模型率定、评估和可视化：
+我们提供了现成的脚本用于模型率定、评估、模拟和可视化：
 
 ```bash
 # 1. 率定
@@ -174,7 +174,13 @@ python scripts/run_xaj_calibration.py --config configs/example_config.yaml
 # 2. 在测试期评估
 python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA --eval-period test
 
-# 3. 可视化
+# 3. 使用自定义参数模拟（无需率定！）
+python scripts/run_xaj_simulate.py \
+    --config configs/example_simulate_config.yaml \
+    --param-file configs/example_xaj_params.yaml \
+    --plot
+
+# 4. 可视化
 python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
 ```
 
@@ -300,20 +306,92 @@ custom_results = evaluate(
 
 **可用指标：** NSE, KGE, RMSE, PBIAS, FHV, FLV, FMS
 
+### 模拟 API
+
+**重要说明：模拟功能无需事先率定！**
+
+`UnifiedSimulator` 提供了灵活的接口，可以使用任意参数值运行模型模拟：
+
+```python
+from hydromodel.trainers.unified_simulate import UnifiedSimulator
+from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
+
+# 加载数据
+data_loader = UnifiedDataLoader(config["data_cfgs"])
+p_and_e, qobs = data_loader.load_data()
+
+# 定义参数（可来自率定结果、文献或自定义值）
+parameters = {
+    "K": 0.75, "B": 0.25, "IM": 0.06,
+    "UM": 18.0, "LM": 80.0, "DM": 95.0,
+    # ... 其他参数
+}
+
+# 创建模拟器
+model_config = {
+    "model_name": "xaj_mz",
+    "parameters": parameters
+}
+simulator = UnifiedSimulator(model_config, basin_config)
+
+# 运行模拟
+results = simulator.simulate(
+    inputs=p_and_e,
+    qobs=qobs,
+    warmup_length=365
+)
+
+# 提取结果
+qsim = results["qsim"]  # 模拟径流
+```
+
+**命令行使用：**
+
+```bash
+# 使用自定义参数（适用于任意参数值）
+python scripts/run_xaj_simulate.py \
+    --config configs/example_simulate_config.yaml \
+    --param-file configs/example_xaj_params.yaml \
+    --output simulation_results.csv \
+    --plot
+
+# 使用 SCE-UA 率定结果（CSV 格式）
+python scripts/run_xaj_simulate.py \
+    --param-file results/xaj_mz_SCE_UA/01013500_sceua.csv \
+    --plot
+```
+
+**使用场景：**
+- 参数敏感性分析
+- 模型比较
+- 使用自定义参数进行情景测试
+- 验证文献参数
+
+详见 [docs/simulation_guide.md](docs/simulation_guide.md)。
+
 ## 项目结构
 
 ```
 hydromodel/
 ├── hydromodel/
-│   ├── models/                    # 模型实现
-│   │   ├── xaj.py                 # 标准 XAJ 模型
-│   │   ...
-│   ├── trainers/                  # 率定和评估
-│   │   ├── unified_calibrate.py   # 率定 API
-│   │   └── unified_evaluate.py    # 评估 API
-│   └── datasets/                  # 数据预处理
-├── scripts/                       # 示例脚本
-└── docs/                          # 文档
+│   ├── models/                      # 模型实现
+│   │   ├── xaj.py                   # 标准 XAJ 模型
+│   │   ├── gr4j.py                  # GR4J 模型
+│   │   └── ...
+│   ├── trainers/                    # 率定、评估和模拟
+│   │   ├── unified_calibrate.py     # 率定 API
+│   │   ├── unified_evaluate.py      # 评估 API
+│   │   └── unified_simulate.py      # 模拟 API
+│   └── datasets/                    # 数据预处理
+│       ├── unified_data_loader.py   # 数据加载器
+│       └── ...
+├── scripts/                         # 示例脚本
+│   ├── run_xaj_calibration.py       # 率定脚本
+│   ├── run_xaj_evaluate.py          # 评估脚本
+│   ├── run_xaj_simulate.py          # 模拟脚本
+│   └── visualize.py                 # 可视化脚本
+├── configs/                         # 配置文件
+└── docs/                            # 文档
 ```
 
 ## 文档

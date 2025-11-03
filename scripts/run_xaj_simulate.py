@@ -39,10 +39,13 @@ def load_parameters_from_csv(csv_file: str, param_names: list) -> OrderedDict:
     """
     Load best parameters from SCE-UA calibration results.
 
+    NOTE: This function is ONLY compatible with SCE-UA algorithm output format.
+    For other algorithms (GA, DDS, etc.), use YAML parameter files instead.
+
     Parameters
     ----------
     csv_file : str
-        Path to *_sceua.csv file
+        Path to *_sceua.csv file (SCE-UA specific format)
     param_names : list
         List of parameter names
 
@@ -84,14 +87,14 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Use calibrated parameters
-  python run_xaj_simulate.py --param-file results/xaj_mz_SCE_UA/01013500_sceua.csv
-
-  # Use custom parameters
+  # Use custom parameters from YAML (works with all algorithms)
   python run_xaj_simulate.py --param-file my_params.yaml
 
-  # Specify configuration
+  # Specify custom configuration
   python run_xaj_simulate.py --config configs/my_config.yaml --param-file my_params.yaml
+
+  # Use SCE-UA calibrated parameters (CSV format specific to SCE-UA)
+  python run_xaj_simulate.py --param-file results/xaj_mz_SCE_UA/01013500_sceua.csv
         """,
     )
 
@@ -106,7 +109,7 @@ Examples:
         "--param-file",
         type=str,
         required=True,
-        help="Parameter file (CSV from calibration or YAML)",
+        help="Parameter file: YAML (universal) or CSV (SCE-UA only)",
     )
 
     parser.add_argument(

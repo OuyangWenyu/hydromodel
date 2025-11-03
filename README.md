@@ -161,11 +161,11 @@ For detailed format specifications and examples, see:
 - [selfmade_data_guide.md](docs/selfmade_data_guide.md) - Complete guide
 - [hydrodatasource documentation](https://github.com/OuyangWenyu/hydrodatasource) - Source package
 
-### 2. Quick Start: Calibration, Evaluation, and Visualization
+### 2. Quick Start: Calibration, Evaluation, Simulation, and Visualization
 
 **Option 1: Use Command-Line Scripts (Recommended for Beginners)**
 
-We provide ready-to-use scripts for model calibration, evaluation, and visualization:
+We provide ready-to-use scripts for model calibration, evaluation, simulation, and visualization:
 
 ```bash
 # 1. Calibration
@@ -174,7 +174,13 @@ python scripts/run_xaj_calibration.py --config configs/example_config.yaml
 # 2. Evaluation on test period
 python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA --eval-period test
 
-# 3. Visualization
+# 3. Simulation with custom parameters (no calibration required!)
+python scripts/run_xaj_simulate.py \
+    --config configs/example_simulate_config.yaml \
+    --param-file configs/example_xaj_params.yaml \
+    --plot
+
+# 4. Visualization
 python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
 ```
 
@@ -342,16 +348,17 @@ qsim = results["qsim"]  # Simulated streamflow
 **Command-line usage:**
 
 ```bash
-# Using calibrated parameters
-python scripts/run_xaj_simulate.py \
-    --param-file results/xaj_mz_SCE_UA/01013500_sceua.csv \
-    --plot
-
-# Using custom parameters
+# Using custom parameters (works with any parameter values)
 python scripts/run_xaj_simulate.py \
     --config configs/example_simulate_config.yaml \
     --param-file configs/example_xaj_params.yaml \
-    --output simulation_results.csv
+    --output simulation_results.csv \
+    --plot
+
+# Using calibrated parameters from SCE-UA (CSV format)
+python scripts/run_xaj_simulate.py \
+    --param-file results/xaj_mz_SCE_UA/01013500_sceua.csv \
+    --plot
 ```
 
 **Use cases:**
@@ -367,15 +374,24 @@ See [docs/simulation_guide.md](docs/simulation_guide.md) for complete documentat
 ```
 hydromodel/
 ├── hydromodel/
-│   ├── models/                    # Model implementations
-│   │   ├── xaj.py                 # Standard XAJ model
-│   │   ...
-│   ├── trainers/                  # Calibration and evaluation
-│   │   ├── unified_calibrate.py   # Calibration API
-│   │   └── unified_evaluate.py    # Evaluation API
-│   └── datasets/                  # Data preprocessing
-├── scripts/                       # Example scripts
-└── docs/                          # Documentation
+│   ├── models/                      # Model implementations
+│   │   ├── xaj.py                   # Standard XAJ model
+│   │   ├── gr4j.py                  # GR4J model
+│   │   └── ...
+│   ├── trainers/                    # Calibration, evaluation, and simulation
+│   │   ├── unified_calibrate.py     # Calibration API
+│   │   ├── unified_evaluate.py      # Evaluation API
+│   │   └── unified_simulate.py      # Simulation API
+│   └── datasets/                    # Data preprocessing
+│       ├── unified_data_loader.py   # Data loader
+│       └── ...
+├── scripts/                         # Example scripts
+│   ├── run_xaj_calibration.py       # Calibration script
+│   ├── run_xaj_evaluate.py          # Evaluation script
+│   ├── run_xaj_simulate.py          # Simulation script
+│   └── visualize.py                 # Visualization script
+├── configs/                         # Configuration files
+└── docs/                            # Documentation
 ```
 
 ## Documentation

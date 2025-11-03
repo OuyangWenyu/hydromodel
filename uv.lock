@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -1735,15 +1735,18 @@ sdist = { url = "https://files.pythonhosted.org/packages/55/4f/b1e8912c765b6cbca
 
 [[package]]
 name = "hydromodel"
-version = "0.2.10"
+version = "0.2.11"
 source = { editable = "." }
 dependencies = [
     { name = "aqua-fetch", extra = ["all"] },
     { name = "bmipy" },
     { name = "deap" },
+    { name = "hydrodataset" },
     { name = "hydrodatasource" },
+    { name = "hydroutils" },
     { name = "ipykernel" },
     { name = "muskingumcunge" },
+    { name = "netcdf4" },
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
@@ -1800,7 +1803,9 @@ requires-dist = [
     { name = "coverage", marker = "extra == 'dev'" },
     { name = "deap" },
     { name = "flake8", marker = "extra == 'dev'" },
+    { name = "hydrodataset" },
     { name = "hydrodatasource" },
+    { name = "hydroutils" },
     { name = "ipykernel" },
     { name = "livereload", marker = "extra == 'docs'" },
     { name = "mkdocs", marker = "extra == 'docs'" },
@@ -1816,6 +1821,7 @@ requires-dist = [
     { name = "muskingumcunge" },
     { name = "nbconvert", marker = "extra == 'docs'" },
     { name = "nbformat", marker = "extra == 'docs'" },
+    { name = "netcdf4" },
     { name = "numba" },
     { name = "numpy", specifier = ">=2.2.6" },
     { name = "pandas", specifier = ">=2.3.1" },

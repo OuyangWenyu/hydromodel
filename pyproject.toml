@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydromodel"
-version = "0.2.10"
+version = "0.2.11"
 description = "Hydrological modeling package"
 authors = [
     {name = "Wenyu Ouyang", email = "wenyuouyang@outlook.com"}

@@ -24,11 +24,289 @@ from hydrodatasource.utils.utils import streamflow_unit_conv
 from hydromodel.datasets.data_preprocess import get_basin_area
 
 
+class UnifiedEvaluator:
+    """
+    Unified evaluator for all hydrological models.
+
+    This class provides a unified interface for evaluating calibrated models,
+    similar to UnifiedModelSetup for calibration.
+
+    Key features:
+    - Loads calibrated parameters from multiple sources
+    - Evaluates models on specified periods
+    - Calculates performance metrics
+    - Saves results in unified NetCDF format
+    """
+
+    def __init__(
+        self,
+        data_config: Dict[str, Any],
+        model_config: Dict[str, Any],
+        training_config: Dict[str, Any],
+        eval_period: Optional[List[str]] = None,
+        param_dir: Optional[str] = None,
+    ):
+        """
+        Initialize UnifiedEvaluator.
+
+        Parameters
+        ----------
+        data_config : Dict
+            Data configuration
+        model_config : Dict
+            Model configuration
+        training_config : Dict
+            Training configuration
+        eval_period : List[str], optional
+            Evaluation period [start, end]
+        param_dir : str, optional
+            Directory containing calibrated parameters
+        """
+        self.data_config = data_config.copy()
+        self.model_config = model_config
+        self.training_config = training_config
+
+        # Set evaluation period
+        if eval_period is None:
+            eval_period = data_config.get("test_period")
+        if eval_period is None:
+            raise ValueError(
+                "Evaluation period not specified in config or init"
+            )
+
+        # Update data_config with evaluation period
+        self.data_config["train_period"] = eval_period
+        self.data_config["test_period"] = eval_period
+
+        # Set parameter directory
+        if param_dir is None:
+            output_dir = os.path.join(
+                training_config.get("output_dir", "results"),
+                training_config.get("experiment_name", "experiment"),
+            )
+            self.param_dir = output_dir
+        else:
+            self.param_dir = param_dir
+
+        # Basic settings
+        self.warmup_length = self.data_config.get("warmup_length", 365)
+        self.is_event_data = self.data_config.get("is_event_data", False)
+        self.model_name = model_config["name"]
+
+        # Load data
+        self._load_data()
+
+        # Load parameter ranges
+        self._load_parameter_ranges()
+
+        # Get basin configurations
+        self.basin_configs = self.data_loader.get_basin_configs()
+        self.basin_ids = [str(bid) for bid in self.data_config.get("basin_ids", [])]
+
+    def _load_data(self):
+        """Load evaluation data using UnifiedDataLoader."""
+        self.data_loader = UnifiedDataLoader(self.data_config)
+        self.p_and_e, qobs = self.data_loader.load_data()
+
+        # Store observation data
+        if self.is_event_data:
+            self.true_obs = qobs  # Keep complete time series for event data
+        else:
+            self.true_obs = qobs[
+                self.warmup_length :, :, :
+            ]  # Remove warmup period
+
+    def _load_parameter_ranges(self):
+        """Load parameter ranges for denormalization."""
+        # Get parameter range file
+        param_range_file = self.training_config.get("param_range_file")
+        if param_range_file is None or not os.path.exists(param_range_file):
+            candidate_file = os.path.join(self.param_dir, "param_range.yaml")
+            if os.path.exists(candidate_file):
+                param_range_file = candidate_file
+            else:
+                param_range_file = None
+                print(
+                    "Note: param_range.yaml not found. Using default parameter ranges."
+                )
+
+        # Load param_range
+        try:
+            self.param_range = read_model_param_dict(param_range_file)
+            self.parameter_names = self.param_range[self.model_name][
+                "param_name"
+            ]
+            self.has_param_range = True
+        except (FileNotFoundError, KeyError) as e:
+            print(
+                f"Warning: Could not load parameter ranges for model '{self.model_name}': {e}"
+            )
+            print("Will proceed without parameter denormalization.")
+            self.param_range = None
+            self.parameter_names = None
+            self.has_param_range = False
+
+    def evaluate_basin(self, basin_id: str) -> Dict[str, Any]:
+        """
+        Evaluate model for a single basin.
+
+        Parameters
+        ----------
+        basin_id : str
+            Basin ID
+
+        Returns
+        -------
+        Dict
+            Evaluation results including metrics, qsim, qobs
+        """
+        i = self.basin_ids.index(basin_id)
+
+        # Load calibrated parameters
+        params = _load_basin_parameters(
+            basin_id, self.param_dir, self.parameter_names, self.model_name
+        )
+
+        # Update parameter_names if first basin
+        if self.parameter_names is None and params is not None:
+            self.parameter_names = list(params.keys())
+
+        # Create model config
+        base_model_config = {
+            "type": "lumped",
+            "model_name": self.model_name,
+            "model_params": self.model_config.copy(),
+            "parameters": params,
+        }
+
+        # Get basin config
+        basin_config = self.basin_configs.get(
+            basin_id, {"basin_area": 1000.0}
+        )
+
+        # Create simulator
+        simulator = UnifiedSimulator(base_model_config, basin_config)
+
+        # Run simulation
+        sim_results = simulator.simulate(
+            inputs=self.p_and_e[:, i : i + 1, :],
+            warmup_length=self.warmup_length,
+            is_event_data=self.is_event_data,
+        )
+
+        # Extract qsim
+        if isinstance(sim_results, dict) and "qsim" in sim_results:
+            qsim = sim_results["qsim"]
+        elif isinstance(sim_results, np.ndarray):
+            qsim = sim_results
+        else:
+            qsim = (
+                list(sim_results.values())[0]
+                if isinstance(sim_results, dict)
+                else sim_results
+            )
+
+        # Get observation
+        qobs_basin = self.true_obs[:, i : i + 1, :]
+
+        # Calculate metrics
+        qobs_reshaped = qobs_basin.squeeze()
+        qsim_reshaped = qsim.squeeze()
+
+        if qobs_reshaped.ndim == 1:
+            qobs_reshaped = qobs_reshaped.reshape(1, -1)
+        if qsim_reshaped.ndim == 1:
+            qsim_reshaped = qsim_reshaped.reshape(1, -1)
+
+        basin_metrics = hydro_stat.stat_error(
+            qobs_reshaped,
+            qsim_reshaped,
+        )
+
+        return {
+            "metrics": basin_metrics,
+            "parameters": params,
+            "qsim": qsim,
+            "qobs": qobs_basin,
+        }
+
+    def evaluate_all(self, save_results: bool = True, eval_output_dir: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Evaluate model for all basins.
+
+        Parameters
+        ----------
+        save_results : bool
+            Whether to save evaluation results
+        eval_output_dir : str, optional
+            Output directory for results
+
+        Returns
+        -------
+        Dict
+            Evaluation results for all basins
+        """
+        results = {}
+        all_qsim = []
+        all_qobs = []
+
+        for basin_id in self.basin_ids:
+            basin_result = self.evaluate_basin(basin_id)
+            results[basin_id] = {
+                "metrics": basin_result["metrics"],
+                "parameters": basin_result["parameters"],
+            }
+            all_qsim.append(basin_result["qsim"])
+            all_qobs.append(basin_result["qobs"])
+
+        # Stack results
+        all_qsim = np.concatenate(all_qsim, axis=1)
+        all_qobs = np.concatenate(all_qobs, axis=1)
+
+        # Save results if requested
+        if save_results:
+            output_dir = eval_output_dir or self.param_dir
+            self._save_all_results(output_dir, results, all_qsim, all_qobs)
+
+        return results
+
+    def _save_all_results(
+        self, output_dir: str, results: Dict, all_qsim: np.ndarray, all_qobs: np.ndarray
+    ):
+        """Save all evaluation results."""
+        _save_evaluation_results(
+            output_dir,
+            self.model_name,
+            all_qsim,
+            all_qobs,
+            self.basin_ids,
+            self.p_and_e,
+            self.data_loader.ds,
+            self.warmup_length,
+            self.is_event_data,
+            self.data_config,
+            data_path=self.data_loader.data_path,
+        )
+
+        _save_metrics_summary(output_dir, results, self.basin_ids)
+
+        _save_parameters_summary(
+            output_dir,
+            results,
+            self.basin_ids,
+            self.parameter_names,
+            self.param_range,
+            self.model_name,
+        )
+
+
 def evaluate(
     config: Dict[str, Any], param_dir: str = None, **kwargs
 ) -> Dict[str, Any]:
     """
     Unified evaluation interface for all hydrological models.
+
+    This is a convenience function that wraps UnifiedEvaluator class for backward compatibility.
 
     Parameters
     ----------
@@ -39,7 +317,9 @@ def evaluate(
         Directory where calibrated parameters are stored.
         If None, will use output_dir from config
     **kwargs
-        Additional arguments
+        Additional arguments including:
+        - eval_period: Evaluation period
+        - eval_output_dir: Output directory for results
 
     Returns
     -------
@@ -72,180 +352,27 @@ def evaluate(
     if eval_period is None:
         raise ValueError("Evaluation period not specified in config or kwargs")
 
-    # Update data_config with evaluation period
-    eval_data_config = data_config.copy()
-    eval_data_config["train_period"] = eval_period
-    eval_data_config["test_period"] = eval_period
-
-    # Determine parameter directory
-    if param_dir is None:
-        output_dir = os.path.join(
-            training_config.get("output_dir", "results"),
-            training_config.get("experiment_name", "experiment"),
-        )
-        param_dir = output_dir
-
-    # Load evaluation data
-    warmup_length = eval_data_config.get("warmup_length", 365)
-    data_loader = UnifiedDataLoader(eval_data_config)
-    p_and_e, qobs = data_loader.load_data()
-
-    # Store observation data
-    is_event_data = eval_data_config.get("is_event_data", False)
-    if is_event_data:
-        true_obs = qobs  # Keep complete time series for event data
-    else:
-        true_obs = qobs[warmup_length:, :, :]  # Remove warmup period
-
-    # Load calibrated parameters
-    basin_ids = eval_data_config.get("basin_ids", [])
-    basin_ids = [str(bid) for bid in basin_ids]
-    model_name = model_config["name"]
-
-    # Get parameter range file
-    # Priority: 1) from config, 2) from param_dir, 3) use default (None -> MODEL_PARAM_DICT)
-    param_range_file = training_config.get("param_range_file")
-    if param_range_file is None or not os.path.exists(param_range_file):
-        # Try to find param_range.yaml in param_dir
-        candidate_file = os.path.join(param_dir, "param_range.yaml")
-        if os.path.exists(candidate_file):
-            param_range_file = candidate_file
-        else:
-            # Use None to trigger default MODEL_PARAM_DICT loading
-            param_range_file = None
-            print(
-                "Note: param_range.yaml not found. Using default parameter ranges from MODEL_PARAM_DICT."
-            )
-
-    # Load param_range (will use default MODEL_PARAM_DICT if file_path is None)
-    try:
-        param_range = read_model_param_dict(param_range_file)
-        parameter_names = param_range[model_name]["param_name"]
-        has_param_range = True
-    except (FileNotFoundError, KeyError) as e:
-        print(
-            f"Warning: Could not load parameter ranges for model '{model_name}': {e}"
-        )
-        print("Will proceed without parameter denormalization.")
-        param_range = None
-        has_param_range = False
-        parameter_names = None
-
-    # Create base model config
-    base_model_config = {
-        "type": "lumped",
-        "model_name": model_name,
-        "model_params": model_config.copy(),
-        "parameters": {},
-    }
-
-    # Get basin configurations
-    basin_configs = data_loader.get_basin_configs()
-
-    # Evaluate each basin
-    results = {}
-    all_qsim = []
-    all_qobs = []
-
-    for i, basin_id in enumerate(basin_ids):
-        # Load calibrated parameters for this basin
-        params = _load_basin_parameters(
-            basin_id, param_dir, parameter_names, model_name
-        )
-
-        # If we don't have parameter_names yet, get them from the first loaded params
-        if parameter_names is None and params is not None:
-            parameter_names = list(params.keys())
-
-        # Update model config with parameters
-        model_cfg = base_model_config.copy()
-        model_cfg["parameters"] = params
-
-        # Get basin config
-        basin_config = basin_configs.get(basin_id, {"basin_area": 1000.0})
-
-        # Create simulator
-        simulator = UnifiedSimulator(model_cfg, basin_config)
-
-        # Run simulation
-        sim_results = simulator.simulate(
-            inputs=p_and_e[:, i : i + 1, :],
-            warmup_length=warmup_length,
-            is_event_data=is_event_data,
-        )
-
-        # Extract qsim
-        if isinstance(sim_results, dict) and "qsim" in sim_results:
-            qsim = sim_results["qsim"]
-        elif isinstance(sim_results, np.ndarray):
-            qsim = sim_results
-        else:
-            qsim = (
-                list(sim_results.values())[0]
-                if isinstance(sim_results, dict)
-                else sim_results
-            )
-
-        # Store simulation results
-        all_qsim.append(qsim)
-        all_qobs.append(true_obs[:, i : i + 1, :])
-
-        # Calculate metrics for this basin
-        # hydro_stat.stat_error expects (ngrid, nt) shape
-        # We have (time, 1, 1) for single basin, need to reshape to (1, time)
-        qobs_basin = true_obs[:, i : i + 1, :].squeeze()  # (time,)
-        qsim_basin = qsim.squeeze()  # (time,)
-
-        # Reshape to (1, time) for hydro_stat.stat_error
-        if qobs_basin.ndim == 1:
-            qobs_basin = qobs_basin.reshape(1, -1)
-        if qsim_basin.ndim == 1:
-            qsim_basin = qsim_basin.reshape(1, -1)
-
-        basin_metrics = hydro_stat.stat_error(
-            qobs_basin,
-            qsim_basin,
-        )
-
-        results[basin_id] = {
-            "metrics": basin_metrics,
-            "parameters": params,
-        }
-
-    # Stack results for all basins
-    all_qsim = np.concatenate(all_qsim, axis=1)
-    all_qobs = np.concatenate(all_qobs, axis=1)
-
-    # Save results
-    eval_output_dir = kwargs.get("eval_output_dir", param_dir)
-    _save_evaluation_results(
-        eval_output_dir,
-        model_name,
-        all_qsim,
-        all_qobs,
-        basin_ids,
-        p_and_e,
-        data_loader.ds,
-        warmup_length,
-        is_event_data,
-        eval_data_config,
-        data_path=data_loader.data_path,  # Pass resolved data path
+    # Create UnifiedEvaluator instance
+    evaluator = UnifiedEvaluator(
+        data_config=data_config,
+        model_config=model_config,
+        training_config=training_config,
+        eval_period=eval_period,
+        param_dir=param_dir,
     )
 
-    # Save metrics summary
-    _save_metrics_summary(eval_output_dir, results, basin_ids)
-
-    # Save parameters summary
-    _save_parameters_summary(
-        eval_output_dir,
-        results,
-        basin_ids,
-        parameter_names,
-        param_range,
-        model_name,
+    # Run evaluation
+    eval_output_dir = kwargs.get("eval_output_dir", None)
+    results = evaluator.evaluate_all(
+        save_results=True, eval_output_dir=eval_output_dir
     )
 
     return results
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
 
 
 def _load_basin_parameters(
@@ -274,84 +401,149 @@ def _load_basin_parameters(
         Ordered dictionary of parameters
     """
     # Try loading from different possible sources
-    # 1. Try loading from basin-specific sceua results
-    sceua_file = os.path.join(param_dir, f"{basin_id}_sceua.csv")
-    if os.path.exists(sceua_file):
-        df = pd.read_csv(sceua_file)
-        if "like1" in df.columns and len(df) > 0:
-            best_run = df.loc[df["like1"].idxmin()]
-            params = OrderedDict()
 
-            # If parameter_names is provided, use it
-            if parameter_names is not None:
-                # Try parx1, parx2, ... format
-                for j, name in enumerate(parameter_names):
-                    col = f"parx{j+1}"
-                    if col in df.columns:
-                        params[name] = float(best_run[col])
-                    else:
-                        # Try par{name} format
-                        col = f"par{name}"
-                        if col in df.columns:
-                            params[name] = float(best_run[col])
-                if len(params) == len(parameter_names):
-                    return params
-            else:
-                # Try to infer parameters from columns
-                # Look for parx1, parx2, ... columns
-                parx_cols = [
-                    col for col in df.columns if col.startswith("parx")
-                ]
-                if parx_cols:
-                    parx_cols = sorted(parx_cols, key=lambda x: int(x[4:]))
-                    for col in parx_cols:
-                        param_name = col  # Use column name as parameter name
-                        params[param_name] = float(best_run[col])
-                    return params
-                # Look for par{name} columns
-                par_cols = [
-                    col
-                    for col in df.columns
-                    if col.startswith("par") and col != "pareto_front"
-                ]
-                if par_cols:
-                    for col in par_cols:
-                        param_name = col[3:]  # Remove "par" prefix
-                        params[param_name] = float(best_run[col])
-                    return params
-
-    # 2. Try loading from calibrate_params.txt
-    params_file = os.path.join(param_dir, f"{basin_id}_calibrate_params.txt")
-    if os.path.exists(params_file):
-        params_array = np.loadtxt(params_file)
-        if len(params_array.shape) > 1:
-            params_array = params_array[1:].flatten()
-
-        if parameter_names is not None:
-            params = OrderedDict(zip(parameter_names, params_array))
-        else:
-            # Use generic parameter names if no parameter_names provided
-            params = OrderedDict(
-                (f"param_{i}", val) for i, val in enumerate(params_array)
-            )
-        return params
-
-    # 3. Try loading from unified results
+    # 0. PRIORITY: Try loading from unified calibration_results.json first
+    # This is the most reliable source and works for all algorithms (SCE-UA, GA, scipy)
     results_file = os.path.join(param_dir, "calibration_results.json")
     if os.path.exists(results_file):
-        with open(results_file, "r") as f:
-            calib_results = json.load(f)
-        if basin_id in calib_results:
-            basin_result = calib_results[basin_id]
-            if (
-                "best_params" in basin_result
-                and model_name in basin_result["best_params"]
-            ):
-                params_dict = basin_result["best_params"][model_name]
-                return OrderedDict(params_dict)
+        try:
+            with open(results_file, "r") as f:
+                calib_results = json.load(f)
+            if basin_id in calib_results:
+                basin_result = calib_results[basin_id]
+                if (
+                    "best_params" in basin_result
+                    and model_name in basin_result["best_params"]
+                ):
+                    params_dict = basin_result["best_params"][model_name]
+                    print(f"Loaded parameters for basin {basin_id} from calibration_results.json")
+                    return OrderedDict(params_dict)
+        except Exception as e:
+            print(f"Warning: Failed to load from calibration_results.json: {e}")
 
+    # 1. Try loading from GA results
+    ga_file = os.path.join(param_dir, f"{basin_id}_ga.csv")
+    if os.path.exists(ga_file):
+        try:
+            df = pd.read_csv(ga_file)
+            if "objective_value" in df.columns and len(df) > 0:
+                # Find row with minimum objective value (best generation)
+                best_run = df.loc[df["objective_value"].idxmin()]
+                params = OrderedDict()
+
+                # Extract parameters from param_{name} columns
+                param_cols = [col for col in df.columns if col.startswith("param_")]
+                if param_cols and parameter_names is not None:
+                    for name in parameter_names:
+                        col = f"param_{name}"
+                        if col in df.columns:
+                            params[name] = float(best_run[col])
+                    if len(params) == len(parameter_names):
+                        print(f"Loaded parameters for basin {basin_id} from GA results")
+                        return params
+        except Exception as e:
+            print(f"Warning: Failed to load from GA results: {e}")
+
+    # 2. Try loading from scipy results
+    scipy_file = os.path.join(param_dir, f"{basin_id}_scipy.csv")
+    if os.path.exists(scipy_file):
+        try:
+            df = pd.read_csv(scipy_file)
+            if "objective_value" in df.columns and len(df) > 0:
+                # Find row with minimum objective value
+                best_run = df.loc[df["objective_value"].idxmin()]
+                params = OrderedDict()
+
+                # Extract parameters from param_{name} columns
+                param_cols = [col for col in df.columns if col.startswith("param_")]
+                if param_cols and parameter_names is not None:
+                    for name in parameter_names:
+                        col = f"param_{name}"
+                        if col in df.columns:
+                            params[name] = float(best_run[col])
+                    if len(params) == len(parameter_names):
+                        print(f"Loaded parameters for basin {basin_id} from scipy results")
+                        return params
+        except Exception as e:
+            print(f"Warning: Failed to load from scipy results: {e}")
+
+    # 3. Try loading from basin-specific sceua results
+    sceua_file = os.path.join(param_dir, f"{basin_id}_sceua.csv")
+    if os.path.exists(sceua_file):
+        try:
+            df = pd.read_csv(sceua_file)
+            if "like1" in df.columns and len(df) > 0:
+                best_run = df.loc[df["like1"].idxmin()]
+                params = OrderedDict()
+
+                # If parameter_names is provided, use it
+                if parameter_names is not None:
+                    # Try parx1, parx2, ... format
+                    for j, name in enumerate(parameter_names):
+                        col = f"parx{j+1}"
+                        if col in df.columns:
+                            params[name] = float(best_run[col])
+                        else:
+                            # Try par{name} format
+                            col = f"par{name}"
+                            if col in df.columns:
+                                params[name] = float(best_run[col])
+                    if len(params) == len(parameter_names):
+                        print(f"Loaded parameters for basin {basin_id} from SCE-UA results")
+                        return params
+                else:
+                    # Try to infer parameters from columns
+                    # Look for parx1, parx2, ... columns
+                    parx_cols = [
+                        col for col in df.columns if col.startswith("parx")
+                    ]
+                    if parx_cols:
+                        parx_cols = sorted(parx_cols, key=lambda x: int(x[4:]))
+                        for col in parx_cols:
+                            param_name = col  # Use column name as parameter name
+                            params[param_name] = float(best_run[col])
+                        print(f"Loaded parameters for basin {basin_id} from SCE-UA results")
+                        return params
+                    # Look for par{name} columns
+                    par_cols = [
+                        col
+                        for col in df.columns
+                        if col.startswith("par") and col != "pareto_front"
+                    ]
+                    if par_cols:
+                        for col in par_cols:
+                            param_name = col[3:]  # Remove "par" prefix
+                            params[param_name] = float(best_run[col])
+                        print(f"Loaded parameters for basin {basin_id} from SCE-UA results")
+                        return params
+        except Exception as e:
+            print(f"Warning: Failed to load from SCE-UA results: {e}")
+
+    # 4. Try loading from calibrate_params.txt
+    params_file = os.path.join(param_dir, f"{basin_id}_calibrate_params.txt")
+    if os.path.exists(params_file):
+        try:
+            params_array = np.loadtxt(params_file)
+            if len(params_array.shape) > 1:
+                params_array = params_array[1:].flatten()
+
+            if parameter_names is not None:
+                params = OrderedDict(zip(parameter_names, params_array))
+            else:
+                # Use generic parameter names if no parameter_names provided
+                params = OrderedDict(
+                    (f"param_{i}", val) for i, val in enumerate(params_array)
+                )
+            print(f"Loaded parameters for basin {basin_id} from calibrate_params.txt")
+            return params
+        except Exception as e:
+            print(f"Warning: Failed to load from calibrate_params.txt: {e}")
+
+    # If we reach here, no valid parameter file was found
     raise FileNotFoundError(
-        f"Could not find calibrated parameters for basin {basin_id} in {param_dir}"
+        f"Could not find calibrated parameters for basin {basin_id} in {param_dir}. "
+        f"Tried: calibration_results.json, {basin_id}_ga.csv, {basin_id}_scipy.csv, "
+        f"{basin_id}_sceua.csv, {basin_id}_calibrate_params.txt"
     )
 
 

@@ -15,11 +15,16 @@
 
 **Key Features:**
 - **XAJ Model Variants**: Standard XAJ and optimized versions (xaj_mz with Muskingum routing)
-- **Multiple Calibration Algorithms**: SCE-UA, Genetic Algorithm, and scipy optimizers
+- **Multiple Calibration Algorithms**:
+  - **SCE-UA**: Shuffled Complex Evolution (robust, recommended)
+  - **GA**: Genetic Algorithm with DEAP (flexible, customizable)
+  - **scipy**: L-BFGS-B, SLSQP, and other gradient-based methods (fast)
+- **Unified Results Format**: All algorithms save results in standardized JSON + CSV format
 - **Comprehensive Evaluation Metrics**: NSE, KGE, RMSE, PBIAS, and more
-- **Unified API**: Consistent interfaces for calibration and evaluation
+- **Unified API**: Consistent interfaces for calibration, evaluation, and simulation
 - **Flexible Data Integration**: Seamless support for CAMELS datasets via [hydrodataset](https://github.com/OuyangWenyu/hydrodataset) and custom data via [hydrodatasource](https://github.com/OuyangWenyu/hydrodatasource)
 - **Configuration-Based Workflow**: YAML configuration for reproducibility
+- **Progress Tracking**: Real-time progress display and intermediate results saving
 
 ## Why hydromodel?
 
@@ -168,8 +173,11 @@ For detailed format specifications and examples, see:
 We provide ready-to-use scripts for model calibration, evaluation, simulation, and visualization:
 
 ```bash
-# 1. Calibration
+# 1. Calibration (saves config files by default)
 python scripts/run_xaj_calibration.py --config configs/example_config.yaml
+
+# Disable saving config files
+python scripts/run_xaj_calibration.py --config configs/example_config.yaml --no-save-config
 
 # 2. Evaluation on test period
 python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA --eval-period test
@@ -249,20 +257,46 @@ config = {
         "model_params": {
             "source_type": "sources",
             "source_book": "HF",
+            "kernel_size": 15,                 # Muskingum routing kernel
         },
     },
     "training_cfgs": {
-        "algorithm_name": "SCE_UA",            # SCE_UA, GA, or scipy
-        "algorithm_params": {
-            "rep": 1000,                      # Iterations
-            "ngs": 1000,                        # Complexes (for SCE_UA)
+        "algorithm_name": "GA",                # Algorithm: SCE_UA, GA, or scipy
+
+        # Algorithm-specific parameters (choose one based on algorithm_name)
+
+        # For SCE-UA (Shuffled Complex Evolution):
+        "SCE_UA": {
+            "rep": 1000,                       # Iterations (5000+ recommended)
+            "ngs": 1000,                       # Number of complexes
+            "kstop": 500,                      # Stop if no improvement
+            "peps": 0.1,                       # Parameter convergence
+            "pcento": 0.1,                     # Percentage change allowed
+            "random_seed": 1234,
         },
+
+        # For GA (Genetic Algorithm):
+        "GA": {
+            "pop_size": 80,                    # Population size
+            "n_generations": 50,               # Generations (100+ recommended)
+            "cx_prob": 0.7,                    # Crossover probability
+            "mut_prob": 0.2,                   # Mutation probability
+            "random_seed": 1234,
+        },
+
+        # For scipy (gradient-based optimization):
+        "scipy": {
+            "method": "SLSQP",                 # L-BFGS-B, SLSQP, TNC, etc.
+            "max_iterations": 500,             # Maximum iterations
+        },
+
         "loss_config": {
             "type": "time_series",
             "obj_func": "RMSE",                # RMSE, NSE, or KGE
         },
         "output_dir": "results",
         "experiment_name": "my_exp",
+        "save_config": True,                   # Save config files to output directory (default: True)
     },
     "evaluation_cfgs": {
         "metrics": ["NSE", "KGE", "RMSE", "PBIAS"],
@@ -280,10 +314,27 @@ results = calibrate(config)
 
 **Output:** Calibration results saved to `{output_dir}/{experiment_name}/`
 
+**Saved files:**
+```
+results/my_exp/
+├── calibration_results.json          # Best parameters for all basins (unified format)
+├── {basin_id}_sceua.csv              # SCE-UA detailed iteration history
+├── {basin_id}_ga.csv                 # GA generation history with parameters
+├── {basin_id}_scipy.csv              # scipy iteration history with parameters
+├── calibration_config.yaml           # Configuration used (saved if save_config=True)
+└── param_range.yaml                  # Parameter ranges for current model only (saved if save_config=True)
+```
+
+**Notes:**
+- `calibration_results.json`: Always saved, contains best parameters
+- `calibration_config.yaml` and `param_range.yaml`: Only saved if `save_config=True` (default)
+- `param_range.yaml`: Contains parameter ranges for the current model only (e.g., only `xaj_mz`, not all models)
+- In `calibration_config.yaml`, `param_range_file` is set to the actual saved path
+
 **Available algorithms:**
-- `SCE_UA`: Shuffled Complex Evolution (recommended)
-- `GA`: Genetic Algorithm
-- `scipy`: scipy.optimize methods
+- `SCE_UA` / `sceua`: Shuffled Complex Evolution (recommended for global optimization)
+- `GA` / `genetic_algorithm`: Genetic Algorithm with DEAP (flexible, handles complex landscapes)
+- `scipy` / `scipy_minimize`: scipy.optimize methods (fast for smooth objectives)
 
 ### Evaluation API
 
@@ -307,10 +358,54 @@ custom_results = evaluate(
 
 **Output:** Evaluation results in `{param_dir}/evaluation_{period}/`
 - `basins_metrics.csv` - Performance metrics
-- `basins_denorm_params.csv` - Calibrated parameters
-- `xaj_mz_evaluation_results.nc` - Full simulation results
+- `basins_norm_params.csv` - Calibrated parameters (normalized [0,1])
+- `basins_denorm_params.csv` - Denormalized parameters (physical values)
+- `xaj_mz_evaluation_results.nc` - Full simulation results (NetCDF)
+
+**Parameter Loading Priority:**
+1. `calibration_results.json` (⭐ Recommended, works for all algorithms)
+2. `{basin_id}_ga.csv` (GA algorithm CSV)
+3. `{basin_id}_scipy.csv` (scipy algorithm CSV)
+4. `{basin_id}_sceua.csv` (SCE-UA algorithm CSV)
+5. `{basin_id}_calibrate_params.txt` (Legacy format)
 
 **Available metrics:** NSE, KGE, RMSE, PBIAS, FHV, FLV, FMS
+
+### Understanding Results Format
+
+**calibration_results.json structure:**
+```json
+{
+  "01013500": {
+    "convergence": "success",
+    "objective_value": 1.234567,
+    "best_params": {
+      "xaj": {
+        "K": 0.567890,
+        "B": 0.234567,
+        "IM": 0.045678,
+        ...
+      }
+    },
+    "algorithm_info": {
+      "generations": 50,
+      "population_size": 80,
+      ...
+    }
+  }
+}
+```
+
+**CSV files (GA/scipy) structure:**
+```csv
+generation,objective_value,param_K,param_B,param_IM,...
+0,3.456,0.567,0.234,0.045,...
+1,2.345,0.589,0.256,0.047,...
+```
+
+**Why two formats?**
+- **JSON**: Best parameters only, works with all algorithms, used by evaluation
+- **CSV**: Full iteration/generation history, useful for convergence analysis
 
 ### Simulation API
 

@@ -15,11 +15,16 @@
 
 **核心特性：**
 - **XAJ 模型变体**: 标准 XAJ 和优化版本（xaj_mz 带 Muskingum 汇流）
-- **多种率定算法**: SCE-UA、遗传算法和 scipy 优化器
+- **多种率定算法**:
+  - **SCE-UA**: 混洗复形演化算法（稳健，推荐）
+  - **GA**: 遗传算法（基于 DEAP，灵活可定制）
+  - **scipy**: L-BFGS-B、SLSQP 等梯度优化方法（快速）
+- **统一结果格式**: 所有算法均保存为标准化的 JSON + CSV 格式
 - **全面的评估指标**: NSE、KGE、RMSE、PBIAS 等
-- **统一的 API**: 率定和评估的一致接口
+- **统一的 API**: 率定、评估和模拟的一致接口
 - **灵活的数据集成**: 通过 [hydrodataset](https://github.com/OuyangWenyu/hydrodataset) 无缝支持 CAMELS 数据集，通过 [hydrodatasource](https://github.com/OuyangWenyu/hydrodatasource) 支持自定义数据
 - **基于配置的工作流**: YAML 配置确保可重复性
+- **进度追踪**: 实时进度显示和中间结果保存
 
 ## 为什么选择 hydromodel？
 
@@ -168,8 +173,11 @@ config = {
 我们提供了现成的脚本用于模型率定、评估、模拟和可视化：
 
 ```bash
-# 1. 率定
+# 1. 率定（默认保存配置文件）
 python scripts/run_xaj_calibration.py --config configs/example_config.yaml
+
+# 禁用保存配置文件
+python scripts/run_xaj_calibration.py --config configs/example_config.yaml --no-save-config
 
 # 2. 在测试期评估
 python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA --eval-period test
@@ -249,20 +257,46 @@ config = {
         "model_params": {
             "source_type": "sources",
             "source_book": "HF",
+            "kernel_size": 15,                 # Muskingum 汇流核大小
         },
     },
     "training_cfgs": {
-        "algorithm_name": "SCE_UA",            # SCE_UA、GA 或 scipy
-        "algorithm_params": {
-            "rep": 1000,                      # 迭代次数
-            "ngs": 1000,                        # 复形数（SCE_UA）
+        "algorithm_name": "GA",                # 算法：SCE_UA、GA 或 scipy
+
+        # 算法特定参数（根据 algorithm_name 选择对应部分）
+
+        # SCE-UA（混洗复形演化）算法：
+        "SCE_UA": {
+            "rep": 1000,                       # 迭代次数（推荐 5000+）
+            "ngs": 1000,                       # 复形数
+            "kstop": 500,                      # 无改进时停止迭代数
+            "peps": 0.1,                       # 参数空间收敛准则
+            "pcento": 0.1,                     # 允许的优化变化百分比
+            "random_seed": 1234,
         },
+
+        # GA（遗传算法）：
+        "GA": {
+            "pop_size": 80,                    # 种群大小
+            "n_generations": 50,               # 代数（推荐 100+）
+            "cx_prob": 0.7,                    # 交叉概率
+            "mut_prob": 0.2,                   # 变异概率
+            "random_seed": 1234,
+        },
+
+        # scipy（梯度优化）：
+        "scipy": {
+            "method": "SLSQP",                 # L-BFGS-B、SLSQP、TNC 等
+            "max_iterations": 500,             # 最大迭代次数
+        },
+
         "loss_config": {
             "type": "time_series",
             "obj_func": "RMSE",                # RMSE、NSE 或 KGE
         },
         "output_dir": "results",
         "experiment_name": "my_exp",
+        "save_config": True,                   # 保存配置文件到输出目录（默认：True）
     },
     "evaluation_cfgs": {
         "metrics": ["NSE", "KGE", "RMSE", "PBIAS"],
@@ -280,10 +314,27 @@ results = calibrate(config)
 
 **输出：** 率定结果保存到 `{output_dir}/{experiment_name}/`
 
+**保存的文件：**
+```
+results/my_exp/
+├── calibration_results.json          # 所有流域的最佳参数（统一格式）
+├── {basin_id}_sceua.csv              # SCE-UA 详细迭代历史
+├── {basin_id}_ga.csv                 # GA 代数历史（含参数）
+├── {basin_id}_scipy.csv              # scipy 迭代历史（含参数）
+├── calibration_config.yaml           # 使用的配置（save_config=True 时保存）
+└── param_range.yaml                  # 仅当前模型的参数范围（save_config=True 时保存）
+```
+
+**说明：**
+- `calibration_results.json`：总是保存，包含最佳参数
+- `calibration_config.yaml` 和 `param_range.yaml`：仅在 `save_config=True` 时保存（默认）
+- `param_range.yaml`：只包含当前模型的参数范围（例如只有 `xaj_mz`，不包含其他模型）
+- 在 `calibration_config.yaml` 中，`param_range_file` 设置为实际保存的路径
+
 **可用算法：**
-- `SCE_UA`: 混洗复形演化算法（推荐）
-- `GA`: 遗传算法
-- `scipy`: scipy.optimize 方法
+- `SCE_UA` / `sceua`: 混洗复形演化算法（适合全局优化，推荐）
+- `GA` / `genetic_algorithm`: 遗传算法（基于 DEAP，灵活处理复杂问题）
+- `scipy` / `scipy_minimize`: scipy.optimize 方法（适合平滑目标函数，快速）
 
 ### 评估 API
 
@@ -307,10 +358,54 @@ custom_results = evaluate(
 
 **输出：** 评估结果在 `{param_dir}/evaluation_{period}/`
 - `basins_metrics.csv` - 性能指标
-- `basins_denorm_params.csv` - 率定参数
-- `xaj_mz_evaluation_results.nc` - 完整模拟结果
+- `basins_norm_params.csv` - 率定参数（归一化 [0,1]）
+- `basins_denorm_params.csv` - 反归一化参数（物理值）
+- `xaj_mz_evaluation_results.nc` - 完整模拟结果（NetCDF）
+
+**参数加载优先级：**
+1. `calibration_results.json`（⭐ 推荐，适用所有算法）
+2. `{basin_id}_ga.csv`（GA 算法 CSV）
+3. `{basin_id}_scipy.csv`（scipy 算法 CSV）
+4. `{basin_id}_sceua.csv`（SCE-UA 算法 CSV）
+5. `{basin_id}_calibrate_params.txt`（旧格式）
 
 **可用指标：** NSE, KGE, RMSE, PBIAS, FHV, FLV, FMS
+
+### 理解结果格式
+
+**calibration_results.json 结构：**
+```json
+{
+  "01013500": {
+    "convergence": "success",
+    "objective_value": 1.234567,
+    "best_params": {
+      "xaj": {
+        "K": 0.567890,
+        "B": 0.234567,
+        "IM": 0.045678,
+        ...
+      }
+    },
+    "algorithm_info": {
+      "generations": 50,
+      "population_size": 80,
+      ...
+    }
+  }
+}
+```
+
+**CSV 文件（GA/scipy）结构：**
+```csv
+generation,objective_value,param_K,param_B,param_IM,...
+0,3.456,0.567,0.234,0.045,...
+1,2.345,0.589,0.256,0.047,...
+```
+
+**为什么有两种格式？**
+- **JSON**：仅保存最佳参数，适用所有算法，评估时使用
+- **CSV**：完整的迭代/代数历史，用于收敛性分析
 
 ### 模拟 API
 

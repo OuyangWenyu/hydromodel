@@ -112,6 +112,7 @@ def get_default_calibration_config() -> Dict[str, Any]:
             "output_dir": "results",
             "experiment_name": None,  # Will be auto-generated
             "random_seed": 1234,
+            "save_config": True,  # Save calibration config and param_range to output directory
         },
         "evaluation_cfgs": {
             "metrics": ["NSE", "RMSE", "KGE", "PBIAS"],
@@ -246,6 +247,9 @@ def update_config_from_args(
 
         if hasattr(args, "random_seed") and args.random_seed is not None:
             config["training_cfgs"]["random_seed"] = args.random_seed
+
+        if hasattr(args, "save_config") and args.save_config is not None:
+            config["training_cfgs"]["save_config"] = args.save_config
 
         # Algorithm-specific parameters
         if hasattr(args, "rep") and args.rep is not None:

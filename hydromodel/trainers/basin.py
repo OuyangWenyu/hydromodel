@@ -1,10 +1,15 @@
 """
-Basin configuration and management classes for hydrological modeling.
+Author: Wenyu Ouyang
+Date: 2021-12-10 23:01:02
+LastEditTime: 2024-08-15 16:38:17
+LastEditors: Wenyu Ouyang
+Description: Basin configuration and management classes for hydrological modeling.
+FilePath: /hydromodel/hydromodel/trainers/calibrate_ga.py
+Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 
 This module provides Basin class to encapsulate basin information and configurations,
 supporting both lumped and semi-distributed modeling approaches.
 """
-
 from typing import Dict, Any, Optional, List, Union
 from dataclasses import dataclass
 import numpy as np

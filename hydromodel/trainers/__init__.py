@@ -21,7 +21,7 @@ from .unified_calibrate import (
 )
 
 # Import unified evaluation interface
-from .unified_evaluate import evaluate
+from .unified_evaluate import evaluate, UnifiedEvaluator
 
 __all__ = [
     # Traditional interfaces
@@ -32,5 +32,6 @@ __all__ = [
     "evaluate",
     "ModelSetupBase",
     "UnifiedModelSetup",
+    "UnifiedEvaluator",
     "DEAP_AVAILABLE",
 ]

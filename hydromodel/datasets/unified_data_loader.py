@@ -158,9 +158,9 @@ class UnifiedDataLoader:
                             data_path = datasets_origin
 
                     if data_path:
-                        print(f"使用 hydro_setting.yml 中的路径: {data_path}")
+                        print(f"Using data paths in hydro_setting.yml : {data_path}")
         except Exception as e:
-            print(f"Warning: 无法从 hydro_setting.yml 加载路径: {e}")
+            print(f"Warning: unable to load path from hydro_detting.yml: {e}")
 
         # If still None, use default path (consistent with hydromodel.__init__.py)
         if data_path is None:
@@ -174,7 +174,7 @@ class UnifiedDataLoader:
                 # aqua_fetch will automatically append the dataset directory name (e.g., CAMELS_US)
                 data_path = os.path.join(default_root, "datasets-origin")
 
-            print(f"使用默认路径: {data_path}")
+            print(f"Using default data paths: {data_path}")
 
         return data_path
 

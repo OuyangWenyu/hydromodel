@@ -243,6 +243,7 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
     config : Dict
         Configuration dictionary containing all settings.
         Must contain 'data_cfgs', 'model_cfgs', 'training_cfgs' keys
+        Optional in training_cfgs: 'save_config' (bool, default: True)
     **kwargs
         Additional arguments
 
@@ -323,7 +324,77 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
         )
         results[basin_id] = basin_result
 
+    # Save calibration results to JSON file for evaluation
+    results_file = os.path.join(output_dir, "calibration_results.json")
+    with open(results_file, "w") as f:
+        json.dump(results, f, indent=2)
+    print(f"\nCalibration results saved to: {results_file}")
+
+    # Save configuration files if requested (default: True)
+    save_config = training_config.get("save_config", True)
+    if save_config:
+        _save_calibration_config(
+            config, output_dir, model_setup.model_name, model_setup.param_range
+        )
+
     return results
+
+
+def _save_calibration_config(
+    config: Dict[str, Any],
+    output_dir: str,
+    model_name: str,
+    param_range: Dict[str, Any],
+) -> None:
+    """
+    Save calibration configuration and parameter ranges to output directory.
+
+    Parameters
+    ----------
+    config : Dict
+        Configuration dictionary
+    output_dir : str
+        Output directory path
+    model_name : str
+        Name of the model being calibrated
+    param_range : Dict
+        Parameter ranges dictionary (full MODEL_PARAM_DICT)
+    """
+    import yaml
+    import copy
+
+    # Save parameter range file for the current model only
+    param_range_saved_path = None
+    if param_range and model_name in param_range:
+        param_range_file = os.path.join(output_dir, "param_range.yaml")
+        # Only save the current model's parameter range
+        model_param_range = {model_name: param_range[model_name]}
+        with open(param_range_file, "w", encoding="utf-8") as f:
+            yaml.dump(
+                model_param_range,
+                f,
+                default_flow_style=False,
+                allow_unicode=True,
+            )
+        param_range_saved_path = param_range_file
+        print(f"Saved parameter range for {model_name} to: {param_range_file}")
+    else:
+        print(
+            f"Warning: Parameter range for model '{model_name}' not found. "
+            "Skipping param_range.yaml generation."
+        )
+
+    # Save calibration config
+    config_output_path = os.path.join(output_dir, "calibration_config.yaml")
+    # Make a copy to avoid modifying the original config
+    config_copy = copy.deepcopy(config)
+    # Update param_range_file to the actual saved path
+    if "training_cfgs" in config_copy and param_range_saved_path:
+        config_copy["training_cfgs"]["param_range_file"] = param_range_saved_path
+
+    with open(config_output_path, "w", encoding="utf-8") as f:
+        yaml.dump(config_copy, f, default_flow_style=False, allow_unicode=True)
+    print(f"Saved calibration config to: {config_output_path}")
 
 
 def _calibrate_model(
@@ -338,15 +409,15 @@ def _calibrate_model(
 
     algorithm_name = algorithm_config["name"]
 
-    if algorithm_name == "scipy_minimize":
+    if algorithm_name in ["scipy_minimize", "scipy","Scipy"]:
         return _calibrate_with_scipy(
             model_setup, algorithm_config, output_dir, basin_id
         )
-    elif algorithm_name == "SCE_UA":
+    elif algorithm_name in ["SCE_UA", "sceua"] :
         return _calibrate_with_sceua(
             model_setup, algorithm_config, output_dir, basin_id
         )
-    elif algorithm_name == "genetic_algorithm":
+    elif algorithm_name in ["genetic_algorithm", "GA"]:
         if not DEAP_AVAILABLE:
             raise ImportError(
                 "DEAP is required for genetic algorithm. Install with: pip install deap"
@@ -361,24 +432,85 @@ def _calibrate_model(
 def _calibrate_with_scipy(model_setup, algorithm_config, output_dir, basin_id):
     """Calibrate using scipy.optimize.minimize."""
 
-    # Get initial parameters
-    bounds = model_setup.get_parameter_bounds()
-    initial_params = np.array([np.mean(bound) for bound in bounds])
-    constraints = None
+    # Determine basin index from config
+    basin_ids = model_setup.data_config.get(
+        "basin_ids",
+        [f"basin_{i}" for i in range(model_setup.p_and_e.shape[1])],
+    )
+    try:
+        basin_index = basin_ids.index(str(basin_id))
+    except Exception:
+        basin_index = 0
 
-    # Objective function for scipy
-    def objective_func(params):
-        try:
-            simulation = model_setup.simulate(params)
-            return model_setup.calculate_objective(
-                simulation, model_setup.true_obs
-            )
-        except Exception as e:
-            return 1e6  # Return large penalty for failed simulations
+    print(f"\n{'='*60}")
+    print(f"Starting Scipy optimization for basin: {basin_id}")
+    print(f"{'='*60}\n")
 
-    # Run optimization
+    # Get algorithm parameters
     method = algorithm_config.get("method", "SLSQP")
     max_iterations = algorithm_config.get("max_iterations", 500)
+
+    # Get parameter bounds and names
+    bounds = model_setup.get_parameter_bounds()
+    param_names = model_setup.parameter_names
+    n_params = len(param_names)
+
+    # Initialize from middle of bounds
+    initial_params = np.array([np.mean(bound) for bound in bounds])
+
+    print(f"Optimization method: {method}")
+    print(f"Maximum iterations: {max_iterations}")
+    print(f"Number of parameters: {n_params}")
+    print(f"Initial parameters: {initial_params}\n")
+
+    # Storage for iteration history
+    iteration_history = []
+    iteration_count = [0]  # Use list to allow modification in nested function
+
+    # Objective function for scipy with single basin evaluation
+    def objective_func(params):
+        try:
+            params_array = np.array(params)
+            # Simulate all basins
+            sim_all = model_setup.simulate(params_array)  # [time, basin, 1]
+            # Extract simulation for target basin
+            sim_basin = sim_all[:, basin_index:basin_index + 1, :]
+            # Get observation for target basin
+            obs_basin = model_setup.true_obs[:, basin_index:basin_index + 1, :]
+            # Calculate objective
+            obj_value = model_setup.calculate_objective(sim_basin, obs_basin)
+
+            # Ensure scalar return
+            if isinstance(obj_value, (list, np.ndarray)):
+                obj_value = float(obj_value[0]) if len(obj_value) > 0 else float(obj_value)
+            else:
+                obj_value = float(obj_value)
+
+            # Record iteration
+            iteration_count[0] += 1
+            iteration_history.append({
+                "iteration": iteration_count[0],
+                "objective_value": obj_value,
+                **{f"param_{name}": float(params[i]) for i, name in enumerate(param_names)}
+            })
+
+            # Print progress every 10 iterations
+            if iteration_count[0] % 10 == 0 or iteration_count[0] == 1:
+                print(f"Iteration {iteration_count[0]}: Objective = {obj_value:.6f}")
+
+            return obj_value
+
+        except Exception as e:
+            print(f"Warning: Evaluation failed at iteration {iteration_count[0]} with error: {e}")
+            return 1e10  # Return large penalty for failed simulations
+
+    # Prepare results storage
+    os.makedirs(output_dir, exist_ok=True)
+    results_file = os.path.join(output_dir, f"{basin_id}_scipy.csv")
+
+    # Run optimization
+    print("Starting optimization...\n")
+    constraints = None  # Can be extended in future
 
     result = minimize(
         objective_func,
@@ -386,28 +518,70 @@ def _calibrate_with_scipy(model_setup, algorithm_config, output_dir, basin_id):
         method=method,
         bounds=bounds,
         constraints=constraints,
-        options={"disp": True, "maxiter": max_iterations},
+        options={"disp": False, "maxiter": max_iterations},  # We handle display ourselves
     )
 
+    # Save iteration history to CSV
+    if iteration_history:
+        df_history = pd.DataFrame(iteration_history)
+        df_history.to_csv(results_file, index=False)
+        print(f"\nResults saved to: {results_file}")
+
+    # Process results
+    print(f"\n{'='*60}")
     if result.success:
-        best_params = dict(zip(model_setup.parameter_names, result.x))
+        best_params = dict(zip(param_names, result.x))
+
+        print(f"Scipy optimization completed successfully for basin: {basin_id}")
+        print(f"Convergence: {result.message}")
+        print(f"Total iterations: {result.nit}")
+        print(f"Function evaluations: {result.nfev}")
+        print(f"Best objective value: {result.fun:.6f}")
+        print(f"Best parameters:")
+        for name, value in best_params.items():
+            print(f"  {name}: {value:.6f}")
+        print(f"{'='*60}\n")
+
         return {
             "convergence": "success",
             "objective_value": result.fun,
             "best_params": {model_setup.model_name: best_params},
             "algorithm_info": {
+                "method": method,
                 "iterations": result.nit,
+                "function_evaluations": result.nfev,
                 "message": result.message,
+                "max_iterations": max_iterations,
             },
         }
     else:
+        print(f"Scipy optimization failed for basin: {basin_id}")
+        print(f"Status: {result.message}")
+        print(f"Total iterations: {result.nit}")
+        print(f"Function evaluations: {result.nfev}")
+
+        # Even if failed, return best found parameters if available
+        best_params = dict(zip(param_names, result.x)) if hasattr(result, 'x') else None
+        best_obj = result.fun if hasattr(result, 'fun') else float("inf")
+
+        if best_params:
+            print(f"Best objective value found: {best_obj:.6f}")
+            print(f"Best parameters found:")
+            for name, value in best_params.items():
+                print(f"  {name}: {value:.6f}")
+
+        print(f"{'='*60}\n")
+
         return {
             "convergence": "failed",
-            "objective_value": float("inf"),
-            "best_params": None,
+            "objective_value": best_obj,
+            "best_params": {model_setup.model_name: best_params} if best_params else None,
             "algorithm_info": {
-                "iterations": result.nit,
-                "message": result.message,
+                "method": method,
+                "iterations": result.nit if hasattr(result, 'nit') else 0,
+                "function_evaluations": result.nfev if hasattr(result, 'nfev') else 0,
+                "message": result.message if hasattr(result, 'message') else "Unknown error",
+                "max_iterations": max_iterations,
             },
         }
 
@@ -530,21 +704,51 @@ def _calibrate_with_sceua(model_setup, algorithm_config, output_dir, basin_id):
 def _calibrate_with_ga(model_setup, algorithm_config, output_dir, basin_id):
     """Calibrate using genetic algorithm via DEAP."""
 
-    # Set up DEAP genetic algorithm
-    random.seed(algorithm_config.get("random_seed", 1234))
-    np.random.seed(algorithm_config.get("random_seed", 1234))
+    # Determine basin index from config
+    basin_ids = model_setup.data_config.get(
+        "basin_ids",
+        [f"basin_{i}" for i in range(model_setup.p_and_e.shape[1])],
+    )
+    try:
+        basin_index = basin_ids.index(str(basin_id))
+    except Exception:
+        basin_index = 0
+
+    print(f"\n{'='*60}")
+    print(f"Starting GA calibration for basin: {basin_id}")
+    print(f"{'='*60}\n")
+
+    # Set up random seeds
+    random_seed = algorithm_config.get("random_seed", 1234)
+    random.seed(random_seed)
+    np.random.seed(random_seed)
 
     # Problem configuration
     n_params = len(model_setup.parameter_names)
     bounds = model_setup.parameter_bounds
+    param_names = model_setup.parameter_names
 
-    # Create DEAP types
-    creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-    creator.create("Individual", list, fitness=creator.FitnessMin)
+    # Algorithm parameters
+    pop_size = algorithm_config.get("pop_size", 80)
+    n_generations = algorithm_config.get("n_generations", 50)
+    cx_prob = algorithm_config.get("cx_prob", 0.7)
+    mut_prob = algorithm_config.get("mut_prob", 0.2)
+
+    print(f"Population size: {pop_size}")
+    print(f"Generations: {n_generations}")
+    print(f"Crossover probability: {cx_prob}")
+    print(f"Mutation probability: {mut_prob}")
+    print(f"Number of parameters: {n_params}\n")
+
+    # Create DEAP types (avoid re-creating if already exists)
+    if not hasattr(creator, "FitnessMin"):
+        creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+    if not hasattr(creator, "Individual"):
+        creator.create("Individual", list, fitness=creator.FitnessMin)
 
     toolbox = base.Toolbox()
 
-    # Individual and population
+    # Individual and population initialization
     for i, (low, high) in enumerate(bounds):
         toolbox.register(f"attr_{i}", random.uniform, low, high)
 
@@ -557,63 +761,145 @@ def _calibrate_with_ga(model_setup, algorithm_config, output_dir, basin_id):
     )
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-    # Genetic operators
-    toolbox.register(
-        "evaluate",
-        lambda ind: (
-            model_setup.calculate_objective(
-                model_setup.simulate(np.array(ind)), model_setup.true_obs
-            ),
-        ),
-    )
+    # Evaluation function for single basin
+    def evaluate_individual(ind):
+        """Evaluate fitness of an individual for the target basin."""
+        try:
+            params_array = np.array(ind)
+            # Simulate all basins
+            sim_all = model_setup.simulate(params_array)  # [time, basin, 1]
+            # Extract simulation for target basin
+            sim_basin = sim_all[:, basin_index:basin_index + 1, :]
+            # Get observation for target basin
+            obs_basin = model_setup.true_obs[:, basin_index:basin_index + 1, :]
+            # Calculate objective
+            obj_value = model_setup.calculate_objective(sim_basin, obs_basin)
+            # Ensure scalar return
+            if isinstance(obj_value, (list, np.ndarray)):
+                obj_value = float(obj_value[0]) if len(obj_value) > 0 else float(obj_value)
+            return (float(obj_value),)
+        except Exception as e:
+            print(f"Warning: Evaluation failed with error: {e}")
+            return (1e10,)  # Return large penalty for failed evaluations
+
+    # Custom mutation with boundary constraints
+    def mutate_bounded(individual, mu, sigma, indpb):
+        """Gaussian mutation with boundary constraints."""
+        for i in range(len(individual)):
+            if random.random() < indpb:
+                individual[i] += random.gauss(mu, sigma)
+                # Enforce bounds
+                low, high = bounds[i]
+                individual[i] = max(low, min(high, individual[i]))
+        return (individual,)
+
+    # Register genetic operators
+    toolbox.register("evaluate", evaluate_individual)
     toolbox.register("mate", tools.cxTwoPoint)
-    toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=0.1, indpb=0.2)
+    toolbox.register("mutate", mutate_bounded, mu=0, sigma=0.1, indpb=0.2)
     toolbox.register("select", tools.selTournament, tournsize=3)
 
-    # Parameters
-    pop_size = algorithm_config.get("pop_size", 80)
-    n_generations = algorithm_config.get("n_generations", 50)
-    cx_prob = algorithm_config.get("cx_prob", 0.7)
-    mut_prob = algorithm_config.get("mut_prob", 0.2)
-
-    # Run GA
+    # Initialize population
+    print("Initializing population...")
     population = toolbox.population(n=pop_size)
 
+    # Prepare results storage
+    os.makedirs(output_dir, exist_ok=True)
+    results_file = os.path.join(output_dir, f"{basin_id}_ga.csv")
+
+    # Storage for generation statistics
+    gen_stats = []
+
     # Evaluate initial population
-    fitnesses = list(map(toolbox.evaluate, population))
+    print("Evaluating initial population...")
+    fitnesses = []
+    for ind in tqdm(population, desc="Initial evaluation"):
+        fit = toolbox.evaluate(ind)
+        fitnesses.append(fit)
+
     for ind, fit in zip(population, fitnesses):
         ind.fitness.values = fit
 
-    # Evolution
-    for generation in range(n_generations):
-        # Selection and reproduction
+    # Record initial generation
+    fits = [ind.fitness.values[0] for ind in population]
+    best_ind = tools.selBest(population, 1)[0]
+    gen_stat = {
+        "generation": 0,
+        "objective_value": best_ind.fitness.values[0],  # Use same column name as scipy
+        "min_fitness": min(fits),
+        "mean_fitness": np.mean(fits),
+        "max_fitness": max(fits),
+    }
+    # Add best individual's parameters
+    for i, name in enumerate(param_names):
+        gen_stat[f"param_{name}"] = float(best_ind[i])
+    gen_stats.append(gen_stat)
+    print(f"Generation 0: Best = {best_ind.fitness.values[0]:.6f}, Mean = {np.mean(fits):.6f}")
+
+    # Evolution process
+    print(f"\nStarting evolution for {n_generations} generations...")
+    for generation in tqdm(range(1, n_generations + 1), desc="GA Evolution"):
+        # Selection
         offspring = toolbox.select(population, len(population))
         offspring = list(map(toolbox.clone, offspring))
 
-        # Crossover and mutation
+        # Crossover
         for child1, child2 in zip(offspring[::2], offspring[1::2]):
             if random.random() < cx_prob:
                 toolbox.mate(child1, child2)
                 del child1.fitness.values
                 del child2.fitness.values
 
+        # Mutation
         for mutant in offspring:
             if random.random() < mut_prob:
                 toolbox.mutate(mutant)
                 del mutant.fitness.values
 
-        # Evaluate offspring
+        # Evaluate offspring with invalid fitness
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
-        fitnesses = map(toolbox.evaluate, invalid_ind)
+        fitnesses = [toolbox.evaluate(ind) for ind in invalid_ind]
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
 
         # Replace population
         population[:] = offspring
 
-    # Get best individual
+        # Record statistics
+        fits = [ind.fitness.values[0] for ind in population]
+        best_ind = tools.selBest(population, 1)[0]
+        gen_stat = {
+            "generation": generation,
+            "objective_value": best_ind.fitness.values[0],  # Use same column name as scipy
+            "min_fitness": min(fits),
+            "mean_fitness": np.mean(fits),
+            "max_fitness": max(fits),
+        }
+        # Add best individual's parameters
+        for i, name in enumerate(param_names):
+            gen_stat[f"param_{name}"] = float(best_ind[i])
+        gen_stats.append(gen_stat)
+
+        # Print progress every 10 generations
+        if generation % 10 == 0 or generation == n_generations:
+            print(f"Generation {generation}: Best = {best_ind.fitness.values[0]:.6f}, Mean = {np.mean(fits):.6f}")
+
+    # Save generation statistics to CSV
+    df_stats = pd.DataFrame(gen_stats)
+    df_stats.to_csv(results_file, index=False)
+    print(f"\nResults saved to: {results_file}")
+
+    # Get best individual from final population
     best_ind = tools.selBest(population, 1)[0]
-    best_params = dict(zip(model_setup.parameter_names, best_ind))
+    best_params = dict(zip(param_names, best_ind))
+
+    print(f"\n{'='*60}")
+    print(f"GA Calibration completed for basin: {basin_id}")
+    print(f"Best objective value: {best_ind.fitness.values[0]:.6f}")
+    print(f"Best parameters:")
+    for name, value in best_params.items():
+        print(f"  {name}: {value:.6f}")
+    print(f"{'='*60}\n")
 
     return {
         "convergence": "success",
@@ -622,5 +908,8 @@ def _calibrate_with_ga(model_setup, algorithm_config, output_dir, basin_id):
         "algorithm_info": {
             "generations": n_generations,
             "population_size": pop_size,
+            "crossover_prob": cx_prob,
+            "mutation_prob": mut_prob,
+            "random_seed": random_seed,
         },
     }

@@ -148,5 +148,22 @@ filename = "hydromodel/__init__.py"
 search = "__version__ = '{current_version}'"
 replace = "__version__ = '{new_version}'" 
 
+[tool.uv]
+# Override aqua-fetch's outdated dependency constraints
+override-dependencies = [
+    "pandas>=2.2.0",
+]
+
 [tool.uv.sources]
+# ============================================================================
+# Local development mode configuration
+# ============================================================================
+# Note:
+# 1. This configuration only takes effect during local development with uv
+# 2. When published to PyPI, other users will ignore this and install from PyPI
+# 3. To test PyPI versions locally, comment out the local path configuration
+# ============================================================================
 aqua-fetch = { git = "https://github.com/iHeadWater/AquaFetch.git", rev = "dev" }
+hydrodataset = { path = "../hydrodataset", editable = true }
+hydrodatasource = { path = "../hydrodatasource", editable = true }
+hydroutils = { path = "../hydroutils", editable = true }

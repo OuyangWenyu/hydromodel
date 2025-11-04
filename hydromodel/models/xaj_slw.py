@@ -442,9 +442,9 @@ def lag3_routing_vectorized(
     if return_states:
         # 返回最终状态
         final_states = {
-            "qsig_final": qsig[time_steps:],  
-            "qx_final": qx.copy(),  
-            "qsig1_final": qsig1,  
+            "qsig_final": qsig[time_steps:],
+            "qx_final": qx.copy(),
+            "qsig1_final": qsig1,
         }
         return q_routing, final_states
     else:
@@ -616,7 +616,6 @@ def xaj_slw(
         for basin_idx in range(num_basins):
             warmup_s_final[basin_idx] = s_final[-1]
             warmup_fr_final[basin_idx] = fr_final[-1]
-
 
         # 使用预热期结果作为初始条件
         wu0 = wu_final[-1, :, 0]  # [basin]

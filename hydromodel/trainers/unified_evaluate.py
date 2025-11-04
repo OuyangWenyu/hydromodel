@@ -24,7 +24,9 @@ from hydrodatasource.utils.utils import streamflow_unit_conv
 from hydromodel.datasets.data_preprocess import get_basin_area
 
 
-def evaluate(config: Dict[str, Any], param_dir: str = None, **kwargs) -> Dict[str, Any]:
+def evaluate(
+    config: Dict[str, Any], param_dir: str = None, **kwargs
+) -> Dict[str, Any]:
     """
     Unified evaluation interface for all hydrological models.
 
@@ -111,7 +113,9 @@ def evaluate(config: Dict[str, Any], param_dir: str = None, **kwargs) -> Dict[st
         else:
             # Use None to trigger default MODEL_PARAM_DICT loading
             param_range_file = None
-            print("Note: param_range.yaml not found. Using default parameter ranges from MODEL_PARAM_DICT.")
+            print(
+                "Note: param_range.yaml not found. Using default parameter ranges from MODEL_PARAM_DICT."
+            )
 
     # Load param_range (will use default MODEL_PARAM_DICT if file_path is None)
     try:
@@ -119,7 +123,9 @@ def evaluate(config: Dict[str, Any], param_dir: str = None, **kwargs) -> Dict[st
         parameter_names = param_range[model_name]["param_name"]
         has_param_range = True
     except (FileNotFoundError, KeyError) as e:
-        print(f"Warning: Could not load parameter ranges for model '{model_name}': {e}")
+        print(
+            f"Warning: Could not load parameter ranges for model '{model_name}': {e}"
+        )
         print("Will proceed without parameter denormalization.")
         param_range = None
         has_param_range = False
@@ -231,14 +237,22 @@ def evaluate(config: Dict[str, Any], param_dir: str = None, **kwargs) -> Dict[st
 
     # Save parameters summary
     _save_parameters_summary(
-        eval_output_dir, results, basin_ids, parameter_names, param_range, model_name
+        eval_output_dir,
+        results,
+        basin_ids,
+        parameter_names,
+        param_range,
+        model_name,
     )
 
     return results
 
 
 def _load_basin_parameters(
-    basin_id: str, param_dir: str, parameter_names: List[str] = None, model_name: str = None
+    basin_id: str,
+    param_dir: str,
+    parameter_names: List[str] = None,
+    model_name: str = None,
 ) -> OrderedDict:
     """
     Load calibrated parameters for a basin.
@@ -285,7 +299,9 @@ def _load_basin_parameters(
             else:
                 # Try to infer parameters from columns
                 # Look for parx1, parx2, ... columns
-                parx_cols = [col for col in df.columns if col.startswith("parx")]
+                parx_cols = [
+                    col for col in df.columns if col.startswith("parx")
+                ]
                 if parx_cols:
                     parx_cols = sorted(parx_cols, key=lambda x: int(x[4:]))
                     for col in parx_cols:
@@ -293,7 +309,11 @@ def _load_basin_parameters(
                         params[param_name] = float(best_run[col])
                     return params
                 # Look for par{name} columns
-                par_cols = [col for col in df.columns if col.startswith("par") and col != "pareto_front"]
+                par_cols = [
+                    col
+                    for col in df.columns
+                    if col.startswith("par") and col != "pareto_front"
+                ]
                 if par_cols:
                     for col in par_cols:
                         param_name = col[3:]  # Remove "par" prefix
@@ -311,7 +331,9 @@ def _load_basin_parameters(
             params = OrderedDict(zip(parameter_names, params_array))
         else:
             # Use generic parameter names if no parameter_names provided
-            params = OrderedDict((f"param_{i}", val) for i, val in enumerate(params_array))
+            params = OrderedDict(
+                (f"param_{i}", val) for i, val in enumerate(params_array)
+            )
         return params
 
     # 3. Try loading from unified results
@@ -321,7 +343,10 @@ def _load_basin_parameters(
             calib_results = json.load(f)
         if basin_id in calib_results:
             basin_result = calib_results[basin_id]
-            if "best_params" in basin_result and model_name in basin_result["best_params"]:
+            if (
+                "best_params" in basin_result
+                and model_name in basin_result["best_params"]
+            ):
                 params_dict = basin_result["best_params"][model_name]
                 return OrderedDict(params_dict)
 
@@ -382,7 +407,11 @@ def _save_evaluation_results(
     if "data_source_type" in data_config:
         data_type = data_config["data_source_type"]
         # Use provided data_path (already resolved by UnifiedDataLoader) or fall back to config
-        data_dir = data_path if data_path is not None else data_config.get("data_source_path", "")
+        data_dir = (
+            data_path
+            if data_path is not None
+            else data_config.get("data_source_path", "")
+        )
         basin_area = get_basin_area(basins, data_type, data_dir)
 
         # Convert to m³/s
@@ -399,7 +428,9 @@ def _save_evaluation_results(
         ds["qobs"] = ds_qobs["qobs"]
 
     # Save to NetCDF
-    output_file = os.path.join(output_dir, f"{model_name}_evaluation_results.nc")
+    output_file = os.path.join(
+        output_dir, f"{model_name}_evaluation_results.nc"
+    )
     ds.to_netcdf(output_file)
     print(f"Evaluation results saved to: {output_file}")
 
@@ -416,7 +447,9 @@ def _save_metrics_summary(
             processed_metrics = {}
             for key, value in metrics.items():
                 if isinstance(value, np.ndarray):
-                    processed_metrics[key] = value.flatten()[0] if value.size > 0 else value
+                    processed_metrics[key] = (
+                        value.flatten()[0] if value.size > 0 else value
+                    )
                 else:
                     processed_metrics[key] = value
             metrics_list.append(processed_metrics)
@@ -437,9 +470,9 @@ def _save_metrics_summary(
     print("-" * 80)
 
     # Print with better formatting
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.width', None)
-    pd.set_option('display.float_format', '{:.4f}'.format)
+    pd.set_option("display.max_columns", None)
+    pd.set_option("display.width", None)
+    pd.set_option("display.float_format", "{:.4f}".format)
     print(metrics_df)
 
     # Also print summary statistics
@@ -447,7 +480,7 @@ def _save_metrics_summary(
         print("\n" + "-" * 80)
         print("Summary Statistics Across All Basins:")
         print("-" * 80)
-        print(metrics_df.describe().loc[['mean', 'std', 'min', 'max']])
+        print(metrics_df.describe().loc[["mean", "std", "min", "max"]])
 
     print("=" * 80 + "\n")
 
@@ -463,7 +496,9 @@ def _save_parameters_summary(
     """Save parameters summary to CSV file."""
     # Check if we have parameter information
     if parameter_names is None:
-        print("Warning: No parameter names available. Skipping parameter summary.")
+        print(
+            "Warning: No parameter names available. Skipping parameter summary."
+        )
         return
 
     # Normalized parameters
@@ -482,24 +517,31 @@ def _save_parameters_summary(
                 try:
                     param_ranges = param_range[model_name]["param_range"]
                     denorm_params = [
-                        (param_ranges[name][1] - param_ranges[name][0]) * params[name]
+                        (param_ranges[name][1] - param_ranges[name][0])
+                        * params[name]
                         + param_ranges[name][0]
                         for name in parameter_names
                     ]
                     denorm_params_list.append(denorm_params)
                 except (KeyError, TypeError):
                     has_denorm = False
-                    print(f"Warning: Could not denormalize parameters for basin {basin_id}")
+                    print(
+                        f"Warning: Could not denormalize parameters for basin {basin_id}"
+                    )
 
     # Save normalized parameters
-    norm_params_df = pd.DataFrame(norm_params_list, columns=parameter_names, index=basin_ids)
+    norm_params_df = pd.DataFrame(
+        norm_params_list, columns=parameter_names, index=basin_ids
+    )
     norm_file = os.path.join(output_dir, "basins_norm_params.csv")
     norm_params_df.to_csv(norm_file, sep=",", index=True, header=True)
     print(f"Parameters summary saved to: {norm_file}")
 
     # Save denormalized parameters if available
     if has_denorm and denorm_params_list:
-        denorm_params_df = pd.DataFrame(denorm_params_list, columns=parameter_names, index=basin_ids)
+        denorm_params_df = pd.DataFrame(
+            denorm_params_list, columns=parameter_names, index=basin_ids
+        )
         denorm_file = os.path.join(output_dir, "basins_denorm_params.csv")
         denorm_params_df.to_csv(denorm_file, sep=",", index=True, header=True)
         print(f"Denormalized parameters saved to: {denorm_file}")
@@ -511,7 +553,9 @@ def _save_parameters_summary(
         print("Denormalized Parameters:")
         print(denorm_params_df)
     else:
-        print("Note: Parameter denormalization skipped (param_range.yaml not available)")
+        print(
+            "Note: Parameter denormalization skipped (param_range.yaml not available)"
+        )
         print("-" * 50)
         print("Parameters (normalized [0,1] or as-is):")
         print(norm_params_df)

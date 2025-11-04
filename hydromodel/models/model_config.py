@@ -241,10 +241,32 @@ MODEL_PARAM_DICT = {
     },
     "xaj_slw": {
         "param_name": [
-            "WUP", "WLP", "WDP", "SP", "FRP",
-            "WM", "WUMx", "WLMx", "K", "B", "C", "IM", "SM", "EX",
-            "KG", "KI", "CS", "CI", "CG", "LAG", "KK", "X", "MP",
-            "QSP", "QIP", "QGP",
+            "WUP",
+            "WLP",
+            "WDP",
+            "SP",
+            "FRP",
+            "WM",
+            "WUMx",
+            "WLMx",
+            "K",
+            "B",
+            "C",
+            "IM",
+            "SM",
+            "EX",
+            "KG",
+            "KI",
+            "CS",
+            "CI",
+            "CG",
+            "LAG",
+            "KK",
+            "X",
+            "MP",
+            "QSP",
+            "QIP",
+            "QGP",
         ],
         "param_range": OrderedDict(
             {
@@ -254,7 +276,6 @@ MODEL_PARAM_DICT = {
                 "WDP": [0.0, 150.0],
                 "SP": [0.0, 10.0],
                 "FRP": [0.0, 1.0],
-
                 # Generation parameters
                 "WM": [80.0, 220.0],
                 "WUMx": [0.05, 0.5],
@@ -267,7 +288,6 @@ MODEL_PARAM_DICT = {
                 "EX": [1.0, 2.0],
                 "KG": [0.05, 0.7],
                 "KI": [0.05, 0.7],
-
                 # Routing/recession
                 "CS": [0.1, 0.9],
                 "CI": [0.3, 0.95],
@@ -276,7 +296,6 @@ MODEL_PARAM_DICT = {
                 "KK": [1.0, 15.0],
                 "X": [0.0, 0.5],
                 "MP": [1.0, 5.0],
-
                 # Initial flows for routing
                 "QSP": [0.0, 50.0],
                 "QIP": [0.0, 50.0],

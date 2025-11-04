@@ -180,8 +180,14 @@ python scripts/run_xaj_simulate.py \
     --param-file configs/example_xaj_params.yaml \
     --plot
 
-# 4. Visualization
+# 4. Visualization (time series plots with precipitation and streamflow)
 python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
+
+# Visualize specific basins
+python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --basins 01013500
+
+# Custom output directory
+python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --output-dir my_figures
 ```
 
 Edit `configs/example_config.yaml` to customize your basin IDs, time periods, and parameters.
@@ -382,14 +388,15 @@ hydromodel/
 │   │   ├── unified_calibrate.py     # Calibration API
 │   │   ├── unified_evaluate.py      # Evaluation API
 │   │   └── unified_simulate.py      # Simulation API
-│   └── datasets/                    # Data preprocessing
+│   └── datasets/                    # Data preprocessing and visualization
 │       ├── unified_data_loader.py   # Data loader
+│       ├── data_visualize.py        # Visualization functions
 │       └── ...
-├── scripts/                         # Example scripts
+├── scripts/                         # Command-line interface scripts
 │   ├── run_xaj_calibration.py       # Calibration script
 │   ├── run_xaj_evaluate.py          # Evaluation script
 │   ├── run_xaj_simulate.py          # Simulation script
-│   └── visualize.py                 # Visualization script
+│   └── visualize.py                 # Visualization CLI
 ├── configs/                         # Configuration files
 └── docs/                            # Documentation
 ```

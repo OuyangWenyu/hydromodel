@@ -1,26 +1,21 @@
-"""Show results of calibration and validation."""
+r"""
+Author: Wenyu Ouyang
+Date: 2025-01-22
+LastEditTime: 2025-11-04 14:41:16
+LastEditors: zhuanglaihong
+Description: Show results of calibration and validation
+FilePath: /hydromodel/hydromodel/datasets/unified_data_loader.py
+Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
+"""
 
 import os
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-
+import xarray as xr
+from pathlib import Path
 from hydroutils import hydro_file, hydro_stat, hydro_plot
 from hydrodatasource.reader.data_source import SelfMadeHydroDataset
-
-
-# 新增读取降雨数据的函数，根据流域 ID 读取相关 csv 文件
-def read_rainfall_data(basin_id, start_time, end_time):
-    print(
-        f"Reading rainfall data for {basin_id} from {start_time} to {end_time}"
-    )
-    rainfall_csv_path = f"/ftproot/basins-interim/timeseries/1D/{basin_id}.csv"
-    rainfall_data = pd.read_csv(rainfall_csv_path, parse_dates=["time"])
-    rainfall_data = rainfall_data.set_index("time")
-    rainfall_filtered = rainfall_data[start_time:end_time]
-    # 检查读取的数据
-    print(rainfall_filtered["total_precipitation_hourly"].head())
-    return rainfall_filtered["total_precipitation_hourly"]
 
 
 def plot_precipitation(precipitation, ax=None):
@@ -76,17 +71,65 @@ def plot_precipitation(precipitation, ax=None):
 
 
 def plot_sim_and_obs_streamflow(
-    date, sim, obs, ax=None, xlabel="Date", ylabel="Streamflow (m³/s)"
+    date,
+    sim,
+    obs,
+    ax=None,
+    xlabel="Date",
+    ylabel="Streamflow (m³/s)",
+    basin_id="",
+    title_suffix="",
 ):
     # If no external subplot is provided, create a new one
     if ax is None:
         fig, ax = plt.subplots(figsize=(20, 4))
-    ax.plot(date, sim, color="black", linestyle="solid", label="Simulation")
-    ax.plot(date, obs, "r.", markersize=3, label="Observation")
+
+    # Plot with better styling
+    ax.plot(
+        date,
+        obs,
+        color="#2E86AB",
+        linestyle="solid",
+        linewidth=1.5,
+        alpha=0.9,
+        label="Observed",
+    )
+    ax.plot(
+        date,
+        sim,
+        color="#E63946",
+        linestyle="--",
+        linewidth=1.2,
+        alpha=0.9,
+        label="Simulated",
+    )
+
+    # Calculate metrics
+    valid = ~np.isnan(obs) & ~np.isnan(sim)
+    if np.sum(valid) > 0:
+        nse = 1 - np.sum((obs[valid] - sim[valid]) ** 2) / np.sum(
+            (obs[valid] - obs[valid].mean()) ** 2
+        )
+        rmse = np.sqrt(np.mean((obs[valid] - sim[valid]) ** 2))
+        pbias = np.sum(sim[valid] - obs[valid]) / np.sum(obs[valid]) * 100
+
+        metrics_text = f"NSE={nse:.3f}, RMSE={rmse:.2f}, PBIAS={pbias:.1f}%"
+        ax.text(
+            0.02,
+            0.98,
+            metrics_text,
+            transform=ax.transAxes,
+            verticalalignment="top",
+            fontsize=10,
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        )
+
     ax.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter("%Y-%m"))
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.legend(loc="upper right")
+    ax.grid(True, alpha=0.3, linestyle="--")
+
     return ax
 
 
@@ -98,52 +141,82 @@ def plot_sim_and_obs(
     save_fig,
     xlabel="Date",
     ylabel=None,
+    basin_id="",
+    title_suffix="",
 ):
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 10), sharex=True)
+    from matplotlib.gridspec import GridSpec
+
+    fig = plt.figure(figsize=(14, 6))
+    gs = GridSpec(2, 1, height_ratios=[1, 3], hspace=0.05)
+    ax1 = fig.add_subplot(gs[0])
+    ax2 = fig.add_subplot(gs[1], sharex=ax1)
+
     # Plot precipitation data on the upper subplot
     plot_precipitation(prcp, ax=ax1)
 
-    # Plot the comparison between simulated and observed values
-    plot_sim_and_obs_streamflow(
-        date, sim, obs, ax=ax2, xlabel=xlabel, ylabel=ylabel
+    # Plot streamflow
+    ax2.plot(
+        date,
+        obs,
+        color="#2E86AB",
+        linestyle="solid",
+        linewidth=1.5,
+        alpha=0.9,
+        label="Observed",
     )
+    ax2.plot(
+        date,
+        sim,
+        color="#E63946",
+        linestyle="--",
+        linewidth=1.2,
+        alpha=0.9,
+        label="Simulated",
+    )
+
+    # Calculate metrics
+    valid = ~np.isnan(obs) & ~np.isnan(sim)
+    if np.sum(valid) > 0:
+        nse = 1 - np.sum((obs[valid] - sim[valid]) ** 2) / np.sum(
+            (obs[valid] - obs[valid].mean()) ** 2
+        )
+        rmse = np.sqrt(np.mean((obs[valid] - sim[valid]) ** 2))
+        pbias = np.sum(sim[valid] - obs[valid]) / np.sum(obs[valid]) * 100
+
+        metrics_text = f"NSE={nse:.3f}, RMSE={rmse:.2f}, PBIAS={pbias:.1f}%"
+        ax2.text(
+            0.02,
+            0.98,
+            metrics_text,
+            transform=ax2.transAxes,
+            verticalalignment="top",
+            fontsize=10,
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        )
+
+    ax2.set_xlabel(xlabel)
+    ax2.set_ylabel(ylabel)
+    ax2.legend(loc="upper right")
+    ax2.grid(True, alpha=0.3, linestyle="--")
+    ax2.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter("%Y-%m"))
+    import matplotlib.dates as mdates
+
+    ax2.xaxis.set_major_locator(mdates.MonthLocator(interval=3))
+    plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha="right")
+
+    # Title
+    title = (
+        f"Streamflow Simulation - Basin {basin_id}"
+        if basin_id
+        else "Streamflow Simulation"
+    )
+    if title_suffix:
+        title += f" ({title_suffix})"
+    ax1.set_title(title, fontsize=13, fontweight="bold")
+
     plt.tight_layout()
-    plt.savefig(save_fig, bbox_inches="tight")
+    plt.savefig(save_fig, dpi=300, bbox_inches="tight")
     plt.close()
-
-
-# def plot_sim_and_obs(
-#     date,
-#     sim,
-#     obs,
-#     save_fig,
-#     xlabel="Date",
-#     ylabel=None,
-# ):
-#     # matplotlib.use("Agg")
-#     fig = plt.figure(figsize=(9, 6))
-#     ax = fig.subplots()
-#     ax.plot(
-#         date,
-#         sim,
-#         color="black",
-#         linestyle="solid",
-#         label="Simulation",
-#     )
-#     ax.plot(
-#         date,
-#         obs,
-#         "r.",
-#         markersize=3,
-#         label="Observation",
-#     )
-#     ax.set_xlabel(xlabel)
-#     ax.set_ylabel(ylabel)
-#     plt.legend(loc="upper right")
-#     plt.tight_layout()
-#     plt.savefig(save_fig, bbox_inches="tight")
-#     # plt.cla()
-#     plt.close()
 
 
 def plot_train_iteration(likelihood, save_fig):
@@ -158,287 +231,286 @@ def plot_train_iteration(likelihood, save_fig):
     plt.close()
 
 
-# TODO: Following functions are not used in the current version of the code, maybe useful in the future
-def show_events_result(
-    warmup_length,
-    save_dir,
-    train_period,
-    basin_area=None,
-    prcp=None,
+# ==================================================================================
+# Visualization for unified evaluation architecture
+# ==================================================================================
+
+
+def plot_scatter(qobs, qsim, save_path, basin_id="", title_suffix=""):
+    """Plot scatter: observed vs simulated with density heatmap."""
+    valid = ~np.isnan(qobs) & ~np.isnan(qsim)
+    qobs, qsim = qobs[valid], qsim[valid]
+
+    fig, ax = plt.subplots(figsize=(7, 7))
+
+    # Density heatmap
+    from matplotlib.colors import LogNorm
+
+    h = ax.hist2d(
+        qobs, qsim, bins=50, cmap="YlOrRd", norm=LogNorm(), alpha=0.7
+    )
+    plt.colorbar(h[3], ax=ax, label="Count (log scale)")
+
+    # 1:1 line
+    lims = [min(qobs.min(), qsim.min()), max(qobs.max(), qsim.max())]
+    ax.plot(lims, lims, "k--", linewidth=2, alpha=0.7, label="1:1 line")
+
+    # Metrics
+    nse = 1 - np.sum((qobs - qsim) ** 2) / np.sum((qobs - qobs.mean()) ** 2)
+    r2 = np.corrcoef(qobs, qsim)[0, 1] ** 2
+    rmse = np.sqrt(np.mean((qobs - qsim) ** 2))
+    pbias = np.sum(qsim - qobs) / np.sum(qobs) * 100
+
+    metrics_text = f"NSE = {nse:.3f}\n$R^2$ = {r2:.3f}\nRMSE = {rmse:.2f}\nPBIAS = {pbias:.1f}%"
+    ax.text(
+        0.05,
+        0.95,
+        metrics_text,
+        transform=ax.transAxes,
+        va="top",
+        fontsize=10,
+        bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+    )
+
+    ax.set_xlabel("Observed Streamflow (m³/s)")
+    ax.set_ylabel("Simulated Streamflow (m³/s)")
+    title = f"Observed vs Simulated - Basin {basin_id}"
+    if title_suffix:
+        title += f" ({title_suffix})"
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    ax.legend(loc="lower right")
+    ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+def plot_fdc(qobs, qsim, save_path, basin_id="", title_suffix=""):
+    """Plot flow duration curve."""
+    qobs_sorted = np.sort(qobs[~np.isnan(qobs)])[::-1]
+    qsim_sorted = np.sort(qsim[~np.isnan(qsim)])[::-1]
+
+    exc_obs = np.arange(1, len(qobs_sorted) + 1) / len(qobs_sorted) * 100
+    exc_sim = np.arange(1, len(qsim_sorted) + 1) / len(qsim_sorted) * 100
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(
+        exc_obs,
+        qobs_sorted,
+        label="Observed",
+        color="#2E86AB",
+        linewidth=2.5,
+        alpha=0.9,
+    )
+    ax.plot(
+        exc_sim,
+        qsim_sorted,
+        label="Simulated",
+        color="#E63946",
+        linewidth=2.5,
+        alpha=0.9,
+        linestyle="--",
+    )
+
+    ax.set_xlabel("Exceedance Probability (%)")
+    ax.set_ylabel("Streamflow (m³/s)")
+    ax.set_yscale("log")
+    title = f"Flow Duration Curve - Basin {basin_id}"
+    if title_suffix:
+        title += f" ({title_suffix})"
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    ax.legend()
+    ax.grid(True, alpha=0.3, which="both")
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+def plot_monthly(time, qobs, qsim, save_path, basin_id="", title_suffix=""):
+    """Plot monthly average comparison with error bars."""
+    df = pd.DataFrame({"time": time, "qobs": qobs, "qsim": qsim})
+    df["month"] = df["time"].dt.month
+
+    monthly_obs = df.groupby("month")["qobs"].mean()
+    monthly_sim = df.groupby("month")["qsim"].mean()
+    monthly_obs_std = df.groupby("month")["qobs"].std()
+    monthly_sim_std = df.groupby("month")["qsim"].std()
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    months = np.arange(1, 13)
+    width = 0.35
+
+    ax.bar(
+        months - width / 2,
+        monthly_obs,
+        width,
+        label="Observed",
+        color="#5A9FB0",
+        alpha=0.8,
+        yerr=monthly_obs_std,
+        capsize=3,
+        error_kw={"linewidth": 1.5, "ecolor": "black"},
+    )
+    ax.bar(
+        months + width / 2,
+        monthly_sim,
+        width,
+        label="Simulated",
+        color="#E17F7F",
+        alpha=0.8,
+        yerr=monthly_sim_std,
+        capsize=3,
+        error_kw={"linewidth": 1.5, "ecolor": "black"},
+    )
+
+    ax.set_xlabel("Month")
+    ax.set_ylabel("Average Streamflow (m³/s)")
+    ax.set_xticks(months)
+    ax.set_xticklabels(
+        [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ]
+    )
+    title = f"Monthly Average Streamflow - Basin {basin_id}"
+    if title_suffix:
+        title += f" ({title_suffix})"
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis="y")
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+def visualize_evaluation(
+    eval_dir, output_dir=None, plot_types="all", basins=None
 ):
-    """
-    Plot all events result to see the effect of optimized parameters
+    """Visualize unified evaluation results using existing plotting functions.
 
     Parameters
     ----------
-    sceua_calibrated_file
-        the result file saved after optimizing
-    basin_id
-        id of the basin
-    train_period
-        the period of training data
-    result_unit
-        the unit of result, default is mm/day, we will convert it to m3/s
-    basin_area
-        the area of the basin, its unit must be km2
-
-    Returns
-    -------
-    None
+    eval_dir : str
+        Path to evaluation directory (e.g., results/exp_name/evaluation_test/)
+    output_dir : str, optional
+        Output directory for figures (default: eval_dir/figures)
+    plot_types : str or list
+        'all', 'timeseries', 'scatter', 'fdc', 'monthly'
+    basins : list, optional
+        Basin IDs to plot (default: all basins)
     """
-    # TODO: not finished
-    time = pd.read_excel(
-        "D:/研究生/毕业论文/new毕业论文/预答辩/碧流河水库/站点信息/洪水率定时间.xlsx"
-    )
-    calibrate_starttime = pd.to_datetime("2012-06-10 0:00:00")
-    calibrate_endtime = pd.to_datetime("2019-12-31 23:00:00")
-    basin_area = float(basin_area)
-    best_simulation = [
-        x * (basin_area * 1000000 / 1000 / 3600) for x in best_simulation
-    ]
-    obs = [
-        x * (basin_area * 1000000 / 1000 / 3600)
-        for x in spot_setup.evaluation()
-    ]
-    time["starttime"] = pd.to_datetime(time["starttime"])
-    time["endtime"] = pd.to_datetime(time["endtime"])
-    Prcp_list = []
-    W_obs_list = []
-    W_sim_list = []
-    W_bias_abs_list = []
-    W_bias_rela_list = []
-    Q_max_obs_list = []
-    Q_max_sim_list = []
-    Q_bias_rela_list = []
-    time_bias_list = []
-    DC_list = []
-    ID_list = []
-    for i, row in time.iterrows():
-        # for i in range(len(time)):
-        if row["starttime"] < calibrate_endtime:
-            # if(time["starttime",0]<calibrate_endtime):
-            start_num = (
-                row["starttime"]
-                - calibrate_starttime
-                - pd.Timedelta(hours=warmup_length)
-            ) / pd.Timedelta(hours=1)
-            end_num = (
-                row["endtime"]
-                - calibrate_starttime
-                - pd.Timedelta(hours=warmup_length)
-            ) / pd.Timedelta(hours=1)
-            start_period = (
-                row["endtime"] - calibrate_starttime
-            ) / pd.Timedelta(hours=1)
-            end_period = (row["endtime"] - calibrate_starttime) / pd.Timedelta(
-                hours=1
-            )
-            start_period = int(start_period)
-            end_period = int(end_period)
-            start_num = int(start_num)
-            end_num = int(end_num)
-            t_range_train_changci = pd.date_range(
-                row["starttime"], row["endtime"], freq="H"
-            )
-            save_fig = os.path.join(
-                save_dir, "train_results" + str(i) + ".png"
-            )
-            best_simulation_changci = best_simulation[start_num : end_num + 1]
-            plot_sim_and_obs(
-                t_range_train_changci,
-                best_simulation[start_num : end_num + 1],
-                obs[start_num : end_num + 1],
-                prcp[start_num : end_num + 1],
-                save_fig,
-            )
-            Prcp = sum(prcp[start_num : end_num + 1])
-            W_obs = (
-                sum(obs[start_num : end_num + 1])
-                * 3600
-                * 1000
-                / basin_area
-                / 1000000
-            )
-            W_sim = (
-                sum(best_simulation_changci)
-                * 3600
-                * 1000
-                / basin_area
-                / 1000000
-            )
-            W_bias_abs = W_sim - W_obs
-            W_bias_rela = W_bias_abs / W_obs
-            Q_max_obs = np.max(obs[start_num : end_num + 1])
-            Q_max_sim = np.max(best_simulation_changci)
-            Q_bias_rela = (Q_max_sim - Q_max_obs) / Q_max_obs
-            t1 = np.argmax(best_simulation_changci)
-            t2 = np.argmax(obs[start_num : end_num + 1])
-            time_bias = t1 - t2
-            DC = NSE(obs[start_num : end_num + 1], best_simulation_changci)
-            ID = row["starttime"].strftime("%Y%m%d")
-            Prcp_list.append(Prcp)
-            W_obs_list.append(W_obs)
-            W_sim_list.append(W_sim)
-            W_bias_abs_list.append(W_bias_abs)
-            W_bias_rela_list.append(W_bias_rela)
-            Q_max_obs_list.append(Q_max_obs)
-            Q_max_sim_list.append(Q_max_sim)
-            Q_bias_rela_list.append(Q_bias_rela)
-            time_bias_list.append(time_bias)
+    eval_path = Path(eval_dir)
 
-            DC_list.append(DC)
-            ID_list.append(ID)
+    # Load NetCDF results
+    nc_files = list(eval_path.glob("*_evaluation_results.nc"))
+    if not nc_files:
+        raise FileNotFoundError(f"No .nc file found in {eval_dir}")
 
-    bias = pd.DataFrame(
-        {
-            "Prcp(mm)": Prcp_list,
-            "W_obs(mm)": W_obs_list,
-            "W_sim(mm)": W_sim_list,
-            "W_bias_abs": W_bias_abs_list,
-            "W_bias_rela": W_bias_rela_list,
-            "Q_max_obs(m3/s)": Q_max_obs_list,
-            "Q_max_sim(m3/s)": Q_max_sim_list,
-            "Q_bias_rela": Q_bias_rela_list,
-            "time_bias": time_bias_list,
-            "DC": DC_list,
-            "ID": ID_list,
-        }
-    )
-    bias.to_csv(
-        os.path.join(
-            "D:/研究生/毕业论文/new毕业论文/预答辩/碧流河水库/站点信息/train_metrics.csv"
-        )
-    )
-    t_range_train = pd.to_datetime(train_period[warmup_length:]).values.astype(
-        "datetime64[h]"
-    )
-    save_fig = os.path.join(save_dir, "train_results.png")  # 生成结果图
-    plot_sim_and_obs(t_range_train, best_simulation, obs, prcp[:], save_fig)
+    ds = xr.open_dataset(nc_files[0])
+    print(f"Loaded: {nc_files[0].name}")
 
+    # Setup output
+    output_dir = Path(output_dir) if output_dir else eval_path / "figures"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-def show_ts_result(basin_id, test_date, qsim, obs, save_dir):
-    stat_error = hydro_stat.stat_error(obs.reshape(1, -1), qsim.reshape(1, -1))
-    print("Test Metrics:", basin_id, stat_error)
-    hydro_file.serialize_json_np(
-        stat_error, os.path.join(save_dir, "test_metrics.json")
-    )
-    time = pd.read_excel(
-        "D:/研究生/毕业论文/new毕业论文/预答辩/碧流河水库/站点信息/洪水率定时间.xlsx"
-    )
-    test_starttime = pd.to_datetime("2020-01-01 00:00:00")
-    test_endtime = pd.to_datetime("2022-08-31 23:00:00")
-    # for i in range(len(time)):
-    #     if(test_starttime<time.iloc[i,0]<test_endtime):
-    #             start_num = (time.iloc[i,0]-test_starttime-pd.Timedelta(hours=warmup_length))/pd.Timedelta(hours=1)
-    #             end_num = (time.iloc[i,1]-test_starttime-pd.Timedelta(hours=warmup_length))/pd.Timedelta(hours=1)
-    #             start_period = (time.iloc[i,0]-test_starttime)/pd.Timedelta(hours=1)
-    #             end_period = (time.iloc[i,1]-test_starttime)/pd.Timedelta(hours=1)
-    #             start_period = int(start_period)
-    #             end_period = int(end_period)
-    #             start_num = int(start_num)
-    #             end_num = int(end_num)
-    #             t_range_test_changci = pd.to_datetime(test_date[start_period:end_period]).values.astype("datetime64[h]")
-    #             save_fig = os.path.join(save_dir, "test_results"+str(i)+".png")
-    #             plot_sim_and_obs(t_range_test_changci, qsim.flatten()[start_num:end_num],obs.flatten()[start_num:end_num], prcp[start_num:end_num],save_fig)
-    Prcp_list = []
-    W_obs_list = []
-    W_sim_list = []
-    W_bias_abs_list = []
-    W_bias_rela_list = []
-    Q_max_obs_list = []
-    Q_max_sim_list = []
-    Q_bias_rela_list = []
-    time_bias_list = []
-    DC_list = []
-    ID_list = []
-    for i, row in time.iterrows():
-        if test_starttime < row["starttime"] < test_endtime:
-            start_num = (
-                row["starttime"]
-                - test_starttime
-                - pd.Timedelta(hours=warmup_length)
-            ) / pd.Timedelta(hours=1)
-            end_num = (
-                row["endtime"]
-                - test_starttime
-                - pd.Timedelta(hours=warmup_length)
-            ) / pd.Timedelta(hours=1)
-            start_period = (row["endtime"] - test_starttime) / pd.Timedelta(
-                hours=1
-            )
-            end_period = (row["endtime"] - test_starttime) / pd.Timedelta(
-                hours=1
-            )
-            start_period = int(start_period)
-            end_period = int(end_period)
-            start_num = int(start_num)
-            end_num = int(end_num)
-            t_range_train_changci = pd.date_range(
-                row["starttime"], row["endtime"], freq="H"
-            )
-            save_fig = os.path.join(save_dir, "test_results" + str(i) + ".png")
-            plot_sim_and_obs(
-                t_range_train_changci,
-                qsim.flatten()[start_num : end_num + 1],
-                obs.flatten()[start_num : end_num + 1],
-                prcp[start_num : end_num + 1],
-                save_fig,
-            )
-            Prcp = sum(prcp[start_num : end_num + 1])
-            W_obs = sum(obs.flatten()[start_num : end_num + 1])
-            W_sim = sum(qsim.flatten()[start_num : end_num + 1])
-            W_bias_abs = W_sim - W_obs
-            W_bias_rela = W_bias_abs / W_obs
-            Q_max_obs = np.max(obs[start_num : end_num + 1])
-            Q_max_sim = np.max(qsim.flatten()[start_num : end_num + 1])
-            Q_bias_rela = (Q_max_sim - Q_max_obs) / Q_max_obs
-            t1 = np.argmax(qsim.flatten()[start_num : end_num + 1])
-            t2 = np.argmax(obs[start_num : end_num + 1])
-            time_bias = t1 - t2
-            DC = NSE(
-                obs.flatten()[start_num : end_num + 1],
-                qsim.flatten()[start_num : end_num + 1],
-            )
-            ID = row["starttime"].strftime("%Y%m%d")
-            Prcp_list.append(Prcp)
-            W_obs_list.append(W_obs)
-            W_sim_list.append(W_sim)
-            W_bias_abs_list.append(W_bias_abs)
-            W_bias_rela_list.append(W_bias_rela)
-            Q_max_obs_list.append(Q_max_obs)
-            Q_max_sim_list.append(Q_max_sim)
-            Q_bias_rela_list.append(Q_bias_rela)
-            time_bias_list.append(time_bias)
-            DC_list.append(DC)
-            ID_list.append(ID)
+    # Get basins
+    all_basins = [str(b) for b in ds["basin"].values]
+    basins = basins if basins else all_basins
+    basins = [b for b in basins if b in all_basins]
 
-    bias = pd.DataFrame(
-        {
-            "Prcp(mm)": Prcp_list,
-            "W_obs(mm)": W_obs_list,
-            "W_sim(mm)": W_sim_list,
-            "W_bias_abs": W_bias_abs_list,
-            "W_bias_rela": W_bias_rela_list,
-            "Q_max_obs(m3/s)": Q_max_obs_list,
-            "Q_max_sim(m3/s)": Q_max_sim_list,
-            "Q_bias_rela": Q_bias_rela_list,
-            "time_bias": time_bias_list,
-            "DC": DC_list,
-            "ID": ID_list,
-        }
-    )
-    bias.to_csv(
-        os.path.join(
-            "D:/研究生/毕业论文/new毕业论文/预答辩/碧流河水库/站点信息/test_metrics.csv"
-        )
-    )
+    if not basins:
+        print("No valid basins to plot")
+        return
 
-    save_fig = os.path.join(save_dir, "test_results.png")
+    # Determine plot types
+    if isinstance(plot_types, str):
+        plot_types = [plot_types]
+    if "all" in plot_types:
+        plot_types = ["timeseries", "scatter", "fdc", "monthly"]
 
-    plot_sim_and_obs(
-        test_date[365:],
-        qsim.flatten(),
-        obs.flatten(),
-        prcp[:],
-        save_fig,
-    )
+    # Determine title suffix from path
+    title_suffix = ""
+    eval_dir_lower = str(eval_dir).lower()
+    if "train" in eval_dir_lower or "calibration" in eval_dir_lower:
+        title_suffix = "Training Period"
+    elif "test" in eval_dir_lower:
+        title_suffix = "Test Period"
+    elif "valid" in eval_dir_lower:
+        title_suffix = "Validation Period"
+
+    print(f"Plotting {len(basins)} basin(s): {basins}")
+    print(f"Plot types: {', '.join(plot_types)}")
+
+    # Plot each basin
+    for basin_id in basins:
+        basin_idx = all_basins.index(basin_id)
+        print(f"\n  Basin {basin_id}:")
+
+        # Extract data for this basin
+        time = pd.to_datetime(ds["time"].values)
+        qobs = ds["qobs"].values[:, basin_idx]
+        qsim = ds["qsim"].values[:, basin_idx]
+
+        # Timeseries
+        if "timeseries" in plot_types:
+            save_path = output_dir / f"{basin_id}_timeseries.png"
+            if "prcp" in ds.variables:
+                prcp_data = ds["prcp"][:, basin_idx]
+                plot_sim_and_obs(
+                    time,
+                    prcp_data,
+                    qsim,
+                    qobs,
+                    save_path,
+                    ylabel="Streamflow (m³/s)",
+                    basin_id=basin_id,
+                    title_suffix=title_suffix,
+                )
+            else:
+                fig, ax = plt.subplots(figsize=(20, 8))
+                plot_sim_and_obs_streamflow(
+                    time,
+                    qsim,
+                    qobs,
+                    ax=ax,
+                    ylabel="Streamflow (m³/s)",
+                    basin_id=basin_id,
+                    title_suffix=title_suffix,
+                )
+                plt.tight_layout()
+                plt.savefig(save_path, dpi=300, bbox_inches="tight")
+                plt.close()
+            print(f"    Saved: {save_path.name}")
+
+        # Scatter
+        if "scatter" in plot_types:
+            save_path = output_dir / f"{basin_id}_scatter.png"
+            plot_scatter(qobs, qsim, save_path, basin_id, title_suffix)
+            print(f"    Saved: {save_path.name}")
+
+        # Flow duration curve
+        if "fdc" in plot_types:
+            save_path = output_dir / f"{basin_id}_fdc.png"
+            plot_fdc(qobs, qsim, save_path, basin_id, title_suffix)
+            print(f"    Saved: {save_path.name}")
+
+        # Monthly
+        if "monthly" in plot_types:
+            save_path = output_dir / f"{basin_id}_monthly.png"
+            plot_monthly(time, qobs, qsim, save_path, basin_id, title_suffix)
+            print(f"    Saved: {save_path.name}")
+
+    print(f"\n[OK] All figures saved to: {output_dir}")

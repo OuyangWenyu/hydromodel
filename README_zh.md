@@ -180,8 +180,14 @@ python scripts/run_xaj_simulate.py \
     --param-file configs/example_xaj_params.yaml \
     --plot
 
-# 4. 可视化
+# 4. 可视化（时间序列图，包含降雨和流量）
 python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
+
+# 可视化特定流域
+python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --basins 01013500
+
+# 自定义输出目录
+python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --output-dir my_figures
 ```
 
 编辑 `configs/example_config.yaml` 来自定义你的流域 ID、时间段和参数。
@@ -382,14 +388,15 @@ hydromodel/
 │   │   ├── unified_calibrate.py     # 率定 API
 │   │   ├── unified_evaluate.py      # 评估 API
 │   │   └── unified_simulate.py      # 模拟 API
-│   └── datasets/                    # 数据预处理
+│   └── datasets/                    # 数据预处理和可视化
 │       ├── unified_data_loader.py   # 数据加载器
+│       ├── data_visualize.py        # 可视化函数
 │       └── ...
-├── scripts/                         # 示例脚本
+├── scripts/                         # 命令行接口脚本
 │   ├── run_xaj_calibration.py       # 率定脚本
 │   ├── run_xaj_evaluate.py          # 评估脚本
 │   ├── run_xaj_simulate.py          # 模拟脚本
-│   └── visualize.py                 # 可视化脚本
+│   └── visualize.py                 # 可视化命令行接口
 ├── configs/                         # 配置文件
 └── docs/                            # 文档
 ```

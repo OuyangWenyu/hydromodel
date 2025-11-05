@@ -9,6 +9,8 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
 import os
+import sys
+import io
 import json
 import numpy as np
 import pandas as pd
@@ -17,6 +19,7 @@ import pickle
 import random
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union, Any, Tuple
+from contextlib import redirect_stdout
 from scipy.optimize import minimize
 from spotpy.parameter import Uniform, ParameterSet
 from tqdm import tqdm
@@ -108,7 +111,14 @@ class UnifiedModelSetup(ModelSetupBase):
 
         # Load data using unified data loader
         self.data_loader = UnifiedDataLoader(data_config)
-        self.p_and_e, qobs = self.data_loader.load_data()
+        self.p_and_e_full, qobs_full = self.data_loader.load_data()
+
+        # Store full data for multi-basin support
+        self.p_and_e = self.p_and_e_full
+        self.qobs_full = qobs_full  # Keep full qobs for basin extraction
+
+        # Basin index for single-basin calibration (None means use all basins)
+        self.basin_index = None
 
         # Store whether this is event data for special handling
         self.is_event_data = data_config.get("is_event_data", False)
@@ -118,10 +128,12 @@ class UnifiedModelSetup(ModelSetupBase):
             # For event data: keep full observation time series
             # Simulation results only have values during events (warmup periods are zeros)
             # Loss calculation will naturally focus on event periods where both have values
-            self.true_obs = qobs  # Keep complete time series
+            self.true_obs = qobs_full  # Keep complete time series
         else:
             # For continuous data: remove warmup period from both simulation and observation
-            self.true_obs = qobs[warmup_length:, :, :]  # Remove warmup period
+            self.true_obs = qobs_full[
+                warmup_length:, :, :
+            ]  # Remove warmup period
 
         # Traditional models (XAJ, GR series, etc.)
         param_file = self.training_config.get("param_range_file")
@@ -178,6 +190,32 @@ class UnifiedModelSetup(ModelSetupBase):
 
     def get_parameter_bounds(self) -> List[tuple]:
         return self.parameter_bounds
+
+    def set_basin_index(self, basin_index: int):
+        """Set the basin index for single-basin calibration.
+
+        This method extracts data for a single basin from the full multi-basin dataset.
+        It updates self.p_and_e and self.true_obs to contain only the target basin's data.
+
+        Args:
+            basin_index: Index of the basin to calibrate (0-based)
+        """
+        self.basin_index = basin_index
+
+        # Extract single basin data from full dataset
+        # p_and_e shape: [time, basin, features]
+        # qobs shape: [time, basin, 1]
+        self.p_and_e = self.p_and_e_full[:, basin_index : basin_index + 1, :]
+
+        # Update true_obs based on whether it's event data
+        if self.is_event_data:
+            # For event data: keep full observation time series
+            self.true_obs = self.qobs_full[:, basin_index : basin_index + 1, :]
+        else:
+            # For continuous data: extract single basin and remove warmup period
+            self.true_obs = self.qobs_full[
+                self.warmup_length :, basin_index : basin_index + 1, :
+            ]
 
     def simulate(self, params: np.ndarray) -> np.ndarray:
         """Run model simulation using pre-initialized UnifiedSimulator."""
@@ -313,7 +351,16 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
     # Currently using approach 2 - calibrate each basin separately
     # This is the default approach that hydromodel supports
 
+    total_basins = len(basin_ids)
+    print(f"\n🚀 {'='*60}")
+    print(f"🚀 Starting calibration for {total_basins} basin(s)")
+    print(f"🚀 {'='*60}\n")
+
     for i, basin_id in enumerate(basin_ids):
+        print(f"▶️  {'='*60}")
+        print(f"▶️  Basin {i+1}/{total_basins}: {basin_id}")
+        print(f"▶️  {'='*60}")
+
         basin_result = _calibrate_model(
             model_setup,
             algorithm_config,
@@ -324,11 +371,14 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
         )
         results[basin_id] = basin_result
 
+        print(f"✅ Basin {i+1}/{total_basins} completed: {basin_id}")
+
     # Save calibration results to JSON file for evaluation
+    print(f"\n Saving calibration results...")
     results_file = os.path.join(output_dir, "calibration_results.json")
     with open(results_file, "w") as f:
         json.dump(results, f, indent=2)
-    print(f"\nCalibration results saved to: {results_file}")
+    print(f" Results saved to: {results_file}")
 
     # Save configuration files if requested (default: True)
     save_config = training_config.get("save_config", True)
@@ -336,6 +386,11 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
         _save_calibration_config(
             config, output_dir, model_setup.model_name, model_setup.param_range
         )
+
+    print(f"\n {'='*60}")
+    print(f" All calibrations completed successfully!")
+    print(f" Total basins calibrated: {total_basins}")
+    print(f" {'='*60}")
 
     return results
 
@@ -377,10 +432,12 @@ def _save_calibration_config(
                 allow_unicode=True,
             )
         param_range_saved_path = param_range_file
-        print(f"Saved parameter range for {model_name} to: {param_range_file}")
+        print(
+            f"💾 Saved parameter range for {model_name} to: {param_range_file}"
+        )
     else:
         print(
-            f"Warning: Parameter range for model '{model_name}' not found. "
+            f"⚠️  Warning: Parameter range for model '{model_name}' not found. "
             "Skipping param_range.yaml generation."
         )
 
@@ -390,11 +447,13 @@ def _save_calibration_config(
     config_copy = copy.deepcopy(config)
     # Update param_range_file to the actual saved path
     if "training_cfgs" in config_copy and param_range_saved_path:
-        config_copy["training_cfgs"]["param_range_file"] = param_range_saved_path
+        config_copy["training_cfgs"][
+            "param_range_file"
+        ] = param_range_saved_path
 
     with open(config_output_path, "w", encoding="utf-8") as f:
         yaml.dump(config_copy, f, default_flow_style=False, allow_unicode=True)
-    print(f"Saved calibration config to: {config_output_path}")
+    print(f"💾 Saved calibration config to: {config_output_path}")
 
 
 def _calibrate_model(
@@ -409,11 +468,11 @@ def _calibrate_model(
 
     algorithm_name = algorithm_config["name"]
 
-    if algorithm_name in ["scipy_minimize", "scipy","Scipy"]:
+    if algorithm_name in ["scipy_minimize", "scipy", "Scipy"]:
         return _calibrate_with_scipy(
             model_setup, algorithm_config, output_dir, basin_id
         )
-    elif algorithm_name in ["SCE_UA", "sceua"] :
+    elif algorithm_name in ["SCE_UA", "sceua"]:
         return _calibrate_with_sceua(
             model_setup, algorithm_config, output_dir, basin_id
         )
@@ -435,20 +494,25 @@ def _calibrate_with_scipy(model_setup, algorithm_config, output_dir, basin_id):
     # Determine basin index from config
     basin_ids = model_setup.data_config.get(
         "basin_ids",
-        [f"basin_{i}" for i in range(model_setup.p_and_e.shape[1])],
+        [f"basin_{i}" for i in range(model_setup.p_and_e_full.shape[1])],
     )
     try:
         basin_index = basin_ids.index(str(basin_id))
     except Exception:
         basin_index = 0
 
-    print(f"\n{'='*60}")
-    print(f"Starting Scipy optimization for basin: {basin_id}")
-    print(f"{'='*60}\n")
+    # Set basin index to extract single-basin data
+    model_setup.set_basin_index(basin_index)
+
+    print(f"\n🔧 {'='*60}")
+    print(f"🔧 Starting Scipy optimization for basin: {basin_id}")
+    print(f"🔧 {'='*60}\n")
 
     # Get algorithm parameters
     method = algorithm_config.get("method", "SLSQP")
     max_iterations = algorithm_config.get("max_iterations", 500)
+    ftol = algorithm_config.get("ftol", 1e-6)  # Function tolerance
+    gtol = algorithm_config.get("gtol", 1e-5)  # Gradient tolerance
 
     # Get parameter bounds and names
     bounds = model_setup.get_parameter_bounds()
@@ -458,50 +522,68 @@ def _calibrate_with_scipy(model_setup, algorithm_config, output_dir, basin_id):
     # Initialize from middle of bounds
     initial_params = np.array([np.mean(bound) for bound in bounds])
 
-    print(f"Optimization method: {method}")
-    print(f"Maximum iterations: {max_iterations}")
-    print(f"Number of parameters: {n_params}")
-    print(f"Initial parameters: {initial_params}\n")
+    print(f"📋 Scipy parameters:")
+    print(f"   • Method: {method}")
+    print(f"   • Maximum iterations: {max_iterations}")
+    print(f"   • Function tolerance (ftol): {ftol}")
+    print(f"   • Gradient tolerance (gtol): {gtol}")
+    print(f"   • Number of parameters: {n_params}")
+    print(f"   • Initial parameters: {initial_params}\n")
 
-    # Storage for iteration history
+    # Storage for iteration history and progress tracking
     iteration_history = []
     iteration_count = [0]  # Use list to allow modification in nested function
+    best_objective = [float("inf")]  # Track best objective value
+
+    # Create progress bar
+    pbar = tqdm(total=max_iterations, desc="Scipy Progress", unit="iter")
 
     # Objective function for scipy with single basin evaluation
     def objective_func(params):
         try:
             params_array = np.array(params)
-            # Simulate all basins
-            sim_all = model_setup.simulate(params_array)  # [time, basin, 1]
-            # Extract simulation for target basin
-            sim_basin = sim_all[:, basin_index:basin_index + 1, :]
-            # Get observation for target basin
-            obs_basin = model_setup.true_obs[:, basin_index:basin_index + 1, :]
+            # Simulate with single-basin data (already extracted by set_basin_index)
+            sim_basin = model_setup.simulate(params_array)  # [time, 1, 1]
+            # Get observation for target basin (already extracted by set_basin_index)
+            obs_basin = model_setup.true_obs
             # Calculate objective
             obj_value = model_setup.calculate_objective(sim_basin, obs_basin)
 
             # Ensure scalar return
             if isinstance(obj_value, (list, np.ndarray)):
-                obj_value = float(obj_value[0]) if len(obj_value) > 0 else float(obj_value)
+                obj_value = (
+                    float(obj_value[0])
+                    if len(obj_value) > 0
+                    else float(obj_value)
+                )
             else:
                 obj_value = float(obj_value)
 
             # Record iteration
             iteration_count[0] += 1
-            iteration_history.append({
-                "iteration": iteration_count[0],
-                "objective_value": obj_value,
-                **{f"param_{name}": float(params[i]) for i, name in enumerate(param_names)}
-            })
+            iteration_history.append(
+                {
+                    "iteration": iteration_count[0],
+                    "objective_value": obj_value,
+                    **{
+                        f"param_{name}": float(params[i])
+                        for i, name in enumerate(param_names)
+                    },
+                }
+            )
 
-            # Print progress every 10 iterations
-            if iteration_count[0] % 10 == 0 or iteration_count[0] == 1:
-                print(f"Iteration {iteration_count[0]}: Objective = {obj_value:.6f}")
+            # Update progress bar
+            if obj_value < best_objective[0]:
+                best_objective[0] = obj_value
+            pbar.set_postfix({"best": f"{best_objective[0]:.6f}"})
+            pbar.update(1)
 
             return obj_value
 
         except Exception as e:
-            print(f"Warning: Evaluation failed at iteration {iteration_count[0]} with error: {e}")
+            print(
+                f"Warning: Evaluation failed at iteration {iteration_count[0]} with error: {e}"
+            )
             return 1e10  # Return large penalty for failed simulations
 
     # Prepare results storage
@@ -512,35 +594,61 @@ def _calibrate_with_scipy(model_setup, algorithm_config, output_dir, basin_id):
     print("Starting optimization...\n")
     constraints = None  # Can be extended in future
 
-    result = minimize(
-        objective_func,
-        initial_params,
-        method=method,
-        bounds=bounds,
-        constraints=constraints,
-        options={"disp": False, "maxiter": max_iterations},  # We handle display ourselves
-    )
+    # Build options dict based on method
+    options = {
+        "disp": False,
+        "maxiter": max_iterations,
+    }
+
+    # Add method-specific tolerance parameters
+    if method in ["SLSQP", "L-BFGS-B", "TNC"]:
+        options["ftol"] = ftol
+    if method in ["L-BFGS-B", "TNC", "CG", "BFGS"]:
+        options["gtol"] = gtol
+
+    try:
+        result = minimize(
+            objective_func,
+            initial_params,
+            method=method,
+            bounds=bounds,
+            constraints=constraints,
+            options=options,
+        )
+    finally:
+        # Always close progress bar
+        pbar.close()
+
+    print(f"\n✅ Scipy optimization completed!\n")
 
     # Save iteration history to CSV
     if iteration_history:
         df_history = pd.DataFrame(iteration_history)
         df_history.to_csv(results_file, index=False)
-        print(f"\nResults saved to: {results_file}")
+        print(f"Results saved to: {results_file}")
 
     # Process results
-    print(f"\n{'='*60}")
+    print(f"\n✅ {'='*60}")
     if result.success:
         best_params = dict(zip(param_names, result.x))
 
-        print(f"Scipy optimization completed successfully for basin: {basin_id}")
-        print(f"Convergence: {result.message}")
-        print(f"Total iterations: {result.nit}")
-        print(f"Function evaluations: {result.nfev}")
-        print(f"Best objective value: {result.fun:.6f}")
-        print(f"Best parameters:")
-        for name, value in best_params.items():
-            print(f"  {name}: {value:.6f}")
-        print(f"{'='*60}\n")
+        print(
+            f"✅ Scipy optimization completed successfully for basin: {basin_id}"
+        )
+        print(f"   📊 Convergence: {result.message}")
+        print(f"   📊 Total iterations: {result.nit}")
+        print(f"   📊 Function evaluations: {result.nfev}")
+        print(f"   📊 Best objective value: {result.fun:.6f}")
+        print(f"   📊 Best parameters (actual ranges):")
+        # Denormalize using the same formula as process_parameters in param_utils.py
+        param_ranges = model_setup.param_range[model_setup.model_name][
+            "param_range"
+        ]
+        for name, norm_value in best_params.items():
+            min_val, max_val = param_ranges[name]
+            denorm_value = min_val + norm_value * (max_val - min_val)
+            print(f"      • {name}: {denorm_value:.6f}")
+        print(f"✅ {'='*60}\n")
 
         return {
             "convergence": "success",
@@ -561,26 +669,42 @@ def _calibrate_with_scipy(model_setup, algorithm_config, output_dir, basin_id):
         print(f"Function evaluations: {result.nfev}")
 
         # Even if failed, return best found parameters if available
-        best_params = dict(zip(param_names, result.x)) if hasattr(result, 'x') else None
-        best_obj = result.fun if hasattr(result, 'fun') else float("inf")
+        best_params = (
+            dict(zip(param_names, result.x)) if hasattr(result, "x") else None
+        )
+        best_obj = result.fun if hasattr(result, "fun") else float("inf")
 
         if best_params:
             print(f"Best objective value found: {best_obj:.6f}")
-            print(f"Best parameters found:")
-            for name, value in best_params.items():
-                print(f"  {name}: {value:.6f}")
+            print(f"Best parameters found (actual ranges):")
+            # Denormalize using the same formula as process_parameters in param_utils.py
+            param_ranges = model_setup.param_range[model_setup.model_name][
+                "param_range"
+            ]
+            for name, norm_value in best_params.items():
+                min_val, max_val = param_ranges[name]
+                denorm_value = min_val + norm_value * (max_val - min_val)
+                print(f"  {name}: {denorm_value:.6f}")
 
         print(f"{'='*60}\n")
 
         return {
             "convergence": "failed",
             "objective_value": best_obj,
-            "best_params": {model_setup.model_name: best_params} if best_params else None,
+            "best_params": (
+                {model_setup.model_name: best_params} if best_params else None
+            ),
             "algorithm_info": {
                 "method": method,
-                "iterations": result.nit if hasattr(result, 'nit') else 0,
-                "function_evaluations": result.nfev if hasattr(result, 'nfev') else 0,
-                "message": result.message if hasattr(result, 'message') else "Unknown error",
+                "iterations": result.nit if hasattr(result, "nit") else 0,
+                "function_evaluations": (
+                    result.nfev if hasattr(result, "nfev") else 0
+                ),
+                "message": (
+                    result.message
+                    if hasattr(result, "message")
+                    else "Unknown error"
+                ),
                 "max_iterations": max_iterations,
             },
         }
@@ -592,45 +716,19 @@ def _calibrate_with_sceua(model_setup, algorithm_config, output_dir, basin_id):
     # Determine basin index from config (fallback to 0)
     basin_ids = model_setup.data_config.get(
         "basin_ids",
-        [f"basin_{i}" for i in range(model_setup.p_and_e.shape[0])],
+        [f"basin_{i}" for i in range(model_setup.p_and_e_full.shape[1])],
     )
     try:
         basin_index = basin_ids.index(str(basin_id))
     except Exception:
         basin_index = 0
 
-    class UnifiedSpotSetup(SpotSetup):
-        def __init__(self, model_setup, basin_index: int):
-            # Do not call super().__init__ to avoid reloading or storing redundant data
-            self.model_setup = model_setup
-            self.basin_index = int(basin_index)
-            # Reuse parameter definitions created by UnifiedModelSetup
-            self.params = model_setup.params
-            self.parameter_names = model_setup.parameter_names
+    # Set basin index to extract single-basin data
+    model_setup.set_basin_index(basin_index)
 
-        def simulation(self, x):
-            # x comes as ParameterSet; convert to numpy array of parameter values
-            try:
-                params_array = np.array([v for v in x])
-            except Exception:
-                params_array = np.array(x)
-            # Run unified simulation over all basins, then slice this basin
-            sim_all = self.model_setup.simulate(
-                params_array
-            )  # [time, basin, 1]
-            return sim_all[:, self.basin_index : self.basin_index + 1, :]
-
-        def evaluation(self):
-            # true_obs stored as seq-first data
-            return self.model_setup.true_obs[
-                :, self.basin_index : self.basin_index + 1, :
-            ]
-
-        def objectivefunction(self, simulation, evaluation, params=None):
-            return self.model_setup.calculate_objective(simulation, evaluation)
-
-    # Initialize setup
-    spot_setup = UnifiedSpotSetup(model_setup, basin_index)
+    print(f"\n🔧 {'='*60}")
+    print(f"🔧 Starting SCE-UA optimization for basin: {basin_id}")
+    print(f"🔧 {'='*60}\n")
 
     # Sampler configuration
     rep = algorithm_config.get("rep", 1000)
@@ -640,6 +738,85 @@ def _calibrate_with_sceua(model_setup, algorithm_config, output_dir, basin_id):
     pcento = algorithm_config.get("pcento", 0.1)
     random_seed = algorithm_config.get("random_seed", 1234)
 
+    print(f"📋 SCE-UA parameters:")
+    print(f"   • rep (max repetitions): {rep}")
+    print(f"   • ngs (# of complexes): {ngs}")
+    print(f"   • kstop (convergence criterion): {kstop}")
+    print(f"   • peps (convergence threshold): {peps}")
+    print(f"   • pcento (percentage change): {pcento}")
+    print(f"   • random_seed: {random_seed}\n")
+
+    class UnifiedSpotSetup(SpotSetup):
+        def __init__(self, model_setup, total_iterations):
+            # Do not call super().__init__ to avoid reloading or storing redundant data
+            self.model_setup = model_setup
+            # Reuse parameter definitions created by UnifiedModelSetup
+            self.params = model_setup.params
+            self.parameter_names = model_setup.parameter_names
+            # Progress tracking
+            self.iteration_count = 0
+            self.total_iterations = total_iterations
+            # Configure tqdm to output to stderr (default) to avoid stdout conflicts
+            # This allows us to suppress SpotPy's stdout without affecting tqdm
+            self.pbar = tqdm(
+                total=total_iterations,
+                desc="SCE-UA Progress",
+                unit="iter",
+                position=0,
+                leave=True,
+                dynamic_ncols=True,
+                # file parameter omitted - defaults to sys.stderr
+            )
+            self.best_objective = float("inf")
+
+        def simulation(self, x):
+            # x comes as ParameterSet; convert to numpy array of parameter values
+            try:
+                params_array = np.array([v for v in x])
+            except Exception:
+                params_array = np.array(x)
+            # Run simulation with single-basin data (already extracted by set_basin_index)
+            return self.model_setup.simulate(params_array)  # [time, 1, 1]
+
+        def evaluation(self):
+            # Return true_obs (already extracted for single basin by set_basin_index)
+            return self.model_setup.true_obs
+
+        def objectivefunction(self, simulation, evaluation, params=None):
+            obj_value = self.model_setup.calculate_objective(
+                simulation, evaluation
+            )
+
+            # Ensure scalar return
+            if isinstance(obj_value, (list, np.ndarray)):
+                obj_value = (
+                    float(obj_value[0])
+                    if len(obj_value) > 0
+                    else float(obj_value)
+                )
+            else:
+                obj_value = float(obj_value)
+
+            # Update progress bar
+            self.iteration_count += 1
+            if self.pbar is not None:
+                # Update best objective if improved
+                if obj_value < self.best_objective:
+                    self.best_objective = obj_value
+                self.pbar.set_postfix({"best": f"{self.best_objective:.6f}"})
+                self.pbar.update(1)
+
+            return obj_value
+
+        def __del__(self):
+            # Close progress bar when done
+            if self.pbar is not None:
+                self.pbar.close()
+
+    # Initialize setup with estimated total iterations
+    # SCE-UA iterations are complex to estimate, use rep as approximation
+    spot_setup = UnifiedSpotSetup(model_setup, rep)
+
     os.makedirs(output_dir, exist_ok=True)
     dbname = os.path.join(output_dir, f"{basin_id}_sceua")
 
@@ -647,8 +824,18 @@ def _calibrate_with_sceua(model_setup, algorithm_config, output_dir, basin_id):
         spot_setup, dbname=dbname, dbformat="csv", random_state=random_seed
     )
 
-    # Run optimization
-    sampler.sample(rep, ngs=ngs, kstop=kstop, peps=peps, pcento=pcento)
+    # Run optimization with suppressed SpotPy output
+    # SpotPy's internal print statements interfere with tqdm's single-line update
+    # Suppress SpotPy's verbose output to prevent interference with tqdm
+    # The progress bar will show all necessary information
+    with redirect_stdout(io.StringIO()):
+        sampler.sample(rep, ngs=ngs, kstop=kstop, peps=peps, pcento=pcento)
+
+    # Close progress bar explicitly
+    if hasattr(spot_setup, "pbar") and spot_setup.pbar is not None:
+        spot_setup.pbar.close()
+
+    print("\n✅ SCE-UA optimization completed!\n")
 
     # Extract results
     results = sampler.getdata()
@@ -686,6 +873,23 @@ def _calibrate_with_sceua(model_setup, algorithm_config, output_dir, basin_id):
         except Exception:
             best_params = {name: np.nan for name in param_names}
 
+    # Print results
+    print(f"\n✅ {'='*60}")
+    print(
+        f"✅ SCE-UA optimization completed successfully for basin: {basin_id}"
+    )
+    print(f"   📊 Best objective value: {best_like:.6f}")
+    print(f"   📊 Best parameters (actual ranges):")
+    # Denormalize using the same formula as process_parameters in param_utils.py
+    param_ranges = model_setup.param_range[model_setup.model_name][
+        "param_range"
+    ]
+    for name, norm_value in best_params.items():
+        min_val, max_val = param_ranges[name]
+        denorm_value = min_val + norm_value * (max_val - min_val)
+        print(f"      • {name}: {denorm_value:.6f}")
+    print(f"✅ {'='*60}\n")
+
     return {
         "convergence": "success",
         "objective_value": best_like,
@@ -707,16 +911,19 @@ def _calibrate_with_ga(model_setup, algorithm_config, output_dir, basin_id):
     # Determine basin index from config
     basin_ids = model_setup.data_config.get(
         "basin_ids",
-        [f"basin_{i}" for i in range(model_setup.p_and_e.shape[1])],
+        [f"basin_{i}" for i in range(model_setup.p_and_e_full.shape[1])],
     )
     try:
         basin_index = basin_ids.index(str(basin_id))
     except Exception:
         basin_index = 0
 
-    print(f"\n{'='*60}")
-    print(f"Starting GA calibration for basin: {basin_id}")
-    print(f"{'='*60}\n")
+    # Set basin index to extract single-basin data
+    model_setup.set_basin_index(basin_index)
+
+    print(f"\n🧬 {'='*60}")
+    print(f"🧬 Starting GA calibration for basin: {basin_id}")
+    print(f"🧬 {'='*60}\n")
 
     # Set up random seeds
     random_seed = algorithm_config.get("random_seed", 1234)
@@ -734,11 +941,12 @@ def _calibrate_with_ga(model_setup, algorithm_config, output_dir, basin_id):
     cx_prob = algorithm_config.get("cx_prob", 0.7)
     mut_prob = algorithm_config.get("mut_prob", 0.2)
 
-    print(f"Population size: {pop_size}")
-    print(f"Generations: {n_generations}")
-    print(f"Crossover probability: {cx_prob}")
-    print(f"Mutation probability: {mut_prob}")
-    print(f"Number of parameters: {n_params}\n")
+    print(f"📋 GA parameters:")
+    print(f"   • Population size: {pop_size}")
+    print(f"   • Generations: {n_generations}")
+    print(f"   • Crossover probability: {cx_prob}")
+    print(f"   • Mutation probability: {mut_prob}")
+    print(f"   • Number of parameters: {n_params}\n")
 
     # Create DEAP types (avoid re-creating if already exists)
     if not hasattr(creator, "FitnessMin"):
@@ -766,17 +974,19 @@ def _calibrate_with_ga(model_setup, algorithm_config, output_dir, basin_id):
         """Evaluate fitness of an individual for the target basin."""
         try:
             params_array = np.array(ind)
-            # Simulate all basins
-            sim_all = model_setup.simulate(params_array)  # [time, basin, 1]
-            # Extract simulation for target basin
-            sim_basin = sim_all[:, basin_index:basin_index + 1, :]
-            # Get observation for target basin
-            obs_basin = model_setup.true_obs[:, basin_index:basin_index + 1, :]
+            # Simulate with single-basin data (already extracted by set_basin_index)
+            sim_basin = model_setup.simulate(params_array)  # [time, 1, 1]
+            # Get observation for target basin (already extracted by set_basin_index)
+            obs_basin = model_setup.true_obs
             # Calculate objective
             obj_value = model_setup.calculate_objective(sim_basin, obs_basin)
             # Ensure scalar return
             if isinstance(obj_value, (list, np.ndarray)):
-                obj_value = float(obj_value[0]) if len(obj_value) > 0 else float(obj_value)
+                obj_value = (
+                    float(obj_value[0])
+                    if len(obj_value) > 0
+                    else float(obj_value)
+                )
             return (float(obj_value),)
         except Exception as e:
             print(f"Warning: Evaluation failed with error: {e}")
@@ -825,7 +1035,9 @@ def _calibrate_with_ga(model_setup, algorithm_config, output_dir, basin_id):
     best_ind = tools.selBest(population, 1)[0]
     gen_stat = {
         "generation": 0,
-        "objective_value": best_ind.fitness.values[0],  # Use same column name as scipy
+        "objective_value": best_ind.fitness.values[
+            0
+        ],  # Use same column name as scipy
         "min_fitness": min(fits),
         "mean_fitness": np.mean(fits),
         "max_fitness": max(fits),
@@ -834,7 +1046,9 @@ def _calibrate_with_ga(model_setup, algorithm_config, output_dir, basin_id):
     for i, name in enumerate(param_names):
         gen_stat[f"param_{name}"] = float(best_ind[i])
     gen_stats.append(gen_stat)
-    print(f"Generation 0: Best = {best_ind.fitness.values[0]:.6f}, Mean = {np.mean(fits):.6f}")
+    print(
+        f"Generation 0: Best = {best_ind.fitness.values[0]:.6f}, Mean = {np.mean(fits):.6f}"
+    )
 
     # Evolution process
     print(f"\nStarting evolution for {n_generations} generations...")
@@ -870,7 +1084,9 @@ def _calibrate_with_ga(model_setup, algorithm_config, output_dir, basin_id):
         best_ind = tools.selBest(population, 1)[0]
         gen_stat = {
             "generation": generation,
-            "objective_value": best_ind.fitness.values[0],  # Use same column name as scipy
+            "objective_value": best_ind.fitness.values[
+                0
+            ],  # Use same column name as scipy
             "min_fitness": min(fits),
             "mean_fitness": np.mean(fits),
             "max_fitness": max(fits),
@@ -882,7 +1098,9 @@ def _calibrate_with_ga(model_setup, algorithm_config, output_dir, basin_id):
 
         # Print progress every 10 generations
         if generation % 10 == 0 or generation == n_generations:
-            print(f"Generation {generation}: Best = {best_ind.fitness.values[0]:.6f}, Mean = {np.mean(fits):.6f}")
+            print(
+                f"Generation {generation}: Best = {best_ind.fitness.values[0]:.6f}, Mean = {np.mean(fits):.6f}"
+            )
 
     # Save generation statistics to CSV
     df_stats = pd.DataFrame(gen_stats)
@@ -893,13 +1111,19 @@ def _calibrate_with_ga(model_setup, algorithm_config, output_dir, basin_id):
     best_ind = tools.selBest(population, 1)[0]
     best_params = dict(zip(param_names, best_ind))
 
-    print(f"\n{'='*60}")
-    print(f"GA Calibration completed for basin: {basin_id}")
-    print(f"Best objective value: {best_ind.fitness.values[0]:.6f}")
-    print(f"Best parameters:")
-    for name, value in best_params.items():
-        print(f"  {name}: {value:.6f}")
-    print(f"{'='*60}\n")
+    print(f"\n✅ {'='*60}")
+    print(f"✅ GA Calibration completed for basin: {basin_id}")
+    print(f"   📊 Best objective value: {best_ind.fitness.values[0]:.6f}")
+    print(f"   📊 Best parameters (actual ranges):")
+    # Denormalize using the same formula as process_parameters in param_utils.py
+    param_ranges = model_setup.param_range[model_setup.model_name][
+        "param_range"
+    ]
+    for name, norm_value in best_params.items():
+        min_val, max_val = param_ranges[name]
+        denorm_value = min_val + norm_value * (max_val - min_val)
+        print(f"      • {name}: {denorm_value:.6f}")
+    print(f"✅ {'='*60}\n")
 
     return {
         "convergence": "success",

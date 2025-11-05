@@ -70,6 +70,7 @@ class UnifiedDataLoader:
             "area",
             "basin_area",
             "drainage_area",
+            "Area",
         ],
         "flood_event": ["flood_event", "event", "flood_indicator"],
     }
@@ -143,11 +144,18 @@ class UnifiedDataLoader:
                     settings = yaml.safe_load(f)
 
                 if settings and "local_data_path" in settings:
-                    datasets_origin = settings["local_data_path"].get("datasets-origin")
-                    basins_origin = settings["local_data_path"].get("basins-origin")
+                    datasets_origin = settings["local_data_path"].get(
+                        "datasets-origin"
+                    )
+                    basins_origin = settings["local_data_path"].get(
+                        "basins-origin"
+                    )
 
                     # Determine path based on data_source_type
-                    if self.data_type in ["selfmadehydrodataset", "floodevent"]:
+                    if self.data_type in [
+                        "selfmadehydrodataset",
+                        "floodevent",
+                    ]:
                         # For custom data, use basins-origin directly
                         if basins_origin:
                             data_path = basins_origin
@@ -158,7 +166,9 @@ class UnifiedDataLoader:
                             data_path = datasets_origin
 
                     if data_path:
-                        print(f"Using data paths in hydro_setting.yml : {data_path}")
+                        print(
+                            f"Using data paths in hydro_setting.yml : {data_path}"
+                        )
         except Exception as e:
             print(f"Warning: unable to load path from hydro_detting.yml: {e}")
 
@@ -187,6 +197,7 @@ class UnifiedDataLoader:
 
         if self.data_type == "camels_us":
             # CAMELS data source
+            # TODO will add more dataset in the future
             if not CAMELS_AVAILABLE:
                 raise ImportError(
                     "Camels not available. Please install hydrodatasource."
@@ -396,11 +407,77 @@ class UnifiedDataLoader:
                 # Convert streamflow to match precipitation unit
                 if hasattr(self.datasource, "read_area"):
                     basin_areas = self.datasource.read_area(self.basin_ids)
-                    flow_dataset = xr_dataset[[flow_var]]
-                    converted_flow_dataset = streamflow_unit_conv(
-                        flow_dataset, basin_areas, target_unit=prcp_unit
+
+                    # Store original dimension order
+                    original_dims = xr_dataset[flow_var].dims
+
+                    # Ensure flow data has correct dimension order [time, basin] for processing
+                    if (
+                        "time" in xr_dataset[flow_var].dims
+                        and "basin" in xr_dataset[flow_var].dims
+                    ):
+                        flow_data_transposed = xr_dataset[flow_var].transpose(
+                            "time", "basin"
+                        )
+                    else:
+                        flow_data_transposed = xr_dataset[flow_var]
+
+                    # Process each basin separately to avoid broadcasting issues with hydroutils
+                    basin_list = xr_dataset.basin.values
+                    num_basins = len(basin_list)
+                    time_values = xr_dataset.time.values
+                    num_times = len(time_values)
+
+                    # Initialize array with shape [time, basin]
+                    converted_flow_values = np.zeros((num_times, num_basins))
+
+                    for i, basin_id in enumerate(basin_list):
+                        # Extract single basin data
+                        flow_single = flow_data_transposed.sel(basin=basin_id)
+
+                        # Create single-basin dataset
+                        flow_dataset_single = xr.Dataset(
+                            {
+                                flow_var: (
+                                    ["time", "basin"],
+                                    flow_single.values.reshape(-1, 1),
+                                )
+                            },
+                            coords={"time": time_values, "basin": [basin_id]},
+                        )
+                        flow_dataset_single[flow_var].attrs = xr_dataset[
+                            flow_var
+                        ].attrs
+
+                        # Get single basin area
+                        single_basin_area = basin_areas.isel(basin=i)
+
+                        # Convert units for this basin
+                        converted_single = streamflow_unit_conv(
+                            flow_dataset_single,
+                            single_basin_area,
+                            target_unit=prcp_unit,
+                        )
+
+                        # Store converted values
+                        converted_flow_values[:, i] = converted_single[
+                            flow_var
+                        ].values.flatten()
+
+                    # Create new DataArray with converted values in [time, basin] order
+                    converted_da = xr.DataArray(
+                        converted_flow_values,
+                        dims=["time", "basin"],
+                        coords={"time": time_values, "basin": basin_list},
                     )
-                    xr_dataset[flow_var] = converted_flow_dataset[flow_var]
+
+                    # Transpose back to original dimension order if needed
+                    if original_dims != ("time", "basin"):
+                        converted_da = converted_da.transpose(*original_dims)
+
+                    # Update dataset
+                    xr_dataset[flow_var] = converted_da
+                    xr_dataset[flow_var].attrs["units"] = prcp_unit
                 else:
                     print(
                         f"Warning: Cannot convert units - datasource doesn't support read_area()"

@@ -101,18 +101,25 @@ class UnifiedEvaluator:
 
         # Get basin configurations
         self.basin_configs = self.data_loader.get_basin_configs()
-        self.basin_ids = [str(bid) for bid in self.data_config.get("basin_ids", [])]
+        self.basin_ids = [
+            str(bid) for bid in self.data_config.get("basin_ids", [])
+        ]
+
+        # Store full data for multi-basin support (already saved in _load_data)
+        self.p_and_e_full = self.p_and_e
 
     def _load_data(self):
         """Load evaluation data using UnifiedDataLoader."""
         self.data_loader = UnifiedDataLoader(self.data_config)
-        self.p_and_e, qobs = self.data_loader.load_data()
+        self.p_and_e, self.qobs_full = self.data_loader.load_data()
 
         # Store observation data
         if self.is_event_data:
-            self.true_obs = qobs  # Keep complete time series for event data
+            self.true_obs = (
+                self.qobs_full
+            )  # Keep complete time series for event data
         else:
-            self.true_obs = qobs[
+            self.true_obs = self.qobs_full[
                 self.warmup_length :, :, :
             ]  # Remove warmup period
 
@@ -180,9 +187,7 @@ class UnifiedEvaluator:
         }
 
         # Get basin config
-        basin_config = self.basin_configs.get(
-            basin_id, {"basin_area": 1000.0}
-        )
+        basin_config = self.basin_configs.get(basin_id, {"basin_area": 1000.0})
 
         # Create simulator
         simulator = UnifiedSimulator(base_model_config, basin_config)
@@ -230,7 +235,9 @@ class UnifiedEvaluator:
             "qobs": qobs_basin,
         }
 
-    def evaluate_all(self, save_results: bool = True, eval_output_dir: Optional[str] = None) -> Dict[str, Any]:
+    def evaluate_all(
+        self, save_results: bool = True, eval_output_dir: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Evaluate model for all basins.
 
@@ -250,7 +257,14 @@ class UnifiedEvaluator:
         all_qsim = []
         all_qobs = []
 
-        for basin_id in self.basin_ids:
+        total_basins = len(self.basin_ids)
+        print(f"\n📊 {'='*60}")
+        print(f"📊 Starting evaluation for {total_basins} basin(s)")
+        print(f"📊 {'='*60}\n")
+
+        for i, basin_id in enumerate(self.basin_ids):
+            print(f"▶️  Basin {i+1}/{total_basins}: {basin_id}")
+
             basin_result = self.evaluate_basin(basin_id)
             results[basin_id] = {
                 "metrics": basin_result["metrics"],
@@ -259,19 +273,35 @@ class UnifiedEvaluator:
             all_qsim.append(basin_result["qsim"])
             all_qobs.append(basin_result["qobs"])
 
+            # Print key metrics
+            metrics = basin_result["metrics"]
+            nse = metrics.get("NSE", [np.nan])[0]
+            print(f"  NSE: {nse:.4f}")
+            print(f"✅ Basin {i+1}/{total_basins} completed: {basin_id}\n")
+
         # Stack results
         all_qsim = np.concatenate(all_qsim, axis=1)
         all_qobs = np.concatenate(all_qobs, axis=1)
 
         # Save results if requested
         if save_results:
+            print(f"💾 Saving evaluation results...")
             output_dir = eval_output_dir or self.param_dir
             self._save_all_results(output_dir, results, all_qsim, all_qobs)
+
+        print(f"\n🎉 {'='*60}")
+        print(f"🎉 Evaluation completed successfully!")
+        print(f"🎉 Total basins evaluated: {total_basins}")
+        print(f"🎉 {'='*60}\n")
 
         return results
 
     def _save_all_results(
-        self, output_dir: str, results: Dict, all_qsim: np.ndarray, all_qobs: np.ndarray
+        self,
+        output_dir: str,
+        results: Dict,
+        all_qsim: np.ndarray,
+        all_qobs: np.ndarray,
     ):
         """Save all evaluation results."""
         _save_evaluation_results(
@@ -416,10 +446,14 @@ def _load_basin_parameters(
                     and model_name in basin_result["best_params"]
                 ):
                     params_dict = basin_result["best_params"][model_name]
-                    print(f"Loaded parameters for basin {basin_id} from calibration_results.json")
+                    print(
+                        f"Loaded parameters for basin {basin_id} from calibration_results.json"
+                    )
                     return OrderedDict(params_dict)
         except Exception as e:
-            print(f"Warning: Failed to load from calibration_results.json: {e}")
+            print(
+                f"Warning: Failed to load from calibration_results.json: {e}"
+            )
 
     # 1. Try loading from GA results
     ga_file = os.path.join(param_dir, f"{basin_id}_ga.csv")
@@ -432,14 +466,18 @@ def _load_basin_parameters(
                 params = OrderedDict()
 
                 # Extract parameters from param_{name} columns
-                param_cols = [col for col in df.columns if col.startswith("param_")]
+                param_cols = [
+                    col for col in df.columns if col.startswith("param_")
+                ]
                 if param_cols and parameter_names is not None:
                     for name in parameter_names:
                         col = f"param_{name}"
                         if col in df.columns:
                             params[name] = float(best_run[col])
                     if len(params) == len(parameter_names):
-                        print(f"Loaded parameters for basin {basin_id} from GA results")
+                        print(
+                            f"Loaded parameters for basin {basin_id} from GA results"
+                        )
                         return params
         except Exception as e:
             print(f"Warning: Failed to load from GA results: {e}")
@@ -455,14 +493,18 @@ def _load_basin_parameters(
                 params = OrderedDict()
 
                 # Extract parameters from param_{name} columns
-                param_cols = [col for col in df.columns if col.startswith("param_")]
+                param_cols = [
+                    col for col in df.columns if col.startswith("param_")
+                ]
                 if param_cols and parameter_names is not None:
                     for name in parameter_names:
                         col = f"param_{name}"
                         if col in df.columns:
                             params[name] = float(best_run[col])
                     if len(params) == len(parameter_names):
-                        print(f"Loaded parameters for basin {basin_id} from scipy results")
+                        print(
+                            f"Loaded parameters for basin {basin_id} from scipy results"
+                        )
                         return params
         except Exception as e:
             print(f"Warning: Failed to load from scipy results: {e}")
@@ -489,7 +531,9 @@ def _load_basin_parameters(
                             if col in df.columns:
                                 params[name] = float(best_run[col])
                     if len(params) == len(parameter_names):
-                        print(f"Loaded parameters for basin {basin_id} from SCE-UA results")
+                        print(
+                            f"Loaded parameters for basin {basin_id} from SCE-UA results"
+                        )
                         return params
                 else:
                     # Try to infer parameters from columns
@@ -500,9 +544,13 @@ def _load_basin_parameters(
                     if parx_cols:
                         parx_cols = sorted(parx_cols, key=lambda x: int(x[4:]))
                         for col in parx_cols:
-                            param_name = col  # Use column name as parameter name
+                            param_name = (
+                                col  # Use column name as parameter name
+                            )
                             params[param_name] = float(best_run[col])
-                        print(f"Loaded parameters for basin {basin_id} from SCE-UA results")
+                        print(
+                            f"Loaded parameters for basin {basin_id} from SCE-UA results"
+                        )
                         return params
                     # Look for par{name} columns
                     par_cols = [
@@ -514,7 +562,9 @@ def _load_basin_parameters(
                         for col in par_cols:
                             param_name = col[3:]  # Remove "par" prefix
                             params[param_name] = float(best_run[col])
-                        print(f"Loaded parameters for basin {basin_id} from SCE-UA results")
+                        print(
+                            f"Loaded parameters for basin {basin_id} from SCE-UA results"
+                        )
                         return params
         except Exception as e:
             print(f"Warning: Failed to load from SCE-UA results: {e}")
@@ -534,7 +584,9 @@ def _load_basin_parameters(
                 params = OrderedDict(
                     (f"param_{i}", val) for i, val in enumerate(params_array)
                 )
-            print(f"Loaded parameters for basin {basin_id} from calibrate_params.txt")
+            print(
+                f"Loaded parameters for basin {basin_id} from calibrate_params.txt"
+            )
             return params
         except Exception as e:
             print(f"Warning: Failed to load from calibrate_params.txt: {e}")
@@ -606,25 +658,59 @@ def _save_evaluation_results(
         )
         basin_area = get_basin_area(basins, data_type, data_dir)
 
-        # Convert to m³/s
+        # Convert to m³/s - process each basin separately to avoid broadcasting issues
         target_unit = "m^3/s"
-        ds_qsim = streamflow_unit_conv(
-            ds[["qsim"]], basin_area, target_unit=target_unit, inverse=True
-        )
-        ds_qobs = streamflow_unit_conv(
-            ds[["qobs"]], basin_area, target_unit=target_unit, inverse=True
-        )
 
-        # Update dataset
-        ds["qsim"] = ds_qsim["qsim"]
-        ds["qobs"] = ds_qobs["qobs"]
+        # Initialize arrays to store converted results
+        qsim_converted = np.zeros_like(qsim)
+        qobs_converted = np.zeros_like(qobs)
+
+        # Process each basin separately
+        for i, basin_id in enumerate(basins):
+            # Extract single basin data
+            ds_single_basin = xr.Dataset(
+                {
+                    "qsim": (["time"], qsim[:, i]),
+                    "qobs": (["time"], qobs[:, i]),
+                },
+                coords={"time": times, "basin": [basin_id]},
+            )
+            ds_single_basin["qsim"].attrs["units"] = "mm/day"
+            ds_single_basin["qobs"].attrs["units"] = "mm/day"
+
+            # Get single basin area
+            single_basin_area = basin_area.isel(basin=i)
+
+            # Convert units for this basin
+            ds_qsim_single = streamflow_unit_conv(
+                ds_single_basin[["qsim"]],
+                single_basin_area,
+                target_unit=target_unit,
+                inverse=True,
+            )
+            ds_qobs_single = streamflow_unit_conv(
+                ds_single_basin[["qobs"]],
+                single_basin_area,
+                target_unit=target_unit,
+                inverse=True,
+            )
+
+            # Store converted values
+            qsim_converted[:, i] = ds_qsim_single["qsim"].values
+            qobs_converted[:, i] = ds_qobs_single["qobs"].values
+
+        # Update dataset with converted values
+        ds["qsim"].values = qsim_converted
+        ds["qsim"].attrs["units"] = target_unit
+        ds["qobs"].values = qobs_converted
+        ds["qobs"].attrs["units"] = target_unit
 
     # Save to NetCDF
     output_file = os.path.join(
         output_dir, f"{model_name}_evaluation_results.nc"
     )
     ds.to_netcdf(output_file)
-    print(f"Evaluation results saved to: {output_file}")
+    print(f"   💾 Evaluation results (NetCDF): {output_file}")
 
 
 def _save_metrics_summary(
@@ -654,11 +740,12 @@ def _save_metrics_summary(
     metrics_file = os.path.join(output_dir, "basins_metrics.csv")
     metrics_df.to_csv(metrics_file, sep=",", index=True, header=True)
 
-    print("\n" + "=" * 80)
-    print("EVALUATION METRICS SUMMARY")
-    print("=" * 80)
-    print(f"Metrics saved to: {metrics_file}")
-    print("\nMetrics for each basin:")
+    print(f"   💾 Metrics summary (CSV): {metrics_file}")
+
+    print("\n📊 " + "=" * 77)
+    print("📊 EVALUATION METRICS SUMMARY")
+    print("📊 " + "=" * 77)
+    print(f"\n📈 Metrics for each basin:")
     print("-" * 80)
 
     # Print with better formatting
@@ -670,7 +757,7 @@ def _save_metrics_summary(
     # Also print summary statistics
     if len(basin_ids) > 1:
         print("\n" + "-" * 80)
-        print("Summary Statistics Across All Basins:")
+        print("📊 Summary Statistics Across All Basins:")
         print("-" * 80)
         print(metrics_df.describe().loc[["mean", "std", "min", "max"]])
 
@@ -727,7 +814,7 @@ def _save_parameters_summary(
     )
     norm_file = os.path.join(output_dir, "basins_norm_params.csv")
     norm_params_df.to_csv(norm_file, sep=",", index=True, header=True)
-    print(f"Parameters summary saved to: {norm_file}")
+    print(f"   💾 Parameters summary (normalized): {norm_file}")
 
     # Save denormalized parameters if available
     if has_denorm and denorm_params_list:
@@ -736,7 +823,7 @@ def _save_parameters_summary(
         )
         denorm_file = os.path.join(output_dir, "basins_denorm_params.csv")
         denorm_params_df.to_csv(denorm_file, sep=",", index=True, header=True)
-        print(f"Denormalized parameters saved to: {denorm_file}")
+        print(f"   💾 Parameters summary (denormalized): {denorm_file}")
 
         print("-" * 50)
         print("Normalized Parameters:")

@@ -19,6 +19,7 @@
   - **SCE-UA**: 混洗复形演化算法（稳健，推荐）
   - **GA**: 遗传算法（基于 DEAP，灵活可定制）
   - **scipy**: L-BFGS-B、SLSQP 等梯度优化方法（快速）
+- **多流域支持**: 高效处理多个流域的同步率定和评估
 - **统一结果格式**: 所有算法均保存为标准化的 JSON + CSV 格式
 - **全面的评估指标**: NSE、KGE、RMSE、PBIAS 等
 - **统一的 API**: 率定、评估和模拟的一致接口
@@ -59,13 +60,21 @@ pip install hydromodel hydrodataset
 uv pip install hydromodel hydrodataset
 ```
 
-### 开发者
+### 开发设置
 
-```bash
-git clone https://github.com/OuyangWenyu/hydromodel.git
-cd hydromodel
-uv sync --all-extras
-```
+对于开发者，推荐使用 `uv` 管理环境，因为本项目有本地依赖（例如 `hydroutils`、`hydrodataset`、`hydrodatasource`）。
+
+1. **克隆仓库：**
+   ```bash
+   git clone https://github.com/OuyangWenyu/hydromodel.git
+   cd hydromodel
+   ```
+
+2. **使用 `uv` 同步环境：**
+   此命令将安装所有依赖，包括本地可编辑的包。
+   ```bash
+   uv sync --all-extras
+   ```
 
 ### 配置
 

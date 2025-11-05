@@ -69,7 +69,9 @@ def load_simplified_config(
         },
         "training_cfgs": {
             "algorithm_name": training_cfg["algorithm"],
-            "algorithm_params": training_cfg.get(training_cfg["algorithm"], {}),
+            "algorithm_params": training_cfg.get(
+                training_cfg["algorithm"], {}
+            ),
             "loss_config": {
                 "type": "time_series",
                 "obj_func": training_cfg["loss"],
@@ -77,7 +79,9 @@ def load_simplified_config(
             "output_dir": data_cfg.get("output_dir", "results"),
             "experiment_name": f"{model_cfg['name']}_{training_cfg['algorithm']}",
             "random_seed": 1234,
-            "save_config": training_cfg.get("save_config", True),  # Default to True
+            "save_config": training_cfg.get(
+                "save_config", True
+            ),  # Default to True
         },
         "evaluation_cfgs": {
             "metrics": eval_cfg["metrics"],
@@ -172,7 +176,7 @@ def parse_arguments():
 def main():
     """主执行函数 - 简化版"""
     args = parse_arguments()
-    
+
     try:
         # 只支持两种方式：配置文件 或 解析器默认值
         if args.config:

@@ -3,12 +3,12 @@
 
 data:
   # Data source configuration
-  dataset: "camels_us"              # Dataset type: camels_us, camels_aus, selfmadehydrodataset, etc.
+  dataset: "camels_us"              # Dataset type: camels_us, selfmadehydrodataset, etc.
   path: null                        # Data path (null = auto-detect from hydro_setting.yml or use ~/hydromodel_data/)
                                     # If specified, provide the datasets-origin directory only
                                     # Example: "D:/project/data" (NOT "D:/project/data/CAMELS_US")
                                     # aqua_fetch will automatically append "CAMELS_US" directory name
-  basin_ids: ["01013500"]           # List of basin IDs to calibrate
+  basin_ids: ["01013500","01022500","11532500"]           # List of basin IDs to calibrate
   warmup_length: 365                # Warmup period in days
   variables: ["precipitation", "potential_evapotranspiration", "streamflow"]  # Input variables
 
@@ -45,8 +45,8 @@ training:
 
   # Genetic Algorithm (GA) parameters
   GA:
-    pop_size: 80                    # Population size (default: 80)
-    n_generations: 40               # Number of generations (default: 50, recommended: 100+ for production)
+    pop_size: 40                    # Population size (default: 80)
+    n_generations: 20               # Number of generations (default: 50, recommended: 100+ for production)
     cx_prob: 0.7                    # Crossover probability (default: 0.7)
     mut_prob: 0.2                   # Mutation probability (default: 0.2)
     random_seed: 1234               # Random seed for reproducibility (default: 1234)

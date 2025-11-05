@@ -1,6 +1,37 @@
 # Changelog
 
-## v0.3.1 - 2025-11-04
+## v0.3.0 - 2025-11-05
+
+**Multi-Basin Support**:
+
+- **Fixed Multi-Basin Unit Conversion**:
+  - Fixed broadcasting error in `streamflow_unit_conv` for multi-basin data
+  - Modified `UnifiedDataLoader._check_and_convert_units()` to process basins individually
+  - Modified `_save_evaluation_results()` to convert units basin-by-basin
+  - Now properly handles dimension order (`["basin", "time"]` or `["time", "basin"]`)
+  - Successfully tested calibration and evaluation on CAMELS-US multi-basin datasets
+
+**Calibration Improvements**:
+
+- **Parameter Display Enhancement**:
+  - All three algorithms (SCE-UA, GA, scipy) now display denormalized parameters (actual physical ranges)
+  - Changed console output from normalized values (0-1) to actual parameter ranges
+  - Uses the same denormalization formula as `process_parameters()` in `param_utils.py`
+  - Format: "Best parameters (actual ranges)" with physical values
+
+**Files Changed**:
+
+- `hydromodel/trainers/unified_calibrate.py`: Parameter display for all three algorithms
+- `hydromodel/datasets/unified_data_loader.py`: Multi-basin unit conversion
+- `hydromodel/trainers/unified_evaluate.py`: Multi-basin evaluation results saving
+
+**Testing**:
+
+- Verified multi-basin calibration on CAMELS-US dataset
+- Verified multi-basin evaluation on CAMELS-US dataset
+- All three calibration algorithms tested with multi-basin data
+
+## v0.3.0 - 2025-11-04
 
 **Major Improvements**:
 

@@ -19,6 +19,7 @@
   - **SCE-UA**: Shuffled Complex Evolution (robust, recommended)
   - **GA**: Genetic Algorithm with DEAP (flexible, customizable)
   - **scipy**: L-BFGS-B, SLSQP, and other gradient-based methods (fast)
+- **Multi-Basin Support**: Efficient calibration and evaluation for multiple basins simultaneously
 - **Unified Results Format**: All algorithms save results in standardized JSON + CSV format
 - **Comprehensive Evaluation Metrics**: NSE, KGE, RMSE, PBIAS, and more
 - **Unified API**: Consistent interfaces for calibration, evaluation, and simulation
@@ -59,13 +60,21 @@ Or using `uv` (faster):
 uv pip install hydromodel hydrodataset
 ```
 
-### For Developers
+### Development Setup
 
-```bash
-git clone https://github.com/OuyangWenyu/hydromodel.git
-cd hydromodel
-uv sync --all-extras
-```
+For developers, it is recommended to use `uv` to manage the environment, as this project has local dependencies (e.g., `hydroutils`, `hydrodataset`, `hydrodatasource`).
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/OuyangWenyu/hydromodel.git
+   cd hydromodel
+   ```
+
+2. **Sync the environment with `uv`:**
+   This command will install all dependencies, including the local editable packages.
+   ```bash
+   uv sync --all-extras
+   ```
 
 ### Configuration
 

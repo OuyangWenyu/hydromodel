@@ -114,8 +114,9 @@ def main():
     args = parse_arguments()
 
     try:
-        # Load calibration configuration
-        print(f"Loading configuration from: {args.calibration_dir}")
+        print(f"\n {'='*60}")
+        print(f" Loading configuration from: {args.calibration_dir}")
+        print(f" {'='*60}\n")
         config = load_config_from_calibration(args.calibration_dir)
 
         # Determine evaluation period
@@ -127,27 +128,33 @@ def main():
             period_name = "test"
         elif args.eval_period == "custom":
             if args.custom_period is None:
-                print("Error: --custom-period required when --eval-period is 'custom'")
+                print(
+                    "❌ Error: --custom-period required when --eval-period is 'custom'"
+                )
                 return 1
             eval_period = list(args.custom_period)
-            period_name = f"custom_{args.custom_period[0]}_{args.custom_period[1]}"
+            period_name = (
+                f"custom_{args.custom_period[0]}_{args.custom_period[1]}"
+            )
         else:
-            print(f"Error: Invalid eval-period: {args.eval_period}")
+            print(f"❌ Error: Invalid eval-period: {args.eval_period}")
             return 1
 
-        print(f"Evaluating period: {eval_period}")
+        print(f" Evaluation period ({args.eval_period}): {eval_period}")
 
         # Determine output directory
         if args.output_dir:
             output_dir = args.output_dir
         else:
-            output_dir = os.path.join(args.calibration_dir, f"evaluation_{period_name}")
+            output_dir = os.path.join(
+                args.calibration_dir, f"evaluation_{period_name}"
+            )
 
         # Determine parameter directory
         param_dir = args.param_dir if args.param_dir else args.calibration_dir
 
         # Create evaluation configuration
-        print(f"Results will be saved to: {output_dir}")
+        print(f" Results will be saved to: {output_dir}")
         os.makedirs(output_dir, exist_ok=True)
 
         # Run evaluation
@@ -159,16 +166,15 @@ def main():
         )
 
         # Save evaluation summary
-        print("\n" + "=" * 80)
-        print("Evaluation Summary")
-        print("=" * 80)
-        print(f"Calibration directory: {args.calibration_dir}")
-        print(f"Evaluation period: {eval_period}")
-        print(f"Output directory: {output_dir}")
-        print(f"Number of basins: {len(results)}")
-        print("\nBasin IDs:")
+        print("\n📋 " + "=" * 77)
+        print(" EVALUATION SUMMARY")
+        print(f"   Calibration directory: {args.calibration_dir}")
+        print(f"   Evaluation period: {eval_period}")
+        print(f"   Output directory: {output_dir}")
+        print(f"   Number of basins: {len(results)}")
+        print(f"\n   Basin IDs:")
         for basin_id in results.keys():
-            print(f"  - {basin_id}")
+            print(f"      • {basin_id}")
         print("=" * 80)
 
         # Save evaluation info
@@ -185,19 +191,19 @@ def main():
         with open(eval_info_file, "w", encoding="utf-8") as f:
             yaml.dump(eval_info, f, allow_unicode=True)
 
-        print(f"\nEvaluation info saved to: {eval_info_file}")
-        print("\nXAJ evaluation completed!")
+        print(f"\n💾 Evaluation info saved to: {eval_info_file}")
+        print(f"\n✅ Evaluation completed successfully! ✅\n")
         return 0
 
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        print(f"\n❌ Error: {e}")
         return 1
     except KeyError as e:
-        print(f"Error: Missing configuration key: {e}")
+        print(f"\n❌ Error: Missing configuration key: {e}")
         print("Please check that the calibration configuration is complete.")
         return 1
     except Exception as e:
-        print(f"Error during evaluation: {e}")
+        print(f"\n❌ Error during evaluation: {e}")
         import traceback
 
         traceback.print_exc()

@@ -41,6 +41,9 @@ dependencies = [
     "numpy>=2.2.6",
     "netcdf4",
     "aqua-fetch[all]",
+    "hydroutils>=0.1.0",
+    "hydrodataset>=0.2.0",
+    "hydrodatasource",
 ]
 
 [project.optional-dependencies]
@@ -148,7 +151,8 @@ replace = "__version__ = '{new_version}'"
 [tool.uv]
 # Override aqua-fetch's outdated dependency constraints
 override-dependencies = [
-    "pandas>=2.2.0",
+    "pandas>=2.2.0",           # Override aqua-fetch's pandas==2.1.4
+    "xarray>=2023.0,<2024.11", # Override aqua-fetch's xarray==2024.7.0, restrict to <2024.11
 ]
 
 [tool.uv.sources]

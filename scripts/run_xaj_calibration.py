@@ -23,76 +23,8 @@ from hydromodel.trainers.unified_calibrate import calibrate  # noqa: E402
 from hydromodel.configs.config_manager import (  # noqa: E402
     setup_configuration_from_args,
     validate_and_show_config,
+    load_simplified_config,
 )
-
-
-def load_simplified_config(
-    config_path: str = None, simple_config: dict = None
-) -> dict:
-    """加载简化的配置文件并转换为统一格式"""
-    import yaml
-
-    if config_path:
-        with open(config_path, "r", encoding="utf-8") as f:
-            simple_config = yaml.safe_load(f)
-    elif simple_config is None:
-        raise ValueError("必须提供config_path或simple_config参数")
-
-    # 验证简化配置的完整性
-    required_sections = ["data", "model", "training", "evaluation"]
-    for section in required_sections:
-        if section not in simple_config:
-            raise ValueError(f"配置缺少必需部分: {section}")
-
-    data_cfg = simple_config["data"]
-    model_cfg = simple_config["model"]
-    training_cfg = simple_config["training"]
-    eval_cfg = simple_config["evaluation"]
-
-    # 转换为统一配置格式
-    unified_config = {
-        "data_cfgs": {
-            "data_source_type": data_cfg["dataset"],
-            "data_source_path": data_cfg["path"],
-            "dataset_name": data_cfg["dataset"],
-            "basin_ids": data_cfg["basin_ids"],
-            "variables": data_cfg.get(
-                "variables", ["prcp", "PET", "streamflow"]
-            ),
-            "train_period": data_cfg["train_period"],
-            "test_period": data_cfg["test_period"],
-            "warmup_length": data_cfg.get("warmup_length", 360),
-        },
-        "model_cfgs": {
-            "model_name": model_cfg["name"],
-            **model_cfg.get("params", {}),
-        },
-        "training_cfgs": {
-            "algorithm_name": training_cfg["algorithm"],
-            "algorithm_params": training_cfg.get(
-                training_cfg["algorithm"], {}
-            ),
-            "loss_config": {
-                "type": "time_series",
-                "obj_func": training_cfg["loss"],
-            },
-            "output_dir": data_cfg.get("output_dir", "results"),
-            "experiment_name": f"{model_cfg['name']}_{training_cfg['algorithm']}",
-            "random_seed": 1234,
-            "save_config": training_cfg.get(
-                "save_config", True
-            ),  # Default to True
-        },
-        "evaluation_cfgs": {
-            "metrics": eval_cfg["metrics"],
-        },
-    }
-
-    # 添加验证期（如果有）
-    if "valid_period" in data_cfg:
-        unified_config["data_cfgs"]["valid_period"] = data_cfg["valid_period"]
-
-    return unified_config
 
 
 def parse_arguments():
@@ -176,7 +108,7 @@ def parse_arguments():
 def main():
     """主执行函数 - 简化版"""
     args = parse_arguments()
-
+    
     try:
         # 只支持两种方式：配置文件 或 解析器默认值
         if args.config:

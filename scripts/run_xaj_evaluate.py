@@ -19,33 +19,9 @@ repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 
 from hydromodel.trainers.unified_evaluate import evaluate  # noqa: E402
-
-
-def load_config_from_calibration(calibration_dir: str) -> dict:
-    """
-    Load configuration from calibration directory.
-
-    Parameters
-    ----------
-    calibration_dir : str
-        Directory where calibration results are stored
-
-    Returns
-    -------
-    dict
-        Configuration dictionary
-    """
-    config_file = os.path.join(calibration_dir, "calibration_config.yaml")
-    if not os.path.exists(config_file):
-        raise FileNotFoundError(
-            f"Configuration file not found: {config_file}\n"
-            "Please make sure you are using the correct calibration directory."
-        )
-
-    with open(config_file, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-
-    return config
+from hydromodel.configs.config_manager import (  # noqa: E402
+    load_config_from_calibration,
+)
 
 
 def parse_arguments():

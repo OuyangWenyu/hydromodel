@@ -159,21 +159,31 @@ my_basin_data/
 - `{basin_id}.csv`: 时间序列，包含 `time` 列 + 变量（`prcp`、`PET`、`streamflow`）
 - `{time_scale}_units_info.json`: 每个变量的单位（例如 `{"prcp": "mm/day"}`）
 
-**在 hydromodel 中使用：**
-```python
-config = {
-    "data_cfgs": {
-        "data_source_type": "selfmadehydrodataset",  # 自定义数据使用此项
-        "data_source_path": "D:/my_basin_data",      # 数据路径
-        "basin_ids": ["basin_001"],
-        ...
-    }
-}
+**自定义数据集配置：**
+
+查看 `configs/example_config_selfmade.yaml` 获取完整示例。自定义数据集需要额外的参数：
+
+```yaml
+data:
+  dataset: "selfmadehydrodataset"    # 或使用 "floodevent" 用于洪水事件数据
+  dataset_name: "my_basin_data"      # 你的数据集文件夹名称（必需）
+  time_unit: ["1D"]                  # 时间分辨率（例如 ["1h"]、["3h"]、["1D"]）
+  datasource_kwargs:                 # 可选的额外参数
+    version: "v1.0"                  # 数据集版本
+    offset_to_utc: false             # 是否将本地时间转换为 UTC
+    trange4cache: null               # 缓存的时间范围
+  # ... 其他标准参数（basin_ids、variables、periods 等）
 ```
+
+**与 CAMELS 数据集的关键区别：**
+- `dataset_name`: 指定自定义数据集文件夹名称（必需）
+- `time_unit`: 必须与 `timeseries/` 文件夹中的子目录名称匹配
+- `datasource_kwargs`: 数据预处理的可选参数
 
 详细格式规范和示例，请参见：
 - [数据准备指南](docs/data_guide.md) - CAMELS 和自定义数据的完整指南
 - [hydrodatasource 文档](https://github.com/OuyangWenyu/hydrodatasource) - 源包
+- `configs/example_config_selfmade.yaml` - 自定义数据集的完整配置示例
 
 ### 2. 快速开始：率定、评估、模拟和可视化
 

@@ -159,21 +159,31 @@ my_basin_data/
 - `{basin_id}.csv`: Time series with `time` column + variables (`prcp`, `PET`, `streamflow`)
 - `{time_scale}_units_info.json`: Units for each variable (e.g., `{"prcp": "mm/day"}`)
 
-**Usage in hydromodel:**
-```python
-config = {
-    "data_cfgs": {
-        "data_source_type": "selfmadehydrodataset",  # Use this for custom data
-        "data_source_path": "D:/my_basin_data",      # Path to your data
-        "basin_ids": ["basin_001"],
-        ...
-    }
-}
+**Configuration for custom datasets:**
+
+See `configs/example_config_selfmade.yaml` for a complete example. Custom datasets require additional parameters:
+
+```yaml
+data:
+  dataset: "selfmadehydrodataset"    # or "floodevent" for flood event data
+  dataset_name: "my_basin_data"      # Your dataset folder name (REQUIRED)
+  time_unit: ["1D"]                  # Time resolution (e.g., ["1h"], ["3h"], ["1D"])
+  datasource_kwargs:                 # Optional additional parameters
+    version: "v1.0"                  # Dataset version
+    offset_to_utc: false             # Whether to convert local time to UTC
+    trange4cache: null               # Time range for caching
+  # ... other standard parameters (basin_ids, variables, periods, etc.)
 ```
+
+**Key differences from CAMELS datasets:**
+- `dataset_name`: Specifies your custom dataset folder name (required)
+- `time_unit`: Must match the subdirectory names in `timeseries/` folder
+- `datasource_kwargs`: Optional parameters for data preprocessing
 
 For detailed format specifications and examples, see:
 - [Data Guide](docs/data_guide.md) - Complete guide for both CAMELS and custom data
 - [hydrodatasource documentation](https://github.com/OuyangWenyu/hydrodatasource) - Source package
+- `configs/example_config_selfmade.yaml` - Complete configuration example for custom datasets
 
 ### 2. Quick Start: Calibration, Evaluation, Simulation, and Visualization
 

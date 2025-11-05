@@ -1,0 +1,198 @@
+# Example Configuration for XAJ Model with Self-Made Dataset
+# This configuration demonstrates how to use custom datasets with SelfMadeHydroDataset
+
+data:
+  # Data source configuration for custom datasets
+  dataset: "floodevent"   # Or "floodevent" for flood event data
+  path: null                        # Data path (null = auto-detect from hydro_setting.yml or use ~/hydromodel_data/basins-origin/)
+                                    # If specified, provide the parent directory that contains your dataset folder
+                                    # Example: "D:/my_data" (if your data is in D:/my_data/my_basin_data/)
+
+  # Custom dataset configuration
+  dataset_name: "songliaorrevent"     # Your dataset folder name (REQUIRED for selfmadehydrodataset)
+                                    # This folder should be located in:
+                                    #   - {path}/{dataset_name}/ if path is specified
+                                    #   - ~/hydromodel_data/basins-interim/{dataset_name}/ if path is null
+
+  time_unit: ["1D"]                 # Time resolution: ["1h"], ["3h"], ["1D"], ["8D"], or multiple like ["1D", "3h"]
+                                    # Must match the subdirectory names in timeseries/ folder
+
+  # Additional dataset parameters (optional)
+  datasource_kwargs:
+    version: null                 # Dataset version (optional)
+    offset_to_utc: true            # Whether to convert time to UTC (optional, default: false)
+                                    # Set to true if your data uses local time (e.g., Beijing Time 8:00 begin)
+    trange4cache: null              # Time range for caching (optional, format: ["YYYY-MM-DD", "YYYY-MM-DD"])
+
+  # Basin and variable configuration
+  basin_ids: ["songliao_21401550"]  # List of basin_IDs (must match CSV filenames in timeseries/)
+  warmup_length: 365                # Warmup period in days
+  variables: ["rain", "ES", "inflow"]
+  # variables: ["precipitation", "potential_evapotranspiration", "streamflow"]
+                                    # Variable names (must match column names in timeseries CSV files)
+
+  # Time periods
+  train_period: ["2000-01-01", "2020-12-31"]   # Training period
+  valid_period: ["2011-01-01", "2015-12-31"]   # Validation period
+  test_period: ["2020-01-01", "2023-12-31"]    # Testing period
+
+  # Output configuration
+  output_dir: "results"             # Output directory for results
+
+model:
+  # Model configuration (same as standard config)
+  name: "xaj"                       # Model type: xaj, xaj_mz
+  params:
+    source_type: "sources"
+    source_book: "HF"
+    kernel_size: 15
+
+training:
+  # Training configuration (same as standard config)
+  algorithm: "SCE_UA"               # Calibration algorithm: SCE_UA, GA, or scipy
+
+  # SCE-UA parameters
+  SCE_UA:
+    rep: 500
+    ngs: 1000
+    kstop: 500
+    peps: 0.1
+    pcento: 0.1
+    random_seed: 1234
+
+  loss: "RMSE"                      # Loss function: RMSE, NSE, KGE
+  save_config: true
+
+evaluation:
+  # Evaluation configuration (same as standard config)
+  metrics: ["NSE", "RMSE", "KGE", "PBIAS"]
+  save_results: true
+  plot_results: true
+
+
+# ==============================================================================
+# CUSTOM DATASET DIRECTORY STRUCTURE
+# ==============================================================================
+#
+# Your custom dataset should be organized as follows:
+#
+# {path}/{dataset_name}/              # e.g., ~/hydromodel_data/basins-origin/my_basin_data/
+#     ├── attributes/
+#     │   └── attributes.csv          # Basin attributes (REQUIRED)
+#     │                               # Must have columns: basin_id, area (km²), and other attributes
+#     │
+#     ├── shapes/                     # (Optional) Basin boundary shapefiles
+#     │   └── basins.shp
+#     │
+#     └── timeseries/
+#         ├── 1D/                     # Time resolution folder (name must match time_unit above)
+#         │   ├── basin_01.csv        # Each basin has its own CSV file
+#         │   ├── basin_02.csv        # Filename must be: {basin_id}.csv
+#         │   ├── basin_03.csv
+#         │   └── ...
+#         │
+#         └── 1D_units_info.json      # Units information (REQUIRED)
+#                                     # Format: {"variable_name": "unit"}
+#                                     # Example: {"precipitation": "mm/d", "streamflow": "m³/s"}
+#
+# ==============================================================================
+# TIMESERIES CSV FORMAT
+# ==============================================================================
+#
+# Each basin's CSV file (e.g., basin_01.csv) should have:
+# - First column: "time" (datetime, format: YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+# - Other columns: variable data (column names must match "variables" in config)
+#
+# Example basin_01.csv:
+#   time,precipitation,potential_evapotranspiration,streamflow,temperature
+#   2000-01-01,5.2,2.1,10.5,15.3
+#   2000-01-02,3.8,2.3,9.8,14.7
+#   2000-01-03,0.0,2.5,8.2,16.1
+#   ...
+#
+# ==============================================================================
+# ATTRIBUTES CSV FORMAT
+# ==============================================================================
+#
+# attributes.csv should have:
+# - Required columns: basin_id, area (basin area in km²)
+# - Optional columns: any other basin attributes (elevation, slope, land use, etc.)
+#
+# Example attributes.csv:
+#   basin_id,area,elevation,slope,forest_fraction
+#   basin_01,125.5,850,12.5,0.65
+#   basin_02,98.3,920,15.2,0.58
+#   basin_03,156.8,780,10.8,0.72
+#   ...
+#
+# ==============================================================================
+# UNITS INFO JSON FORMAT
+# ==============================================================================
+#
+# 1D_units_info.json (or 3h_units_info.json, etc.) should specify units for each variable:
+#
+# {
+#   "precipitation": "mm/d",
+#   "potential_evapotranspiration": "mm/d",
+#   "streamflow": "m³/s",
+#   "temperature": "°C"
+# }
+#
+# Supported units:
+# - Precipitation: "mm/d", "mm/h", "mm/3h"
+# - Streamflow: "m³/s", "mm/d", "mm/h"
+# - Temperature: "°C", "K"
+# - Others: define as needed
+#
+# ==============================================================================
+# USAGE EXAMPLES
+# ==============================================================================
+#
+# 1. Calibration:
+#    python scripts/run_xaj_calibration.py --config configs/example_config_selfmade.yaml
+#
+# 2. Evaluation:
+#    python scripts/run_xaj_evaluate.py --calibration-dir results/my_experiment --eval-period test
+#
+# 3. Check your data is correctly loaded:
+#    from hydromodel.datasets import UnifiedDataLoader
+#
+#    config = {
+#        "data_source_type": "selfmadehydrodataset",
+#        "data_source_path": "D:/my_data",
+#        "dataset_name": "my_basin_data",
+#        "time_unit": ["1D"],
+#        "basin_ids": ["basin_01", "basin_02"],
+#        "train_period": ["2000-01-01", "2010-12-31"],
+#        "variables": ["precipitation", "potential_evapotranspiration", "streamflow"]
+#    }
+#
+#    loader = UnifiedDataLoader(config)
+#    p_and_e, qobs = loader.load_data()
+#    print(f"Loaded data shape: p_and_e={p_and_e.shape}, qobs={qobs.shape}")
+#
+# ==============================================================================
+# MULTI-TIME-UNIT SUPPORT
+# ==============================================================================
+#
+# If you have data at multiple time resolutions (e.g., hourly and daily):
+#
+# timeseries/
+#     ├── 1h/
+#     │   ├── basin_01.csv
+#     │   └── ...
+#     ├── 1h_units_info.json
+#     ├── 1D/
+#     │   ├── basin_01.csv
+#     │   └── ...
+#     └── 1D_units_info.json
+#
+# Then set: time_unit: ["1h", "1D"]
+#
+# The data loader will return a dictionary with both resolutions:
+#   timeseries_data = {
+#       "1h": <hourly xarray.Dataset>,
+#       "1D": <daily xarray.Dataset>
+#   }
+#
+# ==============================================================================

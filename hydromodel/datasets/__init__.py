@@ -12,11 +12,36 @@ from hydrodataset import Camels
 from hydrodataset import CamelsUs
 from hydrodatasource.reader.data_source import SelfMadeHydroDataset
 
+# Import dataset mapping and utilities
+try:
+    from .dataset_dict import (
+        DATASET_MAPPING,
+        get_supported_datasets,
+        get_dataset_info,
+        is_dataset_supported,
+        get_dataset_category,
+    )
+
+    DATASET_DICT_AVAILABLE = True
+except ImportError:
+    DATASET_DICT_AVAILABLE = False
+    DATASET_MAPPING = {}
+
+    def get_supported_datasets(category=None):
+        raise ImportError("dataset_dict not available")
+
+    def get_dataset_info(dataset_name):
+        raise ImportError("dataset_dict not available")
+
+    def is_dataset_supported(dataset_name):
+        raise ImportError("dataset_dict not available")
+
+    def get_dataset_category(dataset_name):
+        raise ImportError("dataset_dict not available")
+
 # Import new unified data loader
 try:
-    from .unified_data_loader import (
-        UnifiedDataLoader,
-    )
+    from .unified_data_loader import UnifiedDataLoader
 
     UNIFIED_LOADER_AVAILABLE = True
 except ImportError:

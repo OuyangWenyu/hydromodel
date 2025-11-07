@@ -22,7 +22,7 @@ data:
 
 model:
   # Model configuration
-  name: "xaj"                    # Model type: xaj, xaj_mz
+  name: "xaj"                    # Model type: xaj, xaj_mz, gr4j
   params:                           # Model parameters
     source_type: "sources"          # XAJ source type
     source_book: "HF"               # HF (Hydrological Forecast) computation method

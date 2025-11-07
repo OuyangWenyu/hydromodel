@@ -7,6 +7,7 @@ Description: Calibrate XAJ model using SCE-UA
 FilePath: /hydromodel/hydromodel/trainers/calibrate_ga.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
+
 import os
 from typing import Union
 import numpy as np

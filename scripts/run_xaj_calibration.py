@@ -108,7 +108,6 @@ def parse_arguments():
 def main():
     """主执行函数 - 简化版"""
     args = parse_arguments()
-    
     try:
         # 只支持两种方式：配置文件 或 解析器默认值
         if args.config:

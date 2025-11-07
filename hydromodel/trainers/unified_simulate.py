@@ -430,6 +430,12 @@ class UnifiedSimulator:
         model_config = dict(self.model_params)
         model_config.update(kwargs)
 
+        # Add basin_area to model_config if available and not already provided
+        # This is needed for models like xaj_slw and dhf that require basin_area
+        if "basin_area" not in model_config and self.basin is not None:
+            if hasattr(self.basin, "basin_area"):
+                model_config["basin_area"] = self.basin.basin_area
+
         # Run model simulation
         model_result = self.model_function(
             inputs,
@@ -464,7 +470,7 @@ class UnifiedSimulator:
         if inputs.shape[2] < 3:
             raise ValueError(
                 "Event data simulation requires flood_event markers. "
-                f"Expected input shape [time, basin, 3] with features [rain, pet, flood_event], "
+                f"Expected input shape [time, basin, 3+] with features [rain, pet, flood_event, (event_id)], "
                 f"but got shape {inputs.shape}."
             )
 
@@ -475,9 +481,10 @@ class UnifiedSimulator:
         # Process each basin separately
         for basin_idx in range(inputs.shape[1]):
             # Find event segments using flood_event markers (including warmup period)
+            # Use index 2 for marker (3rd feature), not -1, since we may have event_id as 4th feature
             flood_event_array = inputs[
-                :, basin_idx, -1
-            ]  # feature index of final dimension is flood_event
+                :, basin_idx, 2
+            ]  # feature index 2 is flood_event marker
             event_segments = find_flood_event_segments_as_tuples(
                 flood_event_array, warmup_length
             )
@@ -492,14 +499,21 @@ class UnifiedSimulator:
                 original_end,
             ) in enumerate(event_segments):
                 # Extract event data (including warmup period)
+                # Only extract first 3 features [prcp, pet, marker], exclude event_id
                 event_inputs = inputs[
                     extended_start : extended_end + 1,
                     basin_idx : basin_idx + 1,
-                    :,
+                    :3,
                 ]
                 # Run model on this event segment
                 model_config = dict(self.model_params)
                 model_config.update(kwargs)
+
+                # Add basin_area to model_config if available and not already provided
+                # This is needed for models like xaj_slw and dhf that require basin_area
+                if "basin_area" not in model_config and self.basin is not None:
+                    if hasattr(self.basin, "basin_area"):
+                        model_config["basin_area"] = self.basin.basin_area
 
                 event_result = self.model_function(
                     event_inputs,

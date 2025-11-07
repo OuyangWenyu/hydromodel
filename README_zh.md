@@ -217,7 +217,13 @@ python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --b
 python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --output-dir my_figures
 ```
 
-编辑 `configs/example_config.yaml` 来自定义你的流域 ID、时间段和参数。
+**配置文件：**
+
+根据你的数据类型选择合适的配置文件：
+- `configs/example_config.yaml` - 用于连续时间序列数据（例如 CAMELS 数据集）
+- `configs/example_config_selfmade.yaml` - 用于自定义数据和洪水场次数据集
+
+所有配置选项都使用相同的统一 API。洪水场次数据的详细使用方法，请参见 [使用指南 - 洪水场次数据](docs/usage.md#flood-event-data)。
 
 **方式 2: 使用 Python API（高级用户）**
 

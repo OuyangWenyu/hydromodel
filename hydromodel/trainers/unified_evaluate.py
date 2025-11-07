@@ -21,7 +21,6 @@ from hydromodel.models.model_config import read_model_param_dict
 from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
 from hydromodel.trainers.unified_simulate import UnifiedSimulator
 from hydrodatasource.utils.utils import streamflow_unit_conv
-from hydromodel.datasets.data_preprocess import get_basin_area
 
 
 class UnifiedEvaluator:
@@ -169,6 +168,26 @@ class UnifiedEvaluator:
         """
         i = self.basin_ids.index(basin_id)
 
+        # Check if using separate data for each basin (multi-basin flood events)
+        use_separate_data = (
+            hasattr(self.data_loader, "basin_data_separate")
+            and self.data_loader.basin_data_separate is not None
+        )
+
+        if use_separate_data:
+            # Use basin-specific data (no padding, correct time alignment)
+            basin_data = self.data_loader.basin_data_separate[basin_id]
+            p_and_e_basin = basin_data["p_and_e"][
+                :, np.newaxis, :
+            ]  # [time, 1, features]
+            qobs_basin = basin_data["qobs"][
+                :, np.newaxis, :
+            ]  # [time, 1, features]
+        else:
+            # Use stacked multi-basin data
+            p_and_e_basin = self.p_and_e[:, i : i + 1, :]
+            qobs_basin = self.true_obs[:, i : i + 1, :]
+
         # Load calibrated parameters
         params = _load_basin_parameters(
             basin_id, self.param_dir, self.parameter_names, self.model_name
@@ -194,7 +213,7 @@ class UnifiedEvaluator:
 
         # Run simulation
         sim_results = simulator.simulate(
-            inputs=self.p_and_e[:, i : i + 1, :],
+            inputs=p_and_e_basin,
             warmup_length=self.warmup_length,
             is_event_data=self.is_event_data,
         )
@@ -211,21 +230,50 @@ class UnifiedEvaluator:
                 else sim_results
             )
 
-        # Get observation
-        qobs_basin = self.true_obs[:, i : i + 1, :]
+        # qobs_basin already defined above (either from basin_data_separate or stacked data)
 
         # Calculate metrics
         qobs_reshaped = qobs_basin.squeeze()
         qsim_reshaped = qsim.squeeze()
 
-        if qobs_reshaped.ndim == 1:
-            qobs_reshaped = qobs_reshaped.reshape(1, -1)
-        if qsim_reshaped.ndim == 1:
-            qsim_reshaped = qsim_reshaped.reshape(1, -1)
+        # For flood event data, only calculate metrics for flood periods (marker == 1)
+        if self.is_event_data:
+            # Extract flood_event_markers from p_and_e (third feature, index=2)
+            # p_and_e shape: [time, basin, features=3/4] where features = [prcp, pet, marker, (event_id)]
+            flood_markers = p_and_e_basin[:, 0, 2]  # [time]
+
+            # Only keep timesteps where marker == 1 (flood event periods)
+            # Ignore warmup (marker=NaN) and gaps (marker=0)
+            flood_mask = flood_markers == 1
+
+            # Filter both observations and simulations
+            qobs_filtered = (
+                qobs_reshaped[:, flood_mask]
+                if qobs_reshaped.ndim > 1
+                else qobs_reshaped[flood_mask]
+            )
+            qsim_filtered = (
+                qsim_reshaped[:, flood_mask]
+                if qsim_reshaped.ndim > 1
+                else qsim_reshaped[flood_mask]
+            )
+
+            print(
+                f"  Flood event periods: {flood_mask.sum()} out of {len(flood_mask)} timesteps"
+            )
+        else:
+            # For continuous data, use all timesteps
+            qobs_filtered = qobs_reshaped
+            qsim_filtered = qsim_reshaped
+
+        if qobs_filtered.ndim == 1:
+            qobs_filtered = qobs_filtered.reshape(1, -1)
+        if qsim_filtered.ndim == 1:
+            qsim_filtered = qsim_filtered.reshape(1, -1)
 
         basin_metrics = hydro_stat.stat_error(
-            qobs_reshaped,
-            qsim_reshaped,
+            qobs_filtered,
+            qsim_filtered,
         )
 
         return {
@@ -257,6 +305,12 @@ class UnifiedEvaluator:
         all_qsim = []
         all_qobs = []
 
+        # Check if using separate data (multi-basin flood events without padding)
+        use_separate_data = (
+            hasattr(self.data_loader, "basin_data_separate")
+            and self.data_loader.basin_data_separate is not None
+        )
+
         total_basins = len(self.basin_ids)
         print(f"\n📊 {'='*60}")
         print(f"📊 Starting evaluation for {total_basins} basin(s)")
@@ -279,9 +333,16 @@ class UnifiedEvaluator:
             print(f"  NSE: {nse:.4f}")
             print(f"✅ Basin {i+1}/{total_basins} completed: {basin_id}\n")
 
-        # Stack results
-        all_qsim = np.concatenate(all_qsim, axis=1)
-        all_qobs = np.concatenate(all_qobs, axis=1)
+        # Stack results - handle different lengths for separate basin data
+        if use_separate_data:
+            # Don't concatenate - keep separate for saving
+            print(
+                f"💡 Using separate basin data (no padding) - results will be saved with individual time arrays"
+            )
+        else:
+            # Stack normally for same-length data
+            all_qsim = np.concatenate(all_qsim, axis=1)
+            all_qobs = np.concatenate(all_qobs, axis=1)
 
         # Save results if requested
         if save_results:
@@ -300,22 +361,193 @@ class UnifiedEvaluator:
         self,
         output_dir: str,
         results: Dict,
-        all_qsim: np.ndarray,
-        all_qobs: np.ndarray,
+        all_qsim,  # Could be list or np.ndarray
+        all_qobs,  # Could be list or np.ndarray
     ):
         """Save all evaluation results."""
+        # Check if using separate data (multi-basin flood events without padding)
+        use_separate_data = (
+            hasattr(self.data_loader, "basin_data_separate")
+            and self.data_loader.basin_data_separate is not None
+        )
+
+        if use_separate_data:
+            # Pad data to same length and stack
+            max_length = max(qsim.shape[0] for qsim in all_qsim)
+            print(f"  Padding basins to max length: {max_length} timesteps")
+
+            padded_qsim = []
+            padded_qobs = []
+            padded_p_and_e = []
+
+            for i, basin_id in enumerate(self.basin_ids):
+                basin_data = self.data_loader.basin_data_separate[basin_id]
+                qsim = all_qsim[i]
+                qobs = all_qobs[i]
+                p_and_e = basin_data["p_and_e"]
+
+                print(
+                    f"    {basin_id}: qsim.shape={qsim.shape}, qobs.shape={qobs.shape}, p_and_e.shape={p_and_e.shape}"
+                )
+
+                current_len = qsim.shape[0]
+                if current_len < max_length:
+                    pad_len = max_length - current_len
+                    # Pad with zeros - handle both 2D and 3D arrays
+                    # qsim/qobs might be [time, 1, 1] or [time, 1]
+                    if qsim.ndim == 3:
+                        qsim_padded = np.pad(
+                            qsim,
+                            ((0, pad_len), (0, 0), (0, 0)),
+                            "constant",
+                            constant_values=0,
+                        )
+                        qobs_padded = np.pad(
+                            qobs,
+                            ((0, pad_len), (0, 0), (0, 0)),
+                            "constant",
+                            constant_values=0,
+                        )
+                    else:
+                        qsim_padded = np.pad(
+                            qsim,
+                            ((0, pad_len), (0, 0)),
+                            "constant",
+                            constant_values=0,
+                        )
+                        qobs_padded = np.pad(
+                            qobs,
+                            ((0, pad_len), (0, 0)),
+                            "constant",
+                            constant_values=0,
+                        )
+
+                    p_and_e_padded = np.pad(
+                        p_and_e,
+                        ((0, pad_len), (0, 0)),
+                        "constant",
+                        constant_values=0,
+                    )
+                    print(
+                        f"    {basin_id}: {current_len} -> {max_length} timesteps (padded {pad_len})"
+                    )
+                else:
+                    qsim_padded = qsim
+                    qobs_padded = qobs
+                    p_and_e_padded = p_and_e
+                    print(
+                        f"    {basin_id}: {current_len} timesteps (no padding)"
+                    )
+
+                padded_qsim.append(qsim_padded)
+                padded_qobs.append(qobs_padded)
+                padded_p_and_e.append(p_and_e_padded)
+
+            # Create unified time array by merging all basin time arrays
+            # Collect all unique time points from all basins
+            print(f"  Building unified time array from all basins...")
+            all_times_list = []
+            basin_time_map = {}  # Map each basin to its time array
+
+            for i, basin_id in enumerate(self.basin_ids):
+                basin_data = self.data_loader.basin_data_separate[basin_id]
+                basin_time = basin_data["time"]
+                basin_time_map[basin_id] = basin_time
+                all_times_list.extend(basin_time)
+
+            # Get unique sorted times
+            all_times_pd = pd.to_datetime(all_times_list)
+            unified_time = (
+                pd.Series(all_times_pd).drop_duplicates().sort_values().values
+            )
+            unified_time = pd.to_datetime(unified_time)
+
+            print(
+                f"  Unified time array: {len(unified_time)} unique timesteps"
+            )
+            print(f"  Time range: {unified_time[0]} to {unified_time[-1]}")
+
+            # Now remap each basin's data to the unified time array
+            remapped_qsim = []
+            remapped_qobs = []
+            remapped_p_and_e = []
+
+            for i, basin_id in enumerate(self.basin_ids):
+                basin_time = basin_time_map[basin_id]
+                qsim = all_qsim[i]
+                qobs = all_qobs[i]
+                basin_data = self.data_loader.basin_data_separate[basin_id]
+                p_and_e = basin_data["p_and_e"]
+
+                # Create empty arrays for this basin in unified time
+                if qsim.ndim == 3:
+                    qsim_remapped = np.zeros(
+                        (len(unified_time), 1, 1), dtype=qsim.dtype
+                    )
+                    qobs_remapped = np.zeros(
+                        (len(unified_time), 1, 1), dtype=qobs.dtype
+                    )
+                else:
+                    qsim_remapped = np.zeros(
+                        (len(unified_time), 1), dtype=qsim.dtype
+                    )
+                    qobs_remapped = np.zeros(
+                        (len(unified_time), 1), dtype=qobs.dtype
+                    )
+
+                p_and_e_remapped = np.zeros(
+                    (len(unified_time), p_and_e.shape[1]), dtype=p_and_e.dtype
+                )
+
+                # Find indices where basin_time appears in unified_time
+                basin_time_pd = pd.to_datetime(basin_time)
+                unified_time_series = pd.Series(unified_time)
+
+                for j, bt in enumerate(basin_time_pd):
+                    # Find matching index in unified_time
+                    mask = unified_time_series == bt
+                    if mask.any():
+                        unified_idx = mask.idxmax()
+                        qsim_remapped[unified_idx] = qsim[j]
+                        qobs_remapped[unified_idx] = qobs[j]
+                        p_and_e_remapped[unified_idx] = p_and_e[j]
+
+                remapped_qsim.append(qsim_remapped)
+                remapped_qobs.append(qobs_remapped)
+                remapped_p_and_e.append(p_and_e_remapped)
+
+                print(
+                    f"    {basin_id}: Remapped {len(basin_time)} -> {len(unified_time)} timesteps"
+                )
+
+            # Stack remapped data
+            all_qsim = np.concatenate(remapped_qsim, axis=1)
+            all_qobs = np.concatenate(remapped_qobs, axis=1)
+            p_and_e = np.stack(
+                remapped_p_and_e, axis=1
+            )  # [time, basin, features]
+
+            # Use unified time array
+            time_array = unified_time
+        else:
+            # Normal case
+            p_and_e = self.p_and_e
+            time_array = getattr(self.data_loader, "time_array", None)
+
         _save_evaluation_results(
             output_dir,
             self.model_name,
             all_qsim,
             all_qobs,
             self.basin_ids,
-            self.p_and_e,
+            p_and_e,
             self.data_loader.ds,
             self.warmup_length,
             self.is_event_data,
             self.data_config,
+            basin_configs=self.basin_configs,
             data_path=self.data_loader.data_path,
+            time_array=time_array,
         )
 
         _save_metrics_summary(output_dir, results, self.basin_ids)
@@ -610,14 +842,28 @@ def _save_evaluation_results(
     warmup_length: int,
     is_event_data: bool,
     data_config: Dict,
+    basin_configs: Optional[Dict[str, Dict]] = None,
     data_path: Optional[str] = None,
+    time_array: Optional[np.ndarray] = None,
 ):
     """Save evaluation results to NetCDF file."""
     os.makedirs(output_dir, exist_ok=True)
 
     # Get time and basin coordinates
     time_start = warmup_length if not is_event_data else 0
-    times = ds_original["time"].data[time_start:]
+
+    # Handle time coordinates
+    if ds_original is not None:
+        # For continuous data: use original time coordinates
+        times = ds_original["time"].data[time_start:]
+    elif time_array is not None:
+        # For flood event data: use time array from data loader
+        times = time_array[time_start:]
+    else:
+        # Fallback: generate integer time indices
+        n_timesteps = qsim.shape[0]
+        times = np.arange(n_timesteps)
+
     basins = np.array([str(bid) for bid in basin_ids])
 
     # Ensure correct dimensions
@@ -627,39 +873,76 @@ def _save_evaluation_results(
         qobs = qobs.squeeze(axis=2)
 
     # Create xarray Dataset
-    ds = xr.Dataset(
-        {
-            "qsim": (["time", "basin"], qsim),
-            "qobs": (["time", "basin"], qobs),
-            "prcp": (["time", "basin"], p_and_e[time_start:, :, 0]),
-            "pet": (["time", "basin"], p_and_e[time_start:, :, 1]),
-        },
-        coords={"time": times, "basin": basins},
+    data_vars = {
+        "qsim": (["time", "basin"], qsim),
+        "qobs": (["time", "basin"], qobs),
+        "prcp": (["time", "basin"], p_and_e[time_start:, :, 0]),
+        "pet": (["time", "basin"], p_and_e[time_start:, :, 1]),
+    }
+
+    # For flood event data, add flood_event_markers and event_id
+    if is_event_data:
+        # p_and_e shape: [time, basin, features=4] where features = [prcp, pet, marker, event_id]
+        data_vars["flood_event_marker"] = (
+            ["time", "basin"],
+            p_and_e[time_start:, :, 2],
+        )
+        # Add event_id if available (feature index 3)
+        if p_and_e.shape[2] >= 4:
+            data_vars["event_id"] = (
+                ["time", "basin"],
+                p_and_e[time_start:, :, 3],
+            )
+
+    ds = xr.Dataset(data_vars, coords={"time": times, "basin": basins})
+
+    # Determine correct units based on time_unit from data_config
+    time_unit = (
+        data_config.get("time_unit", ["1D"])[0] if data_config else "1D"
     )
+
+    # Set precipitation and PET units based on time resolution
+    if "h" in time_unit.lower() or "H" in time_unit:
+        # Hourly data: mm/hour (e.g., mm/3h for 3-hourly data)
+        prcp_unit = f"mm/{time_unit}"
+        pet_unit = f"mm/{time_unit}"
+    else:
+        # Daily or longer: mm/day
+        prcp_unit = "mm/day"
+        pet_unit = "mm/day"
 
     # Add attributes
     ds["qsim"].attrs["units"] = "mm/day"
     ds["qsim"].attrs["long_name"] = "Simulated streamflow"
     ds["qobs"].attrs["units"] = "mm/day"
     ds["qobs"].attrs["long_name"] = "Observed streamflow"
-    ds["prcp"].attrs["units"] = "mm/day"
+    ds["prcp"].attrs["units"] = prcp_unit
     ds["prcp"].attrs["long_name"] = "Precipitation"
-    ds["pet"].attrs["units"] = "mm/day"
+    ds["pet"].attrs["units"] = pet_unit
     ds["pet"].attrs["long_name"] = "Potential evapotranspiration"
 
     # Convert units if needed
-    if "data_source_type" in data_config:
-        data_type = data_config["data_source_type"]
-        # Use provided data_path (already resolved by UnifiedDataLoader) or fall back to config
-        data_dir = (
-            data_path
-            if data_path is not None
-            else data_config.get("data_source_path", "")
-        )
-        basin_area = get_basin_area(basins, data_type, data_dir)
+    if basin_configs is not None:
+        # Extract basin areas from basin_configs (from UnifiedDataLoader)
+        # basin_configs is a Dict[str, Dict], where key is basin_id
+        basin_area = {}
+        for basin_id, basin_config in basin_configs.items():
+            # Try different possible keys for area
+            area = basin_config.get("basin_area") or basin_config.get("area")
+            if area is not None:
+                basin_area[basin_id] = area
 
         # Convert to m³/s - process each basin separately to avoid broadcasting issues
         target_unit = "m^3/s"
+
+        # Determine source unit based on time_unit from data_config
+        # The data from UnifiedDataLoader is in mm/time_unit format
+        if "h" in time_unit.lower() or "H" in time_unit:
+            # Hourly data: source unit is mm/hour (e.g., mm/3h)
+            source_unit = f"mm/{time_unit}"
+        else:
+            # Daily or longer: source unit is mm/day
+            source_unit = "mm/day"
 
         # Initialize arrays to store converted results
         qsim_converted = np.zeros_like(qsim)
@@ -675,11 +958,19 @@ def _save_evaluation_results(
                 },
                 coords={"time": times, "basin": [basin_id]},
             )
-            ds_single_basin["qsim"].attrs["units"] = "mm/day"
-            ds_single_basin["qobs"].attrs["units"] = "mm/day"
+            # Set correct source units based on actual data time resolution
+            ds_single_basin["qsim"].attrs["units"] = source_unit
+            ds_single_basin["qobs"].attrs["units"] = source_unit
 
-            # Get single basin area
-            single_basin_area = basin_area.isel(basin=i)
+            # Get single basin area from basin_configs
+            single_basin_area = basin_area.get(basin_id, None)
+            if single_basin_area is None:
+                print(
+                    f"Warning: Basin area not found for {basin_id}, skipping unit conversion"
+                )
+                qsim_converted[:, i] = qsim[:, i]
+                qobs_converted[:, i] = qobs[:, i]
+                continue
 
             # Convert units for this basin
             ds_qsim_single = streamflow_unit_conv(
@@ -742,26 +1033,15 @@ def _save_metrics_summary(
 
     print(f"   💾 Metrics summary (CSV): {metrics_file}")
 
-    print("\n📊 " + "=" * 77)
-    print("📊 EVALUATION METRICS SUMMARY")
-    print("📊 " + "=" * 77)
-    print(f"\n📈 Metrics for each basin:")
+    print("\n" + "=" * 77)
+    print(f"📈 Metrics for each basin:")
     print("-" * 80)
-
     # Print with better formatting
     pd.set_option("display.max_columns", None)
     pd.set_option("display.width", None)
     pd.set_option("display.float_format", "{:.4f}".format)
     print(metrics_df)
-
-    # Also print summary statistics
-    if len(basin_ids) > 1:
-        print("\n" + "-" * 80)
-        print("📊 Summary Statistics Across All Basins:")
-        print("-" * 80)
-        print(metrics_df.describe().loc[["mean", "std", "min", "max"]])
-
-    print("=" * 80 + "\n")
+    print("=" * 77 + "\n")
 
 
 def _save_parameters_summary(
@@ -814,7 +1094,7 @@ def _save_parameters_summary(
     )
     norm_file = os.path.join(output_dir, "basins_norm_params.csv")
     norm_params_df.to_csv(norm_file, sep=",", index=True, header=True)
-    print(f"   💾 Parameters summary (normalized): {norm_file}")
+    print(f"💾 Parameters summary (normalized): {norm_file}")
 
     # Save denormalized parameters if available
     if has_denorm and denorm_params_list:
@@ -823,14 +1103,8 @@ def _save_parameters_summary(
         )
         denorm_file = os.path.join(output_dir, "basins_denorm_params.csv")
         denorm_params_df.to_csv(denorm_file, sep=",", index=True, header=True)
-        print(f"   💾 Parameters summary (denormalized): {denorm_file}")
+        print(f"💾 Parameters summary (denormalized): {denorm_file}")
 
-        print("-" * 50)
-        print("Normalized Parameters:")
-        print(norm_params_df)
-        print("-" * 50)
-        print("Denormalized Parameters:")
-        print(denorm_params_df)
     else:
         print(
             "Note: Parameter denormalization skipped (param_range.yaml not available)"

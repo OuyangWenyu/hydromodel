@@ -14,7 +14,7 @@ data:
                                     #   - {path}/{dataset_name}/ if path is specified
                                     #   - ~/hydromodel_data/basins-interim/{dataset_name}/ if path is null
 
-  time_unit: ["1D"]                 # Time resolution: ["1h"], ["3h"], ["1D"], ["8D"], or multiple like ["1D", "3h"]
+  time_unit: ["3h"]                 # Time resolution: ["1h"], ["3h"], ["1D"], ["8D"], or multiple like ["1D", "3h"]
                                     # Must match the subdirectory names in timeseries/ folder
 
   # Additional dataset parameters (optional)
@@ -23,18 +23,24 @@ data:
     offset_to_utc: true            # Whether to convert time to UTC (optional, default: false)
                                     # Set to true if your data uses local time (e.g., Beijing Time 8:00 begin)
     trange4cache: null              # Time range for caching (optional, format: ["YYYY-MM-DD", "YYYY-MM-DD"])
-
+    start_hour_in_a_day: 0          # Starting hour of 3-hourly data (0, 2, etc.)
+                                    # If your 3h data is [0, 3, 6, 9, 12, 15, 18, 21], set to 0
+                                    # If your 3h data is [2, 5, 8, 11, 14, 17, 20, 23], set to 2 (default)
+  
   # Basin and variable configuration
-  basin_ids: ["songliao_21401550"]  # List of basin_IDs (must match CSV filenames in timeseries/)
+  basin_ids: ["songliao_21401550","songliao_21100150"]  # List of basin_IDs (must match CSV filenames in timeseries/)
   warmup_length: 365                # Warmup period in days
-  variables: ["rain", "ES", "inflow"]
+  is_event_data: true               # Whether this is flood event data (true) or continuous time series (false)
+                                    # Event data: keeps full observation time series for loss calculation
+                                    # Continuous data: removes warmup period from observations
+  variables: ["rain", "ES", "flood_event", "inflow"]
   # variables: ["precipitation", "potential_evapotranspiration", "streamflow"]
                                     # Variable names (must match column names in timeseries CSV files)
 
   # Time periods
-  train_period: ["2000-01-01", "2020-12-31"]   # Training period
+  train_period: ["2000-01-01", "2015-12-31"]   # Training period
   valid_period: ["2011-01-01", "2015-12-31"]   # Validation period
-  test_period: ["2020-01-01", "2023-12-31"]    # Testing period
+  test_period: ["2018-01-01", "2023-12-31"]    # Testing period
 
   # Output configuration
   output_dir: "results"             # Output directory for results
@@ -49,11 +55,11 @@ model:
 
 training:
   # Training configuration (same as standard config)
-  algorithm: "SCE_UA"               # Calibration algorithm: SCE_UA, GA, or scipy
+  algorithm: "SUE_UA"               # Calibration algorithm: SCE_UA, GA, or scipy
 
   # SCE-UA parameters
   SCE_UA:
-    rep: 500
+    rep: 1000
     ngs: 1000
     kstop: 500
     peps: 0.1
@@ -81,7 +87,7 @@ evaluation:
 #     │   └── attributes.csv          # Basin attributes (REQUIRED)
 #     │                               # Must have columns: basin_id, area (km²), and other attributes
 #     │
-#     ├── shapes/                     # (Optional) Basin boundary shapefiles
+#     ├── shapes/                     # Basin boundary shapefiles
 #     │   └── basins.shp
 #     │
 #     └── timeseries/
@@ -194,5 +200,28 @@ evaluation:
 #       "1h": <hourly xarray.Dataset>,
 #       "1D": <daily xarray.Dataset>
 #   }
+#
+# ==============================================================================
+# FLOOD EVENT DATA vs CONTINUOUS DATA
+# ==============================================================================
+#
+# The is_event_data parameter controls how the model handles data:
+#
+# is_event_data: true (FLOOD EVENT DATA)
+# - Use this for flood event datasets where data only exists during events
+# - Keeps full observation time series for loss calculation
+# - Simulation results have values only during events (warmup periods are zeros)
+# - Loss calculation naturally focuses on event periods where both obs and sim have values
+# - Suitable for: Flood forecasting, event-based rainfall-runoff analysis
+#
+# is_event_data: false (CONTINUOUS DATA)
+# - Use this for continuous time series data
+# - Removes warmup period from both simulation and observation
+# - Loss calculation uses the full period after warmup
+# - Suitable for: Long-term water balance studies, continuous streamflow modeling
+#
+# Example use cases:
+# - Flood events (is_event_data: true): Only specific flood periods have data
+# - CAMELS datasets (is_event_data: false): Continuous daily/hourly data
 #
 # ==============================================================================

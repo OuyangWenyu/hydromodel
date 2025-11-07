@@ -443,6 +443,7 @@ def load_simplified_config(
             "train_period": data_cfg["train_period"],
             "test_period": data_cfg["test_period"],
             "warmup_length": data_cfg.get("warmup_length", 365),
+            "is_event_data": data_cfg.get("is_event_data", False),
         },
         "model_cfgs": {
             "model_name": model_cfg["name"],

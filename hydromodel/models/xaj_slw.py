@@ -492,7 +492,11 @@ def xaj_slw(
             - "auto": Automatically detect parameter format (default)
             - True: Parameters are normalized (0-1 range), convert to original scale
             - False: Parameters are in original scale, use directly
-        **kwargs: Other keyword arguments, including time_interval_hours (default: 1.0).
+        **kwargs: Other keyword arguments:
+            - time_interval_hours (float): Time interval in hours, default is 3.0
+            - basin_area (float): **REQUIRED** - Basin area in km²
+                Used for converting runoff depth (mm) to discharge (m³/s)
+            - initial_states (dict): Initial state values to override after warmup
 
     Returns:
         Results in different formats based on parameters:
@@ -506,14 +510,25 @@ def xaj_slw(
           Returns (QSim, runoffSim, rs, ri, rg, pe, wu, wl, wd, warmup_states) tuple
 
     Raises:
-        KeyError: If basin_area parameter is not provided.
-    """
-    if "basin_area" not in kwargs:
-        raise KeyError("basin_area must be provided")
+        ValueError: If basin_area is not provided in kwargs.
 
+    Note:
+        The basin_area parameter is REQUIRED for XAJ-SLW model because it needs to
+        convert runoff depth (mm) to discharge (m³/s) internally. For CAMELS datasets,
+        basin_area is automatically retrieved from basin attributes. For custom datasets,
+        ensure basin_area is included in your basin configuration or passed explicitly.
+    """
     time_steps, num_basins, _ = p_and_e.shape
     time_interval = kwargs.get("time_interval_hours", 3.0)
     basin_area = kwargs.get("basin_area", None)  # km^2
+
+    if basin_area is None:
+        raise ValueError(
+            "basin_area must be provided for XAJ-SLW model. "
+            "It is required for converting runoff depth (mm) to discharge (m³/s). "
+            "Please ensure basin_area is included in basin_config when initializing UnifiedSimulator, "
+            "or pass it explicitly in kwargs."
+        )
 
     # Process parameters using unified parameter handling
     processed_parameters = parameters.copy()

@@ -113,9 +113,22 @@ class UnifiedModelSetup(ModelSetupBase):
         self.data_loader = UnifiedDataLoader(data_config)
         self.p_and_e_full, qobs_full = self.data_loader.load_data()
 
-        # Store full data for multi-basin support
-        self.p_and_e = self.p_and_e_full
-        self.qobs_full = qobs_full  # Keep full qobs for basin extraction
+        # Check if using separate data for each basin (for multi-basin flood events)
+        self.use_separate_data = (
+            hasattr(self.data_loader, "basin_data_separate")
+            and self.data_loader.basin_data_separate is not None
+        )
+
+        if self.use_separate_data:
+            # For multi-basin flood events, we'll extract data per basin from basin_data_separate
+            # during set_basin_index() call
+            self.p_and_e = None  # Will be set per basin
+            self.qobs_full = None  # Will be set per basin
+            self.true_obs = None  # Will be set per basin
+        else:
+            # Store full data for multi-basin support
+            self.p_and_e = self.p_and_e_full
+            self.qobs_full = qobs_full  # Keep full qobs for basin extraction
 
         # Basin index for single-basin calibration (None means use all basins)
         self.basin_index = None
@@ -124,16 +137,17 @@ class UnifiedModelSetup(ModelSetupBase):
         self.is_event_data = data_config.get("is_event_data", False)
 
         # Store observation data with different handling for continuous vs event data
-        if self.is_event_data:
-            # For event data: keep full observation time series
-            # Simulation results only have values during events (warmup periods are zeros)
-            # Loss calculation will naturally focus on event periods where both have values
-            self.true_obs = qobs_full  # Keep complete time series
-        else:
-            # For continuous data: remove warmup period from both simulation and observation
-            self.true_obs = qobs_full[
-                warmup_length:, :, :
-            ]  # Remove warmup period
+        if not self.use_separate_data:
+            if self.is_event_data:
+                # For event data: keep full observation time series
+                # Simulation results only have values during events (warmup periods are zeros)
+                # Loss calculation will naturally focus on event periods where both have values
+                self.true_obs = qobs_full  # Keep complete time series
+            else:
+                # For continuous data: remove warmup period from both simulation and observation
+                self.true_obs = qobs_full[
+                    warmup_length:, :, :
+                ]  # Remove warmup period
 
         # Traditional models (XAJ, GR series, etc.)
         param_file = self.training_config.get("param_range_file")
@@ -202,20 +216,44 @@ class UnifiedModelSetup(ModelSetupBase):
         """
         self.basin_index = basin_index
 
-        # Extract single basin data from full dataset
-        # p_and_e shape: [time, basin, features]
-        # qobs shape: [time, basin, 1]
-        self.p_and_e = self.p_and_e_full[:, basin_index : basin_index + 1, :]
+        # Check if using separate data
+        if self.use_separate_data:
+            # Extract data from basin_data_separate
+            basin_id = self.data_loader.basin_ids[basin_index]
+            basin_data = self.data_loader.basin_data_separate[basin_id]
 
-        # Update true_obs based on whether it's event data
-        if self.is_event_data:
-            # For event data: keep full observation time series
-            self.true_obs = self.qobs_full[:, basin_index : basin_index + 1, :]
+            # Get basin-specific data (no padding, correct time alignment)
+            # p_and_e shape: [time, features] -> [time, 1, features]
+            # qobs shape: [time, features] -> [time, 1, features]
+            self.p_and_e = basin_data["p_and_e"][:, np.newaxis, :]
+            qobs_basin = basin_data["qobs"][:, np.newaxis, :]
+
+            # Update true_obs based on whether it's event data
+            if self.is_event_data:
+                # For event data: keep full observation time series
+                self.true_obs = qobs_basin
+            else:
+                # For continuous data: remove warmup period
+                self.true_obs = qobs_basin[self.warmup_length :, :, :]
         else:
-            # For continuous data: extract single basin and remove warmup period
-            self.true_obs = self.qobs_full[
-                self.warmup_length :, basin_index : basin_index + 1, :
+            # Extract single basin data from full dataset
+            # p_and_e shape: [time, basin, features]
+            # qobs shape: [time, basin, 1]
+            self.p_and_e = self.p_and_e_full[
+                :, basin_index : basin_index + 1, :
             ]
+
+            # Update true_obs based on whether it's event data
+            if self.is_event_data:
+                # For event data: keep full observation time series
+                self.true_obs = self.qobs_full[
+                    :, basin_index : basin_index + 1, :
+                ]
+            else:
+                # For continuous data: extract single basin and remove warmup period
+                self.true_obs = self.qobs_full[
+                    self.warmup_length :, basin_index : basin_index + 1, :
+                ]
 
     def simulate(self, params: np.ndarray) -> np.ndarray:
         """Run model simulation using pre-initialized UnifiedSimulator."""
@@ -339,10 +377,21 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
     )
 
     results = {}
-    basin_ids = data_config.get(
-        "basin_ids",
-        [f"basin_{i}" for i in range(model_setup.p_and_e.shape[1])],
-    )
+    # Get basin IDs from data loader or config
+    if (
+        hasattr(model_setup.data_loader, "basin_ids")
+        and model_setup.data_loader.basin_ids
+    ):
+        basin_ids = model_setup.data_loader.basin_ids
+    elif "basin_ids" in data_config:
+        basin_ids = data_config["basin_ids"]
+    elif model_setup.p_and_e is not None:
+        # Fallback to p_and_e shape
+        basin_ids = [f"basin_{i}" for i in range(model_setup.p_and_e.shape[1])]
+    else:
+        raise ValueError(
+            "Cannot determine basin_ids: not found in config, data_loader, or p_and_e"
+        )
 
     # For multi-basin calibration, we can either:
     # 1. Calibrate all basins together (TODO - future implementation)

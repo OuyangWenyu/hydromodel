@@ -217,7 +217,13 @@ python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --b
 python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --output-dir my_figures
 ```
 
-Edit `configs/example_config.yaml` to customize your basin IDs, time periods, and parameters.
+**Configuration Files:**
+
+Edit the appropriate configuration file for your data type:
+- `configs/example_config.yaml` - For continuous time series data (e.g., CAMELS datasets)
+- `configs/example_config_selfmade.yaml` - For custom data and flood event datasets
+
+All configuration options work with the same unified API. For detailed flood event data usage, see [Usage Guide - Flood Event Data](docs/usage.md#flood-event-data).
 
 **Option 2: Use Python API (For Advanced Users)**
 

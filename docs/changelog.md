@@ -1,5 +1,103 @@
 # Changelog
 
+## v0.3.0 - 2025-11-07
+
+**Critical Bug Fixes for Multi-Basin Flood Event Data**:
+
+- **Fixed Time Array Misalignment in Evaluation**:
+  - Fixed critical issue where multi-basin flood events used incorrect time arrays in NetCDF output
+  - Previous behavior: Used longest basin's time array for all basins, causing time misalignment for shorter basins
+  - Example issue: Basin 21100150's Event 26 showed "2020-08-31 to 2022-08-02" (spanning 2 years) when actual data ended at 2020-09-05
+  - New behavior: Creates unified time array from all basins' unique timestamps, then remaps each basin's data to correct time positions
+  - Modified `_save_all_results()` in `unified_evaluate.py` (lines 403-470)
+  - Each basin now has accurate event timestamps in evaluation results
+
+- **Fixed Data Access Issues in Calibration**:
+  - Fixed `AttributeError` when calibrating multi-basin flood event data
+  - Previous behavior: `UnifiedModelSetup` tried to access `p_and_e.shape[1]` when `p_and_e=None` for separate basin data
+  - Added proper detection of `basin_data_separate` mode in `UnifiedModelSetup.__init__()`
+  - Modified `set_basin_index()` to extract basin-specific data from `basin_data_separate` when available
+  - Each basin now uses its own time series without padding during calibration
+  - Modified `unified_calibrate.py` (lines 116-253, 377-386)
+
+- **Code Quality Improvements**:
+  - Removed debug print statements from data loading pipeline
+  - Cleaned up verbose event statistics output in `unified_data_loader.py`
+  - Removed redundant basin information prints in `floodevent.py`
+  - Fixed `SyntaxWarning` in `run_xaj_calibration.py` by using raw string for file path
+
+- **Visualization Enhancements**:
+  - Fixed metrics text overlap with legend in flood event plots
+  - Moved metrics display position from (0.98, 0.97) to (0.98, 0.70) to avoid overlap
+  - Metrics (NSE/RMSE/PBIAS) now display cleanly below legend on right side
+  - Modified `data_visualize.py` (line 255)
+
+**Impact**:
+
+- **Evaluation**: Multi-basin flood event evaluations now produce correct NetCDF files with accurate timestamps for each basin
+- **Calibration**: Multi-basin flood event calibrations now work correctly without data access errors
+- **Visualization**: Event plots are cleaner with better layout and no overlapping text
+
+**Files Changed**:
+
+- `hydromodel/trainers/unified_evaluate.py`: Time array unification and remapping logic
+- `hydromodel/trainers/unified_calibrate.py`: Basin data separation support and basin_ids detection
+- `hydromodel/datasets/unified_data_loader.py`: Removed debug print statements
+- `hydromodel/datasets/data_visualize.py`: Adjusted metrics text position
+- `scripts/run_xaj_calibration.py`: Fixed path string syntax warning
+
+**Testing**:
+
+- Verified multi-basin flood event evaluation produces correct timestamps
+- Verified multi-basin flood event calibration accesses correct basin data
+- Confirmed clean console output without excessive debug information
+
+## v0.3.0 - 2025-11-06
+
+**Flood Event Data Support**:
+
+- **Event ID System**:
+  - Added `event_id` tracking to group multi-peak flood events together
+  - Modified `floodevent.py` to extract and pass `event_id` and `event_name` from original data
+  - Modified `_convert_events_to_arrays()` to include `event_id` as 4th feature in p_and_e array
+  - p_and_e shape changed from `[time, features=3]` to `[time, features=4]` where features = `[prcp, pet, marker, event_id]`
+  - Prevents original flood events with multiple peaks from being split into separate visualizations
+
+- **Simulation Code Fixes**:
+  - Fixed `_simulate_event_data()` in `unified_simulate.py` to handle 4-feature input
+  - Changed flood_event_marker extraction from index `-1` to index `2` (to account for event_id as 4th feature)
+  - Only passes first 3 features `[:3]` to model function, excluding event_id
+  - Updated validation error message to reflect 3+ features format
+
+- **Visualization Improvements**:
+  - Modified `_identify_flood_events()` to support grouping by `event_id` when available
+  - Only plots flood period data (`marker==1`), excluding warmup (`marker==NaN`) and gaps (`marker==0`)
+  - Filters time and data arrays to only include flood period timesteps
+  - Fixes issue where plots would span entire year or show overlapping x-axis ticks
+  - Event count now correctly reflects original flood events (e.g., 26 events instead of 39 peaks)
+
+- **Time Handling Fixes**:
+  - Fixed time array padding for multi-basin flood event data
+  - Extends time arrays with regular intervals using `pd.date_range()` when padding data
+  - Fixed pandas FutureWarning by replacing `'H'` with `'h'` and `'D'` with `'d'` in frequency strings
+  - Extracts real event timestamps from original flood event data instead of generating dummy times
+
+- **Evaluation Results**:
+  - Modified `_save_evaluation_results()` to save `event_id` as additional variable in NetCDF output
+  - Enables visualization to group multi-peak events by original event_id
+
+**Files Changed**:
+
+- `hydrodatasource/reader/floodevent.py`: Event ID and time extraction
+- `hydromodel/datasets/unified_data_loader.py`: 4-feature p_and_e array, time padding
+- `hydromodel/trainers/unified_simulate.py`: 4-feature input handling
+- `hydromodel/trainers/unified_evaluate.py`: Event ID saving to NetCDF
+- `hydromodel/datasets/data_visualize.py`: Event grouping and flood period filtering
+
+**Known Issues**:
+
+- Visualization still shows some x-axis overlap issues for certain events (pending further investigation)
+
 ## v0.3.0 - 2025-11-05
 
 **Multi-Basin Support**:

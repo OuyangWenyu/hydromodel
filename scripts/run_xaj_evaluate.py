@@ -141,18 +141,6 @@ def main():
             eval_output_dir=output_dir,
         )
 
-        # Save evaluation summary
-        print("\n📋 " + "=" * 77)
-        print(" EVALUATION SUMMARY")
-        print(f"   Calibration directory: {args.calibration_dir}")
-        print(f"   Evaluation period: {eval_period}")
-        print(f"   Output directory: {output_dir}")
-        print(f"   Number of basins: {len(results)}")
-        print(f"\n   Basin IDs:")
-        for basin_id in results.keys():
-            print(f"      • {basin_id}")
-        print("=" * 80)
-
         # Save evaluation info
         eval_info = {
             "calibration_dir": args.calibration_dir,
@@ -167,7 +155,7 @@ def main():
         with open(eval_info_file, "w", encoding="utf-8") as f:
             yaml.dump(eval_info, f, allow_unicode=True)
 
-        print(f"\n💾 Evaluation info saved to: {eval_info_file}")
+        print(f"💾 Evaluation info saved to: {eval_info_file}")
         print(f"\n✅ Evaluation completed successfully! ✅\n")
         return 0
 

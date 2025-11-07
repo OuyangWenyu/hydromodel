@@ -8,9 +8,9 @@ FilePath: /hydromodel/hydromodel/datasets/__init__.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
-from hydrodataset import Camels
 from hydrodataset import CamelsUs
 from hydrodatasource.reader.data_source import SelfMadeHydroDataset
+from hydrodatasource.reader.floodevent import FloodEventDatasource
 
 # Import dataset mapping and utilities
 try:
@@ -38,6 +38,7 @@ except ImportError:
 
     def get_dataset_category(dataset_name):
         raise ImportError("dataset_dict not available")
+
 
 # Import new unified data loader
 try:
@@ -108,16 +109,16 @@ def get_unit_from_name(name_with_unit):
         else ""
     )
 
+
 # will add more datasets in the future
 datasource_dict = {
-    "camels": Camels,
     "camels_us": CamelsUs,
     "selfmadehydrodataset": SelfMadeHydroDataset,
+    "floodevent": FloodEventDatasource,
 }
 
 datasource_vars_dict = {
     # all vars are in the sequence of [pr, pet, flow] with different names
-    "camels": ["prcp", "PET", "streamflow"],
     "camels_us": [
         "precipitation",
         "potential_evapotranspiration",
@@ -128,4 +129,5 @@ datasource_vars_dict = {
         "potential_evaporation_hourly",
         "streamflow",
     ],
+    "floodevent": ["rain", "ES", "flood_event", "inflow"],
 }

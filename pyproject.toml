@@ -152,7 +152,6 @@ replace = "__version__ = '{new_version}'"
 # Override aqua-fetch's outdated dependency constraints
 override-dependencies = [
     "pandas>=2.2.0",           # Override aqua-fetch's pandas==2.1.4
-    "xarray>=2023.0,<2024.11", # Override aqua-fetch's xarray==2024.7.0, restrict to <2024.11
 ]
 
 [tool.uv.sources]

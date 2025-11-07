@@ -17,7 +17,6 @@ DATASET_MAPPING: Dict[str, Tuple[str, str, str]] = {
     # ============================================================================
     # PUBLIC DATASETS - from hydrodataset
     # ============================================================================
-
     # CAMELS Series (16 datasets)
     # Catchment Attributes and Meteorology for Large-sample Studies
     "camels_aus": ("hydrodataset.camels_aus", "CamelsAus", "hydrodataset"),
@@ -37,46 +36,82 @@ DATASET_MAPPING: Dict[str, Tuple[str, str, str]] = {
     "camels_nz": ("hydrodataset.camels_nz", "CamelsNz", "hydrodataset"),
     "camels_se": ("hydrodataset.camels_se", "CamelsSe", "hydrodataset"),
     "camels_us": ("hydrodataset.camels_us", "CamelsUs", "hydrodataset"),
-
     # CAMELSH Series (2 datasets)
     # CAMELS extended with human impacts
     "camelsh": ("hydrodataset.camelsh", "Camelsh", "hydrodataset"),
     "camelsh_kr": ("hydrodataset.camelsh_kr", "CamelshKr", "hydrodataset"),
-
     # CARAVAN Series (3 datasets)
     # Large-sample dataset combining multiple CAMELS datasets
     "caravan": ("hydrodataset.caravan", "Caravan", "hydrodataset"),
     "caravan_dk": ("hydrodataset.caravan_dk", "CaravanDK", "hydrodataset"),
-    "grdc_caravan": ("hydrodataset.grdc_caravan", "GrdcCaravan", "hydrodataset"),
-
+    "grdc_caravan": (
+        "hydrodataset.grdc_caravan",
+        "GrdcCaravan",
+        "hydrodataset",
+    ),
     # LamaH Series (2 datasets)
     # Large-Sample Data for Hydrology and Environmental Sciences for Central Europe
     "lamah_ce": ("hydrodataset.lamah_ce", "LamahCe", "hydrodataset"),
     "lamah_ice": ("hydrodataset.lamah_ice", "LamahIce", "hydrodataset"),
-
     # Other Public Datasets (11 datasets)
-    "hysets": ("hydrodataset.hysets", "Hysets", "hydrodataset"),  # Canadian dataset
+    "hysets": (
+        "hydrodataset.hysets",
+        "Hysets",
+        "hydrodataset",
+    ),  # Canadian dataset
     "mopex": ("hydrodataset.mopex", "Mopex", "hydrodataset"),  # US dataset
     "bull": ("hydrodataset.bull", "BULL", "hydrodataset"),  # French dataset
-    "estreams": ("hydrodataset.estreams", "Estreams", "hydrodataset"),  # European dataset
-    "hype": ("hydrodataset.hype", "Hype", "hydrodataset"),  # European hydrological model dataset
-    "jialing": ("hydrodataset.jialingriverchina", "jialingriverchina", "hydrodataset"),  # Chinese regional dataset
-    "simbi": ("hydrodataset.simbi", "simbi", "hydrodataset"),  # Brazilian dataset
-    "waterbenchiowa": ("hydrodataset.waterbenchiowa", "waterbenchiowa", "hydrodataset"),  # Iowa, US
-    "hyd_responses": ("hydrodataset.hyd_responses", "HydResponses", "hydrodataset"),  # Hydrological responses dataset
-
+    "estreams": (
+        "hydrodataset.estreams",
+        "Estreams",
+        "hydrodataset",
+    ),  # European dataset
+    "hype": (
+        "hydrodataset.hype",
+        "Hype",
+        "hydrodataset",
+    ),  # European hydrological model dataset
+    "jialing": (
+        "hydrodataset.jialingriverchina",
+        "jialingriverchina",
+        "hydrodataset",
+    ),  # Chinese regional dataset
+    "simbi": (
+        "hydrodataset.simbi",
+        "simbi",
+        "hydrodataset",
+    ),  # Brazilian dataset
+    "waterbenchiowa": (
+        "hydrodataset.waterbenchiowa",
+        "waterbenchiowa",
+        "hydrodataset",
+    ),  # Iowa, US
+    "hyd_responses": (
+        "hydrodataset.hyd_responses",
+        "HydResponses",
+        "hydrodataset",
+    ),  # Hydrological responses dataset
     # ============================================================================
     # CUSTOM DATASETS - from hydrodatasource
     # ============================================================================
-
     # Self-made hydro datasets
     # These require custom data directory structure
-    "floodevent": ("hydrodatasource.reader.data_source", "SelfMadeHydroDataset", "hydrodatasource"),
-    "selfmadehydrodataset": ("hydrodatasource.reader.data_source", "SelfMadeHydroDataset", "hydrodatasource"),
+    "floodevent": (
+        "hydrodatasource.reader.floodevent",
+        "FloodEventDatasource",
+        "hydrodatasource",
+    ),
+    "selfmadehydrodataset": (
+        "hydrodatasource.reader.data_source",
+        "SelfMadeHydroDataset",
+        "hydrodatasource",
+    ),
 }
 
 
-def get_supported_datasets(category: Optional[str] = None) -> Dict[str, Tuple[str, str, str]]:
+def get_supported_datasets(
+    category: Optional[str] = None,
+) -> Dict[str, Tuple[str, str, str]]:
     """
     Get list of supported datasets.
 

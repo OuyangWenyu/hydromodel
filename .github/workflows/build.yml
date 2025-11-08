@@ -31,8 +31,10 @@ jobs:
               with:
                   version: "latest"
 
-            - name: Setup Python
-              run: uv python install ${{ matrix.python-version }}
+            - name: Setup Python and create virtual environment
+              run: |
+                  uv python install ${{ matrix.python-version }}
+                  uv venv
 
             - name: Install GDAL (Ubuntu only)
               if: matrix.os == 'ubuntu-latest'
@@ -44,7 +46,7 @@ jobs:
               if: matrix.os == 'ubuntu-latest'
               run: |
                   uv run python -c "from osgeo import gdal"
-                  gdalinfo --version
+                  uv run gdalinfo --version
 
             - name: Install dependencies
               run: |
@@ -70,8 +72,3 @@ jobs:
                   echo 'local_data_path:' > hydro_setting.yml
                   echo '  datasets-origin: C:\Users\runneradmin\.cache\' >> hydro_setting.yml
                   copy hydro_setting.yml C:\Users\runneradmin\hydro_setting.yml
-                  
-            # Temporarily skip tests until they are fully implemented
-            # - name: Run tests
-            #   run: |
-            #       uv run pytest test/test_data_preprocess.py

@@ -46,7 +46,7 @@ except ImportError:
 
 __author__ = """Wenyu Ouyang"""
 __email__ = "wenyuouyang@outlook.com"
-__version__ = "0.2.10"
+__version__ = "0.3.0"
 
 
 CACHE_DIR = hydro_file.get_cache_dir()

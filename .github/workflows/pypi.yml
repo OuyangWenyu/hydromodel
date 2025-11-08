@@ -25,28 +25,6 @@ jobs:
             - name: Setup Python
               run: uv python install 3.11
 
-            - name: Clean old uv cache and environments (Windows)
-              if: runner.os == 'Windows'
-              shell: pwsh
-              run: |
-                Write-Host "🧹 Cleaning old uv cache and virtual environments (Windows)..."
-                try {
-                  uv cache clean
-                } catch {
-                  Write-Host "uv cache clean failed or not available - continuing..."
-                }
-                Remove-Item -LiteralPath .venv -Recurse -Force -ErrorAction SilentlyContinue
-                Remove-Item -LiteralPath uv.lock -Force -ErrorAction SilentlyContinue
-
-            - name: Clean old uv cache and environments (Linux/macOS)
-              if: runner.os != 'Windows'
-              shell: bash
-              run: |
-                echo "🧹 Cleaning old uv cache and virtual environments (Unix)..."
-                uv cache clean || true
-                rm -rf .venv || true
-                rm -f uv.lock || true
-
             - name: Install dependencies
               run: uv sync --all-extras # Install all dependencies including dev
 

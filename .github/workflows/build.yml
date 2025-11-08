@@ -48,6 +48,13 @@ jobs:
                   uv run python -c "from osgeo import gdal"
                   uv run gdalinfo --version
 
+            - name: Clean old uv cache and environments
+              run: |
+                  echo "🧹 Cleaning old uv cache and virtual environments..."
+                  uv cache clear || true
+                  rm -rf .venv || true
+                  rm -f uv.lock || true
+
             - name: Install dependencies
               run: |
                   uv sync --all-extras

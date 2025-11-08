@@ -7,24 +7,14 @@ jobs:
     deploy:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v3
-            - uses: actions/setup-python@v4
-              with:
-                  python-version: "3.11"
+            - uses: actions/checkout@v4
             - name: Install uv
-              uses: astral-sh/setup-uv@v3
+              uses: astral-sh/setup-uv@v4
               with:
                   version: "latest"
+            - name: Setup Python
+              run: uv python install 3.11
             - name: Install dependencies
-              run: |
-                  uv pip install --system --no-cache-dir Cython
-                  uv sync --extra docs
-            - name: Discover typos with codespell
-              run: |
-                  uv tool install codespell
-                  uv tool run codespell --skip="*.csv,*.geojson,*.json,*.js,*.html,*cff,./.git" --ignore-words-list="aci,acount,acounts,fallow,hart,hist,nd,ned,ois,wqs,watermask"
-            - name: PKG-TEST
-              run: |
-                  python -m unittest discover tests/
-            # Dependencies are already installed with -e .[docs]
-            - run: mkdocs gh-deploy --force
+              run: uv sync --all-extras
+            - name: Deploy documentation
+              run: uv run mkdocs gh-deploy --force

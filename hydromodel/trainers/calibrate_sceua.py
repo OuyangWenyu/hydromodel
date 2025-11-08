@@ -1,3 +1,13 @@
+"""
+Author: Wenyu Ouyang
+Date: 2021-12-10 23:01:02
+LastEditTime: 2024-08-15 16:38:17
+LastEditors: Wenyu Ouyang
+Description: Calibrate XAJ model using SCE-UA
+FilePath: /hydromodel/hydromodel/trainers/calibrate_ga.py
+Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
+"""
+
 import os
 from typing import Union
 import numpy as np

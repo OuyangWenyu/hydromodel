@@ -867,14 +867,21 @@ def xaj(
             qt[i, :] = qs_ + qi + qg
         for j in range(len(l)):
             lag = int(l[j])
-            for i in range(lag):
+            # Adjust lag if input is too short (for flood event data)
+            effective_lag = min(lag, inputs.shape[0] - 1)
+            for i in range(effective_lag):
                 qs[i, j] = qt[i, j]
-            for i in range(lag, inputs.shape[0]):
-                qs[i, j] = cs[j] * qs[i - 1, j] + (1 - cs[j]) * qt[i - lag, j]
+            for i in range(effective_lag, inputs.shape[0]):
+                qs[i, j] = (
+                    cs[j] * qs[i - 1, j]
+                    + (1 - cs[j]) * qt[i - effective_lag, j]
+                )
     elif route_method == "MZ":
         rout_a = a.repeat(rss.shape[0]).reshape(rss.shape)
         rout_b = theta.repeat(rss.shape[0]).reshape(rss.shape)
-        conv_uh = uh_gamma(rout_a, rout_b, kernel_size)
+        # Adjust kernel_size if input is too short (for flood event data)
+        effective_kernel_size = min(kernel_size, inputs.shape[0])
+        conv_uh = uh_gamma(rout_a, rout_b, effective_kernel_size)
         qs_ = uh_conv(runoff_im + rss, conv_uh)
         for i in range(inputs.shape[0]):
             if i == 0:

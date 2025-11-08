@@ -85,7 +85,11 @@ def get_default_calibration_config() -> Dict[str, Any]:
             "data_source_path": None,  # Will be filled from hydro_setting.yml
             "basin_ids": ["01013500"],
             "warmup_length": 365,
-            "variables": ["precipitation", "potential_evapotranspiration", "streamflow"],
+            "variables": [
+                "precipitation",
+                "potential_evapotranspiration",
+                "streamflow",
+            ],
             "train_period": ["1985-10-01", "1995-09-30"],
             "valid_period": ["1995-10-01", "2005-09-30"],
             "test_period": ["2005-10-01", "2014-09-30"],
@@ -112,6 +116,7 @@ def get_default_calibration_config() -> Dict[str, Any]:
             "output_dir": "results",
             "experiment_name": None,  # Will be auto-generated
             "random_seed": 1234,
+            "save_config": True,  # Save calibration config and param_range to output directory
         },
         "evaluation_cfgs": {
             "metrics": ["NSE", "RMSE", "KGE", "PBIAS"],
@@ -247,6 +252,9 @@ def update_config_from_args(
         if hasattr(args, "random_seed") and args.random_seed is not None:
             config["training_cfgs"]["random_seed"] = args.random_seed
 
+        if hasattr(args, "save_config") and args.save_config is not None:
+            config["training_cfgs"]["save_config"] = args.save_config
+
         # Algorithm-specific parameters
         if hasattr(args, "rep") and args.rep is not None:
             config["training_cfgs"]["algorithm_params"]["rep"] = args.rep
@@ -353,6 +361,174 @@ def setup_configuration_from_args(args) -> Dict[str, Any]:
         # Apply args updates
         config = update_config_from_args(config, args)
         return config
+
+
+def load_simplified_config(
+    config_path: str = None, simple_config: dict = None
+) -> dict:
+    """
+    Load simplified configuration file and convert to unified format.
+
+    This function handles configuration files with simplified structure (data, model,
+    training, evaluation sections) and converts them to the unified configuration
+    format used throughout hydromodel.
+
+    Supports all dataset types including:
+    - Public datasets from hydrodataset (camels_us, camels_aus, etc.)
+    - Custom datasets from hydrodatasource (selfmadehydrodataset, floodevent)
+
+    Parameters
+    ----------
+    config_path : str, optional
+        Path to simplified YAML configuration file
+    simple_config : dict, optional
+        Pre-loaded simplified configuration dictionary
+
+    Returns
+    -------
+    dict
+        Unified configuration dictionary with data_cfgs, model_cfgs, training_cfgs,
+        and evaluation_cfgs sections
+
+    Raises
+    ------
+    ValueError
+        If neither config_path nor simple_config is provided, or if required
+        configuration sections are missing
+
+    Examples
+    --------
+    >>> # Load from file
+    >>> config = load_simplified_config("configs/example_config.yaml")
+
+    >>> # Load from dictionary
+    >>> simple = {"data": {...}, "model": {...}, "training": {...}, "evaluation": {...}}
+    >>> config = load_simplified_config(simple_config=simple)
+    """
+    if config_path:
+        with open(config_path, "r", encoding="utf-8") as f:
+            simple_config = yaml.safe_load(f)
+    elif simple_config is None:
+        raise ValueError(
+            " Must provide config.path or simplic_config parameter "
+        )
+
+    # Validate required sections
+    required_sections = ["data", "model", "training", "evaluation"]
+    for section in required_sections:
+        if section not in simple_config:
+            raise ValueError(
+                f"Configuration file is missing necessary parts: {section}"
+            )
+
+    data_cfg = simple_config["data"]
+    model_cfg = simple_config["model"]
+    training_cfg = simple_config["training"]
+    eval_cfg = simple_config["evaluation"]
+
+    # Convert to unified configuration format
+    unified_config = {
+        "data_cfgs": {
+            "data_source_type": data_cfg["dataset"],
+            "data_source_path": data_cfg.get("path"),
+            "basin_ids": data_cfg["basin_ids"],
+            "variables": data_cfg.get(
+                "variables",
+                [
+                    "precipitation",
+                    "potential_evapotranspiration",
+                    "streamflow",
+                ],
+            ),
+            "train_period": data_cfg["train_period"],
+            "test_period": data_cfg["test_period"],
+            "warmup_length": data_cfg.get("warmup_length", 365),
+            "is_event_data": data_cfg.get("is_event_data", False),
+        },
+        "model_cfgs": {
+            "model_name": model_cfg["name"],
+            **model_cfg.get("params", {}),
+        },
+        "training_cfgs": {
+            "algorithm_name": training_cfg["algorithm"],
+            "algorithm_params": training_cfg.get(
+                training_cfg["algorithm"], {}
+            ),
+            "loss_config": {
+                "type": "time_series",
+                "obj_func": training_cfg["loss"],
+            },
+            "output_dir": data_cfg.get("output_dir", "results"),
+            "experiment_name": f"{model_cfg['name']}_{training_cfg['algorithm']}",
+            "random_seed": training_cfg.get("random_seed", 1234),
+            "save_config": training_cfg.get("save_config", True),
+        },
+        "evaluation_cfgs": {
+            "metrics": eval_cfg["metrics"],
+            "save_results": eval_cfg.get("save_results", True),
+            "plot_results": eval_cfg.get("plot_results", True),
+        },
+    }
+
+    # Add optional validation period
+    if "valid_period" in data_cfg:
+        unified_config["data_cfgs"]["valid_period"] = data_cfg["valid_period"]
+
+    # Add dataset-specific parameters for custom datasets
+    # These are critical for selfmadehydrodataset and floodevent
+    if "dataset_name" in data_cfg:
+        unified_config["data_cfgs"]["dataset_name"] = data_cfg["dataset_name"]
+
+    if "time_unit" in data_cfg:
+        unified_config["data_cfgs"]["time_unit"] = data_cfg["time_unit"]
+
+    if "datasource_kwargs" in data_cfg:
+        unified_config["data_cfgs"]["datasource_kwargs"] = data_cfg[
+            "datasource_kwargs"
+        ]
+
+    return unified_config
+
+
+def load_config_from_calibration(calibration_dir: str) -> dict:
+    """
+    Load configuration from calibration directory.
+
+    This function loads the saved calibration configuration from a previous
+    calibration run. The configuration is stored as 'calibration_config.yaml'
+    in the calibration output directory.
+
+    Parameters
+    ----------
+    calibration_dir : str
+        Directory where calibration results are stored
+
+    Returns
+    -------
+    dict
+        Configuration dictionary with data_cfgs, model_cfgs, training_cfgs sections
+
+    Raises
+    ------
+    FileNotFoundError
+        If calibration_config.yaml is not found in the specified directory
+
+    Examples
+    --------
+    >>> config = load_config_from_calibration("results/xaj_experiment")
+    >>> eval_period = config["data_cfgs"]["test_period"]
+    """
+    config_file = os.path.join(calibration_dir, "calibration_config.yaml")
+    if not os.path.exists(config_file):
+        raise FileNotFoundError(
+            f"Configuration file not found: {config_file}\n"
+            "Please make sure you are using the correct calibration directory."
+        )
+
+    with open(config_file, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    return config
 
 
 def validate_and_show_config(

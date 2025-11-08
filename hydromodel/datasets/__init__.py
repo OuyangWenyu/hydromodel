@@ -8,15 +8,41 @@ FilePath: /hydromodel/hydromodel/datasets/__init__.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
-from hydrodataset import Camels
 from hydrodataset import CamelsUs
 from hydrodatasource.reader.data_source import SelfMadeHydroDataset
+from hydrodatasource.reader.floodevent import FloodEventDatasource
+
+# Import dataset mapping and utilities
+try:
+    from .dataset_dict import (
+        DATASET_MAPPING,
+        get_supported_datasets,
+        get_dataset_info,
+        is_dataset_supported,
+        get_dataset_category,
+    )
+
+    DATASET_DICT_AVAILABLE = True
+except ImportError:
+    DATASET_DICT_AVAILABLE = False
+    DATASET_MAPPING = {}
+
+    def get_supported_datasets(category=None):
+        raise ImportError("dataset_dict not available")
+
+    def get_dataset_info(dataset_name):
+        raise ImportError("dataset_dict not available")
+
+    def is_dataset_supported(dataset_name):
+        raise ImportError("dataset_dict not available")
+
+    def get_dataset_category(dataset_name):
+        raise ImportError("dataset_dict not available")
+
 
 # Import new unified data loader
 try:
-    from .unified_data_loader import (
-        UnifiedDataLoader,
-    )
+    from .unified_data_loader import UnifiedDataLoader
 
     UNIFIED_LOADER_AVAILABLE = True
 except ImportError:
@@ -84,19 +110,24 @@ def get_unit_from_name(name_with_unit):
     )
 
 
+# will add more datasets in the future
 datasource_dict = {
-    "camels": Camels,
-    "camels_us":CamelsUs,
+    "camels_us": CamelsUs,
     "selfmadehydrodataset": SelfMadeHydroDataset,
+    "floodevent": FloodEventDatasource,
 }
 
 datasource_vars_dict = {
     # all vars are in the sequence of [pr, pet, flow] with different names
-    "camels": ["prcp", "PET", "streamflow"],
-    "camels_us": ["precipitation", "potential_evapotranspiration", "streamflow"],
+    "camels_us": [
+        "precipitation",
+        "potential_evapotranspiration",
+        "streamflow",
+    ],
     "selfmadehydrodataset": [
         "total_precipitation_hourly",
         "potential_evaporation_hourly",
         "streamflow",
     ],
+    "floodevent": ["rain", "ES", "flood_event", "inflow"],
 }

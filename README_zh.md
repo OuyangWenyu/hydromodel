@@ -15,11 +15,17 @@
 
 **核心特性：**
 - **XAJ 模型变体**: 标准 XAJ 和优化版本（xaj_mz 带 Muskingum 汇流）
-- **多种率定算法**: SCE-UA、遗传算法和 scipy 优化器
+- **多种率定算法**:
+  - **SCE-UA**: 混洗复形演化算法（稳健，推荐）
+  - **GA**: 遗传算法（基于 DEAP，灵活可定制）
+  - **scipy**: L-BFGS-B、SLSQP 等梯度优化方法（快速）
+- **多流域支持**: 高效处理多个流域的同步率定和评估
+- **统一结果格式**: 所有算法均保存为标准化的 JSON + CSV 格式
 - **全面的评估指标**: NSE、KGE、RMSE、PBIAS 等
-- **统一的 API**: 率定和评估的一致接口
+- **统一的 API**: 率定、评估和模拟的一致接口
 - **灵活的数据集成**: 通过 [hydrodataset](https://github.com/OuyangWenyu/hydrodataset) 无缝支持 CAMELS 数据集，通过 [hydrodatasource](https://github.com/OuyangWenyu/hydrodatasource) 支持自定义数据
 - **基于配置的工作流**: YAML 配置确保可重复性
+- **进度追踪**: 实时进度显示和中间结果保存
 
 ## 为什么选择 hydromodel？
 
@@ -54,13 +60,21 @@ pip install hydromodel hydrodataset
 uv pip install hydromodel hydrodataset
 ```
 
-### 开发者
+### 开发设置
 
-```bash
-git clone https://github.com/OuyangWenyu/hydromodel.git
-cd hydromodel
-uv sync --all-extras
-```
+对于开发者，推荐使用 `uv` 管理环境，因为本项目有本地依赖（例如 `hydroutils`、`hydrodataset`、`hydrodatasource`）。
+
+1. **克隆仓库：**
+   ```bash
+   git clone https://github.com/OuyangWenyu/hydromodel.git
+   cd hydromodel
+   ```
+
+2. **使用 `uv` 同步环境：**
+   此命令将安装所有依赖，包括本地可编辑的包。
+   ```bash
+   uv sync --all-extras
+   ```
 
 ### 配置
 
@@ -91,7 +105,7 @@ uv sync --all-extras
 local_data_path:
   root: 'D:/data'
   datasets-origin: 'D:/data'             # CAMELS 数据集（aqua_fetch 会自动添加 CAMELS_US）
-  basins-origin: 'D:/data/my_basins'     # 自定义数据
+  datasets-imterim: 'D:/data/my_basins'     # 自定义数据
 ```
 
 **重要说明**：对于 CAMELS 数据集，只需提供 `datasets-origin` 目录。系统会自动添加大写的数据集目录名（如 `CAMELS_US`、`CAMELS_AUS`）。例如数据在 `D:/data/CAMELS_US/`，则设置 `datasets-origin: 'D:/data'`。
@@ -102,10 +116,12 @@ local_data_path:
 
 **使用 CAMELS 数据集 (hydrodataset)：**
 
+公开数据集使用 hydrodataset 获取
+
 ```bash
 pip install hydrodataset
 ```
-
+运行以下代码下载数据到您的目录
 ```python
 from hydrodataset.camels_us import CamelsUs
 
@@ -121,7 +137,7 @@ basin_ids = ds.read_object_ids()  # 获取流域 ID
 
 **使用自定义数据 (hydrodatasource)：**
 
-对于你自己的数据，使用 `selfmadehydrodataset` 格式：
+对于你自己的数据，使用 hydrodatasource 读取，需要准备成 `selfmadehydrodataset` 格式：
 
 ```bash
 pip install hydrodatasource
@@ -129,37 +145,46 @@ pip install hydrodatasource
 
 **数据结构：**
 ```
-my_basin_data/
-├── attributes/
-│   └── attributes.csv              # 流域元数据（必需）
-├── timeseries/
-│   ├── 1D/                         # 日尺度时间序列
-│   │   ├── basin_001.csv          # 每个流域一个文件
-│   │   ├── basin_002.csv
-│   │   └── ...
-│   └── 1D_units_info.json          # 变量单位（必需）
+/path/to/your_data_root/
+    └── my_custom_dataset/              # 您的数据集名称
+        ├── attributes/
+        │   └── attributes.csv
+        ├── shapes/
+        │   └── basins.shp
+        └── timeseries/
+            ├── 1D/                     # 每个时间分辨率一个子文件夹（例如，日尺度）
+            │   ├── basin_01.csv
+            │   ├── basin_02.csv
+            │   └── ...
+            └── 1D_units_info.json      # 包含单位信息的 JSON 文件
 ```
 
-**必需文件：**
-- `attributes.csv`: 必须有 `basin_id` 和 `area`（km²）列
-- `{basin_id}.csv`: 时间序列，包含 `time` 列 + 变量（`prcp`、`PET`、`streamflow`）
-- `{time_scale}_units_info.json`: 每个变量的单位（例如 `{"prcp": "mm/day"}`）
+**必需文件和格式：**
 
-**在 hydromodel 中使用：**
-```python
-config = {
-    "data_cfgs": {
-        "data_source_type": "selfmadehydrodataset",  # 自定义数据使用此项
-        "data_source_path": "D:/my_basin_data",      # 数据路径
-        "basin_ids": ["basin_001"],
-        ...
-    }
-}
-```
+1. **attributes/attributes.csv**：流域元数据，包含必需列
+   - `basin_id`：唯一流域标识符（例如 "basin_001"）
+   - `area`：流域面积（km²），内部会映射为 `basin_area`
+   - 其他列：任意流域属性（例如 elevation、slope）
 
-详细格式规范和示例，请参见：
+2. **shapes/basins.shp**：流域边界 Shapefile（必需所有 4 个文件：.shp、.shx、.dbf、.prj）
+   - 必须包含 `BASIN_ID` 列（大写）与 attributes.csv 中的流域 ID 匹配
+   - 几何类型：定义流域边界的多边形要素
+   - 坐标系统：任意有效的坐标参考系统（例如 EPSG:4326 代表 WGS84）
+
+3. **timeseries/{time_scale}/{basin_id}.csv**：每个流域的时间序列数据
+   - `time`：日期时间列（例如 "2010-01-01"）
+   - 变量列：`prcp`、`PET`、`streamflow`（或你选择的变量名称）
+   - 格式：带表头的 CSV 文件
+
+4. **timeseries/{time_scale}_units_info.json**：变量单位元数据
+   - JSON 格式：`{"variable_name": "unit"}`（例如 `{"prcp": "mm/day"}`）
+   - 必须与时间序列文件中的变量名称匹配
+
+
+更多的详细格式规范和示例，请参见：
 - [数据准备指南](docs/data_guide.md) - CAMELS 和自定义数据的完整指南
 - [hydrodatasource 文档](https://github.com/OuyangWenyu/hydrodatasource) - 源包
+
 
 ### 2. 快速开始：率定、评估、模拟和可视化
 
@@ -172,19 +197,26 @@ config = {
 python scripts/run_xaj_calibration.py --config configs/example_config.yaml
 
 # 2. 在测试期评估
-python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA --eval-period test
+python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA 
 
 # 3. 使用自定义参数模拟（无需率定！）
-python scripts/run_xaj_simulate.py \
-    --config configs/example_simulate_config.yaml \
-    --param-file configs/example_xaj_params.yaml \
-    --plot
+python scripts/run_xaj_simulate.py --config configs/example_simulate_config.yaml --param-file configs/example_xaj_params.yaml --plot
 
-# 4. 可视化
+# 4. 可视化（时间序列图，包含降雨和流量）
 python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
+
+# 可视化特定流域
+python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --basins 01013500
+
 ```
 
-编辑 `configs/example_config.yaml` 来自定义你的流域 ID、时间段和参数。
+**配置文件：**
+
+根据你的数据类型选择合适的配置文件：
+- `configs/example_config.yaml` - 用于连续时间序列数据（例如 CAMELS 数据集）
+- `configs/example_config_selfmade.yaml` - 用于自定义数据和洪水场次数据集
+
+所有配置选项都使用相同的统一 API。洪水场次数据的详细使用方法，请参见 [使用指南 - 洪水场次数据](docs/usage.md#flood-event-data)。
 
 **方式 2: 使用 Python API（高级用户）**
 
@@ -224,7 +256,7 @@ evaluate(config, param_dir="results/my_experiment", eval_period="test")  # 评�
 
 ## 核心 API
 
-### 配置结构
+### config 配置结构
 
 统一 API 使用包含四个主要部分的配置字典：
 
@@ -243,26 +275,73 @@ config = {
         "model_params": {
             "source_type": "sources",
             "source_book": "HF",
+            "kernel_size": 15,                 # Muskingum 汇流核大小
         },
     },
     "training_cfgs": {
-        "algorithm_name": "SCE_UA",            # SCE_UA、GA 或 scipy
-        "algorithm_params": {
-            "rep": 1000,                      # 迭代次数
-            "ngs": 1000,                        # 复形数（SCE_UA）
+        "algorithm_name": "GA",                # 算法：SCE_UA、GA 或 scipy
+
+        # 算法特定参数（根据 algorithm_name 选择对应部分）
+
+        # SCE-UA（混洗复形演化）算法：
+        "SCE_UA": {
+            "rep": 1000,                       # 迭代次数（推荐 5000+）
+            "ngs": 1000,                       # 复形数
+            "kstop": 500,                      # 无改进时停止迭代数
+            "peps": 0.1,                       # 参数空间收敛准则
+            "pcento": 0.1,                     # 允许的优化变化百分比
+            "random_seed": 1234,
         },
+
+        # GA（遗传算法）：
+        "GA": {
+            "pop_size": 80,                    # 种群大小
+            "n_generations": 50,               # 代数（推荐 100+）
+            "cx_prob": 0.7,                    # 交叉概率
+            "mut_prob": 0.2,                   # 变异概率
+            "random_seed": 1234,
+        },
+
+        # scipy（梯度优化）：
+        "scipy": {
+            "method": "SLSQP",                 # L-BFGS-B、SLSQP、TNC 等
+            "max_iterations": 500,             # 最大迭代次数
+        },
+
         "loss_config": {
             "type": "time_series",
             "obj_func": "RMSE",                # RMSE、NSE 或 KGE
         },
         "output_dir": "results",
         "experiment_name": "my_exp",
+        "save_config": True,                   # 保存配置文件到输出目录（默认：True）
     },
     "evaluation_cfgs": {
         "metrics": ["NSE", "KGE", "RMSE", "PBIAS"],
     },
 }
 ```
+**自定义数据集额外配置：**
+
+查看 `configs/example_config_selfmade.yaml` 获取完整示例。自定义数据集需要**额外的**参数：
+
+```python
+"data_cfgs": {
+  "dataset": "selfmadehydrodataset"    # 或使用 "floodevent" 用于洪水事件数据
+  "dataset_name": "my_basin_data"      # 你的数据集文件夹名称（必需）
+  "time_unit": ["1D"]                  # 时间分辨率（例如 ["1h"]、["3h"]、["1D"]）
+  "datasource_kwargs":{                 # 可选的额外参数
+    "offset_to_utc": False             # 是否将本地时间转换为 UTC
+    }              
+  "is_event_data": True                # 是否是洪水场次数据
+  # ... 其他标准参数（basin_ids、variables、periods 等）
+}
+```
+
+**与 CAMELS 数据集的区别：**
+- `dataset_name`: 指定自定义数据集文件夹名称（必需）
+- `time_unit`: 必须与 `timeseries/` 文件夹中的子目录名称匹配
+- `datasource_kwargs`: 数据预处理的可选参数
 
 ### 率定 API
 
@@ -274,10 +353,27 @@ results = calibrate(config)
 
 **输出：** 率定结果保存到 `{output_dir}/{experiment_name}/`
 
+**保存的文件：**
+```
+results/my_exp/
+├── calibration_results.json          # 所有流域的最佳参数（统一格式）
+├── {basin_id}_sceua.csv              # SCE-UA 详细迭代历史
+├── {basin_id}_ga.csv                 # GA 代数历史（含参数）
+├── {basin_id}_scipy.csv              # scipy 迭代历史（含参数）
+├── calibration_config.yaml           # 使用的配置（save_config=True 时保存）
+└── param_range.yaml                  # 仅当前模型的参数范围（save_config=True 时保存）
+```
+
+**说明：**
+- `calibration_results.json`：总是保存，包含最佳参数
+- `calibration_config.yaml` 和 `param_range.yaml`：仅在 `save_config=True` 时保存（默认）
+- `param_range.yaml`：只包含当前模型的参数范围（例如只有 `xaj_mz`，不包含其他模型）
+- 在 `calibration_config.yaml` 中，`param_range_file` 设置为实际保存的路径
+
 **可用算法：**
-- `SCE_UA`: 混洗复形演化算法（推荐）
-- `GA`: 遗传算法
-- `scipy`: scipy.optimize 方法
+- `SCE_UA` / `sceua`: 混洗复形演化算法（适合全局优化，推荐）
+- `GA` / `genetic_algorithm`: 遗传算法（基于 DEAP，灵活处理复杂问题）
+- `scipy` / `scipy_minimize`: scipy.optimize 方法（适合平滑目标函数，快速）
 
 ### 评估 API
 
@@ -301,10 +397,54 @@ custom_results = evaluate(
 
 **输出：** 评估结果在 `{param_dir}/evaluation_{period}/`
 - `basins_metrics.csv` - 性能指标
-- `basins_denorm_params.csv` - 率定参数
-- `xaj_mz_evaluation_results.nc` - 完整模拟结果
+- `basins_norm_params.csv` - 率定参数（归一化 [0,1]）
+- `basins_denorm_params.csv` - 反归一化参数（物理值）
+- `xaj_mz_evaluation_results.nc` - 完整模拟结果（NetCDF）
+
+**参数加载优先级：**
+1. `calibration_results.json`（⭐ 推荐，适用所有算法）
+2. `{basin_id}_ga.csv`（GA 算法 CSV）
+3. `{basin_id}_scipy.csv`（scipy 算法 CSV）
+4. `{basin_id}_sceua.csv`（SCE-UA 算法 CSV）
+5. `{basin_id}_calibrate_params.txt`（旧格式）
 
 **可用指标：** NSE, KGE, RMSE, PBIAS, FHV, FLV, FMS
+
+### 理解结果格式
+
+**calibration_results.json 结构：**
+```json
+{
+  "01013500": {
+    "convergence": "success",
+    "objective_value": 1.234567,
+    "best_params": {
+      "xaj": {
+        "K": 0.567890,
+        "B": 0.234567,
+        "IM": 0.045678,
+        ...
+      }
+    },
+    "algorithm_info": {
+      "generations": 50,
+      "population_size": 80,
+      ...
+    }
+  }
+}
+```
+
+**CSV 文件（GA/scipy）结构：**
+```csv
+generation,objective_value,param_K,param_B,param_IM,...
+0,3.456,0.567,0.234,0.045,...
+1,2.345,0.589,0.256,0.047,...
+```
+
+**为什么有两种格式？**
+- **JSON**：仅保存最佳参数，适用所有算法，评估时使用
+- **CSV**：完整的迭代/代数历史，用于收敛性分析
 
 ### 模拟 API
 
@@ -382,14 +522,15 @@ hydromodel/
 │   │   ├── unified_calibrate.py     # 率定 API
 │   │   ├── unified_evaluate.py      # 评估 API
 │   │   └── unified_simulate.py      # 模拟 API
-│   └── datasets/                    # 数据预处理
+│   └── datasets/                    # 数据预处理和可视化
 │       ├── unified_data_loader.py   # 数据加载器
+│       ├── data_visualize.py        # 可视化函数
 │       └── ...
-├── scripts/                         # 示例脚本
+├── scripts/                         # 命令行接口脚本
 │   ├── run_xaj_calibration.py       # 率定脚本
 │   ├── run_xaj_evaluate.py          # 评估脚本
 │   ├── run_xaj_simulate.py          # 模拟脚本
-│   └── visualize.py                 # 可视化脚本
+│   └── visualize.py                 # 可视化命令行接口
 ├── configs/                         # 配置文件
 └── docs/                            # 文档
 ```

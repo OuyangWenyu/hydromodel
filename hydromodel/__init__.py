@@ -112,7 +112,9 @@ try:
 except ValueError as e:
     print(f"Warning: {e}")
     # Set default values when hydro_setting.yml is not found or invalid
-    print(f"Using default data paths in home directory: {Path.home()}/hydromodel_data")
+    print(
+        f"Using default data paths in home directory: {Path.home()}/hydromodel_data"
+    )
     SETTING = None
     # Create default setting structure
     default_root = os.path.join(Path.home(), "hydromodel_data")
@@ -128,7 +130,9 @@ except ValueError as e:
 except Exception as e:
     print(f"Unexpected error: {e}")
     # Set default values for unexpected errors
-    print(f"Using default data paths in home directory: {Path.home()}/hydromodel_data")
+    print(
+        f"Using default data paths in home directory: {Path.home()}/hydromodel_data"
+    )
     SETTING = None
     default_root = os.path.join(Path.home(), "hydromodel_data")
     SETTING = {

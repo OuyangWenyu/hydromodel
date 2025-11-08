@@ -119,14 +119,31 @@ model_cfgs:
     source_book: "HF"
 
 training_cfgs:
-  algorithm_name: "SCE_UA"                      # Calibration algorithm
-  algorithm_params:
-    rep: 5000                                   # Iterations (use 10000+ for production)
-    ngs: 50                                     # Complexes (use 100+ for production)
+  algorithm: "SCE_UA"                           # Algorithm: SCE_UA, GA, or scipy
+
+  # SCE-UA (Shuffled Complex Evolution) - Recommended for global optimization
+  SCE_UA:
+    rep: 1000                                   # Iterations (5000+ for production)
+    ngs: 1000                                   # Number of complexes
+    kstop: 500                                  # Stop if no improvement
+    peps: 0.1                                   # Parameter convergence
+    pcento: 0.1                                 # Percentage change allowed
     random_seed: 1234
-  loss_config:
-    type: "time_series"
-    obj_func: "RMSE"                            # Objective function
+
+  # GA (Genetic Algorithm) - Flexible and customizable
+  GA:
+    pop_size: 80                                # Population size
+    n_generations: 50                           # Generations (100+ for production)
+    cx_prob: 0.7                                # Crossover probability
+    mut_prob: 0.2                               # Mutation probability
+    random_seed: 1234
+
+  # scipy - Fast gradient-based optimization
+  scipy:
+    method: "SLSQP"                             # L-BFGS-B, SLSQP, TNC, etc.
+    max_iterations: 500                         # Maximum iterations
+
+  loss: "RMSE"                                  # Loss function: RMSE, NSE, KGE
   output_dir: "results"
   experiment_name: "quickstart_exp"
 
@@ -136,8 +153,18 @@ evaluation_cfgs:
 
 **Quick Tips:**
 - Start with **one basin** for first试验
-- Use fewer `rep` (5000) and `ngs` (50) for quick testing
-- For production runs, use `rep: 10000` and `ngs: 100`
+- **Choose an algorithm**:
+  - `SCE_UA`: Most robust, good for complex problems (slower)
+  - `GA`: Flexible, good balance of speed and accuracy
+  - `scipy`: Fastest, good for smooth objective functions
+- For quick testing: reduce iterations
+  - SCE_UA: `rep: 1000, ngs: 100`
+  - GA: `pop_size: 50, n_generations: 30`
+  - scipy: `max_iterations: 200`
+- For production: use higher values
+  - SCE_UA: `rep: 10000, ngs: 1000`
+  - GA: `pop_size: 100, n_generations: 200`
+  - scipy: `max_iterations: 1000`
 
 ---
 
@@ -176,9 +203,18 @@ XAJ Model Calibration using UnifiedCalibrateor
 **Results location:**
 ```
 results/quickstart_exp/
-├── 01013500_sceua.csv              # Calibration history
-└── calibration_config.yaml          # Config used (for reproducibility)
+├── calibration_results.json         # ⭐ Best parameters (unified format, used by evaluation)
+├── 01013500_sceua.csv              # SCE-UA iteration history (if using SCE_UA)
+├── 01013500_ga.csv                 # GA generation history (if using GA)
+├── 01013500_scipy.csv              # scipy iteration history (if using scipy)
+├── calibration_config.yaml          # Config used (for reproducibility)
+└── param_range.yaml                 # Parameter ranges (optional, for denormalization)
 ```
+
+**Understanding the results:**
+- **calibration_results.json**: Contains best parameters for all basins, works with all algorithms
+- **Algorithm-specific CSV**: Detailed iteration/generation history with all parameter values
+- **param_range.yaml**: Defines parameter physical ranges (not calibration results)
 
 ---
 
@@ -499,11 +535,55 @@ print(f"Available basins: {len(basin_ids)}")
 
 Follow [Data Guide](data_guide.md) to prepare custom basin data.
 
-### 3. Learn Code Architecture
+### 3. Compare Algorithms
+
+Try different algorithms to see which works best for your case:
+
+```bash
+# Method 1: Edit algorithm in config
+# In configs/example_config.yaml, change:
+#   algorithm: "SCE_UA"  # to "GA" or "scipy"
+
+# Method 2: Run comparisons
+python scripts/run_xaj_calibration.py --config configs/example_config_sceua.yaml
+python scripts/run_xaj_calibration.py --config configs/example_config_ga.yaml
+python scripts/run_xaj_calibration.py --config configs/example_config_scipy.yaml
+```
+
+**Algorithm comparison:**
+
+| Algorithm | Speed | Robustness | Memory | Best For |
+|-----------|-------|------------|--------|----------|
+| **SCE-UA** | Slow | ⭐⭐⭐⭐⭐ | High | Complex landscapes, global optimum |
+| **GA** | Medium | ⭐⭐⭐⭐ | Medium | Flexible, good balance |
+| **scipy** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | Low | Smooth objectives, quick tests |
+
+**Convergence analysis:**
+
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load iteration history
+df_ga = pd.read_csv("results/xaj_GA/01013500_ga.csv")
+df_scipy = pd.read_csv("results/xaj_scipy/01013500_scipy.csv")
+
+# Plot convergence
+plt.figure(figsize=(10, 6))
+plt.plot(df_ga["generation"], df_ga["objective_value"], label="GA")
+plt.plot(df_scipy["iteration"], df_scipy["objective_value"], label="scipy")
+plt.xlabel("Iteration/Generation")
+plt.ylabel("Objective Value (RMSE)")
+plt.legend()
+plt.title("Convergence Comparison")
+plt.show()
+```
+
+### 4. Learn Code Architecture
 
 For deeper understanding, read [Usage Guide](usage.md) - the developer documentation.
 
-### 4. API Usage
+### 5. API Usage
 
 Transition from scripts to Python API for more flexibility:
 

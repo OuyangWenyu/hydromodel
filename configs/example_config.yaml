@@ -3,12 +3,12 @@
 
 data:
   # Data source configuration
-  dataset: "camels_us"              # Dataset type: camels_us, camels_aus, selfmadehydrodataset, etc.
+  dataset: "camels_us"              # Dataset type: camels_us, selfmadehydrodataset, etc.
   path: null                        # Data path (null = auto-detect from hydro_setting.yml or use ~/hydromodel_data/)
                                     # If specified, provide the datasets-origin directory only
                                     # Example: "D:/project/data" (NOT "D:/project/data/CAMELS_US")
                                     # aqua_fetch will automatically append "CAMELS_US" directory name
-  basin_ids: ["01013500"]           # List of basin IDs to calibrate
+  basin_ids: ["01013500","01022500","11532500"]           # List of basin IDs to calibrate
   warmup_length: 365                # Warmup period in days
   variables: ["precipitation", "potential_evapotranspiration", "streamflow"]  # Input variables
 
@@ -22,7 +22,7 @@ data:
 
 model:
   # Model configuration
-  name: "xaj_mz"                    # Model type: xaj, xaj_mz
+  name: "xaj"                    # Model type: xaj, xaj_mz, gr4j
   params:                           # Model parameters
     source_type: "sources"          # XAJ source type
     source_book: "HF"               # HF (Hydrological Forecast) computation method
@@ -30,16 +30,36 @@ model:
 
 training:
   # Training configuration
-  algorithm: "SCE_UA"               # Calibration algorithm: SCE_UA, GA, scipy
-  SCE_UA:                           # Algorithm-specific parameters
-    rep: 5000                        # Number of iterations (500 for testing, 5000+ recommended)
-    ngs: 1000                       # Number of complexes
-  # GA:                             # For Genetic Algorithm (if using GA)
-  #   npop: 100
-  #   ngen: 100
-  # scipy:                          # For scipy optimizer (if using scipy)
-  #   method: "L-BFGS-B"
+  algorithm: "SCE_UA"                  # Calibration algorithm: SCE_UA (or sceua), GA (or genetic_algorithm), scipy (or scipy_minimize)
+
+  # Algorithm-specific parameters (uncomment the section for your chosen algorithm)
+
+  # SCE-UA (Shuffled Complex Evolution) parameters
+  SCE_UA:
+    rep: 1000                       # Number of iterations/repetitions (default: 1000, recommended: 5000+ for production)
+    ngs: 1000                       # Number of complexes (default: 1000)
+    kstop: 500                      # Number of iterations to stop if no improvement (default: 500)
+    peps: 0.1                       # Convergence criterion for parameter space (default: 0.1)
+    pcento: 0.1                     # Percentage change allowed in optimization (default: 0.1)
+    random_seed: 1234               # Random seed for reproducibility (default: 1234)
+
+  # Genetic Algorithm (GA) parameters
+  GA:
+    pop_size: 40                    # Population size (default: 80)
+    n_generations: 20               # Number of generations (default: 50, recommended: 100+ for production)
+    cx_prob: 0.7                    # Crossover probability (default: 0.7)
+    mut_prob: 0.2                   # Mutation probability (default: 0.2)
+    random_seed: 1234               # Random seed for reproducibility (default: 1234)
+
+  # Scipy optimizer parameters
+  scipy:
+    method: "SLSQP"                 # Optimization method (default: SLSQP, options: L-BFGS-B, SLSQP, TNC, etc.)
+    max_iterations: 500             # Maximum number of iterations (default: 500)
+
   loss: "RMSE"                      # Loss function: RMSE, NSE, KGE
+
+  # Configuration file saving
+  save_config: true                 # Save calibration config and param_range to output directory (default: true)
 
 evaluation:
   # Evaluation configuration

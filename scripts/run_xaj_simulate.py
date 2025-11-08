@@ -87,14 +87,17 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Use custom parameters from YAML (works with all algorithms)
-  python run_xaj_simulate.py --param-file my_params.yaml
+  # Continuous data (auto-detects warmup from config or uses 365 days)
+  python run_xaj_simulate.py --config configs/example_config.yaml --param-file my_params.yaml
 
-  # Specify custom configuration
-  python run_xaj_simulate.py --config configs/my_config.yaml --param-file my_params.yaml
+  # Flood event data (auto-detects warmup from config or uses 15 hours)
+  python run_xaj_simulate.py --config configs/example_config_selfmade.yaml --param-file my_params.yaml
+
+  # Override warmup manually
+  python run_xaj_simulate.py --param-file my_params.yaml --warmup 30 --plot
 
   # Use SCE-UA calibrated parameters (CSV format specific to SCE-UA)
-  python run_xaj_simulate.py --param-file results/xaj_mz_SCE_UA/01013500_sceua.csv
+  python run_xaj_simulate.py --param-file results/xaj_mz_SCE_UA/01013500_sceua.csv --plot
         """,
     )
 
@@ -133,8 +136,8 @@ Examples:
     parser.add_argument(
         "--warmup",
         type=int,
-        default=365,
-        help="Warmup period in days (default: 365)",
+        default=None,
+        help="Warmup period (default: from config or auto-detected based on data type)",
     )
 
     return parser.parse_args()
@@ -163,9 +166,35 @@ def main():
     basin_id = args.basin_id or basin_ids[0]
     basin_index = basin_ids.index(basin_id)
 
+    # Determine warmup period and time unit
+    data_source_type = data_config.get("data_source_type", "")
+    time_unit_config = data_config.get("time_unit", ["1D"])
+
+    # Check if this is hourly/sub-daily data (event data typically uses hourly)
+    is_hourly_data = any(unit in ["1h", "3h", "6h", "12h"] for unit in time_unit_config)
+    is_event_data = data_source_type == "floodevent" or is_hourly_data
+
+    if args.warmup is not None:
+        # User specified warmup via command line (highest priority)
+        warmup_length = args.warmup
+    elif "warmup_length" in data_config:
+        # Use warmup from config (second priority)
+        warmup_length = data_config["warmup_length"]
+    else:
+        # Auto-detect based on data type (last resort)
+        if is_event_data:
+            warmup_length = 15  # hours for event/hourly data
+        else:
+            warmup_length = 365  # days for continuous daily data
+
+    # Determine time unit for display
+    time_unit = "hours" if is_event_data else "days"
+
     print(f"  Model: {model_name}")
     print(f"  Basin: {basin_id} (index {basin_index})")
     print(f"  Period: {data_config.get('test_period')}")
+    print(f"  Data type: {data_source_type}")
+    print(f"  Warmup: {warmup_length} {time_unit}")
 
     # ========================================================================
     # Step 2: Load parameters
@@ -222,13 +251,13 @@ def main():
     # ========================================================================
     # Step 4: Run simulation using UnifiedSimulator
     # ========================================================================
-    print(f"\n[4/4] Running simulation (warmup={args.warmup} days)")
+    print(f"\n[4/4] Running simulation (warmup={warmup_length} {time_unit})")
 
     # Call the unified simulate interface
     sim_results = simulator.simulate(
         inputs=basin_inputs,
         qobs=basin_qobs,
-        warmup_length=args.warmup,
+        warmup_length=warmup_length,
         return_intermediate=False,
     )
 
@@ -238,9 +267,9 @@ def main():
     qobs_out = basin_qobs  # Use original qobs
 
     # Remove warmup period
-    qsim_eval = qsim[args.warmup :, 0, 0]
-    qobs_eval = qobs_out[args.warmup :, 0, 0]
-    times = data_loader.ds["time"].data[args.warmup :]
+    qsim_eval = qsim[warmup_length :, 0, 0]
+    qobs_eval = qobs_out[warmup_length :, 0, 0]
+    times = data_loader.ds["time"].data[warmup_length :]
 
     print(f" Simulation completed ({len(qsim_eval)} time steps)")
 
@@ -282,8 +311,8 @@ def main():
                 "time": times,
                 "qsim": qsim_eval,
                 "qobs": qobs_eval,
-                "prcp": basin_inputs[args.warmup :, 0, 0],
-                "pet": basin_inputs[args.warmup :, 0, 1],
+                "prcp": basin_inputs[warmup_length :, 0, 0],
+                "pet": basin_inputs[warmup_length :, 0, 1],
             }
         )
         results_df.to_csv(args.output, index=False)

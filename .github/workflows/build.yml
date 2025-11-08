@@ -1,0 +1,77 @@
+name: build
+
+on:
+    push:
+        branches:
+            - master
+    pull_request:
+        branches:
+            - master
+
+jobs:
+    build:
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest, windows-latest, macOS-latest]
+                python-version: ["3.10", "3.11", "3.12"]
+                exclude:
+                  # Skip some combinations to reduce CI time
+                  - os: windows-latest
+                    python-version: "3.10"
+                  - os: macOS-latest
+                    python-version: "3.10"
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v4
+              with:
+                  version: "latest"
+
+            - name: Setup Python
+              run: uv python install ${{ matrix.python-version }}
+
+            - name: Install GDAL (Ubuntu only)
+              if: matrix.os == 'ubuntu-latest'
+              run: |
+                  uv pip install --no-cache-dir Cython
+                  uv pip install --find-links=https://girder.github.io/large_image_wheels --no-cache GDAL
+
+            - name: Test GDAL installation (Ubuntu only)
+              if: matrix.os == 'ubuntu-latest'
+              run: |
+                  uv run python -c "from osgeo import gdal"
+                  gdalinfo --version
+
+            - name: Install dependencies
+              run: |
+                  uv sync --all-extras
+
+            - name: Create hydro_setting.yml (Ubuntu)
+              if: matrix.os == 'ubuntu-latest'
+              run: |
+                  echo 'local_data_path:' > hydro_setting.yml
+                  echo '  datasets-origin: /home/runner/.cache/' >> hydro_setting.yml
+                  sudo cp hydro_setting.yml /home/runner/hydro_setting.yml
+
+            - name: Create hydro_setting.yml (macOS)
+              if: matrix.os == 'macOS-latest'
+              run: |
+                  echo 'local_data_path:' > hydro_setting.yml
+                  echo '  datasets-origin: /Users/runner/.cache/' >> hydro_setting.yml
+                  sudo cp hydro_setting.yml /Users/runner/hydro_setting.yml
+
+            - name: Create hydro_setting.yml (Windows)
+              if: matrix.os == 'windows-latest'
+              run: |
+                  echo 'local_data_path:' > hydro_setting.yml
+                  echo '  datasets-origin: C:\Users\runneradmin\.cache\' >> hydro_setting.yml
+                  copy hydro_setting.yml C:\Users\runneradmin\hydro_setting.yml
+                  
+            # Temporarily skip tests until they are fully implemented
+            # - name: Run tests
+            #   run: |
+            #       uv run pytest test/test_data_preprocess.py

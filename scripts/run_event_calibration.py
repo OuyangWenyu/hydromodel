@@ -21,10 +21,10 @@ from hydromodel import SETTING
 from hydromodel.trainers.unified_calibrate import calibrate  # noqa: E402
 from hydromodel.configs.config_manager import (  # noqa: E402
     setup_configuration_from_args,
+    load_simplified_config,
     validate_and_show_config,
     save_config_to_file,
 )
-
 
 def parse_arguments():
     """解析命令行参数 - 专门针对事件率定"""
@@ -34,11 +34,14 @@ def parse_arguments():
         epilog="""
 事件率定配置文件格式（四个要素）:
   data:     # 数据配置
-    dataset: "selfmadehydrodataset"  # 数据集类型（指向songliaorrevent）
-    path: "/path/to/data"          # songliaorrevent数据路径 
-    basin_ids: ["songliao_21401550"]  # 流域ID列表
-    variables: ["prcp", "PET", "streamflow", "flood_event"]  # 变量（含flood_event）
-    warmup_length: 360             # 预热期
+    dataset: "floodevent"              # 数据集类型（洪水事件数据）
+    dataset_name: "songliaorrevent"    # 数据集名称
+    path: null                         # 数据路径（null则从hydro_setting.yml读取）
+    basin_ids: ["songliao_21401550"]   # 流域ID列表
+    variables: ["rain", "ES", "inflow", "flood_event"]  # 变量（含flood_event）
+    time_unit: ["3h"]                  # 时间单位
+    is_event_data: true                # 是否为事件数据
+    warmup_length: 360                 # 预热期
     train_period: ["1984-01-01", "2005-12-31"]  # 训练期
     test_period: ["2006-01-01", "2023-12-31"]   # 测试期
     output_dir: "results/event_calibration"     # 结果目录
@@ -113,8 +116,8 @@ def parse_arguments():
     parser.add_argument(
         "--data-source-type",
         type=str,
-        default="selfmadehydrodataset",
-        help="数据源类型 (默认: selfmadehydrodataset)",
+        default="floodevent",
+        help="数据源类型 (默认: floodevent - 洪水事件数据)",
     )
 
     parser.add_argument(
@@ -220,12 +223,36 @@ def main():
     args = parse_arguments()
 
     try:
-        # 直接使用setup_configuration_from_args
-        config = setup_configuration_from_args(args)
+        # Support two modes: config file or command-line args
+        if args.config:
+            # Mode 1: Load from config file
+            if not os.path.exists(args.config):
+                print(f"❌ 配置文件不存在: {args.config}")
+                return 1
+            print("📄 Loading from configuration file...")
+            config = load_simplified_config(args.config)
+        elif args.default:
+            # Mode 2: Use default command-line configuration
+            print("📋 Using default configuration for event calibration...")
+            config = setup_configuration_from_args(args)
+        else:
+            print("❌ 请指定 --config 或 --default 参数")
+            print("   示例: python run_event_calibration.py --default")
+            print("   示例: python run_event_calibration.py --config event_config.yaml")
+            return 1
 
         if config is None:
             print("❌ 配置创建失败")
             return 1
+
+        # Override config with command-line arguments (if provided)
+        if args.output_dir:
+            config["training_cfgs"]["output_dir"] = args.output_dir
+        if args.experiment_name:
+            config["training_cfgs"]["experiment_name"] = args.experiment_name
+
+        # Set save_config flag
+        config["training_cfgs"]["save_config"] = args.save_config
 
         # 验证配置
         if not validate_and_show_config(config, True, "Event-based XAJ Model"):
@@ -238,19 +265,6 @@ def main():
         # 执行率定
         print("🚀 开始事件率定...")
         results = calibrate(config)
-
-        # 保存配置文件（如果需要）
-        if args.save_config:
-            training_cfgs = config.get("training_cfgs", {})
-            output_dir = os.path.join(
-                training_cfgs.get("output_dir", "results"),
-                training_cfgs.get("experiment_name", "experiment"),
-            )
-            config_output_path = os.path.join(
-                output_dir, "event_calibration_config.yaml"
-            )
-            os.makedirs(os.path.dirname(config_output_path), exist_ok=True)
-            save_config_to_file(config, config_output_path)
 
         print("✅ 事件率定完成")
         return 0

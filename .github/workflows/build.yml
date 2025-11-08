@@ -31,8 +31,10 @@ jobs:
               with:
                   version: "latest"
 
-            - name: Setup Python
-              run: uv python install ${{ matrix.python-version }}
+            - name: Setup Python and create virtual environment
+              run: |
+                  uv python install ${{ matrix.python-version }}
+                  uv venv
 
             - name: Install GDAL (Ubuntu only)
               if: matrix.os == 'ubuntu-latest'
@@ -44,8 +46,33 @@ jobs:
               if: matrix.os == 'ubuntu-latest'
               run: |
                   uv run python -c "from osgeo import gdal"
-                  gdalinfo --version
+                  uv run gdalinfo --version
 
+            # 在 jobs.<job_id>.steps 中加入这两步之一（二者一起放且带 if 条件）
+            - name: Clean old uv cache and env (Windows)
+              if: runner.os == 'Windows'
+              shell: pwsh
+              run: |
+                Write-Host "🧹 Cleaning old uv cache and virtual environments (Windows)..."
+                try {
+                  uv cache clean
+                } catch {
+                  Write-Host "uv cache clean failed or not available - continuing..."
+                }
+                # remove .venv directory if exists
+                Remove-Item -LiteralPath .venv -Recurse -Force -ErrorAction SilentlyContinue
+                # remove uv.lock if exists
+                Remove-Item -LiteralPath uv.lock -Force -ErrorAction SilentlyContinue
+
+            - name: Clean old uv cache and env (Linux/macOS)
+              if: runner.os != 'Windows'
+              shell: bash
+              run: |
+                echo "🧹 Cleaning old uv cache and virtual environments (Unix)..."
+                uv cache clean || true
+                rm -rf .venv || true
+                rm -f uv.lock || true
+                
             - name: Install dependencies
               run: |
                   uv sync --all-extras
@@ -70,8 +97,3 @@ jobs:
                   echo 'local_data_path:' > hydro_setting.yml
                   echo '  datasets-origin: C:\Users\runneradmin\.cache\' >> hydro_setting.yml
                   copy hydro_setting.yml C:\Users\runneradmin\hydro_setting.yml
-                  
-            # Temporarily skip tests until they are fully implemented
-            # - name: Run tests
-            #   run: |
-            #       uv run pytest test/test_data_preprocess.py

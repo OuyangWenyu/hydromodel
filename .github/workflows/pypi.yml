@@ -25,8 +25,13 @@ jobs:
             - name: Setup Python
               run: uv python install 3.11
 
+            - name: Clean old uv caches
+              run: |
+                  uv cache clean
+                  rm -rf .venv uv.lock
+
             - name: Install dependencies
-              run: uv sync --all-extras # Install all dependencies including dev
+              run: uv sync --all-extras -v # Install all dependencies including dev
 
             - name: Build package
               run: uv build

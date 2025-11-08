@@ -14,6 +14,10 @@ import yaml
 
 
 def read_model_param_dict(file_path="param.yaml"):
+    # If file_path is None, return default MODEL_PARAM_DICT
+    if file_path is None:
+        return MODEL_PARAM_DICT
+
     try:
         with open(file_path, "r") as file:
             data = yaml.safe_load(file)

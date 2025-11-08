@@ -105,7 +105,7 @@ Create `~/hydro_setting.yml` to specify custom paths:
 local_data_path:
   root: 'D:/data'
   datasets-origin: 'D:/data'             # For CAMELS datasets (aqua_fetch adds CAMELS_US automatically)
-  basins-origin: 'D:/data/my_basins'     # For custom data
+  datasets-imterim: 'D:/data/my_basins'     # For custom data
 ```
 
 **Important**: For CAMELS datasets, provide only the `datasets-origin` directory. The system automatically appends the uppercase dataset directory name (e.g., `CAMELS_US`, `CAMELS_AUS`). If your data is in `D:/data/CAMELS_US/`, set `datasets-origin: 'D:/data'`.
@@ -116,10 +116,12 @@ local_data_path:
 
 **Using CAMELS Datasets (hydrodataset):**
 
+Getting public datasets using hydrodataset
+
 ```bash
 pip install hydrodataset
 ```
-
+Run the following code to download data to your directory
 ```python
 from hydrodataset.camels_us import CamelsUs
 
@@ -135,7 +137,7 @@ basin_ids = ds.read_object_ids()  # Get basin IDs
 
 **Using Custom Data (hydrodatasource):**
 
-For your own data, use the `selfmadehydrodataset` format:
+For your own data to be read using hydrodatasource, it needs to be prepared in the format of  `selfmadehydrodataset` :
 
 ```bash
 pip install hydrodatasource
@@ -143,42 +145,41 @@ pip install hydrodatasource
 
 **Data structure:**
 ```
-my_basin_data/
-├── attributes/
-│   └── attributes.csv              # Basin metadata (required)
-├── timeseries/
-│   ├── 1D/                         # Daily time series
-│   │   ├── basin_001.csv          # One file per basin
-│   │   ├── basin_002.csv
-│   │   └── ...
-│   └── 1D_units_info.json          # Variable units (required)
+/path/to/your_data_root/
+    └── my_custom_dataset/              # your dataset name
+        ├── attributes/
+        │   └── attributes.csv
+        ├── shapes/
+        │   └── basins.shp
+        └── timeseries/
+            ├── 1D/                     # One sub folder per time resolution (e.g. 1D/3h/1h)
+            │   ├── basin_01.csv
+            │   ├── basin_02.csv
+            │   └── ...
+            └── 1D_units_info.json      # JSON file containing unit information
 ```
 
-**Required files:**
-- `attributes.csv`: Must have `basin_id` and `area` (km²) columns
-- `{basin_id}.csv`: Time series with `time` column + variables (`prcp`, `PET`, `streamflow`)
-- `{time_scale}_units_info.json`: Units for each variable (e.g., `{"prcp": "mm/day"}`)
+**Required files and formats:**
 
-**Configuration for custom datasets:**
+1. **attributes/attributes.csv**: Basin metadata with required columns
+   - `basin_id`: Unique basin identifier (e.g., "basin_001")
+   - `area`: Basin area in km² (mapped to `basin_area` internally)
+   - Additional columns: Any basin attributes (e.g., elevation, slope)
 
-See `configs/example_config_selfmade.yaml` for a complete example. Custom datasets require additional parameters:
+2. **shapes/basins.shp**: Basin boundary shapefiles (all 4 files required: .shp, .shx, .dbf, .prj)
+   - Must contain `BASIN_ID` column (uppercase) matching basin IDs in attributes.csv
+   - Geometries: Polygon features defining basin boundaries
+   - Coordinate system: Any valid CRS (e.g., EPSG:4326 for WGS84)
 
-```yaml
-data:
-  dataset: "selfmadehydrodataset"    # or "floodevent" for flood event data
-  dataset_name: "my_basin_data"      # Your dataset folder name (REQUIRED)
-  time_unit: ["1D"]                  # Time resolution (e.g., ["1h"], ["3h"], ["1D"])
-  datasource_kwargs:                 # Optional additional parameters
-    version: "v1.0"                  # Dataset version
-    offset_to_utc: false             # Whether to convert local time to UTC
-    trange4cache: null               # Time range for caching
-  # ... other standard parameters (basin_ids, variables, periods, etc.)
-```
+3. **timeseries/{time_scale}/{basin_id}.csv**: Time series data for each basin
+   - `time`: Datetime column (e.g., "2010-01-01")
+   - Variable columns: `prcp`, `PET`, `streamflow` (or your chosen variable names)
+   - Format: CSV with header row
 
-**Key differences from CAMELS datasets:**
-- `dataset_name`: Specifies your custom dataset folder name (required)
-- `time_unit`: Must match the subdirectory names in `timeseries/` folder
-- `datasource_kwargs`: Optional parameters for data preprocessing
+4. **timeseries/{time_scale}_units_info.json**: Variable units metadata
+   - JSON format: `{"variable_name": "unit"}` (e.g., `{"prcp": "mm/day"}`)
+   - Must match variable names in time series files
+
 
 For detailed format specifications and examples, see:
 - [Data Guide](docs/data_guide.md) - Complete guide for both CAMELS and custom data
@@ -195,17 +196,11 @@ We provide ready-to-use scripts for model calibration, evaluation, simulation, a
 # 1. Calibration (saves config files by default)
 python scripts/run_xaj_calibration.py --config configs/example_config.yaml
 
-# Disable saving config files
-python scripts/run_xaj_calibration.py --config configs/example_config.yaml --no-save-config
-
 # 2. Evaluation on test period
-python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA --eval-period test
+python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA 
 
 # 3. Simulation with custom parameters (no calibration required!)
-python scripts/run_xaj_simulate.py \
-    --config configs/example_simulate_config.yaml \
-    --param-file configs/example_xaj_params.yaml \
-    --plot
+python scripts/run_xaj_simulate.py --config configs/example_simulate_config.yaml --param-file configs/example_xaj_params.yaml --plot
 
 # 4. Visualization (time series plots with precipitation and streamflow)
 python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
@@ -213,8 +208,6 @@ python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
 # Visualize specific basins
 python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --basins 01013500
 
-# Custom output directory
-python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --output-dir my_figures
 ```
 
 **Configuration Files:**
@@ -328,6 +321,26 @@ config = {
     },
 }
 ```
+**Configuration for custom datasets:**
+
+See `configs/example_config_selfmade.yaml` for a complete example. Custom datasets require additional parameters:
+
+```python
+"data_cfgs": {
+  "dataset": "selfmadehydrodataset"     # or "floodevent" for flood event data
+  "dataset_name": "my_basin_data"       # Your dataset folder name (REQUIRED)
+  "time_unit": ["1D"]                  # Time resolution (e.g., ["1h"], ["3h"], ["1D"])
+  "datasource_kwargs":{                # Optional additional parameters
+    "offset_to_utc": False             # Whether to convert local time to UTC
+    }              
+  "is_event_data": True                # Whether floodevent data
+  # ... other standard parameters (basin_ids, variables, periods, etc.)
+```
+
+**Key differences from CAMELS datasets:**
+- `dataset_name`: Specifies your custom dataset folder name (required)
+- `time_unit`: Must match the subdirectory names in `timeseries/` folder
+- `datasource_kwargs`: Optional parameters for data preprocessing
 
 ### Calibration API
 

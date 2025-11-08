@@ -3,7 +3,7 @@
 
 data:
   # Data source configuration for custom datasets
-  dataset: "floodevent"   # Or "floodevent" for flood event data
+  dataset: "selfmadehydrodataset"   # "selfmadehydrodataset" Or "floodevent" for flood event data
   path: null                        # Data path (null = auto-detect from hydro_setting.yml or use ~/hydromodel_data/basins-origin/)
                                     # If specified, provide the parent directory that contains your dataset folder
                                     # Example: "D:/my_data" (if your data is in D:/my_data/my_basin_data/)
@@ -55,7 +55,7 @@ model:
 
 training:
   # Training configuration (same as standard config)
-  algorithm: "SUE_UA"               # Calibration algorithm: SCE_UA, GA, or scipy
+  algorithm: "SCE_UA"               # Calibration algorithm: SCE_UA, GA, or scipy
 
   # SCE-UA parameters
   SCE_UA:

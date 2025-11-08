@@ -105,7 +105,7 @@ uv pip install hydromodel hydrodataset
 local_data_path:
   root: 'D:/data'
   datasets-origin: 'D:/data'             # CAMELS 数据集（aqua_fetch 会自动添加 CAMELS_US）
-  basins-origin: 'D:/data/my_basins'     # 自定义数据
+  datasets-imterim: 'D:/data/my_basins'     # 自定义数据
 ```
 
 **重要说明**：对于 CAMELS 数据集，只需提供 `datasets-origin` 目录。系统会自动添加大写的数据集目录名（如 `CAMELS_US`、`CAMELS_AUS`）。例如数据在 `D:/data/CAMELS_US/`，则设置 `datasets-origin: 'D:/data'`。
@@ -116,10 +116,12 @@ local_data_path:
 
 **使用 CAMELS 数据集 (hydrodataset)：**
 
+公开数据集使用 hydrodataset 获取
+
 ```bash
 pip install hydrodataset
 ```
-
+运行以下代码下载数据到您的目录
 ```python
 from hydrodataset.camels_us import CamelsUs
 
@@ -135,7 +137,7 @@ basin_ids = ds.read_object_ids()  # 获取流域 ID
 
 **使用自定义数据 (hydrodatasource)：**
 
-对于你自己的数据，使用 `selfmadehydrodataset` 格式：
+对于你自己的数据，使用 hydrodatasource 读取，需要准备成 `selfmadehydrodataset` 格式：
 
 ```bash
 pip install hydrodatasource
@@ -143,47 +145,46 @@ pip install hydrodatasource
 
 **数据结构：**
 ```
-my_basin_data/
-├── attributes/
-│   └── attributes.csv              # 流域元数据（必需）
-├── timeseries/
-│   ├── 1D/                         # 日尺度时间序列
-│   │   ├── basin_001.csv          # 每个流域一个文件
-│   │   ├── basin_002.csv
-│   │   └── ...
-│   └── 1D_units_info.json          # 变量单位（必需）
+/path/to/your_data_root/
+    └── my_custom_dataset/              # 您的数据集名称
+        ├── attributes/
+        │   └── attributes.csv
+        ├── shapes/
+        │   └── basins.shp
+        └── timeseries/
+            ├── 1D/                     # 每个时间分辨率一个子文件夹（例如，日尺度）
+            │   ├── basin_01.csv
+            │   ├── basin_02.csv
+            │   └── ...
+            └── 1D_units_info.json      # 包含单位信息的 JSON 文件
 ```
 
-**必需文件：**
-- `attributes.csv`: 必须有 `basin_id` 和 `area`（km²）列
-- `{basin_id}.csv`: 时间序列，包含 `time` 列 + 变量（`prcp`、`PET`、`streamflow`）
-- `{time_scale}_units_info.json`: 每个变量的单位（例如 `{"prcp": "mm/day"}`）
+**必需文件和格式：**
 
-**自定义数据集配置：**
+1. **attributes/attributes.csv**：流域元数据，包含必需列
+   - `basin_id`：唯一流域标识符（例如 "basin_001"）
+   - `area`：流域面积（km²），内部会映射为 `basin_area`
+   - 其他列：任意流域属性（例如 elevation、slope）
 
-查看 `configs/example_config_selfmade.yaml` 获取完整示例。自定义数据集需要额外的参数：
+2. **shapes/basins.shp**：流域边界 Shapefile（必需所有 4 个文件：.shp、.shx、.dbf、.prj）
+   - 必须包含 `BASIN_ID` 列（大写）与 attributes.csv 中的流域 ID 匹配
+   - 几何类型：定义流域边界的多边形要素
+   - 坐标系统：任意有效的坐标参考系统（例如 EPSG:4326 代表 WGS84）
 
-```yaml
-data:
-  dataset: "selfmadehydrodataset"    # 或使用 "floodevent" 用于洪水事件数据
-  dataset_name: "my_basin_data"      # 你的数据集文件夹名称（必需）
-  time_unit: ["1D"]                  # 时间分辨率（例如 ["1h"]、["3h"]、["1D"]）
-  datasource_kwargs:                 # 可选的额外参数
-    version: "v1.0"                  # 数据集版本
-    offset_to_utc: false             # 是否将本地时间转换为 UTC
-    trange4cache: null               # 缓存的时间范围
-  # ... 其他标准参数（basin_ids、variables、periods 等）
-```
+3. **timeseries/{time_scale}/{basin_id}.csv**：每个流域的时间序列数据
+   - `time`：日期时间列（例如 "2010-01-01"）
+   - 变量列：`prcp`、`PET`、`streamflow`（或你选择的变量名称）
+   - 格式：带表头的 CSV 文件
 
-**与 CAMELS 数据集的关键区别：**
-- `dataset_name`: 指定自定义数据集文件夹名称（必需）
-- `time_unit`: 必须与 `timeseries/` 文件夹中的子目录名称匹配
-- `datasource_kwargs`: 数据预处理的可选参数
+4. **timeseries/{time_scale}_units_info.json**：变量单位元数据
+   - JSON 格式：`{"variable_name": "unit"}`（例如 `{"prcp": "mm/day"}`）
+   - 必须与时间序列文件中的变量名称匹配
 
-详细格式规范和示例，请参见：
+
+更多的详细格式规范和示例，请参见：
 - [数据准备指南](docs/data_guide.md) - CAMELS 和自定义数据的完整指南
 - [hydrodatasource 文档](https://github.com/OuyangWenyu/hydrodatasource) - 源包
-- `configs/example_config_selfmade.yaml` - 自定义数据集的完整配置示例
+
 
 ### 2. 快速开始：率定、评估、模拟和可视化
 
@@ -192,20 +193,14 @@ data:
 我们提供了现成的脚本用于模型率定、评估、模拟和可视化：
 
 ```bash
-# 1. 率定（默认保存配置文件）
+# 1. 率定
 python scripts/run_xaj_calibration.py --config configs/example_config.yaml
 
-# 禁用保存配置文件
-python scripts/run_xaj_calibration.py --config configs/example_config.yaml --no-save-config
-
 # 2. 在测试期评估
-python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA --eval-period test
+python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA 
 
 # 3. 使用自定义参数模拟（无需率定！）
-python scripts/run_xaj_simulate.py \
-    --config configs/example_simulate_config.yaml \
-    --param-file configs/example_xaj_params.yaml \
-    --plot
+python scripts/run_xaj_simulate.py --config configs/example_simulate_config.yaml --param-file configs/example_xaj_params.yaml --plot
 
 # 4. 可视化（时间序列图，包含降雨和流量）
 python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
@@ -213,8 +208,6 @@ python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
 # 可视化特定流域
 python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --basins 01013500
 
-# 自定义输出目录
-python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --output-dir my_figures
 ```
 
 **配置文件：**
@@ -263,7 +256,7 @@ evaluate(config, param_dir="results/my_experiment", eval_period="test")  # 评�
 
 ## 核心 API
 
-### 配置结构
+### config 配置结构
 
 统一 API 使用包含四个主要部分的配置字典：
 
@@ -328,6 +321,27 @@ config = {
     },
 }
 ```
+**自定义数据集额外配置：**
+
+查看 `configs/example_config_selfmade.yaml` 获取完整示例。自定义数据集需要**额外的**参数：
+
+```python
+"data_cfgs": {
+  "dataset": "selfmadehydrodataset"    # 或使用 "floodevent" 用于洪水事件数据
+  "dataset_name": "my_basin_data"      # 你的数据集文件夹名称（必需）
+  "time_unit": ["1D"]                  # 时间分辨率（例如 ["1h"]、["3h"]、["1D"]）
+  "datasource_kwargs":{                 # 可选的额外参数
+    "offset_to_utc": False             # 是否将本地时间转换为 UTC
+    }              
+  "is_event_data": True                # 是否是洪水场次数据
+  # ... 其他标准参数（basin_ids、variables、periods 等）
+}
+```
+
+**与 CAMELS 数据集的区别：**
+- `dataset_name`: 指定自定义数据集文件夹名称（必需）
+- `time_unit`: 必须与 `timeseries/` 文件夹中的子目录名称匹配
+- `datasource_kwargs`: 数据预处理的可选参数
 
 ### 率定 API
 

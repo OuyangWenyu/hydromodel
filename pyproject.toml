@@ -43,7 +43,7 @@ dependencies = [
     "aqua-fetch[all]",
     "hydroutils>=0.1.0",
     "hydrodataset>=0.2.0",
-    "hydrodatasource",
+    "hydrodatasource>=0.2.0",
 ]
 
 [project.optional-dependencies]

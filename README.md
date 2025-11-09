@@ -2,255 +2,588 @@
 
 [![image](https://img.shields.io/pypi/v/hydromodel.svg)](https://pypi.python.org/pypi/hydromodel)
 [![image](https://img.shields.io/conda/vn/conda-forge/hydromodel.svg)](https://anaconda.org/conda-forge/hydromodel)
-
 [![image](https://pyup.io/repos/github/OuyangWenyu/hydromodel/shield.svg)](https://pyup.io/repos/github/OuyangWenyu/hydromodel)
 
--   Free software: GNU General Public License v3
--   Documentation: https://OuyangWenyu.github.io/hydromodel
+**A lightweight Python package for hydrological model calibration and evaluation, featuring the XinAnJiang (XAJ) model.**
+
+- Free software: GNU General Public License v3
+- Documentation: https://OuyangWenyu.github.io/hydromodel
 
 ## What is hydromodel
 
-**Hydromodel is a python implementation for common hydrological models such as the XinAnJiang (XAJ) model, which is one of the most famous conceptual hydrological models, especially in Southern China.**
+`hydromodel` is a Python implementation of conceptual hydrological models, with a focus on the **XinAnJiang (XAJ) model** - one of the most widely-used rainfall-runoff models, especially in China and Asian regions.
 
-**Not an official version, just for learning**
+**Key Features:**
+- **XAJ Model Variants**: Standard XAJ and optimized versions (xaj_mz with Muskingum routing)
+- **Multiple Calibration Algorithms**:
+  - **SCE-UA**: Shuffled Complex Evolution (robust, recommended)
+  - **GA**: Genetic Algorithm with DEAP (flexible, customizable)
+  - **scipy**: L-BFGS-B, SLSQP, and other gradient-based methods (fast)
+- **Multi-Basin Support**: Efficient calibration and evaluation for multiple basins simultaneously
+- **Unified Results Format**: All algorithms save results in standardized JSON + CSV format
+- **Comprehensive Evaluation Metrics**: NSE, KGE, RMSE, PBIAS, and more
+- **Unified API**: Consistent interfaces for calibration, evaluation, and simulation
+- **Flexible Data Integration**: Seamless support for CAMELS datasets via [hydrodataset](https://github.com/OuyangWenyu/hydrodataset) and custom data via [hydrodatasource](https://github.com/OuyangWenyu/hydrodatasource)
+- **Configuration-Based Workflow**: YAML configuration for reproducibility
+- **Progress Tracking**: Real-time progress display and intermediate results saving
 
-This is a Python console program (no graphic interface now). It is **still developing**.
+## Why hydromodel?
 
-## How to run
+**For Researchers:**
+- Battle-tested XAJ implementations used in published research
+- Configuration-based workflow ensures reproducibility
+- Easy to extend with new models or calibration algorithms
+- Lightweight and fast - perfect for parameter sensitivity studies
 
-### Install
+**For Practitioners:**
+- Simple YAML configuration, minimal coding required
+- Handles multi-basin calibration efficiently
+- Integration with global CAMELS datasets (11 variants)
+- Clear documentation and examples
 
-We provided a pip package. You can install it with pip:
+**Compared to other packages:**
+- **vs. SWAT/VIC**: Lighter weight, Python-native, faster iteration
+- **vs. pySTREPS**: Focus on conceptual rainfall-runoff models
+- **vs. custom scripts**: Well-tested with unified interfaces
 
+## Installation
 
-```Shell
-# create python environment
-$ conda create -n hydromodel python=3.10
-$ conda activate hydromodel
-# install hydromodel
-$ pip install hydromodel
+### For Users
+
+```bash
+pip install hydromodel hydrodataset
 ```
 
-If you want to run the model as a developer, you can clone the repository
+Or using `uv` (faster):
 
-```Shell
-# fork hydromodel to your GitHub, and clone it to your computer
-$ git clone <address of hydromodel in your github>
-# move to it
-$ cd hydromodel
-# if updating from upstream, pull the new version to local
-$ git pull
-# create python environment
-$ mamba env create -f env-dev.yml
-# if mamba is not installed:
-# $ conda install -c conda-forge mamba
-# activate it
-$ conda activate hydromodel
+```bash
+uv pip install hydromodel hydrodataset
 ```
 
-### Prepare data
+### Development Setup
 
-You can use the CAMELS dataset (see [here](https://github.com/OuyangWenyu/hydrodataset) to prepare it) to run the model.
+For developers, it is recommended to use `uv` to manage the environment, as this project has local dependencies (e.g., `hydroutils`, `hydrodataset`, `hydrodatasource`).
 
-If CAMELS is used, you can skip this step.
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/OuyangWenyu/hydromodel.git
+   cd hydromodel
+   ```
 
-If the warning "hydro_setting.yml not found" is shown, you can create a hydro_setting.yml file in the user directory. In windows, it is usually "C:/Users/<your_username>". In Linux, it is usually "/home/<your_username>". The content of the file is as follows:
+2. **Sync the environment with `uv`:**
+   This command will install all dependencies, including the local editable packages.
+   ```bash
+   uv sync --all-extras
+   ```
+
+### Configuration
+
+#### Option 1: Use Default Paths (Recommended for Quick Start)
+
+No configuration needed! `hydromodel` automatically uses default paths:
+
+**Default data directory:**
+- **Windows:** `C:\Users\YourUsername\hydromodel_data\`
+- **macOS/Linux:** `~/hydromodel_data/`
+
+The default structure (aqua_fetch automatically creates uppercase dataset directories):
+```
+~/hydromodel_data/
+├── datasets-origin/
+│   ├── CAMELS_US/        # CAMELS US dataset (created by aqua_fetch)
+│   ├── CAMELS_AUS/       # CAMELS Australia dataset (if used)
+│   └── ...               # Other datasets
+├── basins-origin/        # Your custom basin data
+└── ...
+```
+
+#### Option 2: Custom Paths (For Advanced Users)
+
+Create `~/hydro_setting.yml` to specify custom paths:
 
 ```yaml
-# Update the following with your own settings, if you don't have, you can ignore it
-minio:
-  server_url: ''
-  client_endpoint: ''
-  access_key: ''
-  secret: ''
 local_data_path:
-  root: ''
-  datasets-origin: ''
-  datasets-interim: ''
-  basins-origin: ''
-  basins-interim: ''
-postgres:
-  server_url: ''
-  port: 5432
-  username: ''
-  password: ''
-  database: ''
+  root: 'D:/data'
+  datasets-origin: 'D:/data'             # For CAMELS datasets (aqua_fetch adds CAMELS_US automatically)
+  datasets-imterim: 'D:/data/my_basins'     # For custom data
 ```
 
+**Important**: For CAMELS datasets, provide only the `datasets-origin` directory. The system automatically appends the uppercase dataset directory name (e.g., `CAMELS_US`, `CAMELS_AUS`). If your data is in `D:/data/CAMELS_US/`, set `datasets-origin: 'D:/data'`.
 
-To use your own data to run the model, you need prepare the data in the required format.
+## How to Use
 
-**NOTE: We currently only support calibrating one basin at a time, although the following instructions cover multiple basin information, we have not thoroughly tested it.**
+### 1. Data Preparation
 
-We provide some transformation functions in the "scripts" directory. You can use them to transform your data to the required format.
+**Using CAMELS Datasets (hydrodataset):**
 
-But you still need to do some manual work before transformation. Here are the steps:
+Getting public datasets using hydrodataset
 
-1. Put all data in one directory and check if it is organized as the following format:
+```bash
+pip install hydrodataset
 ```
-your_data_directory_for_hydromodel/
-# one attribute csv file for all basins
-├─ basin_attributes.csv
-# one timeseries csv file for one basin, xxx and yyy are the basin ids
-├─ basin_xxx.csv
-├─ basin_yyy.csv
-├─ basin_zzz.csv
-├─ ...
+Run the following code to download data to your directory
+```python
+from hydrodataset.camels_us import CamelsUs
+
+# Auto-downloads if not found. Provide datasets-origin directory (e.g., "D:/data")
+# aqua_fetch automatically appends dataset name, creating "D:/data/CAMELS_US/"
+ds = CamelsUs(data_path)
+basin_ids = ds.read_object_ids()  # Get basin IDs
 ```
-basin_attributes.csv should have the following columns:
+
+**Note:** First-time download may take some time. The complete CAMELS dataset is approximately 70GB.
+
+**Available datasets:** camels_us, camels_aus, camels_br, camels_ch, camels_cl, camels_gb, camels_de, camels_dk, camels_fr, camels_nz, camels_se
+
+**Using Custom Data (hydrodatasource):**
+
+For your own data to be read using hydrodatasource, it needs to be prepared in the format of  `selfmadehydrodataset` :
+
+```bash
+pip install hydrodatasource
+```
+
+**Data structure:**
+```
+/path/to/your_data_root/
+    └── my_custom_dataset/              # your dataset name
+        ├── attributes/
+        │   └── attributes.csv
+        ├── shapes/
+        │   └── basins.shp
+        └── timeseries/
+            ├── 1D/                     # One sub folder per time resolution (e.g. 1D/3h/1h)
+            │   ├── basin_01.csv
+            │   ├── basin_02.csv
+            │   └── ...
+            └── 1D_units_info.json      # JSON file containing unit information
+```
+
+**Required files and formats:**
+
+1. **attributes/attributes.csv**: Basin metadata with required columns
+   - `basin_id`: Unique basin identifier (e.g., "basin_001")
+   - `area`: Basin area in km² (mapped to `basin_area` internally)
+   - Additional columns: Any basin attributes (e.g., elevation, slope)
+
+2. **shapes/basins.shp**: Basin boundary shapefiles (all 4 files required: .shp, .shx, .dbf, .prj)
+   - Must contain `BASIN_ID` column (uppercase) matching basin IDs in attributes.csv
+   - Geometries: Polygon features defining basin boundaries
+   - Coordinate system: Any valid CRS (e.g., EPSG:4326 for WGS84)
+
+3. **timeseries/{time_scale}/{basin_id}.csv**: Time series data for each basin
+   - `time`: Datetime column (e.g., "2010-01-01")
+   - Variable columns: `prcp`, `PET`, `streamflow` (or your chosen variable names)
+   - Format: CSV with header row
+
+4. **timeseries/{time_scale}_units_info.json**: Variable units metadata
+   - JSON format: `{"variable_name": "unit"}` (e.g., `{"prcp": "mm/day"}`)
+   - Must match variable names in time series files
+
+
+For detailed format specifications and examples, see:
+- [Data Guide](docs/data_guide.md) - Complete guide for both CAMELS and custom data
+- [hydrodatasource documentation](https://github.com/OuyangWenyu/hydrodatasource) - Source package
+- `configs/example_config_selfmade.yaml` - Complete configuration example for custom datasets
+
+### 2. Quick Start: Calibration, Evaluation, Simulation, and Visualization
+
+**Option 1: Use Command-Line Scripts (Recommended for Beginners)**
+
+We provide ready-to-use scripts for model calibration, evaluation, simulation, and visualization:
+
+```bash
+# 1. Calibration (saves config files by default)
+python scripts/run_xaj_calibration.py --config configs/example_config.yaml
+
+# 2. Evaluation on test period
+python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA 
+
+# 3. Simulation with custom parameters (no calibration required!)
+python scripts/run_xaj_simulate.py --config configs/example_simulate_config.yaml --param-file configs/example_xaj_params.yaml --plot
+
+# 4. Visualization (time series plots with precipitation and streamflow)
+python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
+
+# Visualize specific basins
+python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test --basins 01013500
+
+```
+
+**Configuration Files:**
+
+Edit the appropriate configuration file for your data type:
+- `configs/example_config.yaml` - For continuous time series data (e.g., CAMELS datasets)
+- `configs/example_config_selfmade.yaml` - For custom data and flood event datasets
+
+All configuration options work with the same unified API. For detailed flood event data usage, see [Usage Guide - Flood Event Data](docs/usage.md#flood-event-data).
+
+**Option 2: Use Python API (For Advanced Users)**
+
+```python
+from hydromodel.trainers.unified_calibrate import calibrate
+from hydromodel.trainers.unified_evaluate import evaluate
+
+config = {
+    "data_cfgs": {
+        "data_source_type": "camels_us",
+        "basin_ids": ["01013500"],
+        "train_period": ["1985-10-01", "1995-09-30"],
+        "test_period": ["2005-10-01", "2014-09-30"],
+        "warmup_length": 365,
+        "variables": ["precipitation", "potential_evapotranspiration", "streamflow"]
+    },
+    "model_cfgs": {
+        "model_name": "xaj_mz",
+    },
+    "training_cfgs": {
+        "algorithm_name": "SCE_UA",
+        "algorithm_params": {"rep": 5000, "ngs": 1000},
+        "loss_config": {"type": "time_series", "obj_func": "RMSE"},
+        "output_dir": "results",
+        "experiment_name": "my_experiment",
+    },
+    "evaluation_cfgs": {
+        "metrics": ["NSE", "KGE", "RMSE"],
+    },
+}
+
+results = calibrate(config)  # Calibrate
+evaluate(config, param_dir="results/my_experiment", eval_period="test")  # Evaluate
+```
+
+Results are saved in the `results/` directory.
+
+## Core API
+
+### Configuration Structure
+
+The unified API uses a configuration dictionary with four main sections:
+
+```python
+config = {
+    "data_cfgs": {
+        "data_source_type": "camels_us",       # Dataset type
+        "basin_ids": ["01013500"],             # Basin IDs to calibrate
+        "train_period": ["1990-10-01", "2000-09-30"],
+        "test_period": ["2000-10-01", "2010-09-30"],
+        "warmup_length": 365,                  # Warmup days
+        "variables": ["precipitation", "potential_evapotranspiration", "streamflow"],
+    },
+    "model_cfgs": {
+        "model_name": "xaj_mz",                # Model variant
+        "model_params": {
+            "source_type": "sources",
+            "source_book": "HF",
+            "kernel_size": 15,                 # Muskingum routing kernel
+        },
+    },
+    "training_cfgs": {
+        "algorithm_name": "GA",                # Algorithm: SCE_UA, GA, or scipy
+
+        # Algorithm-specific parameters (choose one based on algorithm_name)
+
+        # For SCE-UA (Shuffled Complex Evolution):
+        "SCE_UA": {
+            "rep": 1000,                       # Iterations (5000+ recommended)
+            "ngs": 1000,                       # Number of complexes
+            "kstop": 500,                      # Stop if no improvement
+            "peps": 0.1,                       # Parameter convergence
+            "pcento": 0.1,                     # Percentage change allowed
+            "random_seed": 1234,
+        },
+
+        # For GA (Genetic Algorithm):
+        "GA": {
+            "pop_size": 80,                    # Population size
+            "n_generations": 50,               # Generations (100+ recommended)
+            "cx_prob": 0.7,                    # Crossover probability
+            "mut_prob": 0.2,                   # Mutation probability
+            "random_seed": 1234,
+        },
+
+        # For scipy (gradient-based optimization):
+        "scipy": {
+            "method": "SLSQP",                 # L-BFGS-B, SLSQP, TNC, etc.
+            "max_iterations": 500,             # Maximum iterations
+        },
+
+        "loss_config": {
+            "type": "time_series",
+            "obj_func": "RMSE",                # RMSE, NSE, or KGE
+        },
+        "output_dir": "results",
+        "experiment_name": "my_exp",
+        "save_config": True,                   # Save config files to output directory (default: True)
+    },
+    "evaluation_cfgs": {
+        "metrics": ["NSE", "KGE", "RMSE", "PBIAS"],
+    },
+}
+```
+**Configuration for custom datasets:**
+
+See `configs/example_config_selfmade.yaml` for a complete example. Custom datasets require additional parameters:
+
+```python
+"data_cfgs": {
+  "dataset": "selfmadehydrodataset"     # or "floodevent" for flood event data
+  "dataset_name": "my_basin_data"       # Your dataset folder name (REQUIRED)
+  "time_unit": ["1D"]                  # Time resolution (e.g., ["1h"], ["3h"], ["1D"])
+  "datasource_kwargs":{                # Optional additional parameters
+    "offset_to_utc": False             # Whether to convert local time to UTC
+    }              
+  "is_event_data": True                # Whether floodevent data
+  # ... other standard parameters (basin_ids, variables, periods, etc.)
+```
+
+**Key differences from CAMELS datasets:**
+- `dataset_name`: Specifies your custom dataset folder name (required)
+- `time_unit`: Must match the subdirectory names in `timeseries/` folder
+- `datasource_kwargs`: Optional parameters for data preprocessing
+
+### Calibration API
+
+```python
+from hydromodel.trainers.unified_calibrate import calibrate
+
+results = calibrate(config)
+```
+
+**Output:** Calibration results saved to `{output_dir}/{experiment_name}/`
+
+**Saved files:**
+```
+results/my_exp/
+├── calibration_results.json          # Best parameters for all basins (unified format)
+├── {basin_id}_sceua.csv              # SCE-UA detailed iteration history
+├── {basin_id}_ga.csv                 # GA generation history with parameters
+├── {basin_id}_scipy.csv              # scipy iteration history with parameters
+├── calibration_config.yaml           # Configuration used (saved if save_config=True)
+└── param_range.yaml                  # Parameter ranges for current model only (saved if save_config=True)
+```
+
+**Notes:**
+- `calibration_results.json`: Always saved, contains best parameters
+- `calibration_config.yaml` and `param_range.yaml`: Only saved if `save_config=True` (default)
+- `param_range.yaml`: Contains parameter ranges for the current model only (e.g., only `xaj_mz`, not all models)
+- In `calibration_config.yaml`, `param_range_file` is set to the actual saved path
+
+**Available algorithms:**
+- `SCE_UA` / `sceua`: Shuffled Complex Evolution (recommended for global optimization)
+- `GA` / `genetic_algorithm`: Genetic Algorithm with DEAP (flexible, handles complex landscapes)
+- `scipy` / `scipy_minimize`: scipy.optimize methods (fast for smooth objectives)
+
+### Evaluation API
+
+```python
+from hydromodel.trainers.unified_evaluate import evaluate
+
+# Evaluate on test period
+test_results = evaluate(config, param_dir="results/my_exp", eval_period="test")
+
+# Evaluate on training period
+train_results = evaluate(config, param_dir="results/my_exp", eval_period="train")
+
+# Evaluate on custom period
+custom_results = evaluate(
+    config,
+    param_dir="results/my_exp",
+    eval_period="custom",
+    custom_period=["2010-10-01", "2015-09-30"]
+)
+```
+
+**Output:** Evaluation results in `{param_dir}/evaluation_{period}/`
+- `basins_metrics.csv` - Performance metrics
+- `basins_norm_params.csv` - Calibrated parameters (normalized [0,1])
+- `basins_denorm_params.csv` - Denormalized parameters (physical values)
+- `xaj_mz_evaluation_results.nc` - Full simulation results (NetCDF)
+
+**Parameter Loading Priority:**
+1. `calibration_results.json` (⭐ Recommended, works for all algorithms)
+2. `{basin_id}_ga.csv` (GA algorithm CSV)
+3. `{basin_id}_scipy.csv` (scipy algorithm CSV)
+4. `{basin_id}_sceua.csv` (SCE-UA algorithm CSV)
+5. `{basin_id}_calibrate_params.txt` (Legacy format)
+
+**Available metrics:** NSE, KGE, RMSE, PBIAS, FHV, FLV, FMS
+
+### Understanding Results Format
+
+**calibration_results.json structure:**
+```json
+{
+  "01013500": {
+    "convergence": "success",
+    "objective_value": 1.234567,
+    "best_params": {
+      "xaj": {
+        "K": 0.567890,
+        "B": 0.234567,
+        "IM": 0.045678,
+        ...
+      }
+    },
+    "algorithm_info": {
+      "generations": 50,
+      "population_size": 80,
+      ...
+    }
+  }
+}
+```
+
+**CSV files (GA/scipy) structure:**
 ```csv
-id     name  area(km^2)
-xxx  Basin A         100
-yyy  Basin B         200
-zzz  Basin C         300
-```
-basin_xxx.csv should have the following columns:
-```csv
-time  pet(mm/day)  prcp(mm/day)  flow(m^3/s)  et(mm/day)  node1_flow(m^3/s)
-2022-01-01 00:00:00            1                 10                 13                 16                 19
-2022-01-02 00:00:00            2                 11                 14                 17                 20
-2022-01-03 00:00:00            3                 12                 15                 18                 21
-```
-The sequence of the columns is not important, but the column names should be the same as the above.
-No more unnecessary columns are allowed.
-For time series csv files, et and node1_flow are optional. If you don't have them, you can ignore them.
-The units of all variables could be different, but they cannot be missed and should be put in `()` in the column name.
-
-1. Use [prepare_data.py](https://github.com/OuyangWenyu/hydromodel/tree/master/scripts) -- run the following code to transform the data format to the required format:
-```Shell
-$ python prepare_data.py --origin_data_dir <your_data_directory_for_hydromodel>
+generation,objective_value,param_K,param_B,param_IM,...
+0,3.456,0.567,0.234,0.045,...
+1,2.345,0.589,0.256,0.047,...
 ```
 
-### Run the model
+**Why two formats?**
+- **JSON**: Best parameters only, works with all algorithms, used by evaluation
+- **CSV**: Full iteration/generation history, useful for convergence analysis
 
-To run calibration with CAMLES dataset, you can use the following code:
+### Simulation API
 
-```Shell
-# just an example the hyper-parameters of the model and the algorithm should be tried by yourself
-$ python calibrate_xaj.py --data_type camels --data_dir "C:/Users/wenyu/OneDrive/data/camels/camels_us" --exp expcamels001 --cv_fold 2 --warmup 365 --period 2007-01-01 2014-01-01 --calibrate_period 2007-01-01 2014-01-01 --test_period 2007-01-01 2014-01-01 --basin_id 01439500 06885500 08104900 09510200 --model "{\"name\": \"xaj\", \"source_type\": \"sources5mm\", \"source_book\": \"HF\"}" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 10, \"ngs\": 10, \"kstop\": 5, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
+**Important:** Simulation does NOT require prior calibration!
+
+`UnifiedSimulator` provides a flexible interface for running model simulations with any parameter values:
+
+```python
+from hydromodel.trainers.unified_simulate import UnifiedSimulator
+from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
+
+# Load data
+data_loader = UnifiedDataLoader(config["data_cfgs"])
+p_and_e, qobs = data_loader.load_data()
+
+# Define parameters (from calibration, literature, or custom values)
+parameters = {
+    "K": 0.75, "B": 0.25, "IM": 0.06,
+    "UM": 18.0, "LM": 80.0, "DM": 95.0,
+    # ... other parameters
+}
+
+# Create simulator
+model_config = {
+    "model_name": "xaj_mz",
+    "parameters": parameters
+}
+simulator = UnifiedSimulator(model_config, basin_config)
+
+# Run simulation
+results = simulator.simulate(
+    inputs=p_and_e,
+    qobs=qobs,
+    warmup_length=365
+)
+
+# Extract results
+qsim = results["qsim"]  # Simulated streamflow
 ```
 
-To use your own data, run the following code:
+**Command-line usage:**
 
-```Shell
-# you can change the algorithm parameters:
-$ python calibrate_xaj.py --data_type owndata --data_dir "C:/Users/wenyu/OneDrive/data/biliuhe" --exp expbiliuhe001 --cv_fold 1 --warmup 720 --period "2012-06-10 00:00" "2022-08-31 23:00" --calibrate_period "2012-06-10 00:00" "2017-08-31 23:00" --test_period "2017-09-01 00:00" "2022-08-31 23:00" --basin_id 21401550 --model "{\"name\": \"xaj\", \"source_type\": \"sources5mm\", \"source_book\": \"HF\"}" --param_range_file "C:/Users/wenyu/OneDrive/data/biliuhe/param_range.yaml" --algorithm "{\"name\": \"SCE_UA\", \"random_seed\": 1234, \"rep\": 10, \"ngs\": 10, \"kstop\": 5, \"peps\": 0.1, \"pcento\": 0.1}" --loss "{\"type\": \"time_series\", \"obj_func\": \"RMSE\", \"events\": null}"
-# for advices of hyper-parameters of sceua, please see the comment of the function 'calibrate_xaj.py'
+```bash
+# Using custom parameters (works with any parameter values)
+python scripts/run_xaj_simulate.py \
+    --config configs/example_simulate_config.yaml \
+    --param-file configs/example_xaj_params.yaml \
+    --output simulation_results.csv \
+    --plot
+
+# Using calibrated parameters from SCE-UA (CSV format)
+python scripts/run_xaj_simulate.py \
+    --param-file results/xaj_mz_SCE_UA/01013500_sceua.csv \
+    --plot
 ```
 
-**NOTE**: For the parameter range in the `param_range_file` file. You can copy it from "hydromodel/models/param.yaml" of this repo and put it anywhere you want. Then you can modify the parameter range in the file. The parameter range is used to limit the parameter space of the hydromodels. If you don't provide the file, the default parameter range will be used.
+**Use cases:**
+- Parameter sensitivity analysis
+- Model comparison
+- Scenario testing with custom parameters
+- Literature parameter validation
 
-Then you can evaluate the calibrated model with the following code:
+For detailed API documentation and advanced usage, see [Usage Guide - Model Simulation](docs/usage.md#model-simulation).
 
-```Shell
-# $ python evaluate_xaj.py --exp expcamels001
-# for your own data
-$ python evaluate_xaj.py --exp expbiliuhe001
+## Project Structure
+
+```
+hydromodel/
+├── hydromodel/
+│   ├── models/                      # Model implementations
+│   │   ├── xaj.py                   # Standard XAJ model
+│   │   ├── gr4j.py                  # GR4J model
+│   │   └── ...
+│   ├── trainers/                    # Calibration, evaluation, and simulation
+│   │   ├── unified_calibrate.py     # Calibration API
+│   │   ├── unified_evaluate.py      # Evaluation API
+│   │   └── unified_simulate.py      # Simulation API
+│   └── datasets/                    # Data preprocessing and visualization
+│       ├── unified_data_loader.py   # Data loader
+│       ├── data_visualize.py        # Visualization functions
+│       └── ...
+├── scripts/                         # Command-line interface scripts
+│   ├── run_xaj_calibration.py       # Calibration script
+│   ├── run_xaj_evaluate.py          # Evaluation script
+│   ├── run_xaj_simulate.py          # Simulation script
+│   └── visualize.py                 # Visualization CLI
+├── configs/                         # Configuration files
+└── docs/                            # Documentation
 ```
 
-### See the results
+## Documentation
 
-Run the following code to see the results of the evaluation:
-
-```Shell
-# $ python visualize.py --exp expcamels001
-# for your own data
-$ python visualize.py --exp expbiliuhe001
-```
-
-You will see the results in the `example` directory.
-
-## Why does hydro-model-xaj exist
-
-When we want to learn about the rainfall-runoff process and make forecasts for floods, etc. We often use classic hydrological
-models such as XAJ as a baseline because it is trusted by many engineers and researchers. However, after searching the website very few repositories could be found. One day I happened to start learning Python, so I decided to implement the
-model with Python. Previous commits for hydro-model-xaj have some errors, but now at least one executable version is
-provided.
-
-Actually open-source science has brought a great impact on hydrological modeling. For example, SWAT and VIC are very
-popular now as they are public with great performance and readable documents; as more and more people use them, they
-become more stable and powerful. XAJ is a nice model used by many engineers for practical production. We need to inherit
-and develop it. I think hydro-model-xaj is a good start.
-
-## What are the main features
-
-We basically implement the formula in this book
--- [《流域水文模拟》](https://xueshu.baidu.com/usercenter/paper/show?paperid=ad9c545a7baa43321db97f5f16d393bf&site=xueshu_se)
-
-Other reference Chinese books：
-
-- ["*Principles of
-  Hydrology*"/《水文学原理》](https://xueshu.baidu.com/usercenter/paper/show?paperid=5b2d0a40e2d2804f47346ae6ccf2d142&site=xueshu_se)
-- ["*Hydrologic
-  Forecasting*"/《水文预报》](https://xueshu.baidu.com/usercenter/paper/show?paperid=852a9a90a7d26c5fae749169f87b61e0&site=xueshu_se)
-- ["*Engineering
-  Hydrology*"/《工程水文学》](https://xueshu.baidu.com/usercenter/paper/show?paperid=6e2d38726c8e3c0b9f3a14bafb156481&site=xueshu_se)
-
-More English references could be seen at the end of this README file.
-
-The model mainly includes three parts:
-
-![](docs/img/xaj.jpg)
-
-For the first part, we use an evaporation coefficient K (ratio of potential evapotranspiration to reference crop
-evaporation generally from Allen, 1998) rather than Kc (the ratio of potential evapotranspiration to pan evaporation)
-because we often use potential evapotranspiration data from a system like GLDAS, NLDAS, etc. But it doesn't matter, when
-you use pan evaporation, just treat K as Kc.
-
-For the second part, we provide multiple implementations, because, for this module, formulas in different books are a
-little different. One simplest version is chosen as a default setting. More details could be seen in the source code directly now. We provide four versions, two versions from two books.
-
-For the third part -- routing module, we provide different ways: the default is a common way with recession constant (
-CS) and lag time (L) shown in the figure; second (You can set the model's name as "xaj_mz" to use it) is a model
-from [mizuRoute](http://www.geosci-model-dev.net/9/2223/2016/) to generate unit hydrograph for surface runoff (Rs -> Qs)
-, as its parameters are easier to set, and we can optimize all parameters in a uniform way.
-
-We provide two common calibration methods to optimize XAJ's parameters:
-
-- [SCE-UA](https://doi.org/10.1029/91WR02985) from [spotpy](https://github.com/thouska/spotpy)
-- [GA](https://en.wikipedia.org/wiki/Genetic_algorithm) from [DEAP](https://github.com/DEAP/deap): now only the method
-  is used, but no completed case is provided yet. We will provide one soon.
-
-Now the model is only for **one computing element** (typically, a headwater catchment). Soon we will provide calibration
-for multiple headwater catchments. To get a better simulation for large basins, a (semi-)distributed version may be
-needed, and it is not implemented yet. The following links may be useful:
-
-- https://github.com/ecoon/watershed-workflow
-- https://github.com/ConnectedSystems/Streamfall.jl
-
-We also provide a differentiable version of XAJ, which is based on the [PyTorch](https://pytorch.org/) framework.
-
-The idea comes from this paper: [From calibration to parameter learning: Harnessing the scaling effects of big data in geoscientific modeling](http://dx.doi.org/10.1038/s41467-021-26107-z) by Tsai et al. (2021). We use the same structure as the original XAJ model but replace the original Numpy code with PyTorch. Then we can use the automatic differentiation technique and stochastic gradient descent algorithms to optimize all parameters. The advantage of this method is that we can use the same code to optimize many basins at once and use big data to improve the model performance. Generally, with the native parallel computing ability of PyTorch, the differentiable version is faster than the original version without any parallel processing. The differentiable version is in [torchhydro](https://github.com/OuyangWenyu/torchhydro).
-
-Other implementations for XAJ:
-
-- Matlab: https://github.com/wknoben/MARRMoT/blob/master/MARRMoT/Models/Model%20files/m_28_xinanjiang_12p_4s.m
-- Java: https://github.com/wfxr/xaj-hydrological-model
-- R, C++: https://github.com/Sibada/XAJ
-
-## How to contribute
-
-If you want to add features for hydro-model-xaj, for example, write a distributed version for XAJ, please create a new
-git branch for your feature and send me a pull request.
-
-If you find any problems in hydro-model-xaj, please post your questions
-on [issues](https://github.com/OuyangWenyu/hydro-model-xaj/issues).
+- **Quick Start**: [docs/quickstart.md](docs/quickstart.md)
+- **Usage Guide**: [docs/usage.md](docs/usage.md)
+- **API Reference**: https://OuyangWenyu.github.io/hydromodel
 
 ## References
 
-- Allen, R.G., L. Pereira, D. Raes, and M. Smith, 1998. Crop Evapotranspiration, Food and Agriculture Organization of
-  the United Nations, Rome, Italy. FAO publication 56. ISBN 92-5-104219-5. 290p.
-- Duan, Q., Sorooshian, S., and Gupta, V. (1992), Effective and efficient global optimization for conceptual
-  rainfall-runoff models, Water Resour. Res., 28( 4), 1015– 1031, doi:10.1029/91WR02985.
-- François-Michel De Rainville, Félix-Antoine Fortin, Marc-André Gardner, Marc Parizeau, and Christian Gagné. 2012.
-  DEAP: a python framework for evolutionary algorithms. In Proceedings of the 14th annual conference companion on
-  Genetic and evolutionary computation (GECCO '12). Association for Computing Machinery, New York, NY, USA, 85–92.
-  DOI:https://doi.org/10.1145/2330784.2330799
-- Houska T, Kraft P, Chamorro-Chavez A, Breuer L (2015) SPOTting Model Parameters Using a Ready-Made Python Package.
-  PLoS ONE 10(12): e0145180. https://doi.org/10.1371/journal.pone.0145180
-- Mizukami, N., Clark, M. P., Sampson, K., Nijssen, B., Mao, Y., McMillan, H., Viger, R. J., Markstrom, S. L., Hay, L.
-  E., Woods, R., Arnold, J. R., and Brekke, L. D.: mizuRoute version 1: a river network routing tool for a continental
-  domain water resources applications, Geosci. Model Dev., 9, 2223–2238, https://doi.org/10.5194/gmd-9-2223-2016, 2016.
-- Zhao, R.J., Zhuang, Y. L., Fang, L. R., Liu, X. R., Zhang, Q. S. (ed) (1980) The Xinanjiang model, Hydrological
-  Forecasting Proc., Oxford Symp., IAHS Publication, Wallingford, U.K.
-- Zhao, R.J., 1992. The xinanjiang model applied in China. J Hydrol 135 (1–4), 371–381.
+**XAJ Model:**
+- Zhao, R.J., 1992. The Xinanjiang model applied in China. Journal of Hydrology, 135(1-4), pp.371-381.
+
+**Calibration Algorithms:**
+- Duan, Q., et al., 1992. Effective and efficient global optimization for conceptual rainfall-runoff models. Water Resources Research, 28(4), pp.1015-1031. (SCE-UA)
+
+**Related Projects:**
+- [hydrodataset](https://github.com/OuyangWenyu/hydrodataset) - CAMELS and other datasets
+- [hydrodatasource](https://github.com/OuyangWenyu/hydrodatasource) - Data preparation utilities
+- [torchhydro](https://github.com/OuyangWenyu/torchhydro) - PyTorch-based hydrological models
+
+## Citation
+
+If you use hydromodel in your research, please cite:
+
+```bibtex
+@software{hydromodel,
+  author = {Ouyang, Wenyu},
+  title = {hydromodel: A Python Package for Hydrological Model Calibration},
+  year = {2025},
+  url = {https://github.com/OuyangWenyu/hydromodel}
+}
+```
+
+## Contributing
+
+Contributions are welcome! For major changes, please open an issue first.
+
+```bash
+git clone https://github.com/OuyangWenyu/hydromodel.git
+cd hydromodel
+uv sync --all-extras
+pytest tests/
+```
+
+## License
+
+GNU General Public License v3.0 - see [LICENSE](LICENSE) file.
+
+## Contact
+
+- **Author**: Wenyu Ouyang
+- **Email**: wenyuouyang@outlook.com
+- **GitHub**: https://github.com/OuyangWenyu/hydromodel
+- **Issues**: https://github.com/OuyangWenyu/hydromodel/issues

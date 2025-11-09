@@ -1,7 +1,16 @@
+"""
+Author: Wenyu Ouyang
+Date: 2025-08-06 22:52:45
+LastEditTime: 2025-08-19 10:12:54
+LastEditors: Wenyu Ouyang
+Description: Test XAJ model
+FilePath: \hydromodel\test\test_xaj.py
+Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
+"""
 import numpy as np
 import pytest
 
-from hydromodel.models.xaj import xaj, uh_gamma, uh_conv
+from hydromodel.models.xaj import xaj, uh_gamma
 
 
 @pytest.fixture()
@@ -40,31 +49,6 @@ def test_uh_gamma():
     )
 
 
-def test_uh():
-    uh_from_gamma = np.tile(1, (5, 3, 1))
-    # uh_from_gamma = np.arange(15).reshape(5, 3, 1)
-    rf = np.arange(30).reshape(10, 3, 1) / 100
-    qs = uh_conv(rf, uh_from_gamma)
-    np.testing.assert_almost_equal(
-        np.array(
-            [
-                [0.0000, 0.0100, 0.0200],
-                [0.0300, 0.0500, 0.0700],
-                [0.0900, 0.1200, 0.1500],
-                [0.1800, 0.2200, 0.2600],
-                [0.3000, 0.3500, 0.4000],
-                [0.4500, 0.5000, 0.5500],
-                [0.6000, 0.6500, 0.7000],
-                [0.7500, 0.8000, 0.8500],
-                [0.9000, 0.9500, 1.0000],
-                [1.0500, 1.1000, 1.1500],
-            ]
-        ),
-        qs[:, :, 0],
-        decimal=3,
-    )
-
-
 def test_xaj(p_and_e, params, warmup_length):
     qsim, e = xaj(
         p_and_e,
@@ -80,7 +64,7 @@ def test_xaj(p_and_e, params, warmup_length):
 def test_xaj_mz(p_and_e, params, warmup_length):
     qsim, e = xaj(
         p_and_e,
-        np.tile([0.5], (1, 16)),
+        params,
         warmup_length=warmup_length,
         name="xaj_mz",
         source_book="HF",

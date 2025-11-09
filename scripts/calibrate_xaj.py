@@ -4,10 +4,9 @@ Date: 2022-11-19 17:27:05
 LastEditTime: 2024-09-12 08:34:21
 LastEditors: Wenyu Ouyang
 Description: the script to calibrate a model for CAMELS basin
-FilePath: \hydromodel\scripts\calibrate_xaj.py
+FilePath: /hydromodel/scripts/calibrate_xaj.py
 Copyright (c) 2021-2022 Wenyu Ouyang. All rights reserved.
 """
-
 import json
 import argparse
 import shutil
@@ -19,7 +18,6 @@ import yaml
 
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
-from hydromodel.datasets import *
 from hydromodel.datasets.data_preprocess import (
     _get_pe_q_from_ts,
     cross_val_split_tsdata,
@@ -129,6 +127,7 @@ if __name__ == "__main__":
         # default="camels_us",
         # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
         default="C:\\Users\\wenyu\\OneDrive\\data\\FD_sources",
+        # default="/ftproot/basins-interim",
         type=str,
     )
     parser.add_argument(
@@ -223,7 +222,8 @@ if __name__ == "__main__":
         dest="param_range_file",
         help="The file of the parameter range",
         # default=None,
-        default="C:\\Users\\wenyu\\OneDrive\\Research\\paper5-dplpartofdissertation\\Results\\XAJ\\changdian_61561\\param_range.yaml",
+        default="/home/xxcj/Research/hydromodel/param_range.yaml",
+        # default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe\\param_range.yaml",
         # default="C:\\Users\\wenyu\\Downloads\\21113800\\param_range.yaml",
         type=str,
     )

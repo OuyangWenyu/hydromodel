@@ -1,0 +1,19 @@
+# Example parameters for XAJ-MZ model
+# These are typical values for demonstration purposes
+# You should calibrate parameters for your specific basin
+
+K: 0.75        # Ratio of potential evapotranspiration to reference crop evaporation
+B: 0.25        # Exponent of the tension water capacity curve
+IM: 0.06       # Ratio of the impervious to the total area of the basin
+UM: 18.0       # Tension water capacity in the upper layer (mm)
+LM: 80.0       # Tension water capacity in the lower layer (mm)
+DM: 95.0       # Tension water capacity in the deepest layer (mm)
+C: 0.12        # Coefficient of deep evapotranspiration
+SM: 45.0       # Areal mean of the free water capacity of surface soil layer (mm)
+EX: 1.3        # Exponent of the free water capacity curve
+KI: 0.35       # Outflow coefficient of interflow
+KG: 0.45       # Outflow coefficient of groundwater
+A: 1.8         # Muskingum parameter A
+THETA: 4.0     # Muskingum parameter THETA
+CI: 0.65       # Recession constant of the lower interflow
+CG: 0.985      # Recession constant of groundwater storage

@@ -1,11 +1,11 @@
 """
 Author: Wenyu Ouyang
-Date: 2024-03-25 09:21:56
-LastEditTime: 2024-08-14 20:06:48
-LastEditors: Wenyu Ouyang
+Date: 2025-02-18 10:20:58
+LastEditTime: 2025-03-26 20:04:48
+LastEditors: zhuanglaihong
 Description: Script for preparing data
-FilePath: \hydromodel\scripts\prepare_data.py
-Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
+FilePath: /zlh/hydromodel/scripts/prepare_data.py
+Copyright: Copyright (c) 2021-2024 zhuanglaihong. All rights reserved.
 """
 
 from pathlib import Path
@@ -21,8 +21,9 @@ from hydromodel.datasets.data_preprocess import process_and_save_data_as_nc
 
 def main(args):
     data_path = args.origin_data_dir
+    target_data_scale = args.target_data_scale
 
-    if process_and_save_data_as_nc(data_path, save_folder=data_path):
+    if process_and_save_data_as_nc(data_path, target_data_scale, save_folder=data_path):
         print("Data is ready!")
     else:
         print("Data format is incorrect! Please check the data.")
@@ -33,10 +34,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--origin_data_dir",
         type=str,
-        help="Path to your hydrological data",
-        default="C:\\Users\\wenyu\\OneDrive\\data\\biliuhe",
+        help="Path to your hydrological data foler",
+        default="/home/zlh/hydromodel/data/camels_11532500",
         # default="C:\\Users\\wenyu\\Downloads\\biliuhe",
     )
-
+    parser.add_argument(
+        "--target_data_scale",
+        type=str,
+        help="your input data time scale",
+        default="H",
+        # default="D"or"M"or"Y"or"H"
+    )
     args = parser.parse_args()
     main(args)

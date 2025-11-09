@@ -3,9 +3,17 @@ import numpy as np
 from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.param_utils import process_parameters
 
 
-def hymod(p_and_e, parameters, warmup_length=30, return_state=False, **kwargs):
+def hymod(
+    p_and_e,
+    parameters,
+    warmup_length=30,
+    return_state=False,
+    normalized_params="auto",
+    **kwargs,
+):
     """
     Run Hymod model
 
@@ -24,6 +32,11 @@ def hymod(p_and_e, parameters, warmup_length=30, return_state=False, **kwargs):
         the length of warmup period
     return_state
         if True, return x_slow, x_quick, x_loss, else only return streamflow
+    normalized_params
+        parameter format specification:
+        - "auto": automatically detect if parameters are normalized (0-1) or original scale (default)
+        - True: parameters are normalized (0-1 range), will be converted to original scale
+        - False: parameters are already in original scale, use as-is
 
     Returns
     -------
@@ -35,17 +48,18 @@ def hymod(p_and_e, parameters, warmup_length=30, return_state=False, **kwargs):
         model_param_dict = MODEL_PARAM_DICT["hymod"]
     # params
     param_ranges = model_param_dict["param_range"]
-    # parameter, 2-dim variable: [parameter=1, basin]
-    cmax_scale = param_ranges["cmax"]
-    bexp_sacle = param_ranges["bexp"]
-    alpha_scale = param_ranges["alpha"]
-    ks_scale = param_ranges["ks"]
-    kq_scale = param_ranges["kq"]
-    cmax = cmax_scale[0] + parameters[:, 0] * (cmax_scale[1] - cmax_scale[0])
-    bexp = bexp_sacle[0] + parameters[:, 1] * (bexp_sacle[1] - bexp_sacle[0])
-    alpha = alpha_scale[0] + parameters[:, 2] * (alpha_scale[1] - alpha_scale[0])
-    ks = ks_scale[0] + parameters[:, 3] * (ks_scale[1] - ks_scale[0])
-    kq = kq_scale[0] + parameters[:, 4] * (kq_scale[1] - kq_scale[0])
+
+    # Process parameters using unified parameter handling
+    processed_params = process_parameters(
+        parameters, param_ranges, normalized=normalized_params
+    )
+
+    # Extract individual parameters from processed array
+    cmax = processed_params[:, 0]
+    bexp = processed_params[:, 1]
+    alpha = processed_params[:, 2]
+    ks = processed_params[:, 3]
+    kq = processed_params[:, 4]
     if warmup_length > 0:
         # set no_grad for warmup periods
         p_and_e_warmup = p_and_e[0:warmup_length, :, :]

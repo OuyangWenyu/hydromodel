@@ -1,0 +1,43 @@
+# Example Configuration for XAJ Model Simulation
+# This is a minimal configuration for running simulations with UnifiedSimulator
+
+data_cfgs:
+  # Data source configuration
+  data_source_type: camels_us
+  data_source_path: null  # Will auto-detect from hydro_setting.yml or use default
+  dataset_name: camels_us
+
+  # Basin configuration
+  basin_ids:
+    - "01013500"  # Example basin ID
+
+  # Time periods
+  train_period:
+    - "1985-10-01"
+    - "1995-09-30"
+  valid_period:
+    - "1995-10-01"
+    - "2005-09-30"
+  test_period:
+    - "2005-10-01"
+    - "2014-09-30"
+
+  # Variables to load
+  variables:
+    - precipitation
+    - potential_evapotranspiration
+    - streamflow
+
+  # Warmup period (days)
+  warmup_length: 365
+
+# Model configuration
+model_cfgs:
+  model_name: xaj_mz
+  # Model-specific parameters
+  source_type: sources
+  source_book: HF
+  kernel_size: 15
+
+# Note: Parameters are specified separately in a parameter file
+# (e.g., configs/example_xaj_params.yaml or from calibration results)

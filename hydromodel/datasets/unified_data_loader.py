@@ -306,11 +306,17 @@ class UnifiedDataLoader:
             (p_and_e, qobs) tuple in standard format
         """
         # Use read_ts_xrdataset as the unified interface
+        # Support both read_kwargs (legacy) and datasource_kwargs (preferred)
+        read_kwargs = self.config.get("read_kwargs", {})
+        datasource_kwargs = self.config.get("datasource_kwargs", {})
+        # Merge both, with datasource_kwargs taking precedence
+        merged_kwargs = {**read_kwargs, **datasource_kwargs}
+
         ts_data = self.datasource.read_ts_xrdataset(
             gage_id_lst=self.basin_ids,
             t_range=self.time_range,
             var_lst=self.variables,
-            **self.config.get("read_kwargs", {}),
+            **merged_kwargs,
         )
 
         # Handle different return types from read_ts_xrdataset

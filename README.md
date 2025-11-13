@@ -14,11 +14,11 @@
 `hydromodel` is a Python implementation of conceptual hydrological models, with a focus on the **XinAnJiang (XAJ) model** - one of the most widely-used rainfall-runoff models, especially in China and Asian regions.
 
 **Key Features:**
-- **XAJ Model Variants**: Standard XAJ and optimized versions (xaj_mz with Muskingum routing)
+- **XAJ Model Variants**: Standard XAJ and optimized versions (xaj_mz with MizeRoute)
 - **Multiple Calibration Algorithms**:
-  - **SCE-UA**: Shuffled Complex Evolution (robust, recommended)
-  - **GA**: Genetic Algorithm with DEAP (flexible, customizable)
-  - **scipy**: L-BFGS-B, SLSQP, and other gradient-based methods (fast)
+  - **SCE-UA**: Shuffled Complex Evolution with spotpy
+  - **GA**: Genetic Algorithm with DEAP
+  - **scipy**: L-BFGS-B, SLSQP, and other gradient-based methods
 - **Multi-Basin Support**: Efficient calibration and evaluation for multiple basins simultaneously
 - **Unified Results Format**: All algorithms save results in standardized JSON + CSV format
 - **Comprehensive Evaluation Metrics**: NSE, KGE, RMSE, PBIAS, and more
@@ -33,31 +33,25 @@
 - Battle-tested XAJ implementations used in published research
 - Configuration-based workflow ensures reproducibility
 - Easy to extend with new models or calibration algorithms
-- Lightweight and fast - perfect for parameter sensitivity studies
 
 **For Practitioners:**
 - Simple YAML configuration, minimal coding required
 - Handles multi-basin calibration efficiently
-- Integration with global CAMELS datasets (11 variants)
+- Integration with global CAMELS series datasets (20+ variants)
 - Clear documentation and examples
-
-**Compared to other packages:**
-- **vs. SWAT/VIC**: Lighter weight, Python-native, faster iteration
-- **vs. pySTREPS**: Focus on conceptual rainfall-runoff models
-- **vs. custom scripts**: Well-tested with unified interfaces
 
 ## Installation
 
 ### For Users
 
 ```bash
-pip install hydromodel hydrodataset
+pip install hydromodel hydrodataset hydrodatasource
 ```
 
 Or using `uv` (faster):
 
 ```bash
-uv pip install hydromodel hydrodataset
+uv pip install hydromodel hydrodataset hydrodatasource
 ```
 
 ### Development Setup
@@ -93,7 +87,7 @@ The default structure (aqua_fetch automatically creates uppercase dataset direct
 │   ├── CAMELS_US/        # CAMELS US dataset (created by aqua_fetch)
 │   ├── CAMELS_AUS/       # CAMELS Australia dataset (if used)
 │   └── ...               # Other datasets
-├── basins-origin/        # Your custom basin data
+├── datasets-interim/        # Your custom basin data
 └── ...
 ```
 
@@ -105,10 +99,10 @@ Create `~/hydro_setting.yml` to specify custom paths:
 local_data_path:
   root: 'D:/data'
   datasets-origin: 'D:/data'             # For CAMELS datasets (aqua_fetch adds CAMELS_US automatically)
-  datasets-imterim: 'D:/data/my_basins'     # For custom data
+  datasets-interim: 'D:/data/my_basins'     # For custom data
 ```
 
-**Important**: For CAMELS datasets, provide only the `datasets-origin` directory. The system automatically appends the uppercase dataset directory name (e.g., `CAMELS_US`, `CAMELS_AUS`). If your data is in `D:/data/CAMELS_US/`, set `datasets-origin: 'D:/data'`.
+**Important**: For CAMELS datasets, provide only the `datasets-origin` directory. The system automatically appends the uppercase dataset directory name (e.g., `CAMELS_US`, `CAMELS_AUS`). **If your data is in `D:/data/CAMELS_US/`, set `datasets-origin: 'D:/data'`**.
 
 ## How to Use
 
@@ -131,9 +125,9 @@ ds = CamelsUs(data_path)
 basin_ids = ds.read_object_ids()  # Get basin IDs
 ```
 
-**Note:** First-time download may take some time. The complete CAMELS dataset is approximately 70GB.
+**Note:** First-time download may take some time. The complete CAMELS dataset is approximately 70GB (including zipped and unzipped files).
 
-**Available datasets:** camels_us, camels_aus, camels_br, camels_ch, camels_cl, camels_gb, camels_de, camels_dk, camels_fr, camels_nz, camels_se
+**Available datasets:** please see [README.md in hydrodataset](https://github.com/OuyangWenyu/hydrodataset?tab=readme-ov-file#supported-datasets)
 
 **Using Custom Data (hydrodatasource):**
 
@@ -542,11 +536,22 @@ hydromodel/
 
 ## References
 
-**XAJ Model:**
-- Zhao, R.J., 1992. The Xinanjiang model applied in China. Journal of Hydrology, 135(1-4), pp.371-381.
-
-**Calibration Algorithms:**
-- Duan, Q., et al., 1992. Effective and efficient global optimization for conceptual rainfall-runoff models. Water Resources Research, 28(4), pp.1015-1031. (SCE-UA)
+- Allen, R.G., L. Pereira, D. Raes, and M. Smith, 1998. Crop Evapotranspiration, Food and Agriculture Organization of
+  the United Nations, Rome, Italy. FAO publication 56. ISBN 92-5-104219-5. 290p.
+- Duan, Q., Sorooshian, S., and Gupta, V. (1992), Effective and efficient global optimization for conceptual
+  rainfall-runoff models, Water Resour. Res., 28( 4), 1015– 1031, doi:10.1029/91WR02985.
+- François-Michel De Rainville, Félix-Antoine Fortin, Marc-André Gardner, Marc Parizeau, and Christian Gagné. 2012.
+  DEAP: a python framework for evolutionary algorithms. In Proceedings of the 14th annual conference companion on
+  Genetic and evolutionary computation (GECCO '12). Association for Computing Machinery, New York, NY, USA, 85–92.
+  DOI:https://doi.org/10.1145/2330784.2330799
+- Houska T, Kraft P, Chamorro-Chavez A, Breuer L (2015) SPOTting Model Parameters Using a Ready-Made Python Package.
+  PLoS ONE 10(12): e0145180. https://doi.org/10.1371/journal.pone.0145180
+- Mizukami, N., Clark, M. P., Sampson, K., Nijssen, B., Mao, Y., McMillan, H., Viger, R. J., Markstrom, S. L., Hay, L.
+  E., Woods, R., Arnold, J. R., and Brekke, L. D.: mizuRoute version 1: a river network routing tool for a continental
+  domain water resources applications, Geosci. Model Dev., 9, 2223–2238, https://doi.org/10.5194/gmd-9-2223-2016, 2016.
+- Zhao, R.J., Zhuang, Y. L., Fang, L. R., Liu, X. R., Zhang, Q. S. (ed) (1980) The Xinanjiang model, Hydrological
+  Forecasting Proc., Oxford Symp., IAHS Publication, Wallingford, U.K.
+- Zhao, R.J., 1992. The xinanjiang model applied in China. J Hydrol 135 (1–4), 371–381.
 
 **Related Projects:**
 - [hydrodataset](https://github.com/OuyangWenyu/hydrodataset) - CAMELS and other datasets

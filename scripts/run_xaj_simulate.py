@@ -73,11 +73,103 @@ def load_parameters_from_csv(csv_file: str, param_names: list) -> OrderedDict:
     return params
 
 
-def load_parameters_from_yaml(yaml_file: str) -> OrderedDict:
-    """Load parameters from YAML file."""
+def load_parameters_from_yaml(yaml_file: str, model_name: str = "xaj") -> OrderedDict:
+    """
+    Load parameters from YAML file (supports both param_range and params formats).
+
+    Supported formats:
+
+    Format 1 - Single values (params):
+    xaj:
+      param_name: [K, B, ...]
+      params:
+        K: 0.75
+        B: 0.25
+        ...
+
+    Format 2 - Ranges (param_range):
+    xaj:
+      param_name: [K, B, ...]
+      param_range:
+        K: [0.1, 1.0]
+        B: [0.1, 0.4]
+        ...
+
+    When using param_range format, the function extracts the middle value of each range.
+
+    Parameters
+    ----------
+    yaml_file : str
+        Path to YAML parameter file
+    model_name : str
+        Model name (default: "xaj")
+
+    Returns
+    -------
+    OrderedDict
+        Parameter dictionary
+    """
     with open(yaml_file, "r", encoding="utf-8") as f:
-        params = yaml.safe_load(f)
-    return OrderedDict(params)
+        data = yaml.safe_load(f)
+
+    if model_name not in data:
+        raise ValueError(
+            f"Model '{model_name}' not found in parameter file. "
+            f"Available models: {list(data.keys())}"
+        )
+
+    model_data = data[model_name]
+    params = OrderedDict()
+
+    # Check which format is used
+    if "params" in model_data:
+        # Format 1: Single parameter values
+        param_values = model_data["params"]
+        param_names = model_data.get("param_name", param_values.keys())
+
+        for param_name in param_names:
+            if param_name not in param_values:
+                raise ValueError(f"Parameter '{param_name}' not found in params")
+
+            value = param_values[param_name]
+            if not isinstance(value, (int, float)):
+                raise ValueError(
+                    f"Invalid value for {param_name}: {value}. "
+                    f"Expected a single numeric value"
+                )
+            params[param_name] = float(value)
+
+        print("  Using 'params' format (single values)")
+
+    elif "param_range" in model_data:
+        # Format 2: Parameter ranges - extract middle value
+        param_ranges = model_data["param_range"]
+        param_names = model_data.get("param_name", param_ranges.keys())
+
+        for param_name in param_names:
+            if param_name not in param_ranges:
+                raise ValueError(f"Parameter '{param_name}' not found in param_range")
+
+            range_vals = param_ranges[param_name]
+            if not isinstance(range_vals, list) or len(range_vals) != 2:
+                raise ValueError(
+                    f"Invalid range for {param_name}: {range_vals}. "
+                    f"Expected [min, max] format"
+                )
+
+            # Use middle value of the range
+            params[param_name] = (range_vals[0] + range_vals[1]) / 2.0
+
+        print("  Using 'param_range' format (taking middle values)")
+
+    else:
+        raise ValueError(
+            f"Neither 'params' nor 'param_range' found in parameter file. "
+            f"Expected format: {model_name}: {{param_name: [...], params: {{...}}}} "
+            f"or {model_name}: {{param_name: [...], param_range: {{...}}}}"
+        )
+
+    return params
 
 
 def parse_arguments():
@@ -87,17 +179,46 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Continuous data (auto-detects warmup from config or uses 365 days)
-  python run_xaj_simulate.py --config configs/example_config.yaml --param-file my_params.yaml
+  # Use single parameter values (recommended for simulation)
+  python run_xaj_simulate.py --config configs/example_simulate_config.yaml \\
+         --param-file configs/example_xaj_params_values.yaml
 
-  # Flood event data (auto-detects warmup from config or uses 15 hours)
-  python run_xaj_simulate.py --config configs/example_config_selfmade.yaml --param-file my_params.yaml
+  # Use calibration results (param_range format - will use middle values)
+  python run_xaj_simulate.py --config results/xaj_SCE_UA/calibration_config.yaml \\
+         --param-file results/xaj_SCE_UA/param_range.yaml
 
-  # Override warmup manually
-  python run_xaj_simulate.py --param-file my_params.yaml --warmup 30 --plot
+  # Use example parameters with ranges (for demonstration)
+  python run_xaj_simulate.py --config configs/example_simulate_config.yaml \\
+         --param-file configs/example_xaj_params.yaml
 
-  # Use SCE-UA calibrated parameters (CSV format specific to SCE-UA)
-  python run_xaj_simulate.py --param-file results/xaj_mz_SCE_UA/01013500_sceua.csv --plot
+  # Use SCE-UA CSV results (legacy format)
+  python run_xaj_simulate.py --config results/xaj_SCE_UA/calibration_config.yaml \\
+         --param-file results/xaj_SCE_UA/01013500_sceua.csv
+
+  # Override warmup manually and show plot
+  python run_xaj_simulate.py --config configs/example_simulate_config.yaml \\
+         --param-file configs/example_xaj_params.yaml --warmup 30 --plot
+
+Parameter File Formats:
+  YAML Format 1 (recommended): Single parameter values
+    xaj:
+      param_name: [K, B, IM, ...]
+      params:
+        K: 0.75
+        B: 0.25
+        IM: 0.06
+        ...
+
+  YAML Format 2: Parameter ranges (from calibration)
+    xaj:
+      param_name: [K, B, IM, ...]
+      param_range:
+        K: [0.1, 1.0]
+        B: [0.1, 0.4]
+        ...
+    The script takes the middle value of each range.
+
+  CSV (legacy): SCE-UA specific format (*.csv)
         """,
     )
 
@@ -112,7 +233,7 @@ Examples:
         "--param-file",
         type=str,
         required=True,
-        help="Parameter file: YAML (universal) or CSV (SCE-UA only)",
+        help="Parameter file: YAML (param_range format) or CSV (SCE-UA legacy)",
     )
 
     parser.add_argument(
@@ -209,7 +330,7 @@ def main():
     if args.param_file.endswith(".csv"):
         parameters = load_parameters_from_csv(args.param_file, param_names)
     elif args.param_file.endswith((".yaml", ".yml")):
-        parameters = load_parameters_from_yaml(args.param_file)
+        parameters = load_parameters_from_yaml(args.param_file, model_name)
     else:
         raise ValueError("Parameter file must be .csv or .yaml")
 
@@ -269,7 +390,18 @@ def main():
     # Remove warmup period
     qsim_eval = qsim[warmup_length :, 0, 0]
     qobs_eval = qobs_out[warmup_length :, 0, 0]
-    times = data_loader.ds["time"].data[warmup_length :]
+
+    # Get time array - handle both continuous and flood event data
+    if data_loader.ds is not None:
+        # Continuous data: use xarray dataset
+        times = data_loader.ds["time"].data[warmup_length :]
+    elif hasattr(data_loader, "time_array"):
+        # Flood event data: use time_array
+        times = data_loader.time_array[warmup_length :]
+    else:
+        # Fallback: generate time index
+        times = np.arange(len(qsim_eval))
+        print("  Warning: No time information available, using index instead")
 
     print(f" Simulation completed ({len(qsim_eval)} time steps)")
 

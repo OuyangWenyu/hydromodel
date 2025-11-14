@@ -1,19 +1,45 @@
-# Example parameters for XAJ-MZ model
-# These are typical values for demonstration purposes
-# You should calibrate parameters for your specific basin
+# Example parameters for XAJ model simulation
+# This file uses single parameter values (not ranges)
+# These are typical calibrated values for demonstration purposes
+# You should replace these with calibrated parameters for your specific basin
 
-K: 0.75        # Ratio of potential evapotranspiration to reference crop evaporation
-B: 0.25        # Exponent of the tension water capacity curve
-IM: 0.06       # Ratio of the impervious to the total area of the basin
-UM: 18.0       # Tension water capacity in the upper layer (mm)
-LM: 80.0       # Tension water capacity in the lower layer (mm)
-DM: 95.0       # Tension water capacity in the deepest layer (mm)
-C: 0.12        # Coefficient of deep evapotranspiration
-SM: 45.0       # Areal mean of the free water capacity of surface soil layer (mm)
-EX: 1.3        # Exponent of the free water capacity curve
-KI: 0.35       # Outflow coefficient of interflow
-KG: 0.45       # Outflow coefficient of groundwater
-A: 1.8         # Muskingum parameter A
-THETA: 4.0     # Muskingum parameter THETA
-CI: 0.65       # Recession constant of the lower interflow
-CG: 0.985      # Recession constant of groundwater storage
+xaj:
+  param_name:
+  - K      # Ratio of potential evapotranspiration to reference crop evaporation
+  - B      # Exponent of the tension water capacity curve
+  - IM     # Ratio of the impervious to the total area of the basin
+  - UM     # Tension water capacity in the upper layer (mm)
+  - LM     # Tension water capacity in the lower layer (mm)
+  - DM     # Tension water capacity in the deepest layer (mm)
+  - C      # Coefficient of deep evapotranspiration
+  - SM     # Areal mean of the free water capacity of surface soil layer (mm)
+  - EX     # Exponent of the free water capacity curve
+  - KI     # Outflow coefficient of interflow
+  - KG     # Outflow coefficient of groundwater
+  - CS     # Recession constant in the channel system routing (XAJ) or lag time (XAJ-MZ)
+  - L      # Lag time parameter (XAJ) or channel length (XAJ-MZ)
+  - CI     # Recession constant of the lower interflow
+  - CG     # Recession constant of groundwater storage
+
+  # Single parameter values (for simulation)
+  params:
+    K: 0.75      # Ratio of potential evapotranspiration
+    B: 0.25      # Tension water capacity curve exponent
+    IM: 0.06     # Impervious area ratio
+    UM: 18.0     # Upper layer tension water capacity (mm)
+    LM: 80.0     # Lower layer tension water capacity (mm)
+    DM: 95.0     # Deepest layer tension water capacity (mm)
+    C: 0.12      # Deep evapotranspiration coefficient
+    SM: 45.0     # Free water capacity of surface soil (mm)
+    EX: 1.3      # Free water capacity curve exponent
+    KI: 0.35     # Interflow outflow coefficient
+    KG: 0.45     # Groundwater outflow coefficient
+    CS: 0.5      # Channel system recession constant
+    L: 5.5       # Lag time parameter
+    CI: 0.65     # Lower interflow recession constant
+    CG: 0.985    # Groundwater storage recession constant
+
+# Note: These are example values. For actual simulation, you should:
+# 1. Use calibrated parameters from your calibration results
+# 2. Copy the best parameters from your calibration output
+# 3. Validate the parameters against observed data

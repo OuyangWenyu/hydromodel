@@ -42,7 +42,7 @@ dependencies = [
     "netcdf4",
     "aqua-fetch[all]",
     "hydroutils>=0.1.0",
-    "hydrodataset>=0.2.0",
+    "hydrodataset>=0.2.3",
     "hydrodatasource>=0.2.0",
 ]
 

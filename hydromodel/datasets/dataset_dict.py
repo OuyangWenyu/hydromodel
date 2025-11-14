@@ -19,6 +19,7 @@ DATASET_MAPPING: Dict[str, Tuple[str, str, str]] = {
     # ============================================================================
     # CAMELS Series (16 datasets)
     # Catchment Attributes and Meteorology for Large-sample Studies
+    "camels":("hydrodataset.camels", "Camels", "hydrodataset"),
     "camels_aus": ("hydrodataset.camels_aus", "CamelsAus", "hydrodataset"),
     "camels_br": ("hydrodataset.camels_br", "CamelsBr", "hydrodataset"),
     "camels_ch": ("hydrodataset.camels_ch", "CamelsCh", "hydrodataset"),

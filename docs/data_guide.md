@@ -271,6 +271,249 @@ results = calibrate(config)
 
 ---
 
+## Option 3: Using Flood Event Data (hydrodatasource)
+
+### Overview
+
+Flood event data is designed for **event-based hydrological modeling** where you focus on specific flood episodes rather than continuous time series. This is particularly useful for:
+
+- Flood forecasting and warning systems
+- Peak flow estimation
+- Event-based rainfall-runoff analysis
+- Unit hydrograph calibration
+
+### Key Differences from Continuous Data
+
+| Feature | Continuous Data | Flood Event Data |
+|---------|----------------|------------------|
+| **Data Structure** | Complete time series | Individual flood events with gaps |
+| **Input Features** | 2D: [prcp, PET] | 4D: [prcp, PET, marker, event_id] |
+| **Warmup Handling** | Removed after simulation | Included in each event (NaN markers) |
+| **Time Coverage** | Full period | Only flood periods + warmup |
+| **Use Case** | Long-term water balance | Flood peak prediction |
+
+### Data Structure and Components
+
+#### 1. Event Format
+
+Each flood event contains:
+
+```python
+event = {
+    "rain": np.array([...]),           # Precipitation (with NaN in warmup)
+    "ES": np.array([...]),             # Evapotranspiration
+    "inflow": np.array([...]),         # Streamflow (with NaN in warmup)
+    "flood_event_markers": np.array([...]),  # NaN=warmup, 1=flood
+    "event_id": 1,                     # Event identifier
+    "time": np.array([...])            # Datetime array
+}
+```
+
+#### 2. Three Key Periods in Each Event
+
+```
+[Warmup Period] → [Flood Period] → [GAP]
+  marker=NaN        marker=1         marker=0
+```
+
+**Warmup Period** (e.g., 30 days before flood):
+- Contains NaN values in observations
+- Used to initialize model states
+- Length specified by `warmup_length` in config
+- Extracted from real data before the flood event
+
+**Flood Period** (actual event):
+- Contains valid observations (marker=1)
+- The period of interest for simulation
+- Used for model calibration and evaluation
+
+**GAP Period** (between events):
+- Artificial buffer (10 time steps by default)
+- Designed for visualization clarity
+- **NOT used in simulation** (marker=0, ignored by model)
+- Created with: precipitation=0, ET=0.27, flow=0
+
+#### 3. How Events are Concatenated
+
+When loading multiple events, they are combined as:
+
+```
+Event1: [warmup-NaN][flood-1][GAP-0]
+Event2: [warmup-NaN][flood-1][GAP-0]
+Event3: [warmup-NaN][flood-1]
+```
+
+**Important**: The final data structure includes GAP periods, but these are **automatically skipped** during simulation based on the marker values.
+
+### Simulation Behavior
+
+#### Event Detection
+
+During simulation (`unified_simulate.py`), the system:
+
+1. Reads the `flood_event_markers` array (3rd feature)
+2. Uses `find_flood_event_segments_as_tuples()` to identify events
+3. Only processes segments where `marker > 0` (i.e., marker=1)
+4. **Skips GAP periods** (marker=0) completely
+
+```python
+# Simulation automatically identifies event segments
+flood_event_array = inputs[:, basin_idx, 2]  # marker column
+event_segments = find_flood_event_segments_as_tuples(
+    flood_event_array, warmup_length
+)
+
+# Each event is simulated independently
+for start, end, orig_start, orig_end in event_segments:
+    event_inputs = inputs[start:end+1, :, :3]  # Extract event data
+    result = model(event_inputs, ...)  # Simulate this event
+```
+
+#### Why GAP Doesn't Affect Results
+
+The GAP period is present in the loaded data but **does not participate in simulation**:
+
+- ✅ GAP helps separate events visually in plots
+- ✅ GAP provides clear boundaries between independent floods
+- ❌ GAP data is never fed to the hydrological model
+- ❌ GAP does not contribute to loss calculation
+
+This design ensures that:
+1. Each flood event is simulated independently
+2. Model states are reset via warmup for each event
+3. Events don't interfere with each other
+
+### Configuration Example
+
+```yaml
+data:
+  dataset: "floodevent"
+  dataset_name: "my_flood_events"
+  data_source_path: "D:/flood_data"
+  is_event_data: true
+  time_unit: ["1D"]
+
+  # Datasource parameters
+  datasource_kwargs:
+    warmup_length: 30      # Days before flood for warmup
+    offset_to_utc: false   # Time zone handling
+    version: null
+
+  basin_ids: ["basin_001"]
+  train_period: ["2000-01-01", "2020-12-31"]
+  test_period: ["2020-01-01", "2023-12-31"]
+
+  variables: ["rain", "ES", "inflow", "flood_event"]
+  warmup_length: 30
+
+model:
+  name: "xaj"
+  params:
+    source_type: "sources"
+    source_book: "HF"
+    kernel_size: 15
+```
+
+### Data File Structure
+
+```
+my_flood_events/
+├── attributes/
+│   └── attributes.csv
+├── timeseries/
+│   ├── 1D/
+│   │   ├── basin_001.csv      # Must include 'flood_event' column
+│   │   └── basin_002.csv
+│   └── 1D_units_info.json
+└── shapes/
+    └── basins.shp
+```
+
+#### basin_001.csv Format
+
+```csv
+time,rain,ES,inflow,flood_event
+2020-06-01,0.0,3.2,5.1,0
+2020-06-02,2.5,3.5,5.8,0
+2020-07-01,5.0,4.0,10.2,1    # Flood event starts
+2020-07-02,12.5,3.8,25.5,1
+2020-07-03,8.0,3.5,30.1,1
+2020-07-04,0.0,3.2,20.5,1
+2020-07-05,0.0,3.0,12.0,0    # Event ends
+```
+
+**Key Points**:
+- `flood_event` column: 0=no flood, 1=flood period
+- Continuous time series with all periods marked
+- System automatically extracts events with warmup
+
+### Best Practices
+
+1. **Warmup Length**:
+   - Typical: 30 days for daily data
+   - Should be long enough to initialize soil moisture states
+   - Too short: poor initial conditions
+   - Too long: data availability issues
+
+2. **Event Selection**:
+   - Focus on significant floods (peak > threshold)
+   - Include complete rising and recession limbs
+   - Ensure warmup period has valid data
+
+3. **Data Quality**:
+   - Check for missing data in warmup periods
+   - Verify flood markers are correctly assigned
+   - Ensure precipitation and flow are synchronized
+
+4. **Marker Assignment**:
+   ```python
+   # Example: Mark floods based on threshold
+   threshold = flow.quantile(0.95)
+   flood_event = (flow > threshold).astype(int)
+   ```
+
+### Common Issues
+
+**1. "Warmup period contains all NaN"**
+- Ensure data exists before each flood event
+- Check `warmup_length` is not too long
+- Verify CSV has continuous time series
+
+**2. "No flood events found"**
+- Check `flood_event` column exists
+- Verify flood markers are 1 (not True or other values)
+- Ensure train_period covers some flood events
+
+**3. "Simulation results are all zeros"**
+- Check if events are detected: markers should be 1 for flood periods
+- Verify warmup_length matches the actual warmup in data
+- Ensure model parameters are physically reasonable
+
+### Advanced: Manual Event Creation
+
+For custom event extraction:
+
+```python
+from hydroutils import hydro_event
+
+# Extract events from continuous data
+events = hydro_event.extract_flood_events(
+    df=continuous_data,
+    warmup_length=30,
+    flood_event_col="flood_event",
+    time_col="time"
+)
+
+# Each event includes warmup automatically
+for event in events:
+    print(f"Event: {event['event_name']}")
+    print(f"  Total length: {len(event['data'])}")
+    print(f"  Warmup markers: {event['data']['flood_event'].isna().sum()}")
+    print(f"  Flood markers: {(event['data']['flood_event']==1).sum()}")
+```
+
+---
+
 ## Data Requirements for XAJ Model
 
 ### Required Variables

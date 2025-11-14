@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydromodel"
-version = "0.3.0"
+version = "0.3.1"
 description = "Hydrological modeling package"
 authors = [
     {name = "Wenyu Ouyang", email = "wenyuouyang@outlook.com"}
@@ -42,7 +42,7 @@ dependencies = [
     "netcdf4",
     "aqua-fetch[all]",
     "hydroutils>=0.1.0",
-    "hydrodataset>=0.2.0",
+    "hydrodataset>=0.2.3",
     "hydrodatasource>=0.2.0",
 ]
 

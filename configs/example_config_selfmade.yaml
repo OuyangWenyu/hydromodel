@@ -3,7 +3,7 @@
 
 data:
   # Data source configuration for custom datasets
-  dataset: "selfmadehydrodataset"   # "selfmadehydrodataset" Or "floodevent" for flood event data
+  dataset: "floodevent"   # "selfmadehydrodataset" Or "floodevent" for flood event data
   path: null                        # Data path (null = auto-detect from hydro_setting.yml or use ~/hydromodel_data/basins-origin/)
                                     # If specified, provide the parent directory that contains your dataset folder
                                     # Example: "D:/my_data" (if your data is in D:/my_data/my_basin_data/)
@@ -14,7 +14,7 @@ data:
                                     #   - {path}/{dataset_name}/ if path is specified
                                     #   - ~/hydromodel_data/basins-interim/{dataset_name}/ if path is null
 
-  time_unit: ["3h"]                 # Time resolution: ["1h"], ["3h"], ["1D"], ["8D"], or multiple like ["1D", "3h"]
+  time_unit: ["1D"]                 # Time resolution: ["1h"], ["3h"], ["1D"], ["8D"], or multiple like ["1D", "3h"]
                                     # Must match the subdirectory names in timeseries/ folder
 
   # Additional dataset parameters (optional)
@@ -22,25 +22,23 @@ data:
     version: null                 # Dataset version (optional)
     offset_to_utc: true            # Whether to convert time to UTC (optional, default: false)
                                     # Set to true if your data uses local time (e.g., Beijing Time 8:00 begin)
+                                    # Set to false if you use raw time data
     trange4cache: null              # Time range for caching (optional, format: ["YYYY-MM-DD", "YYYY-MM-DD"])
-    start_hour_in_a_day: 0          # Starting hour of 3-hourly data (0, 2, etc.)
+    start_hour_in_a_day: 2          # Starting hour of 3-hourly data (0, 2, etc.)
                                     # If your 3h data is [0, 3, 6, 9, 12, 15, 18, 21], set to 0
                                     # If your 3h data is [2, 5, 8, 11, 14, 17, 20, 23], set to 2 (default)
   
   # Basin and variable configuration
-  basin_ids: ["songliao_21401550","songliao_21100150"]  # List of basin_IDs (must match CSV filenames in timeseries/)
-  warmup_length: 365                # Warmup period in days
+  basin_ids: ["songliao_21401550"]  # List of basin_IDs (must match CSV filenames in timeseries/)
+  warmup_length: 30                # Warmup period in days 
   is_event_data: true               # Whether this is flood event data (true) or continuous time series (false)
-                                    # Event data: keeps full observation time series for loss calculation
-                                    # Continuous data: removes warmup period from observations
-  variables: ["rain", "ES", "flood_event", "inflow"]
-  # variables: ["precipitation", "potential_evapotranspiration", "streamflow"]
-                                    # Variable names (must match column names in timeseries CSV files)
+                                    # Event data: must have the 'flood_event' row in timeseries CSV file
+  variables: ["rain", "ES", "inflow","flood_event"]   # Variable names (must match column names in timeseries CSV files)
 
   # Time periods
-  train_period: ["2000-01-01", "2015-12-31"]   # Training period
-  valid_period: ["2011-01-01", "2015-12-31"]   # Validation period
-  test_period: ["2018-01-01", "2023-12-31"]    # Testing period
+  train_period: ["2000-07-01", "2019-12-30"]   # Training period
+  valid_period: ["2021-08-21", "2021-08-28"]   # Validation period
+  test_period: ["2020-07-01", "2023-12-30"]    # Testing period
 
   # Output configuration
   output_dir: "results"             # Output directory for results
@@ -52,6 +50,7 @@ model:
     source_type: "sources"
     source_book: "HF"
     kernel_size: 15
+    
 
 training:
   # Training configuration (same as standard config)

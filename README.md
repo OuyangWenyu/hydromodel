@@ -14,7 +14,7 @@
 `hydromodel` is a Python implementation of conceptual hydrological models, with a focus on the **XinAnJiang (XAJ) model** - one of the most widely-used rainfall-runoff models, especially in China and Asian regions.
 
 **Key Features:**
-- **XAJ Model Variants**: Standard XAJ and optimized versions (xaj_mz with MizeRoute)
+- **XAJ Model Variants**: Standard XAJ and optimized versions (xaj_mz with MizuRoute)
 - **Multiple Calibration Algorithms**:
   - **SCE-UA**: Shuffled Complex Evolution with spotpy
   - **GA**: Genetic Algorithm with DEAP

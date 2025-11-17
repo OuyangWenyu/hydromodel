@@ -1,0 +1,2496 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Hydromodel is a python implementation for common hydrological models such as the XinAnJiang (XAJ) model, which is one of the most famous conceptual hydrological models, especially in Southern China.">
+      
+      
+        <meta name="author" content="OuyangWenyu">
+      
+      
+        <link rel="canonical" href="https://OuyangWenyu.github.io/hydromodel/data_guide/">
+      
+      
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.16">
+    
+    
+      
+        <title>Data Preparation Guide - hydromodel</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.7e37652d.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Google+Sans:300,300i,400,400i,700,700i%7CRegular:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Google Sans";--md-code-font:"Regular"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../css/timeago.css">
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#data-preparation-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="hydromodel" class="md-header__button md-logo" aria-label="hydromodel" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hydromodel
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Data Preparation Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/OuyangWenyu/hydromodel" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="hydromodel" class="md-nav__button md-logo" aria-label="hydromodel" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hydromodel
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/OuyangWenyu/hydromodel" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Usage
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    FAQ
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Changelog
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/OuyangWenyu/hydromodel/issues" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Report Issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/intro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Intro
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hydromodel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    hydromodel module
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../common/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Common Utilities
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Models
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9_3">
+            <span class="md-nav__icon md-icon"></span>
+            Models
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../models/xaj/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    XinAnJiang (XAJ)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../models/dhf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Dahuofang (DHF)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#option-1-using-camels-datasets-hydrodataset" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 1: Using CAMELS Datasets (hydrodataset)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Option 1: Using CAMELS Datasets (hydrodataset)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-install-hydrodataset" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Install hydrodataset
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-configure-data-path-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Configure Data Path (Optional)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-download-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Download Data
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-use-with-hydromodel" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Use with hydromodel
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#available-camels-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Available CAMELS Datasets
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#camels-data-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      CAMELS Data Structure
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#option-2-using-custom-data-hydrodatasource" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 2: Using Custom Data (hydrodatasource)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Option 2: Using Custom Data (hydrodatasource)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-install-hydrodatasource" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Install hydrodatasource
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-organize-your-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Organize Your Data
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-prepare-required-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Prepare Required Files
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 3: Prepare Required Files">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-attributescsv" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.1 attributes.csv
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-basin_xxxcsv-time-series" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.2 basin_XXX.csv (Time Series)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-1d_units_infojson-units-definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.3 1D_units_info.json (Units Definition)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-verify-data-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Verify Data Structure
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-use-with-hydromodel" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Use with hydromodel
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#option-3-using-flood-event-data-hydrodatasource" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 3: Using Flood Event Data (hydrodatasource)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Option 3: Using Flood Event Data (hydrodatasource)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overview_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-differences-from-continuous-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Differences from Continuous Data
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-structure-and-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Structure and Components
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Structure and Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-event-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Event Format
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-three-key-periods-in-each-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Three Key Periods in Each Event
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-how-events-are-concatenated" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. How Events are Concatenated
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#simulation-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      Simulation Behavior
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Simulation Behavior">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#event-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Event Detection
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-gap-doesnt-affect-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Why GAP Doesn't Affect Results
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration Example
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-file-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data File Structure
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data File Structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basin_001csv-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      basin_001.csv Format
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Issues
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-manual-event-creation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Advanced: Manual Event Creation
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-requirements-for-xaj-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Requirements for XAJ Model
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Requirements for XAJ Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Required Variables
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Optional Variables
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-quality-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Quality Guidelines
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Advanced Features
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#netcdf-caching-for-large-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      NetCDF Caching (For Large Datasets)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multi-scale-time-series" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multi-Scale Time Series
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cloud-storage-minios3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cloud Storage (MinIO/S3)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#complete-workflow-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Complete Workflow Example
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Issues
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-validation-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Validation Checklist
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-conversion-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Conversion Tools
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Conversion Tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from-gis-shapefile" class="md-nav__link">
+    <span class="md-ellipsis">
+      From GIS Shapefile
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-other-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      From Other Formats
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Summary
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Summary">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quick-decision-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick Decision Guide
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Points
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#additional-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Additional Resources
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+
+
+
+                  
+
+
+  
+  
+
+
+<h1 id="data-preparation-guide">Data Preparation Guide<a class="headerlink" href="#data-preparation-guide" title="Permanent link">&para;</a></h1>
+<p>This guide explains how to prepare and use data with <code>hydromodel</code>, covering both public CAMELS datasets and custom data.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p><code>hydromodel</code> supports two main data sources:</p>
+<ol>
+<li><strong>Public CAMELS Datasets</strong> - Using <a href="https://github.com/OuyangWenyu/hydrodataset">hydrodataset</a> package</li>
+<li>11 global CAMELS variants (US, GB, AUS, BR, CL, etc.)</li>
+<li>Automatic download and caching</li>
+<li>
+<p>Standardized format and quality-controlled</p>
+</li>
+<li>
+<p><strong>Custom Data</strong> - Using <a href="https://github.com/OuyangWenyu/hydrodatasource">hydrodatasource</a> package</p>
+</li>
+<li>Your own basin data</li>
+<li>Flexible data organization</li>
+<li>Integration with cloud storage</li>
+</ol>
+<hr />
+<h2 id="option-1-using-camels-datasets-hydrodataset">Option 1: Using CAMELS Datasets (hydrodataset)<a class="headerlink" href="#option-1-using-camels-datasets-hydrodataset" title="Permanent link">&para;</a></h2>
+<h3 id="step-1-install-hydrodataset">Step 1: Install hydrodataset<a class="headerlink" href="#step-1-install-hydrodataset" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>hydrodataset
+</code></pre></div></td></tr></table></div>
+<h3 id="step-2-configure-data-path-optional">Step 2: Configure Data Path (Optional)<a class="headerlink" href="#step-2-configure-data-path-optional" title="Permanent link">&para;</a></h3>
+<p><code>hydromodel</code> automatically uses default paths, but you can customize:</p>
+<p><strong>Default paths:</strong>
+- Windows: <code>C:\Users\YourUsername\hydromodel_data\</code>
+- macOS/Linux: <code>~/hydromodel_data/</code></p>
+<p><strong>To customize, create <code>~/hydro_setting.yml</code>:</strong></p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nt">local_data_path</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;D:/data&#39;</span>
+<span class="w">  </span><span class="nt">datasets-origin</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;D:/data&#39;</span><span class="w">  </span><span class="c1"># CAMELS datasets location</span>
+</code></pre></div></td></tr></table></div>
+<p><strong>Important</strong>: Provide only the <code>datasets-origin</code> directory. The system automatically appends the dataset name (e.g., <code>CAMELS_US</code>, <code>CAMELS_GB</code>).</p>
+<p>Example: If your data is in <code>D:/data/CAMELS_US/</code>, set <code>datasets-origin: 'D:/data'</code>.</p>
+<h3 id="step-3-download-data">Step 3: Download Data<a class="headerlink" href="#step-3-download-data" title="Permanent link">&para;</a></h3>
+<p>The data downloads automatically on first use:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">hydrodataset.camels_us</span><span class="w"> </span><span class="kn">import</span> <span class="n">CamelsUs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hydrodataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">SETTING</span>
+
+<span class="c1"># Initialize dataset (auto-downloads if not present)</span>
+<span class="n">data_path</span> <span class="o">=</span> <span class="n">SETTING</span><span class="p">[</span><span class="s2">&quot;local_data_path&quot;</span><span class="p">][</span><span class="s2">&quot;datasets-origin&quot;</span><span class="p">]</span>
+<span class="n">ds</span> <span class="o">=</span> <span class="n">CamelsUs</span><span class="p">(</span><span class="n">data_path</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Get available basins</span>
+<span class="n">basin_ids</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">read_object_ids</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Downloaded </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">basin_ids</span><span class="p">)</span><span class="si">}</span><span class="s2"> basins&quot;</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<p><strong>Note</strong>: First download may take 30-120 minutes depending on dataset size. CAMELS-US is ~70GB.</p>
+<h3 id="step-4-use-with-hydromodel">Step 4: Use with hydromodel<a class="headerlink" href="#step-4-use-with-hydromodel" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">hydromodel.trainers.unified_calibrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">calibrate</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;data_cfgs&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;data_source_type&quot;</span><span class="p">:</span> <span class="s2">&quot;camels_us&quot;</span><span class="p">,</span>  <span class="c1"># Dataset name</span>
+        <span class="s2">&quot;basin_ids&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;01013500&quot;</span><span class="p">,</span> <span class="s2">&quot;01022500&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;train_period&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;1990-10-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2000-09-30&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;test_period&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2000-10-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2010-09-30&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;warmup_length&quot;</span><span class="p">:</span> <span class="mi">365</span><span class="p">,</span>
+        <span class="s2">&quot;variables&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;precipitation&quot;</span><span class="p">,</span> <span class="s2">&quot;potential_evapotranspiration&quot;</span><span class="p">,</span> <span class="s2">&quot;streamflow&quot;</span><span class="p">]</span>
+    <span class="p">},</span>
+    <span class="c1"># ... other configs</span>
+<span class="p">}</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">calibrate</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="available-camels-datasets">Available CAMELS Datasets<a class="headerlink" href="#available-camels-datasets" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Dataset</th>
+<th>Region</th>
+<th>Basins</th>
+<th>Package Name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CAMELS-US</td>
+<td>United States</td>
+<td>671</td>
+<td><code>camels_us</code></td>
+</tr>
+<tr>
+<td>CAMELS-GB</td>
+<td>Great Britain</td>
+<td>671</td>
+<td><code>camels_gb</code></td>
+</tr>
+<tr>
+<td>CAMELS-AUS</td>
+<td>Australia</td>
+<td>222</td>
+<td><code>camels_aus</code></td>
+</tr>
+<tr>
+<td>CAMELS-BR</td>
+<td>Brazil</td>
+<td>897</td>
+<td><code>camels_br</code></td>
+</tr>
+<tr>
+<td>CAMELS-CL</td>
+<td>Chile</td>
+<td>516</td>
+<td><code>camels_cl</code></td>
+</tr>
+<tr>
+<td>CAMELS-CH</td>
+<td>Switzerland</td>
+<td>331</td>
+<td><code>camels_ch</code></td>
+</tr>
+<tr>
+<td>CAMELS-DE</td>
+<td>Germany</td>
+<td>1555</td>
+<td><code>camels_de</code></td>
+</tr>
+<tr>
+<td>CAMELS-DK</td>
+<td>Denmark</td>
+<td>304</td>
+<td><code>camels_dk</code></td>
+</tr>
+<tr>
+<td>CAMELS-FR</td>
+<td>France</td>
+<td>654</td>
+<td><code>camels_fr</code></td>
+</tr>
+<tr>
+<td>CAMELS-NZ</td>
+<td>New Zealand</td>
+<td>70</td>
+<td><code>camels_nz</code></td>
+</tr>
+<tr>
+<td>CAMELS-SE</td>
+<td>Sweden</td>
+<td>54</td>
+<td><code>camels_se</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Usage example:</strong></p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># Use different datasets by changing data_source_type</span>
+<span class="n">config</span><span class="p">[</span><span class="s2">&quot;data_cfgs&quot;</span><span class="p">][</span><span class="s2">&quot;data_source_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;camels_gb&quot;</span>
+<span class="n">config</span><span class="p">[</span><span class="s2">&quot;data_cfgs&quot;</span><span class="p">][</span><span class="s2">&quot;basin_ids&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;28015&quot;</span><span class="p">]</span>  <span class="c1"># GB basin ID</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="camels-data-structure">CAMELS Data Structure<a class="headerlink" href="#camels-data-structure" title="Permanent link">&para;</a></h3>
+<p>CAMELS datasets provide standardized variables:</p>
+<p><strong>Time Series Variables:</strong>
+- <code>precipitation</code> (mm/day or mm/hour)
+- <code>potential_evapotranspiration</code> (mm/day)
+- <code>streamflow</code> (mm/day or m³/s)
+- <code>temperature</code> (°C)
+- And more depending on dataset</p>
+<p><strong>Basin Attributes:</strong>
+- <code>area</code> (km²)
+- <code>elevation</code> (m)
+- <code>latitude</code>, <code>longitude</code>
+- Climate, soil, vegetation attributes</p>
+<p>For detailed documentation, see:
+- <a href="https://github.com/OuyangWenyu/hydrodataset">hydrodataset GitHub</a>
+- <a href="https://hydrodataset.readthedocs.io/">hydrodataset documentation</a></p>
+<hr />
+<h2 id="option-2-using-custom-data-hydrodatasource">Option 2: Using Custom Data (hydrodatasource)<a class="headerlink" href="#option-2-using-custom-data-hydrodatasource" title="Permanent link">&para;</a></h2>
+<h3 id="step-1-install-hydrodatasource">Step 1: Install hydrodatasource<a class="headerlink" href="#step-1-install-hydrodatasource" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>hydrodatasource
+</code></pre></div></td></tr></table></div>
+<h3 id="step-2-organize-your-data">Step 2: Organize Your Data<a class="headerlink" href="#step-2-organize-your-data" title="Permanent link">&para;</a></h3>
+<p>Create a directory with this structure:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span></pre></div></td><td class="code"><div><pre><span></span><code>my_basin_data/
+├── attributes/
+│   └── attributes.csv              # Basin metadata (required)
+├── timeseries/
+│   ├── 1D/                         # Daily time series
+│   │   ├── basin_001.csv          # One file per basin
+│   │   ├── basin_002.csv
+│   │   └── ...
+│   └── 1D_units_info.json          # Variable units (required)
+└── shapes/                         # Basin boundaries (optional)
+    └── basins.shp
+</code></pre></div></td></tr></table></div>
+<h3 id="step-3-prepare-required-files">Step 3: Prepare Required Files<a class="headerlink" href="#step-3-prepare-required-files" title="Permanent link">&para;</a></h3>
+<h4 id="31-attributescsv">3.1 attributes.csv<a class="headerlink" href="#31-attributescsv" title="Permanent link">&para;</a></h4>
+<p>Minimum required columns: <code>basin_id</code> and <code>area</code> (km²)</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span></pre></div></td><td class="code"><div><pre><span></span><code>basin_id,area,lat,lon,elevation
+basin_001,1250.5,30.5,105.2,850
+basin_002,856.3,31.2,106.1,920
+</code></pre></div></td></tr></table></div>
+<p><strong>Important:</strong>
+- <code>basin_id</code>: String identifier (matches filename)
+- <code>area</code>: Basin area in km²
+- Other columns optional but recommended</p>
+<h4 id="32-basin_xxxcsv-time-series">3.2 basin_XXX.csv (Time Series)<a class="headerlink" href="#32-basin_xxxcsv-time-series" title="Permanent link">&para;</a></h4>
+<p>Required column: <code>time</code>. Other columns are your variables.</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span></pre></div></td><td class="code"><div><pre><span></span><code>time,prcp,PET,streamflow
+1990-01-01,5.2,2.1,45.3
+1990-01-02,0.0,2.3,42.1
+1990-01-03,12.5,1.8,58.7
+</code></pre></div></td></tr></table></div>
+<p><strong>Important:</strong>
+- <code>time</code> format: <code>YYYY-MM-DD</code> (for daily data)
+- Variable names: Lowercase, underscores for multi-word
+- Missing values: Use empty cells or <code>NaN</code> (not <code>-9999</code> or <code>0</code>)
+- No duplicate time stamps</p>
+<h4 id="33-1d_units_infojson-units-definition">3.3 1D_units_info.json (Units Definition)<a class="headerlink" href="#33-1d_units_infojson-units-definition" title="Permanent link">&para;</a></h4>
+<p>Define physical units for all variables:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;prcp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mm/day&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;PET&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mm/day&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;streamflow&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;m^3/s&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;temp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;degC&quot;</span>
+<span class="p">}</span>
+</code></pre></div></td></tr></table></div>
+<p><strong>Common units:</strong>
+- Precipitation/ET: <code>mm/day</code> or <code>mm/hour</code>
+- Streamflow: <code>m^3/s</code> or <code>mm/day</code>
+- Temperature: <code>degC</code> or <code>K</code>
+- Area: <code>km^2</code></p>
+<h3 id="step-4-verify-data-structure">Step 4: Verify Data Structure<a class="headerlink" href="#step-4-verify-data-structure" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">hydrodatasource.reader.data_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelfMadeHydroDataset</span>
+
+<span class="c1"># Initialize dataset</span>
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">SelfMadeHydroDataset</span><span class="p">(</span>
+    <span class="n">data_path</span><span class="o">=</span><span class="s2">&quot;D:/my_basin_data&quot;</span><span class="p">,</span>
+    <span class="n">time_unit</span><span class="o">=</span><span class="s2">&quot;1D&quot;</span>
+<span class="p">)</span>
+
+<span class="c1"># Check basins</span>
+<span class="n">basin_ids</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">read_object_ids</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">basin_ids</span><span class="p">)</span><span class="si">}</span><span class="s2"> basins: </span><span class="si">{</span><span class="n">basin_ids</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Check time series</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">read_timeseries</span><span class="p">(</span>
+    <span class="n">gage_id_lst</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;basin_001&quot;</span><span class="p">],</span>
+    <span class="n">t_range</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;1990-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2000-12-31&quot;</span><span class="p">],</span>
+    <span class="n">var_lst</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prcp&quot;</span><span class="p">,</span> <span class="s2">&quot;PET&quot;</span><span class="p">,</span> <span class="s2">&quot;streamflow&quot;</span><span class="p">]</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Data shape: </span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;1D&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># [n_basins, n_time, n_vars]</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="step-5-use-with-hydromodel">Step 5: Use with hydromodel<a class="headerlink" href="#step-5-use-with-hydromodel" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">hydromodel.trainers.unified_calibrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">calibrate</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;data_cfgs&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;data_source_type&quot;</span><span class="p">:</span> <span class="s2">&quot;selfmadehydrodataset&quot;</span><span class="p">,</span>  <span class="c1"># Use custom data</span>
+        <span class="s2">&quot;data_source_path&quot;</span><span class="p">:</span> <span class="s2">&quot;D:/my_basin_data&quot;</span><span class="p">,</span>      <span class="c1"># Your data path</span>
+        <span class="s2">&quot;basin_ids&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;basin_001&quot;</span><span class="p">,</span> <span class="s2">&quot;basin_002&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;train_period&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;1990-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2000-12-31&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;test_period&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2001-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2010-12-31&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;warmup_length&quot;</span><span class="p">:</span> <span class="mi">365</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;model_cfgs&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;xaj_mz&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;training_cfgs&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;SCE_UA&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;loss_func&quot;</span><span class="p">:</span> <span class="s2">&quot;RMSE&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;output_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;results&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;experiment_name&quot;</span><span class="p">:</span> <span class="s2">&quot;my_basins&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;rep&quot;</span><span class="p">:</span> <span class="mi">10000</span><span class="p">,</span>
+        <span class="s2">&quot;ngs&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;evaluation_cfgs&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;NSE&quot;</span><span class="p">,</span> <span class="s2">&quot;KGE&quot;</span><span class="p">,</span> <span class="s2">&quot;RMSE&quot;</span><span class="p">],</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">calibrate</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<hr />
+<h2 id="option-3-using-flood-event-data-hydrodatasource">Option 3: Using Flood Event Data (hydrodatasource)<a class="headerlink" href="#option-3-using-flood-event-data-hydrodatasource" title="Permanent link">&para;</a></h2>
+<h3 id="overview_1">Overview<a class="headerlink" href="#overview_1" title="Permanent link">&para;</a></h3>
+<p>Flood event data is designed for <strong>event-based hydrological modeling</strong> where you focus on specific flood episodes rather than continuous time series. This is particularly useful for:</p>
+<ul>
+<li>Flood forecasting and warning systems</li>
+<li>Peak flow estimation</li>
+<li>Event-based rainfall-runoff analysis</li>
+<li>Unit hydrograph calibration</li>
+</ul>
+<h3 id="key-differences-from-continuous-data">Key Differences from Continuous Data<a class="headerlink" href="#key-differences-from-continuous-data" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Continuous Data</th>
+<th>Flood Event Data</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Data Structure</strong></td>
+<td>Complete time series</td>
+<td>Individual flood events with gaps</td>
+</tr>
+<tr>
+<td><strong>Input Features</strong></td>
+<td>2D: [prcp, PET]</td>
+<td>4D: [prcp, PET, marker, event_id]</td>
+</tr>
+<tr>
+<td><strong>Warmup Handling</strong></td>
+<td>Removed after simulation</td>
+<td>Included in each event (NaN markers)</td>
+</tr>
+<tr>
+<td><strong>Time Coverage</strong></td>
+<td>Full period</td>
+<td>Only flood periods + warmup</td>
+</tr>
+<tr>
+<td><strong>Use Case</strong></td>
+<td>Long-term water balance</td>
+<td>Flood peak prediction</td>
+</tr>
+</tbody>
+</table>
+<h3 id="data-structure-and-components">Data Structure and Components<a class="headerlink" href="#data-structure-and-components" title="Permanent link">&para;</a></h3>
+<h4 id="1-event-format">1. Event Format<a class="headerlink" href="#1-event-format" title="Permanent link">&para;</a></h4>
+<p>Each flood event contains:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span>
+<span class="normal">8</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="n">event</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;rain&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">...</span><span class="p">]),</span>           <span class="c1"># Precipitation (with NaN in warmup)</span>
+    <span class="s2">&quot;ES&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">...</span><span class="p">]),</span>             <span class="c1"># Evapotranspiration</span>
+    <span class="s2">&quot;inflow&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">...</span><span class="p">]),</span>         <span class="c1"># Streamflow (with NaN in warmup)</span>
+    <span class="s2">&quot;flood_event_markers&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">...</span><span class="p">]),</span>  <span class="c1"># NaN=warmup, 1=flood</span>
+    <span class="s2">&quot;event_id&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>                     <span class="c1"># Event identifier</span>
+    <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">...</span><span class="p">])</span>            <span class="c1"># Datetime array</span>
+<span class="p">}</span>
+</code></pre></div></td></tr></table></div>
+<h4 id="2-three-key-periods-in-each-event">2. Three Key Periods in Each Event<a class="headerlink" href="#2-three-key-periods-in-each-event" title="Permanent link">&para;</a></h4>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span></pre></div></td><td class="code"><div><pre><span></span><code>[Warmup Period] → [Flood Period] → [GAP]
+  marker=NaN        marker=1         marker=0
+</code></pre></div></td></tr></table></div>
+<p><strong>Warmup Period</strong> (e.g., 30 days before flood):
+- Contains NaN values in observations
+- Used to initialize model states
+- Length specified by <code>warmup_length</code> in config
+- Extracted from real data before the flood event</p>
+<p><strong>Flood Period</strong> (actual event):
+- Contains valid observations (marker=1)
+- The period of interest for simulation
+- Used for model calibration and evaluation</p>
+<p><strong>GAP Period</strong> (between events):
+- Artificial buffer (10 time steps by default)
+- Designed for visualization clarity
+- <strong>NOT used in simulation</strong> (marker=0, ignored by model)
+- Created with: precipitation=0, ET=0.27, flow=0</p>
+<h4 id="3-how-events-are-concatenated">3. How Events are Concatenated<a class="headerlink" href="#3-how-events-are-concatenated" title="Permanent link">&para;</a></h4>
+<p>When loading multiple events, they are combined as:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span></pre></div></td><td class="code"><div><pre><span></span><code>Event1: [warmup-NaN][flood-1][GAP-0]
+Event2: [warmup-NaN][flood-1][GAP-0]
+Event3: [warmup-NaN][flood-1]
+</code></pre></div></td></tr></table></div>
+<p><strong>Important</strong>: The final data structure includes GAP periods, but these are <strong>automatically skipped</strong> during simulation based on the marker values.</p>
+<h3 id="simulation-behavior">Simulation Behavior<a class="headerlink" href="#simulation-behavior" title="Permanent link">&para;</a></h3>
+<h4 id="event-detection">Event Detection<a class="headerlink" href="#event-detection" title="Permanent link">&para;</a></h4>
+<p>During simulation (<code>unified_simulate.py</code>), the system:</p>
+<ol>
+<li>Reads the <code>flood_event_markers</code> array (3rd feature)</li>
+<li>Uses <code>find_flood_event_segments_as_tuples()</code> to identify events</li>
+<li>Only processes segments where <code>marker &gt; 0</code> (i.e., marker=1)</li>
+<li><strong>Skips GAP periods</strong> (marker=0) completely</li>
+</ol>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># Simulation automatically identifies event segments</span>
+<span class="n">flood_event_array</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[:,</span> <span class="n">basin_idx</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>  <span class="c1"># marker column</span>
+<span class="n">event_segments</span> <span class="o">=</span> <span class="n">find_flood_event_segments_as_tuples</span><span class="p">(</span>
+    <span class="n">flood_event_array</span><span class="p">,</span> <span class="n">warmup_length</span>
+<span class="p">)</span>
+
+<span class="c1"># Each event is simulated independently</span>
+<span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">orig_start</span><span class="p">,</span> <span class="n">orig_end</span> <span class="ow">in</span> <span class="n">event_segments</span><span class="p">:</span>
+    <span class="n">event_inputs</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:</span><span class="mi">3</span><span class="p">]</span>  <span class="c1"># Extract event data</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">event_inputs</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>  <span class="c1"># Simulate this event</span>
+</code></pre></div></td></tr></table></div>
+<h4 id="why-gap-doesnt-affect-results">Why GAP Doesn't Affect Results<a class="headerlink" href="#why-gap-doesnt-affect-results" title="Permanent link">&para;</a></h4>
+<p>The GAP period is present in the loaded data but <strong>does not participate in simulation</strong>:</p>
+<ul>
+<li>✅ GAP helps separate events visually in plots</li>
+<li>✅ GAP provides clear boundaries between independent floods</li>
+<li>❌ GAP data is never fed to the hydrological model</li>
+<li>❌ GAP does not contribute to loss calculation</li>
+</ul>
+<p>This design ensures that:
+1. Each flood event is simulated independently
+2. Model states are reset via warmup for each event
+3. Events don't interfere with each other</p>
+<h3 id="configuration-example">Configuration Example<a class="headerlink" href="#configuration-example" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nt">data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">dataset</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;floodevent&quot;</span>
+<span class="w">  </span><span class="nt">dataset_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;my_flood_events&quot;</span>
+<span class="w">  </span><span class="nt">data_source_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;D:/flood_data&quot;</span>
+<span class="w">  </span><span class="nt">is_event_data</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">time_unit</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;1D&quot;</span><span class="p p-Indicator">]</span>
+
+<span class="w">  </span><span class="c1"># Datasource parameters</span>
+<span class="w">  </span><span class="nt">datasource_kwargs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">warmup_length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span><span class="w">      </span><span class="c1"># Days before flood for warmup</span>
+<span class="w">    </span><span class="nt">offset_to_utc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">   </span><span class="c1"># Time zone handling</span>
+<span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+
+<span class="w">  </span><span class="nt">basin_ids</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;basin_001&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">train_period</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;2000-01-01&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;2020-12-31&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">test_period</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;2020-01-01&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;2023-12-31&quot;</span><span class="p p-Indicator">]</span>
+
+<span class="w">  </span><span class="nt">variables</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;rain&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;ES&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;inflow&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;flood_event&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">warmup_length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+
+<span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;xaj&quot;</span>
+<span class="w">  </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">source_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sources&quot;</span>
+<span class="w">    </span><span class="nt">source_book</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;HF&quot;</span>
+<span class="w">    </span><span class="nt">kernel_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="data-file-structure">Data File Structure<a class="headerlink" href="#data-file-structure" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span></pre></div></td><td class="code"><div><pre><span></span><code>my_flood_events/
+├── attributes/
+│   └── attributes.csv
+├── timeseries/
+│   ├── 1D/
+│   │   ├── basin_001.csv      # Must include &#39;flood_event&#39; column
+│   │   └── basin_002.csv
+│   └── 1D_units_info.json
+└── shapes/
+    └── basins.shp
+</code></pre></div></td></tr></table></div>
+<h4 id="basin_001csv-format">basin_001.csv Format<a class="headerlink" href="#basin_001csv-format" title="Permanent link">&para;</a></h4>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span>
+<span class="normal">8</span></pre></div></td><td class="code"><div><pre><span></span><code>time,rain,ES,inflow,flood_event
+2020-06-01,0.0,3.2,5.1,0
+2020-06-02,2.5,3.5,5.8,0
+2020-07-01,5.0,4.0,10.2,1    # Flood event starts
+2020-07-02,12.5,3.8,25.5,1
+2020-07-03,8.0,3.5,30.1,1
+2020-07-04,0.0,3.2,20.5,1
+2020-07-05,0.0,3.0,12.0,0    # Event ends
+</code></pre></div></td></tr></table></div>
+<p><strong>Key Points</strong>:
+- <code>flood_event</code> column: 0=no flood, 1=flood period
+- Continuous time series with all periods marked
+- System automatically extracts events with warmup</p>
+<h3 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Warmup Length</strong>:</li>
+<li>Typical: 30 days for daily data</li>
+<li>Should be long enough to initialize soil moisture states</li>
+<li>Too short: poor initial conditions</li>
+<li>
+<p>Too long: data availability issues</p>
+</li>
+<li>
+<p><strong>Event Selection</strong>:</p>
+</li>
+<li>Focus on significant floods (peak &gt; threshold)</li>
+<li>Include complete rising and recession limbs</li>
+<li>
+<p>Ensure warmup period has valid data</p>
+</li>
+<li>
+<p><strong>Data Quality</strong>:</p>
+</li>
+<li>Check for missing data in warmup periods</li>
+<li>Verify flood markers are correctly assigned</li>
+<li>
+<p>Ensure precipitation and flow are synchronized</p>
+</li>
+<li>
+<p><strong>Marker Assignment</strong>:
+   <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># Example: Mark floods based on threshold</span>
+<span class="n">threshold</span> <span class="o">=</span> <span class="n">flow</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.95</span><span class="p">)</span>
+<span class="n">flood_event</span> <span class="o">=</span> <span class="p">(</span><span class="n">flow</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div></p>
+</li>
+</ol>
+<h3 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Permanent link">&para;</a></h3>
+<p><strong>1. "Warmup period contains all NaN"</strong>
+- Ensure data exists before each flood event
+- Check <code>warmup_length</code> is not too long
+- Verify CSV has continuous time series</p>
+<p><strong>2. "No flood events found"</strong>
+- Check <code>flood_event</code> column exists
+- Verify flood markers are 1 (not True or other values)
+- Ensure train_period covers some flood events</p>
+<p><strong>3. "Simulation results are all zeros"</strong>
+- Check if events are detected: markers should be 1 for flood periods
+- Verify warmup_length matches the actual warmup in data
+- Ensure model parameters are physically reasonable</p>
+<h3 id="advanced-manual-event-creation">Advanced: Manual Event Creation<a class="headerlink" href="#advanced-manual-event-creation" title="Permanent link">&para;</a></h3>
+<p>For custom event extraction:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">hydroutils</span><span class="w"> </span><span class="kn">import</span> <span class="n">hydro_event</span>
+
+<span class="c1"># Extract events from continuous data</span>
+<span class="n">events</span> <span class="o">=</span> <span class="n">hydro_event</span><span class="o">.</span><span class="n">extract_flood_events</span><span class="p">(</span>
+    <span class="n">df</span><span class="o">=</span><span class="n">continuous_data</span><span class="p">,</span>
+    <span class="n">warmup_length</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
+    <span class="n">flood_event_col</span><span class="o">=</span><span class="s2">&quot;flood_event&quot;</span><span class="p">,</span>
+    <span class="n">time_col</span><span class="o">=</span><span class="s2">&quot;time&quot;</span>
+<span class="p">)</span>
+
+<span class="c1"># Each event includes warmup automatically</span>
+<span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">events</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Event: </span><span class="si">{</span><span class="n">event</span><span class="p">[</span><span class="s1">&#39;event_name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Total length: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Warmup markers: </span><span class="si">{</span><span class="n">event</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">][</span><span class="s1">&#39;flood_event&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Flood markers: </span><span class="si">{</span><span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">][</span><span class="s1">&#39;flood_event&#39;</span><span class="p">]</span><span class="o">==</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<hr />
+<h2 id="data-requirements-for-xaj-model">Data Requirements for XAJ Model<a class="headerlink" href="#data-requirements-for-xaj-model" title="Permanent link">&para;</a></h2>
+<h3 id="required-variables">Required Variables<a class="headerlink" href="#required-variables" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+<th>Unit</th>
+<th>Typical Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>prcp</code></td>
+<td>Precipitation</td>
+<td>mm/day</td>
+<td>Rain gauge, gridded data (CHIRPS, ERA5)</td>
+</tr>
+<tr>
+<td><code>PET</code></td>
+<td>Potential Evapotranspiration</td>
+<td>mm/day</td>
+<td>Penman, Priestley-Taylor, or reanalysis</td>
+</tr>
+<tr>
+<td><code>streamflow</code></td>
+<td>Observed streamflow</td>
+<td>m³/s</td>
+<td>Stream gauge</td>
+</tr>
+<tr>
+<td><code>area</code></td>
+<td>Basin area</td>
+<td>km²</td>
+<td>GIS analysis</td>
+</tr>
+</tbody>
+</table>
+<h3 id="optional-variables">Optional Variables<a class="headerlink" href="#optional-variables" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+<th>Unit</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>temp</code></td>
+<td>Temperature</td>
+<td>°C</td>
+<td>Snow module (if enabled)</td>
+</tr>
+<tr>
+<td><code>elevation</code></td>
+<td>Basin elevation</td>
+<td>m</td>
+<td>PET estimation</td>
+</tr>
+<tr>
+<td><code>lat</code>, <code>lon</code></td>
+<td>Coordinates</td>
+<td>degrees</td>
+<td>Spatial analysis</td>
+</tr>
+</tbody>
+</table>
+<h3 id="data-quality-guidelines">Data Quality Guidelines<a class="headerlink" href="#data-quality-guidelines" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>Time Resolution</strong>: Daily (1D) is standard for XAJ model</p>
+</li>
+<li>
+<p><strong>Data Completeness</strong>:</p>
+</li>
+<li>Training period: ≥5 years continuous data</li>
+<li>Warmup period: ≥1 year before training</li>
+<li>
+<p>Missing data: &lt;5% acceptable, continuous gaps &lt;7 days</p>
+</li>
+<li>
+<p><strong>Physical Consistency</strong>:</p>
+</li>
+<li>Precipitation ≥ 0</li>
+<li>Streamflow ≥ 0</li>
+<li>PET ≥ 0</li>
+<li>
+<p>Check water balance: P ≈ Q + ET (within 20%)</p>
+</li>
+<li>
+<p><strong>Unit Consistency</strong>:</p>
+</li>
+<li>Ensure all units match <code>units_info.json</code></li>
+<li>Use consistent time stamps (no daylight saving shifts)</li>
+</ol>
+<hr />
+<h2 id="advanced-features">Advanced Features<a class="headerlink" href="#advanced-features" title="Permanent link">&para;</a></h2>
+<h3 id="netcdf-caching-for-large-datasets">NetCDF Caching (For Large Datasets)<a class="headerlink" href="#netcdf-caching-for-large-datasets" title="Permanent link">&para;</a></h3>
+<p>Convert CSV to NetCDF for 10x faster access:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">hydrodatasource.reader.data_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelfMadeHydroDataset</span>
+
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">SelfMadeHydroDataset</span><span class="p">(</span>
+    <span class="n">data_path</span><span class="o">=</span><span class="s2">&quot;D:/my_basin_data&quot;</span><span class="p">,</span>
+    <span class="n">time_unit</span><span class="o">=</span><span class="s2">&quot;1D&quot;</span>
+<span class="p">)</span>
+
+<span class="c1"># Cache all data as NetCDF (one-time operation)</span>
+<span class="n">dataset</span><span class="o">.</span><span class="n">cache_xrdataset</span><span class="p">(</span>
+    <span class="n">gage_id_lst</span><span class="o">=</span><span class="n">basin_ids</span><span class="p">,</span>
+    <span class="n">t_range</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;1990-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2010-12-31&quot;</span><span class="p">],</span>
+    <span class="n">var_lst</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prcp&quot;</span><span class="p">,</span> <span class="s2">&quot;PET&quot;</span><span class="p">,</span> <span class="s2">&quot;streamflow&quot;</span><span class="p">]</span>
+<span class="p">)</span>
+
+<span class="c1"># Now access is much faster</span>
+<span class="n">data_xr</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">read_ts_xrdataset</span><span class="p">(</span>
+    <span class="n">gage_id_lst</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;basin_001&quot;</span><span class="p">],</span>
+    <span class="n">t_range</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;1990-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2000-12-31&quot;</span><span class="p">],</span>
+    <span class="n">var_lst</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prcp&quot;</span><span class="p">,</span> <span class="s2">&quot;PET&quot;</span><span class="p">,</span> <span class="s2">&quot;streamflow&quot;</span><span class="p">]</span>
+<span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="multi-scale-time-series">Multi-Scale Time Series<a class="headerlink" href="#multi-scale-time-series" title="Permanent link">&para;</a></h3>
+<p>Support different time scales in one dataset:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span></pre></div></td><td class="code"><div><pre><span></span><code>timeseries/
+├── 1h/                     # Hourly data
+│   ├── basin_001.csv
+│   └── 1h_units_info.json
+├── 1D/                     # Daily data (most common)
+│   ├── basin_001.csv
+│   └── 1D_units_info.json
+└── 8D/                     # 8-day data (e.g., MODIS)
+    ├── basin_001.csv
+    └── 8D_units_info.json
+</code></pre></div></td></tr></table></div>
+<p>Specify in config:
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="n">dataset</span> <span class="o">=</span> <span class="n">SelfMadeHydroDataset</span><span class="p">(</span>
+    <span class="n">data_path</span><span class="o">=</span><span class="s2">&quot;D:/my_basin_data&quot;</span><span class="p">,</span>
+    <span class="n">time_unit</span><span class="o">=</span><span class="s2">&quot;1h&quot;</span>  <span class="c1"># or &quot;1D&quot;, &quot;8D&quot;</span>
+<span class="p">)</span>
+</code></pre></div></td></tr></table></div></p>
+<h3 id="cloud-storage-minios3">Cloud Storage (MinIO/S3)<a class="headerlink" href="#cloud-storage-minios3" title="Permanent link">&para;</a></h3>
+<p>For large datasets in the cloud:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">hydrodatasource.reader.data_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelfMadeHydroDataset</span>
+
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">SelfMadeHydroDataset</span><span class="p">(</span>
+    <span class="n">data_path</span><span class="o">=</span><span class="s2">&quot;s3://my-bucket/basin-data&quot;</span><span class="p">,</span>
+    <span class="n">time_unit</span><span class="o">=</span><span class="s2">&quot;1D&quot;</span><span class="p">,</span>
+    <span class="n">minio_paras</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;endpoint_url&quot;</span><span class="p">:</span> <span class="s2">&quot;http://minio.example.com:9000&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;key_id&quot;</span><span class="p">:</span> <span class="s2">&quot;access_key&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;secret_key&quot;</span><span class="p">:</span> <span class="s2">&quot;secret_key&quot;</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<hr />
+<h2 id="complete-workflow-example">Complete Workflow Example<a class="headerlink" href="#complete-workflow-example" title="Permanent link">&para;</a></h2>
+<p>Here's a complete example from raw data to calibration:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span>
+<span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span>
+<span class="normal">40</span>
+<span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span>
+<span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span>
+<span class="normal">65</span>
+<span class="normal">66</span>
+<span class="normal">67</span>
+<span class="normal">68</span>
+<span class="normal">69</span>
+<span class="normal">70</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hydrodatasource.reader.data_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelfMadeHydroDataset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hydromodel.trainers.unified_calibrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">calibrate</span>
+
+<span class="c1"># Step 1: Prepare attributes</span>
+<span class="n">attributes</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s1">&#39;basin_id&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;basin_001&#39;</span><span class="p">,</span> <span class="s1">&#39;basin_002&#39;</span><span class="p">],</span>
+    <span class="s1">&#39;area&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1250.5</span><span class="p">,</span> <span class="mf">856.3</span><span class="p">],</span>
+    <span class="s1">&#39;lat&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">30.5</span><span class="p">,</span> <span class="mf">31.2</span><span class="p">],</span>
+    <span class="s1">&#39;lon&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">105.2</span><span class="p">,</span> <span class="mf">106.1</span><span class="p">]</span>
+<span class="p">})</span>
+<span class="n">attributes</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">&quot;my_data/attributes/attributes.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="c1"># Step 2: Prepare time series (assume you have daily_data_001.csv)</span>
+<span class="c1"># Make sure it has columns: time, prcp, PET, streamflow</span>
+<span class="n">daily_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;daily_data_001.csv&quot;</span><span class="p">)</span>
+<span class="n">daily_data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">&quot;my_data/timeseries/1D/basin_001.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="c1"># Step 3: Create units info</span>
+<span class="n">units</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;prcp&quot;</span><span class="p">:</span> <span class="s2">&quot;mm/day&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PET&quot;</span><span class="p">:</span> <span class="s2">&quot;mm/day&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;streamflow&quot;</span><span class="p">:</span> <span class="s2">&quot;m^3/s&quot;</span>
+<span class="p">}</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;my_data/timeseries/1D_units_info.json&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">units</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="c1"># Step 4: Verify data loads correctly</span>
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">SelfMadeHydroDataset</span><span class="p">(</span>
+    <span class="n">data_path</span><span class="o">=</span><span class="s2">&quot;my_data&quot;</span><span class="p">,</span>
+    <span class="n">time_unit</span><span class="o">=</span><span class="s2">&quot;1D&quot;</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Basins: </span><span class="si">{</span><span class="n">dataset</span><span class="o">.</span><span class="n">read_object_ids</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Step 5: Cache for faster access (optional)</span>
+<span class="n">dataset</span><span class="o">.</span><span class="n">cache_xrdataset</span><span class="p">(</span>
+    <span class="n">gage_id_lst</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;basin_001&#39;</span><span class="p">],</span>
+    <span class="n">t_range</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;1990-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2010-12-31&quot;</span><span class="p">],</span>
+    <span class="n">var_lst</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prcp&quot;</span><span class="p">,</span> <span class="s2">&quot;PET&quot;</span><span class="p">,</span> <span class="s2">&quot;streamflow&quot;</span><span class="p">]</span>
+<span class="p">)</span>
+
+<span class="c1"># Step 6: Run calibration with hydromodel</span>
+<span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;data_cfgs&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;data_source_type&quot;</span><span class="p">:</span> <span class="s2">&quot;selfmadehydrodataset&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;data_source_path&quot;</span><span class="p">:</span> <span class="s2">&quot;my_data&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;basin_ids&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;basin_001&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;train_period&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;1990-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2000-12-31&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;test_period&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2001-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2010-12-31&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;warmup_length&quot;</span><span class="p">:</span> <span class="mi">365</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;model_cfgs&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;xaj_mz&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;training_cfgs&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;SCE_UA&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;loss_func&quot;</span><span class="p">:</span> <span class="s2">&quot;RMSE&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;output_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;results&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;experiment_name&quot;</span><span class="p">:</span> <span class="s2">&quot;my_basin_001&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;rep&quot;</span><span class="p">:</span> <span class="mi">5000</span><span class="p">,</span>
+        <span class="s2">&quot;ngs&quot;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;evaluation_cfgs&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;NSE&quot;</span><span class="p">,</span> <span class="s2">&quot;KGE&quot;</span><span class="p">,</span> <span class="s2">&quot;RMSE&quot;</span><span class="p">],</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">calibrate</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Calibration complete!&quot;</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<hr />
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<h3 id="common-issues_1">Common Issues<a class="headerlink" href="#common-issues_1" title="Permanent link">&para;</a></h3>
+<p><strong>1. "Basin ID not found"</strong>
+- Check <code>basin_id</code> column in <code>attributes.csv</code> matches CSV filenames
+- Basin IDs must be strings (not numbers)
+- Filenames: <code>{basin_id}.csv</code> (e.g., <code>basin_001.csv</code>)</p>
+<p><strong>2. "Time column not found"</strong>
+- CSV must have <code>time</code> column (case-sensitive)
+- Format: <code>YYYY-MM-DD</code> for daily, <code>YYYY-MM-DD HH:MM</code> for hourly</p>
+<p><strong>3. "Unit info file not found"</strong>
+- Create <code>{time_unit}_units_info.json</code> in timeseries folder
+- Example: <code>1D_units_info.json</code> for daily data</p>
+<p><strong>4. "Variable not found in units info"</strong>
+- Every variable in CSV must be in <code>units_info.json</code>
+- Check spelling matches exactly (case-sensitive)</p>
+<p><strong>5. "Data shape mismatch"</strong>
+- All basins should have same variables
+- All basins should cover the requested time range</p>
+<p><strong>6. CAMELS data download fails</strong>
+- Check internet connection
+- Check disk space (CAMELS-US needs ~70GB)
+- Try manual download from official sources
+- Set <code>download=False</code> if data already exists</p>
+<h3 id="data-validation-checklist">Data Validation Checklist<a class="headerlink" href="#data-validation-checklist" title="Permanent link">&para;</a></h3>
+<p>Before using your custom data:</p>
+<ul>
+<li>[ ] <code>attributes.csv</code> exists with <code>basin_id</code> and <code>area</code> columns</li>
+<li>[ ] Time series files named <code>{basin_id}.csv</code></li>
+<li>[ ] All CSV files have <code>time</code> column</li>
+<li>[ ] <code>{time_unit}_units_info.json</code> exists</li>
+<li>[ ] All variables in CSV are in <code>units_info.json</code></li>
+<li>[ ] No negative precipitation or streamflow values</li>
+<li>[ ] Time series is continuous (no large gaps)</li>
+<li>[ ] Data covers warmup + train + test periods</li>
+<li>[ ] Units are physically reasonable</li>
+</ul>
+<hr />
+<h2 id="data-conversion-tools">Data Conversion Tools<a class="headerlink" href="#data-conversion-tools" title="Permanent link">&para;</a></h2>
+<h3 id="from-gis-shapefile">From GIS Shapefile<a class="headerlink" href="#from-gis-shapefile" title="Permanent link">&para;</a></h3>
+<p>Extract basin attributes from shapefile:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+
+<span class="c1"># Read shapefile</span>
+<span class="n">basins</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="s2">&quot;basins.shp&quot;</span><span class="p">)</span>
+
+<span class="c1"># Calculate area (convert to km²)</span>
+<span class="n">basins</span><span class="p">[</span><span class="s1">&#39;area&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">basins</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">area</span> <span class="o">/</span> <span class="mf">1e6</span>
+
+<span class="c1"># Export to CSV</span>
+<span class="n">basins</span><span class="p">[[</span><span class="s1">&#39;basin_id&#39;</span><span class="p">,</span> <span class="s1">&#39;area&#39;</span><span class="p">,</span> <span class="s1">&#39;lat&#39;</span><span class="p">,</span> <span class="s1">&#39;lon&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+    <span class="s2">&quot;attributes/attributes.csv&quot;</span><span class="p">,</span>
+    <span class="n">index</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="from-other-formats">From Other Formats<a class="headerlink" href="#from-other-formats" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># From Excel</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_excel</span><span class="p">(</span><span class="s2">&quot;basin_data.xlsx&quot;</span><span class="p">)</span>
+<span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">&quot;timeseries/1D/basin_001.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="c1"># From NetCDF</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<span class="n">ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="s2">&quot;data.nc&quot;</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+<span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">&quot;timeseries/1D/basin_001.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<hr />
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<h3 id="quick-decision-guide">Quick Decision Guide<a class="headerlink" href="#quick-decision-guide" title="Permanent link">&para;</a></h3>
+<p><strong>Choose CAMELS (hydrodataset) if:</strong>
+- ✅ You need quality-controlled data
+- ✅ Working with well-studied basins
+- ✅ Want standardized format
+- ✅ Need consistent attributes</p>
+<p><strong>Choose Custom Data (hydrodatasource) if:</strong>
+- ✅ Using your own field data
+- ✅ Working with ungauged basins
+- ✅ Need specific time periods
+- ✅ Have proprietary data</p>
+<h3 id="key-points">Key Points<a class="headerlink" href="#key-points" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Public Data</strong>: Use <code>hydrodataset</code> for CAMELS variants</li>
+<li><strong>Custom Data</strong>: Use <code>hydrodatasource</code> with <code>selfmadehydrodataset</code> format</li>
+<li><strong>Data Structure</strong>: Follow standard directory layout</li>
+<li><strong>Required Files</strong>: <code>attributes.csv</code>, time series CSVs, <code>units_info.json</code></li>
+<li><strong>Data Quality</strong>: Check completeness, consistency, and physical validity</li>
+<li><strong>Performance</strong>: Use NetCDF caching for large datasets</li>
+</ol>
+<hr />
+<h2 id="additional-resources">Additional Resources<a class="headerlink" href="#additional-resources" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>hydrodataset GitHub</strong>: https://github.com/OuyangWenyu/hydrodataset</li>
+<li><strong>hydrodataset docs</strong>: https://hydrodataset.readthedocs.io/</li>
+<li><strong>hydrodatasource GitHub</strong>: https://github.com/OuyangWenyu/hydrodatasource</li>
+<li><strong>hydromodel docs</strong>: <a href="../usage/">usage.md</a>, <a href="../quickstart/">quickstart.md</a></li>
+<li><strong>CAMELS official sites</strong>:</li>
+<li>US: https://ral.ucar.edu/solutions/products/camels</li>
+<li>GB: https://catalogue.ceh.ac.uk/documents/8344e4f3-d2ea-44f5-8afa-86d2987543a9</li>
+</ul>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="November 17, 2025 09:40:49 UTC"><span class="timeago" datetime="2025-11-17T09:40:49+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 17, 2025 09:40:49 UTC">2025-11-17</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Created">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="November 17, 2025 09:40:49 UTC"><span class="timeago" datetime="2025-11-17T09:40:49+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 17, 2025 09:40:49 UTC">2025-11-17</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2023 - 2025 Wenyu Ouyang
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.top", "search.highlight", "search.share"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.50899def.min.js"></script>
+      
+        <script src="../js/timeago.min.js"></script>
+      
+        <script src="../js/timeago_mkdocs_material.js"></script>
+      
+    
+  </body>
+</html>

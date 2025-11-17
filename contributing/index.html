@@ -1,0 +1,2307 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Hydromodel is a python implementation for common hydrological models such as the XinAnJiang (XAJ) model, which is one of the most famous conceptual hydrological models, especially in Southern China.">
+      
+      
+        <meta name="author" content="OuyangWenyu">
+      
+      
+        <link rel="canonical" href="https://OuyangWenyu.github.io/hydromodel/contributing/">
+      
+      
+        <link rel="prev" href="../usage/">
+      
+      
+        <link rel="next" href="../faq/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.16">
+    
+    
+      
+        <title>Contributing - hydromodel</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.7e37652d.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Google+Sans:300,300i,400,400i,700,700i%7CRegular:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Google Sans";--md-code-font:"Regular"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../css/timeago.css">
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#contributing" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="hydromodel" class="md-header__button md-logo" aria-label="hydromodel" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hydromodel
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Contributing
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/OuyangWenyu/hydromodel" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="hydromodel" class="md-nav__button md-logo" aria-label="hydromodel" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hydromodel
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/OuyangWenyu/hydromodel" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Installation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Usage
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#types-of-contributions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Types of Contributions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Types of Contributions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#report-bugs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Report Bugs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fix-bugs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fix Bugs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implement-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implement Features
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add-new-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      Add New Models
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Write Documentation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#submit-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      Submit Feedback
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Setup
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Development Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setting-up-development-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setting Up Development Environment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setting Up Development Environment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#method-1-using-uv-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      Method 1: Using uv (Recommended)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#method-2-using-pip-and-venv" class="md-nav__link">
+    <span class="md-ellipsis">
+      Method 2: Using pip and venv
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#development-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Workflow
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coding-standards" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coding Standards
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Coding Standards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#python-style-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python Style Guide
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#docstring-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Docstring Format
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#naming-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Naming Conventions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Code Organization
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing Guidelines
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing Guidelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#writing-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Writing Tests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running Tests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Test Coverage
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pull-request-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pull Request Guidelines
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pull Request Guidelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#before-submitting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before Submitting
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pr-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      PR Template
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#review-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      Review Process
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Structure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Versioning
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-review-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      Code Review Process
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Code Review Process">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-reviewers-look-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      What Reviewers Look For
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#response-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      Response Time
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#communication" class="md-nav__link">
+    <span class="md-ellipsis">
+      Communication
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recognition" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recognition
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getting-help" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting Help
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      License
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-of-conduct" class="md-nav__link">
+    <span class="md-ellipsis">
+      Code of Conduct
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Code of Conduct">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#our-pledge" class="md-nav__link">
+    <span class="md-ellipsis">
+      Our Pledge
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#our-standards" class="md-nav__link">
+    <span class="md-ellipsis">
+      Our Standards
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      Enforcement
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Questions?
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    FAQ
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Changelog
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/OuyangWenyu/hydromodel/issues" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Report Issues
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/intro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Intro
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hydromodel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    hydromodel module
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../common/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Common Utilities
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Models
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9_3">
+            <span class="md-nav__icon md-icon"></span>
+            Models
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../models/xaj/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    XinAnJiang (XAJ)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../models/dhf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Dahuofang (DHF)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#types-of-contributions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Types of Contributions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Types of Contributions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#report-bugs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Report Bugs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fix-bugs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fix Bugs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implement-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implement Features
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add-new-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      Add New Models
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Write Documentation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#submit-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      Submit Feedback
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Setup
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Development Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setting-up-development-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setting Up Development Environment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setting Up Development Environment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#method-1-using-uv-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      Method 1: Using uv (Recommended)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#method-2-using-pip-and-venv" class="md-nav__link">
+    <span class="md-ellipsis">
+      Method 2: Using pip and venv
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#development-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Workflow
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coding-standards" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coding Standards
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Coding Standards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#python-style-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python Style Guide
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#docstring-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Docstring Format
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#naming-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Naming Conventions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Code Organization
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing Guidelines
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing Guidelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#writing-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Writing Tests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running Tests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Test Coverage
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pull-request-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pull Request Guidelines
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pull Request Guidelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#before-submitting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before Submitting
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pr-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      PR Template
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#review-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      Review Process
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Structure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Versioning
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-review-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      Code Review Process
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Code Review Process">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-reviewers-look-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      What Reviewers Look For
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#response-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      Response Time
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#communication" class="md-nav__link">
+    <span class="md-ellipsis">
+      Communication
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recognition" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recognition
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getting-help" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting Help
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      License
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-of-conduct" class="md-nav__link">
+    <span class="md-ellipsis">
+      Code of Conduct
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Code of Conduct">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#our-pledge" class="md-nav__link">
+    <span class="md-ellipsis">
+      Our Pledge
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#our-standards" class="md-nav__link">
+    <span class="md-ellipsis">
+      Our Standards
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      Enforcement
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Questions?
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+
+
+
+                  
+
+
+  
+  
+
+
+<h1 id="contributing">Contributing<a class="headerlink" href="#contributing" title="Permanent link">&para;</a></h1>
+<p>Contributions are welcome, and they are greatly appreciated! Every little bit helps, and credit will always be given.</p>
+<h2 id="types-of-contributions">Types of Contributions<a class="headerlink" href="#types-of-contributions" title="Permanent link">&para;</a></h2>
+<h3 id="report-bugs">Report Bugs<a class="headerlink" href="#report-bugs" title="Permanent link">&para;</a></h3>
+<p>Report bugs at <a href="https://github.com/OuyangWenyu/hydromodel/issues">https://github.com/OuyangWenyu/hydromodel/issues</a>.</p>
+<p>When reporting a bug, please include:</p>
+<ul>
+<li><strong>Operating system</strong> name and version</li>
+<li><strong>Python version</strong> you're using</li>
+<li><strong>hydromodel version</strong> (run `python -c "import hydromodel; print(hydromodel.<strong>version</strong>)")</li>
+<li><strong>Detailed steps</strong> to reproduce the bug</li>
+<li><strong>Error messages</strong> (full traceback if available)</li>
+<li><strong>Expected behavior</strong> vs. actual behavior</li>
+<li><strong>Code snippet</strong> to reproduce (if applicable)</li>
+</ul>
+<p><strong>Example bug report:</strong>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="gs">**Environment:**</span>
+<span class="k">-</span><span class="w"> </span>OS: Windows 11
+<span class="k">-</span><span class="w"> </span>Python: 3.11.5
+<span class="k">-</span><span class="w"> </span>hydromodel: 0.2.11
+
+<span class="gs">**Steps to reproduce:**</span>
+<span class="k">1.</span> Load CAMELS-US dataset
+<span class="k">2.</span> Run calibration with SCE-UA
+<span class="k">3.</span> Error occurs during parameter saving
+
+<span class="gs">**Error message:**</span>
+</code></pre></div></td></tr></table></div>
+FileNotFoundError: calibration_results.json not found
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>**Expected:** Results should be saved to output directory
+</code></pre></div></td></tr></table></div></p>
+<h3 id="fix-bugs">Fix Bugs<a class="headerlink" href="#fix-bugs" title="Permanent link">&para;</a></h3>
+<p>Look through the GitHub <a href="https://github.com/OuyangWenyu/hydromodel/issues">issues</a> for bugs. Issues tagged with:
+- <code>bug</code> - Confirmed bugs
+- <code>help wanted</code> - Good for contributors
+- <code>good first issue</code> - Great for first-time contributors</p>
+<h3 id="implement-features">Implement Features<a class="headerlink" href="#implement-features" title="Permanent link">&para;</a></h3>
+<p>Look through the GitHub <a href="https://github.com/OuyangWenyu/hydromodel/issues">issues</a> for features. Issues tagged with:
+- <code>enhancement</code> - New features or improvements
+- <code>help wanted</code> - Open for contributions
+- <code>documentation</code> - Documentation improvements</p>
+<h3 id="add-new-models">Add New Models<a class="headerlink" href="#add-new-models" title="Permanent link">&para;</a></h3>
+<p>hydromodel welcomes new hydrological model implementations! When adding a model:</p>
+<ol>
+<li>Create a new file in <code>hydromodel/models/</code> (e.g., <code>your_model.py</code>)</li>
+<li>Inherit from base classes or follow existing model patterns</li>
+<li>Implement required methods:</li>
+<li><code>__init__</code>: Model initialization</li>
+<li><code>run</code>: Main simulation function</li>
+<li>Define <code>param_limits</code> (parameter ranges)</li>
+<li>Add model tests in <code>test/</code></li>
+<li>Document the model in <code>docs/models/your_model.md</code></li>
+<li>Update <code>MODEL_PARAM_DICT</code> in <code>model_config.py</code></li>
+</ol>
+<p><strong>Example:</strong>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">YourModel</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">params</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># Your model logic</span>
+        <span class="k">return</span> <span class="n">outputs</span>
+</code></pre></div></td></tr></table></div></p>
+<h3 id="write-documentation">Write Documentation<a class="headerlink" href="#write-documentation" title="Permanent link">&para;</a></h3>
+<p>hydromodel can always use more documentation! You can contribute by:</p>
+<ul>
+<li>Improving existing documentation</li>
+<li>Writing tutorials and examples</li>
+<li>Creating Jupyter notebook demonstrations</li>
+<li>Translating documentation to other languages</li>
+<li>Writing blog posts or articles about hydromodel</li>
+</ul>
+<p>Documentation is built using <a href="https://www.mkdocs.org/">MkDocs</a> with the Material theme.</p>
+<h3 id="submit-feedback">Submit Feedback<a class="headerlink" href="#submit-feedback" title="Permanent link">&para;</a></h3>
+<p>To propose a feature:</p>
+<ol>
+<li>Open an issue at <a href="https://github.com/OuyangWenyu/hydromodel/issues">https://github.com/OuyangWenyu/hydromodel/issues</a></li>
+<li>Tag it with <code>enhancement</code></li>
+<li>Explain in detail:</li>
+<li><strong>What</strong> the feature would do</li>
+<li><strong>Why</strong> it's needed</li>
+<li><strong>How</strong> it should work (if you have ideas)</li>
+<li>Keep the scope narrow to make implementation easier</li>
+</ol>
+<h2 id="development-setup">Development Setup<a class="headerlink" href="#development-setup" title="Permanent link">&para;</a></h2>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Python 3.9 or higher</strong></li>
+<li><strong>Git</strong> for version control</li>
+<li><strong>uv</strong> (recommended) or pip for package management</li>
+</ul>
+<h3 id="setting-up-development-environment">Setting Up Development Environment<a class="headerlink" href="#setting-up-development-environment" title="Permanent link">&para;</a></h3>
+<h4 id="method-1-using-uv-recommended">Method 1: Using uv (Recommended)<a class="headerlink" href="#method-1-using-uv-recommended" title="Permanent link">&para;</a></h4>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># 1. Fork the repository on GitHub</span>
+<span class="c1"># 2. Clone your fork</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/your_username/hydromodel.git
+<span class="nb">cd</span><span class="w"> </span>hydromodel
+
+<span class="c1"># 3. Add upstream remote</span>
+git<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>upstream<span class="w"> </span>https://github.com/OuyangWenyu/hydromodel.git
+
+<span class="c1"># 4. Install uv (if not already installed)</span>
+pip<span class="w"> </span>install<span class="w"> </span>uv
+
+<span class="c1"># 5. Create development environment with all dependencies</span>
+uv<span class="w"> </span>sync<span class="w"> </span>--all-extras
+
+<span class="c1"># 6. Activate environment</span>
+<span class="c1"># On Windows:</span>
+.venv<span class="se">\S</span>cripts<span class="se">\a</span>ctivate
+<span class="c1"># On macOS/Linux:</span>
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+
+<span class="c1"># 7. Verify installation</span>
+pytest<span class="w"> </span>test/
+</code></pre></div></td></tr></table></div>
+<h4 id="method-2-using-pip-and-venv">Method 2: Using pip and venv<a class="headerlink" href="#method-2-using-pip-and-venv" title="Permanent link">&para;</a></h4>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># 1. Fork and clone (same as above)</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/your_username/hydromodel.git
+<span class="nb">cd</span><span class="w"> </span>hydromodel
+
+<span class="c1"># 2. Create virtual environment</span>
+python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>venv
+
+<span class="c1"># 3. Activate environment</span>
+<span class="c1"># On Windows:</span>
+venv<span class="se">\S</span>cripts<span class="se">\a</span>ctivate
+<span class="c1"># On macOS/Linux:</span>
+<span class="nb">source</span><span class="w"> </span>venv/bin/activate
+
+<span class="c1"># 4. Install in editable mode with dev dependencies</span>
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev,docs]&quot;</span>
+
+<span class="c1"># 5. Verify installation</span>
+pytest<span class="w"> </span>test/
+</code></pre></div></td></tr></table></div>
+<h3 id="development-workflow">Development Workflow<a class="headerlink" href="#development-workflow" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>Create a branch</strong> for your changes:
+   <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span></pre></div></td><td class="code"><div><pre><span></span><code>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>feature/your-feature-name
+<span class="c1"># or</span>
+git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>bugfix/issue-number-description
+</code></pre></div></td></tr></table></div></p>
+</li>
+<li>
+<p><strong>Make your changes</strong> following our coding standards (see below)</p>
+</li>
+<li>
+<p><strong>Write tests</strong> for your changes:
+   <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># Add tests to test/ directory</span>
+<span class="c1"># Run tests to ensure they pass</span>
+pytest<span class="w"> </span>test/
+</code></pre></div></td></tr></table></div></p>
+</li>
+<li>
+<p><strong>Update documentation</strong> if needed:
+   <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># Edit docs in docs/ directory</span>
+<span class="c1"># Build docs locally to preview</span>
+mkdocs<span class="w"> </span>serve
+<span class="c1"># View at http://127.0.0.1:8000/</span>
+</code></pre></div></td></tr></table></div></p>
+</li>
+<li>
+<p><strong>Format and lint your code</strong>:
+   <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># Format with black (if available)</span>
+black<span class="w"> </span>hydromodel/<span class="w"> </span>test/
+
+<span class="c1"># Check code style (if flake8 available)</span>
+flake8<span class="w"> </span>hydromodel/<span class="w"> </span>test/
+</code></pre></div></td></tr></table></div></p>
+</li>
+<li>
+<p><strong>Commit your changes</strong>:
+   <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span></pre></div></td><td class="code"><div><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>.
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;Add feature: brief description</span>
+
+<span class="s2">Detailed description of what changed and why.</span>
+
+<span class="s2">Fixes #123&quot;</span><span class="w">  </span><span class="c1"># Reference issue number if applicable</span>
+</code></pre></div></td></tr></table></div></p>
+</li>
+<li>
+<p><strong>Push to your fork</strong>:
+   <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>feature/your-feature-name
+</code></pre></div></td></tr></table></div></p>
+</li>
+<li>
+<p><strong>Create a Pull Request</strong> on GitHub</p>
+</li>
+</ol>
+<h2 id="coding-standards">Coding Standards<a class="headerlink" href="#coding-standards" title="Permanent link">&para;</a></h2>
+<h3 id="python-style-guide">Python Style Guide<a class="headerlink" href="#python-style-guide" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Follow <a href="https://peps.python.org/pep-0008/">PEP 8</a> style guide</li>
+<li>Use <strong>4 spaces</strong> for indentation (no tabs)</li>
+<li>Maximum line length: <strong>88 characters</strong> (Black default)</li>
+<li>Use <strong>type hints</strong> where appropriate</li>
+<li>Write <strong>docstrings</strong> for all public functions, classes, and modules</li>
+</ul>
+<h3 id="docstring-format">Docstring Format<a class="headerlink" href="#docstring-format" title="Permanent link">&para;</a></h3>
+<p>Use <strong>NumPy-style</strong> docstrings:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span>
+<span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calibrate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">param_range_file</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calibrate hydrological model with specified configuration.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config : dict</span>
+<span class="sd">        Configuration dictionary containing data_cfgs, model_cfgs,</span>
+<span class="sd">        training_cfgs, and evaluation_cfgs.</span>
+<span class="sd">    param_range_file : str, optional</span>
+<span class="sd">        Path to parameter range YAML file. If None, uses default ranges.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Dictionary mapping basin IDs to calibration results containing</span>
+<span class="sd">        best parameters and objective values.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If configuration is invalid or missing required fields.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; config = {...}</span>
+<span class="sd">    &gt;&gt;&gt; results = calibrate(config)</span>
+<span class="sd">    &gt;&gt;&gt; print(results[&#39;01013500&#39;][&#39;best_params&#39;])</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    evaluate : Evaluate calibrated model</span>
+<span class="sd">    UnifiedSimulator : Run model simulation</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Results are saved to {output_dir}/{experiment_name}/ directory.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="naming-conventions">Naming Conventions<a class="headerlink" href="#naming-conventions" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Functions/methods</strong>: <code>lowercase_with_underscores</code></li>
+<li><strong>Classes</strong>: <code>CapitalizedWords</code></li>
+<li><strong>Constants</strong>: <code>UPPERCASE_WITH_UNDERSCORES</code></li>
+<li><strong>Private methods</strong>: <code>_leading_underscore</code></li>
+<li><strong>Protected methods</strong>: <code>_single_leading_underscore</code></li>
+</ul>
+<h3 id="code-organization">Code Organization<a class="headerlink" href="#code-organization" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Keep functions focused and small (ideally &lt; 50 lines)</li>
+<li>Use meaningful variable names</li>
+<li>Add comments for complex logic</li>
+<li>Avoid deep nesting (max 3-4 levels)</li>
+<li>Extract repeated code into functions</li>
+</ul>
+<h2 id="testing-guidelines">Testing Guidelines<a class="headerlink" href="#testing-guidelines" title="Permanent link">&para;</a></h2>
+<h3 id="writing-tests">Writing Tests<a class="headerlink" href="#writing-tests" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Use <code>pytest</code> for all tests</li>
+<li>Place tests in <code>test/</code> directory</li>
+<li>Name test files as <code>test_*.py</code></li>
+<li>Name test functions as <code>test_*</code></li>
+</ul>
+<p><strong>Example test:</strong>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hydromodel.models.xaj</span><span class="w"> </span><span class="kn">import</span> <span class="n">xaj</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_xaj_basic_run</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Test basic XAJ model execution.&quot;&quot;&quot;</span>
+    <span class="c1"># Arrange</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">15.0</span><span class="p">,</span> <span class="mf">75.0</span><span class="p">,</span> <span class="mf">90.0</span><span class="p">,</span>
+                       <span class="mf">0.1</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span>
+                       <span class="mf">5.0</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.99</span><span class="p">])</span>
+    <span class="n">p_and_e</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="mi">10</span>  <span class="c1"># 100 days, 1 basin, 2 vars</span>
+
+    <span class="c1"># Act</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">xaj</span><span class="p">(</span><span class="n">p_and_e</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+    <span class="c1"># Assert</span>
+    <span class="k">assert</span> <span class="n">results</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">results</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">results</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_xaj_parameter_validation</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Test XAJ parameter validation.&quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+        <span class="n">xaj</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div></p>
+<h3 id="running-tests">Running Tests<a class="headerlink" href="#running-tests" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># Run all tests</span>
+pytest
+
+<span class="c1"># Run specific test file</span>
+pytest<span class="w"> </span>test/test_xaj.py
+
+<span class="c1"># Run specific test</span>
+pytest<span class="w"> </span>test/test_xaj.py::test_xaj_basic_run
+
+<span class="c1"># Run with coverage</span>
+pytest<span class="w"> </span>--cov<span class="o">=</span>hydromodel<span class="w"> </span>--cov-report<span class="o">=</span>html
+
+<span class="c1"># Run with verbose output</span>
+pytest<span class="w"> </span>-v
+
+<span class="c1"># Run only fast tests (skip slow)</span>
+pytest<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;not slow&quot;</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="test-coverage">Test Coverage<a class="headerlink" href="#test-coverage" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Aim for <strong>&gt;80% code coverage</strong> for new code</li>
+<li>Write tests for:</li>
+<li>Normal cases</li>
+<li>Edge cases</li>
+<li>Error conditions</li>
+<li>Boundary values</li>
+</ul>
+<h2 id="pull-request-guidelines">Pull Request Guidelines<a class="headerlink" href="#pull-request-guidelines" title="Permanent link">&para;</a></h2>
+<h3 id="before-submitting">Before Submitting<a class="headerlink" href="#before-submitting" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Tests pass</strong>: Run <code>pytest</code> and ensure all tests pass</li>
+<li><strong>Code is formatted</strong>: Use <code>black</code> or similar formatter</li>
+<li><strong>Documentation updated</strong>: Update relevant docs</li>
+<li><strong>CHANGELOG updated</strong>: Add entry to <code>docs/changelog.md</code></li>
+<li><strong>Commits are clean</strong>: Use meaningful commit messages</li>
+</ol>
+<h3 id="pr-template">PR Template<a class="headerlink" href="#pr-template" title="Permanent link">&para;</a></h3>
+<p>When creating a PR, include:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="gu">## Description</span>
+Brief description of changes.
+
+<span class="gu">## Type of Change</span>
+<span class="k">- [ ]</span> Bug fix (non-breaking change fixing an issue)
+<span class="k">- [ ]</span> New feature (non-breaking change adding functionality)
+<span class="k">- [ ]</span> Breaking change (fix or feature causing existing functionality to change)
+<span class="k">- [ ]</span> Documentation update
+
+<span class="gu">## Related Issue</span>
+Fixes <span class="ni">#123</span>
+
+<span class="gu">## How Has This Been Tested?</span>
+Describe the tests you ran.
+
+<span class="gu">## Checklist</span>
+<span class="k">- [ ]</span> Code follows project style guidelines
+<span class="k">- [ ]</span> Self-reviewed my own code
+<span class="k">- [ ]</span> Commented complex code sections
+<span class="k">- [ ]</span> Updated documentation
+<span class="k">- [ ]</span> Added tests that prove fix/feature works
+<span class="k">- [ ]</span> New and existing tests pass locally
+<span class="k">- [ ]</span> CHANGELOG.md updated
+</code></pre></div></td></tr></table></div>
+<h3 id="review-process">Review Process<a class="headerlink" href="#review-process" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Maintainers will review your PR</li>
+<li>Address any requested changes</li>
+<li>Once approved, your PR will be merged</li>
+<li>Your contribution will be credited in the release notes</li>
+</ol>
+<h2 id="project-structure">Project Structure<a class="headerlink" href="#project-structure" title="Permanent link">&para;</a></h2>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span></pre></div></td><td class="code"><div><pre><span></span><code>hydromodel/
+├── hydromodel/              # Main package
+│   ├── models/              # Model implementations
+│   ├── trainers/            # Calibration, evaluation, simulation
+│   ├── datasets/            # Data loading and preprocessing
+│   └── utils/               # Utility functions
+├── test/                    # Tests
+├── docs/                    # Documentation
+├── scripts/                 # Command-line scripts
+├── configs/                 # Example configurations
+└── pyproject.toml           # Project configuration
+</code></pre></div></td></tr></table></div>
+<h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
+<p>We use <a href="https://semver.org/">Semantic Versioning</a>:</p>
+<ul>
+<li><strong>MAJOR</strong>: Breaking changes</li>
+<li><strong>MINOR</strong>: New features (backward compatible)</li>
+<li><strong>PATCH</strong>: Bug fixes (backward compatible)</li>
+</ul>
+<p>Example: <code>0.2.11</code> → <code>0.3.0</code> (new features) → <code>1.0.0</code> (major release)</p>
+<h2 id="code-review-process">Code Review Process<a class="headerlink" href="#code-review-process" title="Permanent link">&para;</a></h2>
+<h3 id="what-reviewers-look-for">What Reviewers Look For<a class="headerlink" href="#what-reviewers-look-for" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Correctness</strong>: Does the code work as intended?</li>
+<li><strong>Tests</strong>: Are there adequate tests?</li>
+<li><strong>Documentation</strong>: Is it well-documented?</li>
+<li><strong>Style</strong>: Does it follow coding standards?</li>
+<li><strong>Performance</strong>: Are there any performance concerns?</li>
+<li><strong>Maintainability</strong>: Is the code easy to understand and maintain?</li>
+</ul>
+<h3 id="response-time">Response Time<a class="headerlink" href="#response-time" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Initial review: within 1 week</li>
+<li>Follow-up reviews: within 3-5 days</li>
+<li>For urgent fixes: within 1-2 days</li>
+</ul>
+<h2 id="communication">Communication<a class="headerlink" href="#communication" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Issues</strong>: For bug reports and feature requests</li>
+<li><strong>Discussions</strong>: For questions and ideas</li>
+<li><strong>Pull Requests</strong>: For code contributions</li>
+<li><strong>Email</strong>: wenyuouyang@outlook.com for private matters</li>
+</ul>
+<h2 id="recognition">Recognition<a class="headerlink" href="#recognition" title="Permanent link">&para;</a></h2>
+<p>Contributors are credited in:
+- Release notes
+- <code>CONTRIBUTORS.md</code> file
+- GitHub contributors page</p>
+<h2 id="getting-help">Getting Help<a class="headerlink" href="#getting-help" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Documentation</strong>: <a href="https://OuyangWenyu.github.io/hydromodel">https://OuyangWenyu.github.io/hydromodel</a></li>
+<li><strong>Issues</strong>: <a href="https://github.com/OuyangWenyu/hydromodel/issues">https://github.com/OuyangWenyu/hydromodel/issues</a></li>
+<li><strong>Discussions</strong>: <a href="https://github.com/OuyangWenyu/hydromodel/discussions">https://github.com/OuyangWenyu/hydromodel/discussions</a></li>
+</ul>
+<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
+<p>By contributing, you agree that your contributions will be licensed under the GNU General Public License v3.0.</p>
+<h2 id="code-of-conduct">Code of Conduct<a class="headerlink" href="#code-of-conduct" title="Permanent link">&para;</a></h2>
+<h3 id="our-pledge">Our Pledge<a class="headerlink" href="#our-pledge" title="Permanent link">&para;</a></h3>
+<p>We pledge to make participation in our project a harassment-free experience for everyone, regardless of:
+- Age, body size, disability
+- Ethnicity, gender identity and expression
+- Level of experience
+- Nationality, personal appearance
+- Race, religion, sexual identity and orientation</p>
+<h3 id="our-standards">Our Standards<a class="headerlink" href="#our-standards" title="Permanent link">&para;</a></h3>
+<p><strong>Positive behavior:</strong>
+- Using welcoming and inclusive language
+- Being respectful of differing viewpoints
+- Gracefully accepting constructive criticism
+- Focusing on what is best for the community</p>
+<p><strong>Unacceptable behavior:</strong>
+- Use of sexualized language or imagery
+- Trolling, insulting/derogatory comments
+- Public or private harassment
+- Publishing others' private information</p>
+<h3 id="enforcement">Enforcement<a class="headerlink" href="#enforcement" title="Permanent link">&para;</a></h3>
+<p>Project maintainers have the right to remove, edit, or reject contributions that do not align with this Code of Conduct.</p>
+<h2 id="questions">Questions?<a class="headerlink" href="#questions" title="Permanent link">&para;</a></h2>
+<p>Don't hesitate to ask! We're here to help:</p>
+<ol>
+<li>Check existing <a href="https://github.com/OuyangWenyu/hydromodel/issues">issues</a></li>
+<li>Search <a href="https://github.com/OuyangWenyu/hydromodel/discussions">discussions</a></li>
+<li>Open a new issue with the <code>question</code> label</li>
+<li>Email: wenyuouyang@outlook.com</li>
+</ol>
+<hr />
+<p>Thank you for contributing to hydromodel! 🎉</p>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="November 17, 2025 09:40:49 UTC"><span class="timeago" datetime="2025-11-17T09:40:49+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 17, 2025 09:40:49 UTC">2025-11-17</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Created">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="November 17, 2025 09:40:49 UTC"><span class="timeago" datetime="2025-11-17T09:40:49+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 17, 2025 09:40:49 UTC">2025-11-17</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2023 - 2025 Wenyu Ouyang
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.top", "search.highlight", "search.share"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.50899def.min.js"></script>
+      
+        <script src="../js/timeago.min.js"></script>
+      
+        <script src="../js/timeago_mkdocs_material.js"></script>
+      
+    
+  </body>
+</html>

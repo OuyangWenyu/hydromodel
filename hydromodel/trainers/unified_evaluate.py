@@ -28,7 +28,7 @@ class UnifiedEvaluator:
     Unified evaluator for all hydrological models.
 
     This class provides a unified interface for evaluating calibrated models,
-    similar to UnifiedModelSetup for calibration.
+    similar to UnifiedCalibrator for calibration.
 
     Key features:
     - Loads calibrated parameters from multiple sources
@@ -53,9 +53,9 @@ class UnifiedEvaluator:
         data_config : Dict
             Data configuration
         model_config : Dict
-            Model configuration
+            Model configuration (can include 'output_variable': 'qsim' or 'es')
         training_config : Dict
-            Training configuration
+            Training configuration (can include 'output_variable': 'qsim' or 'es')
         eval_period : List[str], optional
             Evaluation period [start, end]
         param_dir : str, optional
@@ -64,6 +64,20 @@ class UnifiedEvaluator:
         self.data_config = data_config.copy()
         self.model_config = model_config
         self.training_config = training_config
+
+        # Get output variable configuration (default: qsim for streamflow)
+        # Priority: training_config > model_config > default
+        self.output_variable = (
+            training_config.get("output_variable") or
+            model_config.get("output_variable") or
+            "qsim"
+        )
+
+        # Validate output variable
+        valid_outputs = ["qsim", "es", "et", "ets"]
+        if self.output_variable not in valid_outputs:
+            print(f"Warning: output_variable '{self.output_variable}' not recognized. Using 'qsim'.")
+            self.output_variable = "qsim"
 
         # Set evaluation period
         if eval_period is None:
@@ -218,9 +232,20 @@ class UnifiedEvaluator:
             is_event_data=self.is_event_data,
         )
 
-        # Extract qsim
-        if isinstance(sim_results, dict) and "qsim" in sim_results:
-            qsim = sim_results["qsim"]
+        # Extract simulation output based on configured variable
+        # self.output_variable can be "qsim" (streamflow), "es"/"et"/"ets" (evapotranspiration)
+        if isinstance(sim_results, dict):
+            # First try the configured output variable
+            if self.output_variable in sim_results:
+                qsim = sim_results[self.output_variable]
+            # Fallback to qsim if configured variable not available
+            elif "qsim" in sim_results:
+                qsim = sim_results["qsim"]
+                if self.output_variable != "qsim":
+                    print(f"Warning: '{self.output_variable}' not in results, using 'qsim' instead")
+            # Last resort: take first value
+            else:
+                qsim = list(sim_results.values())[0]
         elif isinstance(sim_results, np.ndarray):
             qsim = sim_results
         else:
@@ -281,6 +306,7 @@ class UnifiedEvaluator:
             "parameters": params,
             "qsim": qsim,
             "qobs": qobs_basin,
+            "sim_results": sim_results,  # Store complete simulation results (including es/et/ets if available)
         }
 
     def evaluate_all(
@@ -304,6 +330,7 @@ class UnifiedEvaluator:
         results = {}
         all_qsim = []
         all_qobs = []
+        all_sim_results = []  # Collect complete simulation results
 
         # Check if using separate data (multi-basin flood events without padding)
         use_separate_data = (
@@ -326,6 +353,7 @@ class UnifiedEvaluator:
             }
             all_qsim.append(basin_result["qsim"])
             all_qobs.append(basin_result["qobs"])
+            all_sim_results.append(basin_result["sim_results"])  # Store complete simulation results
 
             # Print key metrics
             metrics = basin_result["metrics"]
@@ -348,7 +376,7 @@ class UnifiedEvaluator:
         if save_results:
             print(f"💾 Saving evaluation results...")
             output_dir = eval_output_dir or self.param_dir
-            self._save_all_results(output_dir, results, all_qsim, all_qobs)
+            self._save_all_results(output_dir, results, all_qsim, all_qobs, all_sim_results)
 
         print(f"\n🎉 {'='*60}")
         print(f"🎉 Evaluation completed successfully!")
@@ -357,14 +385,74 @@ class UnifiedEvaluator:
 
         return results
 
+    def _extract_et_from_results(self, all_sim_results, use_separate_data):
+        """
+        Extract evapotranspiration variables from simulation results.
+
+        Parameters
+        ----------
+        all_sim_results : list
+            List of simulation results for all basins
+        use_separate_data : bool
+            Whether using separate data for each basin
+
+        Returns
+        -------
+        dict or None
+            Dictionary containing ET variable info, or None if no ET variable found
+        """
+        # Possible ET variable names
+        et_var_names = ["es", "et", "ets"]
+
+        # Check first basin's results to determine ET variable name
+        if not all_sim_results:
+            return None
+
+        first_result = all_sim_results[0]
+        et_var_name = None
+
+        # If result is dict, search for ET variable
+        if isinstance(first_result, dict):
+            for var_name in et_var_names:
+                if var_name in first_result:
+                    et_var_name = var_name
+                    break
+
+        # If no ET variable found, return None
+        if et_var_name is None:
+            return None
+
+        # Extract ET data for all basins
+        all_et_data = []
+        for sim_result in all_sim_results:
+            if isinstance(sim_result, dict) and et_var_name in sim_result:
+                all_et_data.append(sim_result[et_var_name])
+            else:
+                # If any basin lacks ET data, return None
+                return None
+
+        # Concatenate data based on data type
+        if use_separate_data:
+            # Keep as list for later remapping
+            et_array = all_et_data
+        else:
+            # Concatenate into unified array
+            et_array = np.concatenate(all_et_data, axis=1)
+
+        return {
+            "name": et_var_name,  # ET variable name
+            "data": et_array,      # ET data array
+        }
+
     def _save_all_results(
         self,
         output_dir: str,
         results: Dict,
         all_qsim,  # Could be list or np.ndarray
         all_qobs,  # Could be list or np.ndarray
+        all_sim_results,  # List of complete simulation results (dict or ndarray)
     ):
-        """Save all evaluation results."""
+        """Save all evaluation results including ET variables if available."""
         # Check if using separate data (multi-basin flood events without padding)
         use_separate_data = (
             hasattr(self.data_loader, "basin_data_separate")
@@ -467,10 +555,15 @@ class UnifiedEvaluator:
             )
             print(f"  Time range: {unified_time[0]} to {unified_time[-1]}")
 
+            # Extract ET data first (if available)
+            et_info = self._extract_et_from_results(all_sim_results, use_separate_data=True)
+            has_et = et_info is not None
+
             # Now remap each basin's data to the unified time array
             remapped_qsim = []
             remapped_qobs = []
             remapped_p_and_e = []
+            remapped_et = [] if has_et else None
 
             for i, basin_id in enumerate(self.basin_ids):
                 basin_time = basin_time_map[basin_id]
@@ -499,6 +592,18 @@ class UnifiedEvaluator:
                     (len(unified_time), p_and_e.shape[1]), dtype=p_and_e.dtype
                 )
 
+                # Create empty ET array if needed
+                if has_et:
+                    et_data = et_info["data"][i]
+                    if et_data.ndim == 3:
+                        et_remapped = np.zeros(
+                            (len(unified_time), 1, 1), dtype=et_data.dtype
+                        )
+                    else:
+                        et_remapped = np.zeros(
+                            (len(unified_time), 1), dtype=et_data.dtype
+                        )
+
                 # Find indices where basin_time appears in unified_time
                 basin_time_pd = pd.to_datetime(basin_time)
                 unified_time_series = pd.Series(unified_time)
@@ -511,10 +616,14 @@ class UnifiedEvaluator:
                         qsim_remapped[unified_idx] = qsim[j]
                         qobs_remapped[unified_idx] = qobs[j]
                         p_and_e_remapped[unified_idx] = p_and_e[j]
+                        if has_et:
+                            et_remapped[unified_idx] = et_data[j]
 
                 remapped_qsim.append(qsim_remapped)
                 remapped_qobs.append(qobs_remapped)
                 remapped_p_and_e.append(p_and_e_remapped)
+                if has_et:
+                    remapped_et.append(et_remapped)
 
                 print(
                     f"    {basin_id}: Remapped {len(basin_time)} -> {len(unified_time)} timesteps"
@@ -527,12 +636,25 @@ class UnifiedEvaluator:
                 remapped_p_and_e, axis=1
             )  # [time, basin, features]
 
+            # Stack remapped ET data if exists
+            if has_et:
+                et_array = np.concatenate(remapped_et, axis=1)
+                all_et = {
+                    "name": et_info["name"],
+                    "data": et_array,
+                }
+            else:
+                all_et = None
+
             # Use unified time array
             time_array = unified_time
         else:
             # Normal case
             p_and_e = self.p_and_e
             time_array = getattr(self.data_loader, "time_array", None)
+
+            # Extract ET variable (if model outputs include it)
+            all_et = self._extract_et_from_results(all_sim_results, use_separate_data=False)
 
         _save_evaluation_results(
             output_dir,
@@ -548,6 +670,7 @@ class UnifiedEvaluator:
             basin_configs=self.basin_configs,
             data_path=self.data_loader.data_path,
             time_array=time_array,
+            all_et=all_et,  # Pass ET variable
         )
 
         _save_metrics_summary(output_dir, results, self.basin_ids)
@@ -845,8 +968,9 @@ def _save_evaluation_results(
     basin_configs: Optional[Dict[str, Dict]] = None,
     data_path: Optional[str] = None,
     time_array: Optional[np.ndarray] = None,
+    all_et: Optional[Dict] = None,  # ET info: {"name": "es/et/ets", "data": array}
 ):
-    """Save evaluation results to NetCDF file."""
+    """Save evaluation results to NetCDF file including ET variables if available."""
     os.makedirs(output_dir, exist_ok=True)
 
     # Get time and basin coordinates
@@ -879,6 +1003,19 @@ def _save_evaluation_results(
         "prcp": (["time", "basin"], p_and_e[time_start:, :, 0]),
         "pet": (["time", "basin"], p_and_e[time_start:, :, 1]),
     }
+
+    # Add ET variable if available
+    if all_et is not None:
+        et_data = all_et["data"]
+        et_name = all_et["name"]
+
+        # Ensure correct dimensions for ET data
+        if et_data.ndim == 3:
+            et_data = et_data.squeeze(axis=2)
+
+        # Add ET variable to dataset
+        data_vars[et_name] = (["time", "basin"], et_data)
+        print(f"  Adding {et_name} (evapotranspiration) to NetCDF output")
 
     # For flood event data, add flood_event_markers and event_id
     if is_event_data:
@@ -920,6 +1057,23 @@ def _save_evaluation_results(
     ds["prcp"].attrs["long_name"] = "Precipitation"
     ds["pet"].attrs["units"] = pet_unit
     ds["pet"].attrs["long_name"] = "Potential evapotranspiration"
+
+    # Add ET attributes if available
+    if all_et is not None:
+        et_name = all_et["name"]
+        # ET uses same time unit as PET
+        et_unit = pet_unit
+        ds[et_name].attrs["units"] = et_unit
+
+        # Set descriptive name based on variable name
+        et_long_names = {
+            "es": "Actual evapotranspiration (XAJ)",
+            "et": "Actual evapotranspiration (GR4J/GR5J/GR6J/HYMOD)",
+            "ets": "Actual evapotranspiration (GR1A/GR2M/GR3J)",
+        }
+        ds[et_name].attrs["long_name"] = et_long_names.get(
+            et_name, "Actual evapotranspiration"
+        )
 
     # Convert units if needed
     if basin_configs is not None:

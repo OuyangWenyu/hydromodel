@@ -14,8 +14,8 @@
 
 - **Fixed Data Access Issues in Calibration**:
   - Fixed `AttributeError` when calibrating multi-basin flood event data
-  - Previous behavior: `UnifiedModelSetup` tried to access `p_and_e.shape[1]` when `p_and_e=None` for separate basin data
-  - Added proper detection of `basin_data_separate` mode in `UnifiedModelSetup.__init__()`
+  - Previous behavior: `UnifiedCalibrator` tried to access `p_and_e.shape[1]` when `p_and_e=None` for separate basin data
+  - Added proper detection of `basin_data_separate` mode in `UnifiedCalibrator.__init__()`
   - Modified `set_basin_index()` to extract basin-specific data from `basin_data_separate` when available
   - Each basin now uses its own time series without padding during calibration
   - Modified `unified_calibrate.py` (lines 116-253, 377-386)

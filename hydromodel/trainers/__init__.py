@@ -16,7 +16,7 @@ from .calibrate_sceua import calibrate_by_sceua as calibrate_by_sceua_old
 from .unified_calibrate import (
     calibrate,
     ModelSetupBase,
-    UnifiedModelSetup,
+    UnifiedCalibrator,
     DEAP_AVAILABLE,
 )
 
@@ -31,7 +31,7 @@ __all__ = [
     "calibrate",
     "evaluate",
     "ModelSetupBase",
-    "UnifiedModelSetup",
+    "UnifiedCalibrator",
     "UnifiedEvaluator",
     "DEAP_AVAILABLE",
 ]

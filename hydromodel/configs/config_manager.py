@@ -448,6 +448,8 @@ def load_simplified_config(
         "model_cfgs": {
             "model_name": model_cfg["name"],
             **model_cfg.get("params", {}),
+            # Add output_variable configuration if specified
+            **({"output_variable": model_cfg["output_variable"]} if "output_variable" in model_cfg else {}),
         },
         "training_cfgs": {
             "algorithm_name": training_cfg["algorithm"],
@@ -462,6 +464,8 @@ def load_simplified_config(
             "experiment_name": f"{model_cfg['name']}_{training_cfg['algorithm']}",
             "random_seed": training_cfg.get("random_seed", 1234),
             "save_config": training_cfg.get("save_config", True),
+            # Add output_variable configuration if specified in training (highest priority)
+            **({"output_variable": training_cfg["output_variable"]} if "output_variable" in training_cfg else {}),
         },
         "evaluation_cfgs": {
             "metrics": eval_cfg["metrics"],

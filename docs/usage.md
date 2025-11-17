@@ -225,7 +225,7 @@ calibrate()
   ↓
 2. UnifiedDataLoader.load_data()
   ↓
-3. Create UnifiedModelSetup (wraps MODEL_DICT)
+3. Create UnifiedCalibrator (wraps MODEL_DICT)
   ↓
 4. Select algorithm (SCE_UA, GA, scipy)
   ↓

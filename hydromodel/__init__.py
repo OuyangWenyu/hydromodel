@@ -32,6 +32,7 @@ try:
     __all__ = [
         "calibrate",
         "UnifiedSimulator",
+        "evaluate",
         "Basin",
         "SETTING",
         "CACHE_DIR",

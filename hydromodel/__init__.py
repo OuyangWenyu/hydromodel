@@ -17,6 +17,7 @@ import yaml
 try:
     from .trainers.unified_calibrate import calibrate
     from .trainers.unified_simulate import UnifiedSimulator
+    from .trainers.unified_evaluate import evaluate
     from .trainers.basin import Basin
 
     # Import unit conversion functions from hydroutils
@@ -31,6 +32,7 @@ try:
     __all__ = [
         "calibrate",
         "UnifiedSimulator",
+        "evaluate",
         "Basin",
         "SETTING",
         "CACHE_DIR",

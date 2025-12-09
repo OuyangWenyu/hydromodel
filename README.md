@@ -557,6 +557,66 @@ hydromodel/
 - [hydrodataset](https://github.com/OuyangWenyu/hydrodataset) - CAMELS and other datasets
 - [hydrodatasource](https://github.com/OuyangWenyu/hydrodatasource) - Data preparation utilities
 - [torchhydro](https://github.com/OuyangWenyu/torchhydro) - PyTorch-based hydrological models
+- [HydroDHM](https://github.com/OuyangWenyu/HydroDHM) - Differentiable physics-based hydrological models
+
+## Example Results
+
+### SimpleLSTM on CAMELS-US Dataset
+
+This example demonstrates large-scale streamflow prediction using a deep learning approach on the complete CAMELS-US dataset. The experiment uses the same data infrastructure (hydrodataset) as hydromodel, showcasing complementary modeling approaches.
+
+**Dataset Configuration:**
+- **Dataset**: CAMELS-US (671 basins across contiguous United States)
+- **Training Period**: 1980-01-01 to 2004-12-31 (25 years)
+- **Validation Period**: 2005-01-01 to 2009-12-31 (5 years)
+- **Test Period**: 2010-01-01 to 2014-12-31 (5 years)
+- **Input Features**: 30 total
+  - 7 time-varying meteorological variables (precipitation, PET, temperature, solar radiation, etc.)
+  - 23 static catchment attributes (topography, geology, vegetation, soil properties)
+
+**Model Architecture:**
+- **Model Type**: SimpleLSTM (sequence-to-sequence with static feature integration)
+- **Hidden Units**: 128 LSTM cells
+- **Parameters**: ~133K trainable parameters (model size: 536 KB)
+- **Forecast Length**: 365 days (1-year daily prediction)
+
+**Hardware & Runtime:**
+- **GPU**: NVIDIA 5070ti (16GB VRAM)
+- **Framework**: PyTorch with CUDA acceleration
+- **Training Duration**: ~47 minutes (7 epochs with early stopping)
+- **Average Time per Epoch**: ~7.9 minutes
+- **Time per Basin per Epoch**: ~0.7 seconds
+
+**Training Configuration:**
+- **Optimizer**: Adam (learning rate: 0.0005)
+- **LR Scheduler**: ExponentialLR (decay factor: 0.95)
+- **Loss Function**: RMSESum
+- **Batch Size**: 256
+- **Early Stopping**: Enabled (patience: 5 epochs)
+
+**Test Period Results (2010-2014):**
+
+Performance statistics across 671 basins:
+
+| Metric | Mean | Median | Std | 25% Percentile | 75% Percentile |
+|--------|------|--------|-----|----------------|----------------|
+| **NSE** | 0.523 | **0.717** | 1.584 | 0.543 | 0.808 |
+| **KGE** | 0.629 | **0.721** | 0.418 | 0.547 | 0.827 |
+| **RMSE (mm/day)** | 1.248 | **1.018** | 0.996 | 0.588 | 1.616 |
+
+**Performance Distribution:**
+- **Excellent Performance (NSE > 0.8)**: 169 basins (25%)
+- **Good Performance (0.7 < NSE ≤ 0.8)**: 168 basins (25%)
+- **Satisfactory Performance (0.5 < NSE ≤ 0.7)**: 168 basins (25%)
+- **Unsatisfactory Performance (NSE ≤ 0.5)**: 164 basins (25%)
+
+**Key Insights:**
+- **Median NSE of 0.717** indicates strong model performance across diverse catchment types
+- Successfully handles heterogeneous basin characteristics (arid to humid climates, various topographies)
+- Top-performing basins achieved **NSE > 0.85**, primarily in humid northeastern regions
+- Efficient training: 47 minutes for 671 basins with 25 years of daily data
+
+**Source**: This example is from the [HydroDHM](https://github.com/OuyangWenyu/HydroDHM) project. For complete experiment details, model code, and reproduction instructions, see the [LSTM CAMELS-US Example Documentation](https://github.com/OuyangWenyu/HydroDHM/blob/main/docs/examples/lstm_camels_all_example.md).
 
 ## Citation
 

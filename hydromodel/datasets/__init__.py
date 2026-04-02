@@ -8,7 +8,12 @@ FilePath: /hydromodel/hydromodel/datasets/__init__.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
-from hydrodataset import CamelsUs
+try:
+    from hydrodataset import CamelsUs
+except ImportError:
+    # CamelsUs may not be available if aqua_fetch is not installed
+    CamelsUs = None
+
 from hydrodatasource.reader.data_source import SelfMadeHydroDataset
 from hydrodatasource.reader.floodevent import FloodEventDatasource
 

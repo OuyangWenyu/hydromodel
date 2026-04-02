@@ -9,6 +9,7 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
 import json
+import logging
 import math
 import numpy as np
 import pandas as pd
@@ -19,6 +20,9 @@ from numba import jit
 
 from hydromodel.models.model_config import MODEL_PARAM_DICT
 from hydromodel.models.param_utils import process_parameters
+
+# 配置日志
+logger = logging.getLogger(__name__)
 
 
 @jit(nopython=True)
@@ -362,6 +366,21 @@ def lag3_routing_vectorized(
         If return_states is False, returns final flow array.
         If return_states is True, returns (flow_array, state_dict) tuple.
     """
+    # === 诊断日志：LAG3 输入参数 ===
+    logger.info(f"=== LAG3 汇流计算开始 ===")
+    logger.info(f"rs 类型: {type(rs)}, 形状: {rs.shape if hasattr(rs, 'shape') else 'no shape'}, 值: {rs if not hasattr(rs, 'shape') else rs[:5] if len(rs) > 5 else rs}")
+    logger.info(f"ri 类型: {type(ri)}, 形状: {ri.shape if hasattr(ri, 'shape') else 'no shape'}")
+    logger.info(f"rg 类型: {type(rg)}, 形状: {rg.shape if hasattr(rg, 'shape') else 'no shape'}")
+    logger.info(f"lag 参数: {lag}, cs: {cs}, ci: {ci}, cg: {cg}")
+
+    # 防御性检查：确保 rs, ri, rg 是数组
+    if not hasattr(rs, '__len__'):
+        raise TypeError(f"rs 必须是数组类型，但收到 {type(rs)}: {rs}")
+    if not hasattr(ri, '__len__'):
+        raise TypeError(f"ri 必须是数组类型，但收到 {type(ri)}: {ri}")
+    if not hasattr(rg, '__len__'):
+        raise TypeError(f"rg 必须是数组类型，但收到 {type(rg)}: {rg}")
+
     time_steps = len(rs)
     t_steps = int(round(lag / time_interval))  # 新的滞时步数计算
     t = max(t_steps, 0)  # 确保非负值
@@ -384,7 +403,9 @@ def lag3_routing_vectorized(
         qsig_initial = np.zeros(max(t, 3))
 
     if lag <= 1:
-        qsig[0] = qsig_initial[0]
+        # 防御性检查：避免空数组导致索引越界
+        if len(qsig) > 0 and len(qsig_initial) > 0:
+            qsig[0] = qsig_initial[0]
     else:
         for i in range(t):
             if len(qsig_initial) >= t:
@@ -521,6 +542,16 @@ def xaj_slw(
     time_steps, num_basins, _ = p_and_e.shape
     time_interval = kwargs.get("time_interval_hours", 3.0)
     basin_area = kwargs.get("basin_area", None)  # km^2
+
+    # === 诊断日志：xaj_slw 函数入口 ===
+    logger.info(f"=== XAJ_SLW 模型计算开始 ===")
+    logger.info(f"p_and_e 形状: {p_and_e.shape}, 类型: {type(p_and_e)}")
+    logger.info(f"parameters 形状: {parameters.shape}, 类型: {type(parameters)}")
+    logger.info(f"warmup_length: {warmup_length}")
+    logger.info(f"basin_area: {basin_area}")
+    logger.info(f"kwargs 参数: {list(kwargs.keys())}")
+    if "initial_states" in kwargs and kwargs["initial_states"] is not None:
+        logger.info(f"initial_states: {kwargs['initial_states']}")
 
     if basin_area is None:
         raise ValueError(
@@ -665,19 +696,24 @@ def xaj_slw(
 
         # LAG states - 数组状态
         if "qsig" in initial_states:
-            qsig_len = max(int(lag[0]), 6)
-            if len(initial_states["qsig"]) >= qsig_len:
-                kwargs["lag_initial_states"] = {
-                    "qsig_initial_0": initial_states["qsig"][:qsig_len].copy()
-                }
+            qsig_value = initial_states["qsig"]
+            # 检查是否为数组类型（避免对标量调用 len()）
+            if hasattr(qsig_value, '__len__') and not isinstance(qsig_value, (str, float, int)):
+                qsig_len = max(int(lag[0]), 6)
+                if len(qsig_value) >= qsig_len:
+                    kwargs["lag_initial_states"] = {
+                        "qsig_initial_0": qsig_value[:qsig_len].copy()
+                    }
+
         if "qx" in initial_states:
-            qx_len = int(mp[0]) + 1
-            if len(initial_states["qx"]) >= qx_len:
-                if "lag_initial_states" not in kwargs:
-                    kwargs["lag_initial_states"] = {}
-                kwargs["lag_initial_states"]["qx_initial_0"] = initial_states[
-                    "qx"
-                ][:qx_len].copy()
+            qx_value = initial_states["qx"]
+            # 检查是否为数组类型（避免对标量调用 len()）
+            if hasattr(qx_value, '__len__') and not isinstance(qx_value, (str, float, int)):
+                qx_len = int(mp[0]) + 1
+                if len(qx_value) >= qx_len:
+                    if "lag_initial_states" not in kwargs:
+                        kwargs["lag_initial_states"] = {}
+                    kwargs["lag_initial_states"]["qx_initial_0"] = qx_value[:qx_len].copy()
 
     # Save warmup states before applying overrides (for return_warmup_states)
     warmup_states = None
@@ -729,6 +765,14 @@ def xaj_slw(
         s_init = np.array([s0[basin_idx]])
         fr_init = np.array([fr0[basin_idx]])
 
+        # === 诊断日志：SMS3 调用前 ===
+        logger.info(f"=== Basin {basin_idx}: 调用 SMS3 产流计算 ===")
+        logger.info(f"  prcp 形状: {prcp.shape}, 类型: {type(prcp)}")
+        logger.info(f"  pet 形状: {pet.shape}, 类型: {type(pet)}")
+        logger.info(f"  pe 形状: {pe.shape}, 类型: {type(pe)}")
+        logger.info(f"  初始状态: wu_init={wu_init}, wl_init={wl_init}, wd_init={wd_init}")
+        logger.info(f"  s_init={s_init}, fr_init={fr_init}")
+
         # Run SMS3 runoff generation
         (
             wu_new,
@@ -762,6 +806,22 @@ def xaj_slw(
             time_interval,
             actual_time_steps,
         )
+
+        # 诊断日志：检查 SMS3 输出
+        if len(rs_basin) == 0:
+            logger.warning(
+                f"Basin {basin_idx}: SMS3 returned empty array! "
+                f"actual_time_steps={actual_time_steps}, "
+                f"rs_basin.shape={rs_basin.shape}"
+            )
+
+        # === 诊断日志：LAG3 调用前 ===
+        logger.info(f"=== Basin {basin_idx}: 调用 LAG3 汇流计算 ===")
+        logger.info(f"  rs_basin 形状: {rs_basin.shape}, 类型: {type(rs_basin)}")
+        logger.info(f"  ri_basin 形状: {ri_basin.shape}, 类型: {type(ri_basin)}")
+        logger.info(f"  rg_basin 形状: {rg_basin.shape}, 类型: {type(rg_basin)}")
+        logger.info(f"  LAG3 参数: lag={lag[basin_idx]}, cs={cs[basin_idx]}, ci={ci[basin_idx]}, cg={cg[basin_idx]}")
+        logger.info(f"  basin_area={basin_area}, time_interval={time_interval}")
 
         # Run LAG3 routing
         lag_initial_states = kwargs.get("lag_initial_states", None)

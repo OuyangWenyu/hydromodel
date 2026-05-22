@@ -212,10 +212,18 @@ class UnifiedEvaluator:
             self.parameter_names = list(params.keys())
 
         # Create model config
+        # Inject the loaded parameter ranges (from param_range_file / param_range.yaml)
+        # under the model name so they reach the model function via kwargs[model_name]
+        # and are used for denormalization. Without this, models fall back to the
+        # built-in default ranges in MODEL_PARAM_DICT and the custom ranges are
+        # silently ignored, making evaluation insensitive to param_range_file.
+        model_params = self.model_config.copy()
+        if self.param_range and self.model_name in self.param_range:
+            model_params[self.model_name] = self.param_range[self.model_name]
         base_model_config = {
             "type": "lumped",
             "model_name": self.model_name,
-            "model_params": self.model_config.copy(),
+            "model_params": model_params,
             "parameters": params,
         }
 

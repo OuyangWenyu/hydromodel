@@ -168,10 +168,17 @@ class UnifiedCalibrator(ModelSetupBase):
         self._setup_model_params(param_file)
 
         # Create base model config for UnifiedSimulator (without specific parameter values)
+        # Inject the loaded parameter ranges (from param_range_file) under the model name
+        # so they reach the model function via kwargs[model_name] and are used for
+        # denormalization. Without this, models fall back to the built-in default ranges
+        # in MODEL_PARAM_DICT and the custom param_range_file is silently ignored.
+        model_params = model_config.copy()
+        if self.param_range and self.model_name in self.param_range:
+            model_params[self.model_name] = self.param_range[self.model_name]
         self.base_model_config = {
             "type": "lumped",
             "model_name": self.model_name,
-            "model_params": model_config.copy(),
+            "model_params": model_params,
             "parameters": {},  # Will be filled in during simulation
         }
 

@@ -18,6 +18,173 @@ from hydromodel.models.param_utils import process_parameters
 from hydromodel.models.unit_hydrograph import uh_conv
 
 
+# ---------------------------------------------------------------------------
+# Fast path: a fully JIT-compiled core for single-basin GR4J.
+#
+# The historical implementation paid two large overheads in the hot loop:
+#   1. A Python for-loop over time stepped through production() and routing(),
+#      both of which were plain-Python functions that re-entered numba on every
+#      step to call calculate_precip_store / calculate_evap_store / calculate_perc.
+#      With SCE-UA running 10^4+ evaluations of 10^3+ time steps, the JIT
+#      boundary crossings dominated runtime even though the leaf math was JITted.
+#   2. The top-level gr4j() recursively re-invoked itself to warm up, doubling
+#      the work per evaluation.
+#
+# _gr4j_jit_core fuses production, UH convolution and routing into a single
+# nopython function operating on scalar parameters and 1D prcp/pet arrays for
+# one basin. The wrapper below calls it once for warmup (to obtain seeded
+# storage states) and once for the main window — no Python-level recursion,
+# no per-step Python dispatch, no np.clip/np.full allocations per step.
+# ---------------------------------------------------------------------------
+@jit(nopython=True, cache=True)
+def _gr4j_jit_core(prcp, pet, x1, x2, x3, x4, s0, r0):
+    """Single-basin GR4J: production + UH convolution + routing in one pass.
+
+    Returns
+    -------
+    qsim : 1D array [n_time]
+        Routed streamflow.
+    ets : 1D array [n_time]
+        Evaporation from production store (same definition as legacy code).
+    s_final, r_final : float
+        Production / routing storage at end of the window.
+    """
+    n = prcp.shape[0]
+
+    # --- Unit hydrograph ordinates (computed from differences of S-curves) ---
+    n_uh1 = int(math.ceil(x4))
+    n_uh2 = int(math.ceil(2.0 * x4))
+    # Guard against pathological tiny x4 (shouldn't happen with sane ranges).
+    if n_uh1 < 1:
+        n_uh1 = 1
+    if n_uh2 < 1:
+        n_uh2 = 1
+    uh1 = np.empty(n_uh1)
+    uh2 = np.empty(n_uh2)
+
+    for t in range(1, n_uh1 + 1):
+        if t < x4:
+            v1 = (t / x4) ** 2.5
+        else:
+            v1 = 1.0
+        tp = t - 1
+        if tp <= 0:
+            v0 = 0.0
+        elif tp < x4:
+            v0 = (tp / x4) ** 2.5
+        else:
+            v0 = 1.0
+        uh1[t - 1] = v1 - v0
+
+    two_x4 = 2.0 * x4
+    for t in range(1, n_uh2 + 1):
+        if t < x4:
+            v1 = 0.5 * (t / x4) ** 2.5
+        elif t < two_x4:
+            v1 = 1.0 - 0.5 * (2.0 - t / x4) ** 2.5
+        else:
+            v1 = 1.0
+        tp = t - 1
+        if tp <= 0:
+            v0 = 0.0
+        elif tp < x4:
+            v0 = 0.5 * (tp / x4) ** 2.5
+        elif tp < two_x4:
+            v0 = 1.0 - 0.5 * (2.0 - tp / x4) ** 2.5
+        else:
+            v0 = 1.0
+        uh2[t - 1] = v1 - v0
+
+    # --- Production loop ---
+    prs = np.empty(n)
+    ets = np.empty(n)
+    s = s0
+
+    for i in range(n):
+        p = prcp[i]
+        e = pet[i]
+        diff = p - e
+        if diff > 0.0:
+            pn = diff
+            en = 0.0
+        else:
+            pn = 0.0
+            en = -diff
+
+        # Clip s into [0, x1] at the start of the step (matches np.clip semantics).
+        if s > x1:
+            s = x1
+        elif s < 0.0:
+            s = 0.0
+
+        if pn > 0.0:
+            th = math.tanh(pn / x1)
+            s_ratio = s / x1
+            ps = x1 * (1.0 - s_ratio * s_ratio) * th / (1.0 + s_ratio * th)
+        else:
+            ps = 0.0
+
+        if en > 0.0:
+            th = math.tanh(en / x1)
+            s_ratio = s / x1
+            es = s * (2.0 - s_ratio) * th / (1.0 + (1.0 - s_ratio) * th)
+        else:
+            es = 0.0
+
+        s_new = s - es + ps
+        if s_new > x1:
+            s_new = x1
+        elif s_new < 0.0:
+            s_new = 0.0
+
+        ratio = 4.0 / 9.0 * s_new / x1
+        perc = s_new * (1.0 - (1.0 + ratio * ratio * ratio * ratio) ** -0.25)
+        s = s_new - perc
+
+        prs[i] = perc + (pn - ps)
+        ets[i] = es
+
+    # --- UH convolution (running sum, equivalent to np.convolve truncated) ---
+    q9 = np.empty(n)
+    q1 = np.empty(n)
+    for i in range(n):
+        kmax = n_uh1 if i + 1 > n_uh1 else i + 1
+        a9 = 0.0
+        for k in range(kmax):
+            a9 += uh1[k] * prs[i - k]
+        q9[i] = a9
+
+        kmax = n_uh2 if i + 1 > n_uh2 else i + 1
+        a1 = 0.0
+        for k in range(kmax):
+            a1 += uh2[k] * prs[i - k]
+        q1[i] = a1
+
+    # --- Routing loop ---
+    qsim = np.empty(n)
+    r = r0
+    for i in range(n):
+        if r > x3:
+            r = x3
+        elif r < 0.0:
+            r = 0.0
+
+        gw_ex = x2 * (r / x3) ** 3.5
+        r_upd = r + q9[i] + gw_ex
+        if r_upd < 0.0:
+            r_upd = 0.0
+
+        ratio = r_upd / x3
+        qr = r_upd * (1.0 - (1.0 + ratio * ratio * ratio * ratio) ** -0.25)
+        r = r_upd - qr
+
+        qd_pre = q1[i] + gw_ex
+        qd = qd_pre if qd_pre > 0.0 else 0.0
+        qsim[i] = qr + qd
+
+    return qsim, ets, s, r
+
+
 # @jit
 @jit(nopython=True)
 def calculate_precip_store(s, precip_net, x1):
@@ -234,62 +401,69 @@ def gr4j(
     model_param_dict = kwargs.get("gr4j", None)
     if model_param_dict is None:
         model_param_dict = MODEL_PARAM_DICT["gr4j"]
-    # params
     param_ranges = model_param_dict["param_range"]
 
-    # Process parameters using unified parameter handling
     processed_params = process_parameters(
         parameters, param_ranges, normalized=normalized_params
     )
 
-    # Extract individual parameters from processed array
-    x1 = processed_params[:, 0]
-    x2 = processed_params[:, 1]
-    x3 = processed_params[:, 2]
-    x4 = processed_params[:, 3]
+    n_basins = processed_params.shape[0]
+    n_main = p_and_e.shape[0] - warmup_length
 
-    if warmup_length > 0:
-        # set no_grad for warmup periods
-        p_and_e_warmup = p_and_e[0:warmup_length, :, :]
-        _, _, s0, r0 = gr4j(
-            p_and_e_warmup,
-            parameters,
-            warmup_length=0,
-            return_state=True,
-            **kwargs,
-        )
-    else:
-        s0 = 0.5 * x1
-        r0 = 0.5 * x3
-    inputs = p_and_e[warmup_length:, :, :]
-    streamflow_ = np.full(inputs.shape[:2], 0.0)
-    prs = np.full(inputs.shape[:2], 0.0)
-    ets = np.full(inputs.shape[:2], 0.0)
-    for i in range(inputs.shape[0]):
-        if i == 0:
-            pr, et, s = production(inputs[i, :, :], x1, s0)
+    streamflow_ = np.empty((n_main, n_basins))
+    ets_out = np.empty((n_main, n_basins))
+    s_final = np.empty(n_basins)
+    r_final = np.empty(n_basins)
+
+    # Loop over basins in Python; each basin's hot path is the single fused
+    # JIT call below. For single-basin SCE-UA (the common case) this loop
+    # executes exactly once per evaluation.
+    for j in range(n_basins):
+        x1 = float(processed_params[j, 0])
+        x2 = float(processed_params[j, 1])
+        x3 = float(processed_params[j, 2])
+        x4 = float(processed_params[j, 3])
+
+        # Ensure contiguous float64 1D slices for numba (cheap if already so).
+        prcp = np.ascontiguousarray(p_and_e[:, j, 0], dtype=np.float64)
+        pet = np.ascontiguousarray(p_and_e[:, j, 1], dtype=np.float64)
+
+        if warmup_length > 0:
+            # Warm up by running the same core over the warmup window; we keep
+            # only the final storage states. No Python-level recursion into
+            # gr4j() — this used to double the work per evaluation.
+            _, _, s_warm, r_warm = _gr4j_jit_core(
+                prcp[:warmup_length],
+                pet[:warmup_length],
+                x1,
+                x2,
+                x3,
+                x4,
+                0.5 * x1,
+                0.5 * x3,
+            )
+            s_init, r_init = s_warm, r_warm
         else:
-            pr, et, s = production(inputs[i, :, :], x1, s)
-        prs[i, :] = pr
-        ets[i, :] = et
+            s_init, r_init = 0.5 * x1, 0.5 * x3
 
-    prs_x = np.expand_dims(prs, axis=2)
-    conv_q9, conv_q1 = uh_gr4j(x4)
-    q9 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
-    q1 = np.full([inputs.shape[0], inputs.shape[1], 1], 0.0)
+        qsim_j, ets_j, s_end, r_end = _gr4j_jit_core(
+            prcp[warmup_length:],
+            pet[warmup_length:],
+            x1,
+            x2,
+            x3,
+            x4,
+            s_init,
+            r_init,
+        )
+        streamflow_[:, j] = qsim_j
+        ets_out[:, j] = ets_j
+        s_final[j] = s_end
+        r_final[j] = r_end
 
-    for j in range(inputs.shape[1]):
-        q9[:, j : j + 1, :] = uh_conv(
-            prs_x[:, j : j + 1, :], conv_q9[j].reshape(-1, 1, 1)
-        )
-        q1[:, j : j + 1, :] = uh_conv(
-            prs_x[:, j : j + 1, :], conv_q1[j].reshape(-1, 1, 1)
-        )
-    for i in range(inputs.shape[0]):
-        if i == 0:
-            q, r = routing(q9[i, :, 0], q1[i, :, 0], x2, x3, r0)
-        else:
-            q, r = routing(q9[i, :, 0], q1[i, :, 0], x2, x3, r)
-        streamflow_[i, :] = q
     streamflow = np.expand_dims(streamflow_, axis=2)
-    return (streamflow, ets, s, r) if return_state else (streamflow, ets)
+    return (
+        (streamflow, ets_out, s_final, r_final)
+        if return_state
+        else (streamflow, ets_out)
+    )

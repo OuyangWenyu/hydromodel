@@ -3,35 +3,37 @@
 
 data:
   # Data source configuration
-  dataset: "camels_us"              # Dataset type: camels_us, selfmadehydrodataset, etc.
+  dataset: "camels"              # Dataset type: camels_us, selfmadehydrodataset, etc.
   path: null                        # Data path (null = auto-detect from hydro_setting.yml or use ~/hydromodel_data/)
                                     # If specified, provide the datasets-origin directory only
                                     # Example: "D:/project/data" (NOT "D:/project/data/CAMELS_US")
                                     # aqua_fetch will automatically append "CAMELS_US" directory name
-  basin_ids: ["01013500","01022500","11532500"]           # List of basin IDs to calibrate
+  basin_ids: ["12025000"]           # List of basin IDs to calibrate
   warmup_length: 365                # Warmup period in days
-  variables: ["precipitation", "potential_evapotranspiration", "streamflow"]  # Input variables
+  variables: ["prcp", "PET", "dayl", "srad", "tmax", "tmin", "vp", "streamflow"]  # Input variables
 
   # Time periods
-  train_period: ["1985-10-01", "1995-09-30"]   # Training period
-  valid_period: ["1995-10-01", "2005-09-30"]   # Validation period
-  test_period: ["2005-10-01", "2014-09-30"]    # Testing period
+  train_period: ["1981-01-01", "2004-12-31"]   # Training period
+  valid_period: ["2005-01-01", "2009-12-31"]   # Validation period
+  test_period: ["2010-01-01", "2014-12-31"]    # Testing period
 
   # Output configuration
-  output_dir: "results"             # Output directory for results
+  output_dir: "results/12025000"             # Output directory for results
 
 model:
   # Model configuration
-  name: "xaj"                    # Model type: xaj, xaj_mz, gr4j
+  name: "xaj"                    # Model type: xaj, xaj_mz, gr4j, gr5j, gr6j, etc.
   params:                           # Model parameters
     source_type: "sources"          # XAJ source type
     source_book: "HF"               # HF (Hydrological Forecast) computation method
     kernel_size: 15                 # Kernel size for Muskingum routing
 
+  # Output variable: "qsim" (streamflow), "es" (ET for XAJ), "et" (ET for GR)
+  output_variable: "qsim"    
+
 training:
   # Training configuration
   algorithm: "SCE_UA"                  # Calibration algorithm: SCE_UA (or sceua), GA (or genetic_algorithm), scipy (or scipy_minimize)
-
   # Algorithm-specific parameters (uncomment the section for your chosen algorithm)
 
   # SCE-UA (Shuffled Complex Evolution) parameters

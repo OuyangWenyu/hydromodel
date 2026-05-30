@@ -22,7 +22,7 @@
 ### 🏞️ Hydrological Models
 - **XAJ Model Variants**: Standard XAJ and optimized versions (xaj_mz with Muskingum routing, xaj_slw)
 - **GR Models**: GR1A, GR2M, GR3J, GR4J, GR5J, GR6J
-- **Other Models**: HYMOD, DHF (Dongjiang Hydrology Formula)
+- **Other Models**: HYMOD, DHF(Dahuofang model)
 - **Extensible Framework**: Easy to add custom models
 
 ### 🔧 Calibration Algorithms
@@ -155,7 +155,7 @@ For detailed installation instructions, see the [Installation Guide](installatio
 - **[Usage Guide](usage.md)** - Comprehensive tutorials and examples
 - **[Data Guide](data_guide.md)** - How to prepare and use different data sources
 - **[API Reference](hydromodel.md)** - Complete API documentation
-- **[Model Documentation](models/xaj.md)** - Detailed model descriptions
+- **[Model Documentation](models/xaj.md)** - Detailed model descriptions ([XAJ](models/xaj.md), [DHF](models/dhf.md))
 - **[Contributing](contributing.md)** - How to contribute to the project
 - **[FAQ](faq.md)** - Frequently asked questions
 - **[Changelog](changelog.md)** - Version history and updates
@@ -227,9 +227,9 @@ results = calibrate(config)
 | **xaj_slw** | XAJ with SLW routing | 26 | Storage-lag-weighted |
 | **gr4j** | GR4J rainfall-runoff model | 4 | Unit hydrograph |
 | **hymod** | HYMOD model | 5 | Nash cascade |
-| **dhf** | Dongjiang Hydrology Formula | 18 | Custom |
+| **dhf** | Dahuofang model | 18 | Custom |
 
-For detailed model documentation, see [Model Reference](models/xaj.md).
+For detailed model documentation, see [XAJ Model](models/xaj.md) and [DHF Model](models/dhf.md).
 
 ## Calibration Algorithms
 

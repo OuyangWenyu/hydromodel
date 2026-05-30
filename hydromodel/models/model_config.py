@@ -22,10 +22,20 @@ def read_model_param_dict(file_path="param.yaml"):
         with open(file_path, "r") as file:
             data = yaml.safe_load(file)
 
+        # Build param_range as an OrderedDict whose key order strictly follows
+        # param_name. Downstream denormalization (process_parameters in
+        # param_utils.py) maps the i-th parameter column to the i-th value of
+        # param_range positionally, while the parameter vector itself is ordered
+        # by param_name. Reordering here guarantees the two stay aligned no
+        # matter how the YAML file happens to order the param_range entries,
+        # preventing silent parameter misassignment during denormalization.
         return {
             model: {
                 "param_name": contents["param_name"],
-                "param_range": OrderedDict(contents["param_range"]),
+                "param_range": OrderedDict(
+                    (name, contents["param_range"][name])
+                    for name in contents["param_name"]
+                ),
             }
             for model, contents in data.items()
         }

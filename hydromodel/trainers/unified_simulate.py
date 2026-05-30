@@ -39,12 +39,12 @@ def get_model_output_names(model_name, return_state=False):
         "xaj": (
             ["qsim", "es"]
             if not return_state
-            else ["qsim", "es", "w", "s", "fr", "qi", "qg"]
+            else ["qsim", "es", "wu", "wl", "wd", "s", "fr", "qi", "qg"]
         ),
         "xaj_mz": (
             ["qsim", "es"]
             if not return_state
-            else ["qsim", "es", "w", "s", "fr", "qi", "qg"]
+            else ["qsim", "es", "wu", "wl", "wd", "s", "fr", "qi", "qg"]
         ),
         "dhf": (
             ["qsim"]
@@ -304,12 +304,16 @@ class UnifiedSimulator:
             # Check if last element is warmup_states dict
             if (
                 return_warmup_states
-                and len(model_result) > len(output_names)
                 and isinstance(model_result[-1], dict)
             ):
-                # Extract warmup states and process remaining results
+                # Extract warmup_states from last element
                 warmup_states = model_result[-1]
-                model_arrays = model_result[:-1]
+                model_arrays = model_result[:-1]  # Exclude last warmup_states
+
+                # Handle nested tuple case (e.g., ((q_sim, es), warmup_states))
+                if len(model_arrays) == 1 and isinstance(model_arrays[0], tuple):
+                    model_arrays = model_arrays[0]
+
                 result_dict = {
                     name: arr for name, arr in zip(output_names, model_arrays)
                 }
@@ -436,6 +440,13 @@ class UnifiedSimulator:
             if hasattr(self.basin, "basin_area"):
                 model_config["basin_area"] = self.basin.basin_area
 
+        if "main_river_length" not in model_config and self.basin is not None:
+            if (
+                hasattr(self.basin, "main_river_length")
+                and self.basin.main_river_length is not None
+            ):
+                model_config["main_river_length"] = self.basin.main_river_length
+
         # Run model simulation
         model_result = self.model_function(
             inputs,
@@ -488,6 +499,9 @@ class UnifiedSimulator:
             event_segments = find_flood_event_segments_as_tuples(
                 flood_event_array, warmup_length
             )
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Found {len(event_segments)} event segments in basin {basin_idx}")
 
             basin_params = self.param_values
 
@@ -514,6 +528,13 @@ class UnifiedSimulator:
                 if "basin_area" not in model_config and self.basin is not None:
                     if hasattr(self.basin, "basin_area"):
                         model_config["basin_area"] = self.basin.basin_area
+
+                if "main_river_length" not in model_config and self.basin is not None:
+                    if (
+                        hasattr(self.basin, "main_river_length")
+                        and self.basin.main_river_length is not None
+                    ):
+                        model_config["main_river_length"] = self.basin.main_river_length
 
                 event_result = self.model_function(
                     event_inputs,

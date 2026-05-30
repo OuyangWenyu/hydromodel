@@ -75,7 +75,7 @@ class ModelSetupBase(ABC):
         pass
 
 
-class UnifiedModelSetup(ModelSetupBase):
+class UnifiedCalibrator(ModelSetupBase):
     """
     Completely unified setup for all hydrological models using the MODEL_DICT interface.
 
@@ -108,6 +108,20 @@ class UnifiedModelSetup(ModelSetupBase):
         self.data_config = data_config
         self.training_config = training_config or {}
         self.warmup_length = warmup_length
+
+        # Get output variable configuration (default: qsim for streamflow)
+        # Priority: training_config > model_config > default
+        self.output_variable = (
+            self.training_config.get("output_variable") or
+            model_config.get("output_variable") or
+            "qsim"
+        )
+
+        # Validate output variable
+        valid_outputs = ["qsim", "es", "et", "ets"]
+        if self.output_variable not in valid_outputs:
+            print(f"Warning: output_variable '{self.output_variable}' not recognized. Using 'qsim'.")
+            self.output_variable = "qsim"
 
         # Load data using unified data loader
         self.data_loader = UnifiedDataLoader(data_config)
@@ -154,10 +168,17 @@ class UnifiedModelSetup(ModelSetupBase):
         self._setup_model_params(param_file)
 
         # Create base model config for UnifiedSimulator (without specific parameter values)
+        # Inject the loaded parameter ranges (from param_range_file) under the model name
+        # so they reach the model function via kwargs[model_name] and are used for
+        # denormalization. Without this, models fall back to the built-in default ranges
+        # in MODEL_PARAM_DICT and the custom param_range_file is silently ignored.
+        model_params = model_config.copy()
+        if self.param_range and self.model_name in self.param_range:
+            model_params[self.model_name] = self.param_range[self.model_name]
         self.base_model_config = {
             "type": "lumped",
             "model_name": self.model_name,
-            "model_params": model_config.copy(),
+            "model_params": model_params,
             "parameters": {},  # Will be filled in during simulation
         }
 
@@ -275,14 +296,24 @@ class UnifiedModelSetup(ModelSetupBase):
             is_event_data=self.is_event_data,
         )
 
-        # Extract simulation output (qsim) - most calibration only needs this
-        # This avoids returning the full results dict every time
-        if isinstance(results, dict) and "qsim" in results:
-            return results["qsim"]
+        # Extract simulation output based on configured variable
+        # self.output_variable can be "qsim" (streamflow), "es"/"et"/"ets" (evapotranspiration)
+        if isinstance(results, dict):
+            # First try the configured output variable
+            if self.output_variable in results:
+                return results[self.output_variable]
+            # Fallback to qsim if configured variable not available
+            elif "qsim" in results:
+                if self.output_variable != "qsim":
+                    print(f"Warning: '{self.output_variable}' not in results, using 'qsim' instead")
+                return results["qsim"]
+            # Last resort: return first available result
+            else:
+                return list(results.values())[0]
         elif isinstance(results, np.ndarray):
             return results
         else:
-            # Fallback: return first available result
+            # Fallback for unexpected result types
             return (
                 list(results.values())[0]
                 if isinstance(results, dict)
@@ -368,7 +399,7 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
     os.makedirs(output_dir, exist_ok=True)
 
     # Create unified model setup
-    model_setup = UnifiedModelSetup(
+    model_setup = UnifiedCalibrator(
         data_config=data_config,
         model_config=model_config,
         loss_config=loss_config,
@@ -506,7 +537,7 @@ def _save_calibration_config(
 
 
 def _calibrate_model(
-    model_setup: UnifiedModelSetup,
+    model_setup: UnifiedCalibrator,
     algorithm_config: Dict,
     output_dir: str,
     basin_id: str,
@@ -799,7 +830,7 @@ def _calibrate_with_sceua(model_setup, algorithm_config, output_dir, basin_id):
         def __init__(self, model_setup, total_iterations):
             # Do not call super().__init__ to avoid reloading or storing redundant data
             self.model_setup = model_setup
-            # Reuse parameter definitions created by UnifiedModelSetup
+            # Reuse parameter definitions created by UnifiedCalibrator
             self.params = model_setup.params
             self.parameter_names = model_setup.parameter_names
             # Progress tracking

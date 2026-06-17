@@ -2,7 +2,7 @@
 import numpy as np
 from numba import jit
 
-from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.model_config import get_model_param_config
 from hydromodel.models.param_utils import process_parameters
 
 
@@ -43,9 +43,7 @@ def hymod(
     Union[list, np.array]
         streamflow, x_slow, x_quick, x_loss or streamflow
     """
-    model_param_dict = kwargs.get("hymod", None)
-    if model_param_dict is None:
-        model_param_dict = MODEL_PARAM_DICT["hymod"]
+    model_param_dict = get_model_param_config("hymod", kwargs)
     # params
     param_ranges = model_param_dict["param_range"]
 

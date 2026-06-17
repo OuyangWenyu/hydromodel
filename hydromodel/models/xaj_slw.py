@@ -18,7 +18,7 @@ from typing import Dict, List, Any, Optional, Tuple, Union
 import traceback
 from numba import jit
 
-from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.model_config import get_model_param_config
 from hydromodel.models.param_utils import process_parameters
 
 # 配置日志
@@ -564,12 +564,11 @@ def xaj_slw(
     # Process parameters using unified parameter handling
     processed_parameters = parameters.copy()
     if normalized_params != False:
-        model_param_dict = MODEL_PARAM_DICT.get("xaj_slw")
-        if model_param_dict is not None:
-            param_ranges = model_param_dict["param_range"]
-            processed_parameters = process_parameters(
-                parameters, param_ranges, normalized=normalized_params
-            )
+        model_param_dict = get_model_param_config("xaj_slw", kwargs)
+        param_ranges = model_param_dict["param_range"]
+        processed_parameters = process_parameters(
+            parameters, param_ranges, normalized=normalized_params
+        )
 
     # Extract parameters - all are [basin] arrays
     wup = processed_parameters[:, 0]  # Initial upper layer tension water

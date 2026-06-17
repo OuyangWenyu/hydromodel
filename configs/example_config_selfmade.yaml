@@ -65,7 +65,7 @@ training:
     pcento: 0.1
     random_seed: 1234
 
-  loss: "RMSE"                      # Loss function: RMSE, NSE, KGE
+  loss: "RMSE"                      # User objective: RMSE, NSE, KGE, LOGNSE
   save_config: true
 
 evaluation:

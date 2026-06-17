@@ -13,7 +13,7 @@ from typing import Optional, Tuple
 import numpy as np
 from numba import jit
 
-from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.model_config import get_model_param_config
 from hydromodel.models.unit_hydrograph import uh_conv
 from hydromodel.models.param_utils import process_parameters
 
@@ -158,9 +158,7 @@ def gr3j(
         streamflow or (streamflow, states)
     """
 
-    model_param_dict = kwargs.get("gr3j", None)
-    if model_param_dict is None:
-        model_param_dict = MODEL_PARAM_DICT["gr3j"]
+    model_param_dict = get_model_param_config("gr3j", kwargs)
     # params
     param_ranges = model_param_dict["param_range"]
 

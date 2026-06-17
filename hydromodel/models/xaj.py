@@ -13,7 +13,7 @@ import numpy as np
 from numba import jit
 from scipy.special import gamma
 
-from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.model_config import get_model_param_config
 from hydromodel.models.unit_hydrograph import uh_conv
 from hydromodel.models.param_utils import process_parameters
 
@@ -677,9 +677,7 @@ def xaj(
     source_book = kwargs.get("source_book", "HF")
     kernel_size = kwargs.get("kernel_size", 15)
     time_interval_hours = kwargs.get("time_interval_hours", 24)
-    model_param_dict = kwargs.get(f"{model_name}", None)
-    if model_param_dict is None:
-        model_param_dict = MODEL_PARAM_DICT[f"{model_name}"]
+    model_param_dict = get_model_param_config(model_name, kwargs)
     # params
     param_ranges = model_param_dict["param_range"]
     if model_name == "xaj":

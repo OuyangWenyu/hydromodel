@@ -34,12 +34,12 @@ training_cfgs:
   # Loss function configuration
   loss_config:
     type: "time_series"                     # Loss function type
-    obj_func: "RMSE"                        # Objective function (RMSE, NSE, KGE)
+    obj_func: "RMSE"                        # User objective: RMSE, NSE, KGE, LOGNSE
     
   # Output configuration
   output_dir: "results"                     # Results directory
   experiment_name: "xaj_calibration_test"  # Experiment identifier
-  param_range_file: null                   # Uses default if null
+  param_range_file: null                   # Null warns and uses default ranges
   random_seed: 1234                        # For reproducibility
 
 evaluation_cfgs:

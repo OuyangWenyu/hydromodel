@@ -17,7 +17,11 @@ from typing import Dict, List, Optional, Union, Any
 from collections import OrderedDict
 
 from hydroutils import hydro_stat
-from hydromodel.models.model_config import read_model_param_dict
+from hydromodel.models.model_config import (
+    denormalize_parameter_dict,
+    inject_model_param_config,
+    resolve_model_param_config,
+)
 from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
 from hydromodel.trainers.unified_simulate import UnifiedSimulator
 from hydrodatasource.utils.utils import streamflow_unit_conv
@@ -68,15 +72,17 @@ class UnifiedEvaluator:
         # Get output variable configuration (default: qsim for streamflow)
         # Priority: training_config > model_config > default
         self.output_variable = (
-            training_config.get("output_variable") or
-            model_config.get("output_variable") or
-            "qsim"
+            training_config.get("output_variable")
+            or model_config.get("output_variable")
+            or "qsim"
         )
 
         # Validate output variable
         valid_outputs = ["qsim", "es", "et", "ets"]
         if self.output_variable not in valid_outputs:
-            print(f"Warning: output_variable '{self.output_variable}' not recognized. Using 'qsim'.")
+            print(
+                f"Warning: output_variable '{self.output_variable}' not recognized. Using 'qsim'."
+            )
             self.output_variable = "qsim"
 
         # Set evaluation period
@@ -138,33 +144,30 @@ class UnifiedEvaluator:
 
     def _load_parameter_ranges(self):
         """Load parameter ranges for denormalization."""
-        # Get parameter range file
+        artifact_file = os.path.join(self.param_dir, "param_range.yaml")
         param_range_file = self.training_config.get("param_range_file")
-        if param_range_file is None or not os.path.exists(param_range_file):
-            candidate_file = os.path.join(self.param_dir, "param_range.yaml")
-            if os.path.exists(candidate_file):
-                param_range_file = candidate_file
-            else:
-                param_range_file = None
-                print(
-                    "Note: param_range.yaml not found. Using default parameter ranges."
-                )
 
-        # Load param_range
-        try:
-            self.param_range = read_model_param_dict(param_range_file)
-            self.parameter_names = self.param_range[self.model_name][
-                "param_name"
-            ]
-            self.has_param_range = True
-        except (FileNotFoundError, KeyError) as e:
-            print(
-                f"Warning: Could not load parameter ranges for model '{self.model_name}': {e}"
+        if os.path.exists(artifact_file):
+            resolved = resolve_model_param_config(
+                self.model_name,
+                param_range_file=artifact_file,
+                strict=True,
             )
-            print("Will proceed without parameter denormalization.")
-            self.param_range = None
-            self.parameter_names = None
-            self.has_param_range = False
+        elif param_range_file is not None:
+            resolved = resolve_model_param_config(
+                self.model_name,
+                param_range_file=param_range_file,
+                strict=True,
+            )
+        else:
+            resolved = resolve_model_param_config(self.model_name)
+
+        self.param_range = resolved["param_dict"]
+        self.model_param_config = resolved["model_param_config"]
+        self.param_range_source = resolved["source"]
+        self.param_range_source_path = resolved["source_path"]
+        self.parameter_names = self.model_param_config["param_name"]
+        self.has_param_range = True
 
     def evaluate_basin(self, basin_id: str) -> Dict[str, Any]:
         """
@@ -217,9 +220,9 @@ class UnifiedEvaluator:
         # and are used for denormalization. Without this, models fall back to the
         # built-in default ranges in MODEL_PARAM_DICT and the custom ranges are
         # silently ignored, making evaluation insensitive to param_range_file.
-        model_params = self.model_config.copy()
-        if self.param_range and self.model_name in self.param_range:
-            model_params[self.model_name] = self.param_range[self.model_name]
+        model_params = inject_model_param_config(
+            self.model_config.copy(), self.model_name, self.model_param_config
+        )
         base_model_config = {
             "type": "lumped",
             "model_name": self.model_name,
@@ -250,7 +253,9 @@ class UnifiedEvaluator:
             elif "qsim" in sim_results:
                 qsim = sim_results["qsim"]
                 if self.output_variable != "qsim":
-                    print(f"Warning: '{self.output_variable}' not in results, using 'qsim' instead")
+                    print(
+                        f"Warning: '{self.output_variable}' not in results, using 'qsim' instead"
+                    )
             # Last resort: take first value
             else:
                 qsim = list(sim_results.values())[0]
@@ -361,7 +366,9 @@ class UnifiedEvaluator:
             }
             all_qsim.append(basin_result["qsim"])
             all_qobs.append(basin_result["qobs"])
-            all_sim_results.append(basin_result["sim_results"])  # Store complete simulation results
+            all_sim_results.append(
+                basin_result["sim_results"]
+            )  # Store complete simulation results
 
             # Print key metrics
             metrics = basin_result["metrics"]
@@ -384,7 +391,9 @@ class UnifiedEvaluator:
         if save_results:
             print(f"💾 Saving evaluation results...")
             output_dir = eval_output_dir or self.param_dir
-            self._save_all_results(output_dir, results, all_qsim, all_qobs, all_sim_results)
+            self._save_all_results(
+                output_dir, results, all_qsim, all_qobs, all_sim_results
+            )
 
         print(f"\n🎉 {'='*60}")
         print(f"🎉 Evaluation completed successfully!")
@@ -449,7 +458,7 @@ class UnifiedEvaluator:
 
         return {
             "name": et_var_name,  # ET variable name
-            "data": et_array,      # ET data array
+            "data": et_array,  # ET data array
         }
 
     def _save_all_results(
@@ -564,7 +573,9 @@ class UnifiedEvaluator:
             print(f"  Time range: {unified_time[0]} to {unified_time[-1]}")
 
             # Extract ET data first (if available)
-            et_info = self._extract_et_from_results(all_sim_results, use_separate_data=True)
+            et_info = self._extract_et_from_results(
+                all_sim_results, use_separate_data=True
+            )
             has_et = et_info is not None
 
             # Now remap each basin's data to the unified time array
@@ -662,7 +673,9 @@ class UnifiedEvaluator:
             time_array = getattr(self.data_loader, "time_array", None)
 
             # Extract ET variable (if model outputs include it)
-            all_et = self._extract_et_from_results(all_sim_results, use_separate_data=False)
+            all_et = self._extract_et_from_results(
+                all_sim_results, use_separate_data=False
+            )
 
         _save_evaluation_results(
             output_dir,
@@ -976,7 +989,9 @@ def _save_evaluation_results(
     basin_configs: Optional[Dict[str, Dict]] = None,
     data_path: Optional[str] = None,
     time_array: Optional[np.ndarray] = None,
-    all_et: Optional[Dict] = None,  # ET info: {"name": "es/et/ets", "data": array}
+    all_et: Optional[
+        Dict
+    ] = None,  # ET info: {"name": "es/et/ets", "data": array}
 ):
     """Save evaluation results to NetCDF file including ET variables if available."""
     os.makedirs(output_dir, exist_ok=True)
@@ -1236,12 +1251,12 @@ def _save_parameters_summary(
             # Denormalize parameters if param_range is available
             if has_denorm:
                 try:
-                    param_ranges = param_range[model_name]["param_range"]
+                    model_param_config = param_range[model_name]
+                    denormalized = denormalize_parameter_dict(
+                        params, model_param_config
+                    )
                     denorm_params = [
-                        (param_ranges[name][1] - param_ranges[name][0])
-                        * params[name]
-                        + param_ranges[name][0]
-                        for name in parameter_names
+                        denormalized[name] for name in parameter_names
                     ]
                     denorm_params_list.append(denorm_params)
                 except (KeyError, TypeError):

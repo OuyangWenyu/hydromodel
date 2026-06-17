@@ -185,3 +185,7 @@ results/*
 CLAUDE.md
 .claude/*
 GEMINI.md
+AGENTS.md
+.omx/*
+*.tmp
+.tmp-*/

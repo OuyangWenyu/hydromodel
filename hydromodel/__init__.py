@@ -9,42 +9,75 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
 import os
+import importlib
 from pathlib import Path
 from hydroutils import hydro_file
 import yaml
 
-# Import unified interfaces for easy access
-try:
-    from .trainers.unified_calibrate import calibrate
-    from .trainers.unified_simulate import UnifiedSimulator
-    from .trainers.unified_evaluate import evaluate
-    from .trainers.basin import Basin
+__all__ = ["SETTING", "CACHE_DIR"]
 
-    # Import unit conversion functions from hydroutils
-    from hydroutils.hydro_units import (
-        mm_per_time_to_m3_per_s,
-        m3_per_s_to_mm_per_time,
-        detect_time_interval,
-        get_time_interval_info,
-        validate_unit_compatibility,
+try:
+    from .models.model_dict import (
+        check_dependencies,
+        describe_model,
+        list_losses,
+        list_models,
+        resolve_loss_config,
     )
 
-    __all__ = [
-        "calibrate",
-        "UnifiedSimulator",
-        "evaluate",
-        "Basin",
-        "SETTING",
-        "CACHE_DIR",
-        "mm_per_time_to_m3_per_s",
-        "m3_per_s_to_mm_per_time",
-        "detect_time_interval",
-        "get_time_interval_info",
-        "validate_unit_compatibility",
-    ]
+    __all__.extend(
+        [
+            "check_dependencies",
+            "describe_model",
+            "list_losses",
+            "list_models",
+            "resolve_loss_config",
+        ]
+    )
 except ImportError:
-    # Fallback if unified interfaces are not available
-    __all__ = ["SETTING", "CACHE_DIR"]
+    pass
+
+_LAZY_EXPORTS = {
+    "calibrate": ("hydromodel.trainers.unified_calibrate", "calibrate"),
+    "UnifiedSimulator": (
+        "hydromodel.trainers.unified_simulate",
+        "UnifiedSimulator",
+    ),
+    "evaluate": ("hydromodel.trainers.unified_evaluate", "evaluate"),
+    "Basin": ("hydromodel.trainers.basin", "Basin"),
+    "detect_time_interval": (
+        "hydroutils.hydro_units",
+        "detect_time_interval",
+    ),
+    "get_time_interval_info": (
+        "hydroutils.hydro_units",
+        "get_time_interval_info",
+    ),
+    "m3_per_s_to_mm_per_time": (
+        "hydroutils.hydro_units",
+        "m3_per_s_to_mm_per_time",
+    ),
+    "mm_per_time_to_m3_per_s": (
+        "hydroutils.hydro_units",
+        "mm_per_time_to_m3_per_s",
+    ),
+    "validate_unit_compatibility": (
+        "hydroutils.hydro_units",
+        "validate_unit_compatibility",
+    ),
+}
+
+__all__.extend(_LAZY_EXPORTS.keys())
+
+
+def __getattr__(name):
+    if name not in _LAZY_EXPORTS:
+        raise AttributeError(f"module 'hydromodel' has no attribute '{name}'")
+    module_name, attr_name = _LAZY_EXPORTS[name]
+    module = importlib.import_module(module_name)
+    value = getattr(module, attr_name)
+    globals()[name] = value
+    return value
 
 __author__ = """Wenyu Ouyang"""
 __email__ = "wenyuouyang@outlook.com"

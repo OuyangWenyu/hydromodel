@@ -81,7 +81,11 @@ class Evaluator:
             **model_info,
             **{"param_range_file": self.param_range_file},
         )
-        qsim, qobs, etsim = self._convert_streamflow_units(ds, qsim, etsim)
+        converted = self._convert_streamflow_units(ds, qsim, etsim)
+        if len(converted) == 2:
+            qsim, qobs = converted
+        else:
+            qsim, qobs, etsim = converted
         return qsim, qobs, etsim
 
     def save_results(self, ds, qsim, qobs, etsim):

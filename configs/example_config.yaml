@@ -58,7 +58,7 @@ training:
     method: "SLSQP"                 # Optimization method (default: SLSQP, options: L-BFGS-B, SLSQP, TNC, etc.)
     max_iterations: 500             # Maximum number of iterations (default: 500)
 
-  loss: "RMSE"                      # Loss function: RMSE, NSE, KGE
+  loss: "RMSE"                      # User objective: RMSE, NSE, KGE, LOGNSE
 
   # Configuration file saving
   save_config: true                 # Save calibration config and param_range to output directory (default: true)
@@ -82,7 +82,7 @@ evaluation:
 # Available Options:
 # - Datasets: camels_us, camels_aus, camels_br, camels_ch, selfmadehydrodataset, etc.
 # - Algorithms: SCE_UA (recommended), GA, scipy
-# - Loss functions: RMSE, NSE, KGE
+# - User objectives: RMSE, NSE, KGE, LOGNSE
 # - Metrics: NSE, KGE, RMSE, PBIAS, FHV, FLV, FMS
 #
 # Usage:

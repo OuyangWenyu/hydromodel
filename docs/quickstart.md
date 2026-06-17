@@ -143,7 +143,7 @@ training_cfgs:
     method: "SLSQP"                             # L-BFGS-B, SLSQP, TNC, etc.
     max_iterations: 500                         # Maximum iterations
 
-  loss: "RMSE"                                  # Loss function: RMSE, NSE, KGE
+  loss: "RMSE"                                  # User objective: RMSE, NSE, KGE, LOGNSE
   output_dir: "results"
   experiment_name: "quickstart_exp"
 

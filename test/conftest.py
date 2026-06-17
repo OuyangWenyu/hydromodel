@@ -14,7 +14,10 @@ import pytest
 import spotpy
 from spotpy.examples.spot_setup_hymod_python import spot_setup
 
-from hydrodataset import CamelsUs
+try:
+    from hydrodataset import CamelsUs as _CamelsUs
+except ImportError:
+    from hydrodataset import Camels as _CamelsUs
 from hydromodel import SETTING
 
 
@@ -24,10 +27,15 @@ def warmup_length():
 
 
 @pytest.fixture()
-def CamelsUs():
+def camels():
     # for methods testing, we simply use the CAMELS dataset
     root_dir = SETTING["local_data_path"]["datasets-origin"]
-    return CamelsUs(os.path.join(root_dir, "Camels_Us"))
+    return _CamelsUs(os.path.join(root_dir, "Camels_Us"))
+
+
+@pytest.fixture()
+def CamelsUs(camels):
+    return camels
 
 
 @pytest.fixture()

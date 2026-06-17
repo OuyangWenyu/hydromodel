@@ -304,7 +304,7 @@ config = {
 
         "loss_config": {
             "type": "time_series",
-            "obj_func": "RMSE",                # RMSE, NSE, or KGE
+            "obj_func": "RMSE",                # User objective: RMSE, NSE, KGE, LOGNSE
         },
         "output_dir": "results",
         "experiment_name": "my_exp",
@@ -362,6 +362,9 @@ results/my_exp/
 - `calibration_config.yaml` and `param_range.yaml`: Only saved if `save_config=True` (default)
 - `param_range.yaml`: Contains parameter ranges for the current model only (e.g., only `xaj_mz`, not all models)
 - In `calibration_config.yaml`, `param_range_file` is set to the actual saved path
+- Explicit `param_range_file` is strict: missing files, unknown parameters, missing parameters, or invalid `[min, max]` ranges fail fast.
+- Optimizers always minimize. User objectives `NSE`, `KGE`, and `LOGNSE` are internally mapped to negated objectives such as `neg_kge`.
+- `best_params` remains normalized `[0,1]`; use `best_params_denormalized` for physical parameter values.
 
 **Available algorithms:**
 - `SCE_UA` / `sceua`: Shuffled Complex Evolution (recommended for global optimization)
@@ -411,6 +414,7 @@ custom_results = evaluate(
   "01013500": {
     "convergence": "success",
     "objective_value": 1.234567,
+    "parameter_format": "normalized",
     "best_params": {
       "xaj": {
         "K": 0.567890,
@@ -418,6 +422,23 @@ custom_results = evaluate(
         "IM": 0.045678,
         ...
       }
+    },
+    "best_params_normalized": {
+      "xaj": {
+        "K": 0.567890,
+        "B": 0.234567
+      }
+    },
+    "best_params_denormalized": {
+      "xaj": {
+        "K": 0.611101,
+        "B": 0.170370
+      }
+    },
+    "param_range_source": "default",
+    "loss_config": {
+      "requested_obj_func": "KGE",
+      "resolved_obj_func": "neg_kge"
     },
     "algorithm_info": {
       "generations": 50,

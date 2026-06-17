@@ -202,7 +202,7 @@ config = {
         },
         "loss_config": {
             "type": "time_series",
-            "obj_func": "RMSE",
+            "obj_func": "RMSE",  # User objective: RMSE, NSE, KGE, LOGNSE
         },
         "output_dir": "results",
         "experiment_name": "my_experiment",
@@ -261,10 +261,16 @@ training_cfgs = {
     },
     "loss_config": {
         "type": "time_series",
-        "obj_func": "RMSE",   # or "NSE", "KGE"
+        "obj_func": "RMSE",   # user objective: RMSE, NSE, KGE, LOGNSE
     },
 }
 ```
+
+Hydromodel optimizers always minimize. User-facing objectives `NSE`,
+`KGE`, and `LOGNSE` are resolved internally to negated objectives such as
+`neg_nashsutcliffe`, `neg_kge`, and `neg_lognashsutcliffe`. Evaluation
+metrics remain positive hydrological metrics such as `NSE`, `KGE`, `RMSE`,
+and `PBIAS`.
 
 **Output**: `{basin_id}_sceua.csv` with columns:
 - `like1`: Objective function value
@@ -338,6 +344,18 @@ results/{experiment_name}/
 ├── calibration_config.yaml          # Config used (for reproducibility)
 └── param_range.yaml                 # Parameter ranges used
 ```
+
+`calibration_results.json` is always written in the same directory. It keeps
+the legacy `best_params` field as normalized `[0,1]` values for evaluation
+compatibility. New fields make the contract explicit:
+
+- `parameter_format`: currently `"normalized"`.
+- `best_params_normalized`: same values as legacy `best_params`.
+- `best_params_denormalized`: physical values from the resolved range.
+- `param_range_source`: `default`, `explicit`, or `artifact`.
+- `loss_config.requested_obj_func`: user objective such as `KGE`.
+- `loss_config.resolved_obj_func`: minimized internal objective such as
+  `neg_kge`.
 
 ---
 
@@ -1523,14 +1541,20 @@ xaj_mz:
     - B
     - IM
   param_range:
-    - [0.5, 1.5]    # K range
-    - [0.1, 0.5]    # B range
-    - [0.01, 0.1]   # IM range
+    K: [0.5, 1.5]
+    B: [0.1, 0.5]
+    IM: [0.01, 0.1]
 ```
 
 ```python
 config["training_cfgs"]["param_range_file"] = "param_range.yaml"
 ```
+
+When `param_range_file` is set explicitly, the file must exist and must define
+exactly the model parameters in `param_name`. Hydromodel reorders
+`param_range` by `param_name`, validates each `[min, max]` pair, and fails on
+missing, extra, or invalid ranges. When `param_range_file` is omitted,
+hydromodel uses the built-in defaults and emits a warning.
 
 ### Intermediate States
 

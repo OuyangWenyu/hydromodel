@@ -201,10 +201,14 @@ wheels = [
 [[package]]
 name = "aqua-fetch"
 version = "1.0.1"
-source = { git = "https://github.com/iHeadWater/AquaFetch.git?rev=dev#e2a63eaee20d6ec6a5635675de58d8faa2b6643d" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pandas" },
     { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a9/7e/b4343a680a1f0b2356f6cf9371dded8141c0d8ea61ec7b41c6cdbedab3fe/aqua_fetch-1.0.1.tar.gz", hash = "sha256:7991a7fa2ab6592ff23dd0f8b9c2e2280b7aca20b01e4731bc3b6f974ded9578", size = 274826, upload-time = "2026-02-11T08:02:55.734Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/1d/f3803f12c8827cc1846eb79a2e2ddccf164d90833b9d56c829dc14b9f3e8/aqua_fetch-1.0.1-py3-none-any.whl", hash = "sha256:053ce30fcf9c76564a83dba1ded39e254f629a2d1cc08b3989093b7612a5a6aa", size = 289114, upload-time = "2026-02-11T08:02:54.233Z" },
 ]
 
 [package.optional-dependencies]
@@ -1676,7 +1680,8 @@ wheels = [
 
 [[package]]
 name = "hydrodataset"
-source = { editable = "../hydrodataset" }
+version = "0.2.4"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aqua-fetch", extra = ["all"] },
     { name = "bokeh" },
@@ -1696,59 +1701,15 @@ dependencies = [
     { name = "xlrd" },
     { name = "zarr" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "aqua-fetch", extras = ["all"] },
-    { name = "black", marker = "extra == 'dev'" },
-    { name = "black", marker = "extra == 'lint'" },
-    { name = "bokeh", specifier = ">=2.4.2" },
-    { name = "build", marker = "extra == 'release'" },
-    { name = "bump2version", marker = "extra == 'dev'" },
-    { name = "codetiming" },
-    { name = "coverage", marker = "extra == 'dev'" },
-    { name = "dask", extras = ["complete"] },
-    { name = "dask", extras = ["distributed"] },
-    { name = "flake8", marker = "extra == 'dev'" },
-    { name = "flake8", marker = "extra == 'lint'" },
-    { name = "grip", marker = "extra == 'dev'" },
-    { name = "grip", marker = "extra == 'docs'" },
-    { name = "hatch-vcs", marker = "extra == 'release'" },
-    { name = "hatchling", marker = "extra == 'release'" },
-    { name = "hydroutils" },
-    { name = "ipykernel", marker = "extra == 'docs'" },
-    { name = "mkdocs-git-revision-date-plugin", marker = "extra == 'docs'" },
-    { name = "mkdocs-jupyter", marker = "extra == 'docs'" },
-    { name = "mkdocs-material", marker = "extra == 'docs'" },
-    { name = "mkdocstrings", marker = "extra == 'docs'" },
-    { name = "mkdocstrings-python", marker = "extra == 'docs'" },
-    { name = "netcdf4" },
-    { name = "openpyxl", specifier = ">=3.1.5" },
-    { name = "pint" },
-    { name = "pint-pandas" },
-    { name = "pint-xarray" },
-    { name = "py7zr", specifier = ">=1.0.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=3" },
-    { name = "pytest-runner", marker = "extra == 'dev'" },
-    { name = "requests", specifier = ">=2.32.4" },
-    { name = "scipy" },
-    { name = "sphinx", marker = "extra == 'dev'" },
-    { name = "sphinx", marker = "extra == 'docs'" },
-    { name = "tox", marker = "extra == 'dev'" },
-    { name = "twine", marker = "extra == 'dev'" },
-    { name = "twine", marker = "extra == 'release'" },
-    { name = "tzfpy" },
-    { name = "watchdog", marker = "extra == 'dev'" },
-    { name = "wheel", marker = "extra == 'dev'" },
-    { name = "xarray" },
-    { name = "xlrd", specifier = ">=2.0.2" },
-    { name = "zarr" },
+sdist = { url = "https://files.pythonhosted.org/packages/59/e3/18921750dbbb429b6596d752f442ebaa4f66eb619b8432e7e909a3328d32/hydrodataset-0.2.4.tar.gz", hash = "sha256:57ffbbe312e5589e8b955f898f52d22755a076b5cad7b6c3fb0fa2d43ea676dc", size = 109507, upload-time = "2025-11-15T12:52:35.341Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/50/f4/2d7d31586707652182d5b05624ce4b5b9e65c967a98c3b7a671f99d7263d/hydrodataset-0.2.4-py3-none-any.whl", hash = "sha256:bf34e7f7267fe0874a59d05f1dc497536fe08427cac648934311ae0405bd90a3", size = 126339, upload-time = "2025-11-15T12:52:33.682Z" },
 ]
-provides-extras = ["dev", "docs", "lint", "release"]
 
 [[package]]
 name = "hydrodatasource"
-source = { editable = "../hydrodatasource" }
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aqua-fetch", extra = ["all"] },
     { name = "cfgrib" },
@@ -1776,65 +1737,10 @@ dependencies = [
     { name = "xarray" },
     { name = "xlrd" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "aqua-fetch", extras = ["all"] },
-    { name = "black", marker = "extra == 'dev'" },
-    { name = "black", extras = ["jupyter"], marker = "extra == 'dev'" },
-    { name = "cfgrib" },
-    { name = "chardet" },
-    { name = "coverage", marker = "extra == 'dev'" },
-    { name = "dataretrieval" },
-    { name = "eccodes" },
-    { name = "flake8", marker = "extra == 'dev'" },
-    { name = "geopandas" },
-    { name = "h5py" },
-    { name = "hydrodataset", specifier = ">=0.2.0" },
-    { name = "hydrotopo" },
-    { name = "hydroutils", specifier = ">=0.1.0" },
-    { name = "intake" },
-    { name = "ipykernel", marker = "extra == 'docs'" },
-    { name = "kerchunk" },
-    { name = "livereload", marker = "extra == 'docs'" },
-    { name = "loguru" },
-    { name = "mkdocs", marker = "extra == 'docs'" },
-    { name = "mkdocs-git-revision-date-localized-plugin", marker = "extra == 'docs'" },
-    { name = "mkdocs-git-revision-date-plugin", marker = "extra == 'docs'" },
-    { name = "mkdocs-include-markdown-plugin", marker = "extra == 'docs'" },
-    { name = "mkdocs-jupyter", marker = "extra == 'docs'", specifier = ">=0.24.0" },
-    { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.1.3" },
-    { name = "mkdocs-pdf-export-plugin", marker = "extra == 'docs'" },
-    { name = "mkdocstrings", marker = "extra == 'docs'" },
-    { name = "mkdocstrings-crystal", marker = "extra == 'docs'" },
-    { name = "mkdocstrings-python-legacy", marker = "extra == 'docs'" },
-    { name = "nbconvert", marker = "extra == 'docs'" },
-    { name = "nbformat", marker = "extra == 'docs'" },
-    { name = "openpyxl" },
-    { name = "polars" },
-    { name = "psycopg2-binary" },
-    { name = "pygeohydro" },
-    { name = "pygments", marker = "extra == 'docs'" },
-    { name = "pykalman" },
-    { name = "pymdown-extensions", marker = "extra == 'docs'" },
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'" },
-    { name = "pytest-mock", marker = "extra == 'dev'" },
-    { name = "pytest-runner", marker = "extra == 'dev'" },
-    { name = "pywavelets" },
-    { name = "requests" },
-    { name = "scipy" },
-    { name = "sphinx", marker = "extra == 'docs'" },
-    { name = "sqlalchemy" },
-    { name = "tox", marker = "extra == 'dev'" },
-    { name = "twine", marker = "extra == 'dev'" },
-    { name = "watchdog", marker = "extra == 'dev'" },
-    { name = "wget" },
-    { name = "wheel", marker = "extra == 'dev'" },
-    { name = "xarray" },
-    { name = "xlrd" },
+sdist = { url = "https://files.pythonhosted.org/packages/7c/85/d985101af72dffea52a76b9cd21fef6d63bd445eda0494dbcbd84feb8d72/hydrodatasource-0.2.0.tar.gz", hash = "sha256:8767257d7cc449b04367fe6810a19e0377b69cb862352d895c3421a044448b21", size = 112036, upload-time = "2025-11-04T08:05:21.203Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/70/6c/958217ef0fe51973e4fca8db5cb21870f6e717dc9361ae18c5f830d91891/hydrodatasource-0.2.0-py3-none-any.whl", hash = "sha256:0ee23daecad6869d84926f26bfdedbfdb8810e45cc487199c55447285f7aa478", size = 106099, upload-time = "2025-11-04T08:05:17.556Z" },
 ]
-provides-extras = ["dev", "docs"]
 
 [[package]]
 name = "hydroerr"
@@ -1848,7 +1754,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/55/4f/b1e8912c765b6cbca
 
 [[package]]
 name = "hydromodel"
-version = "0.3.0"
+version = "0.3.2"
 source = { editable = "." }
 dependencies = [
     { name = "aqua-fetch", extra = ["all"] },
@@ -1909,16 +1815,16 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aqua-fetch", extras = ["all"], git = "https://github.com/iHeadWater/AquaFetch.git?rev=dev" },
+    { name = "aqua-fetch", extras = ["all"] },
     { name = "black", extras = ["jupyter"], marker = "extra == 'dev'" },
     { name = "bmipy" },
     { name = "bump2version", marker = "extra == 'dev'" },
     { name = "coverage", marker = "extra == 'dev'" },
     { name = "deap" },
     { name = "flake8", marker = "extra == 'dev'" },
-    { name = "hydrodataset", editable = "../hydrodataset" },
-    { name = "hydrodatasource", editable = "../hydrodatasource" },
-    { name = "hydroutils", editable = "../hydroutils" },
+    { name = "hydrodataset", specifier = ">=0.2.3" },
+    { name = "hydrodatasource", specifier = ">=0.2.0" },
+    { name = "hydroutils", specifier = ">=0.1.0" },
     { name = "ipykernel" },
     { name = "livereload", marker = "extra == 'docs'" },
     { name = "mkdocs", marker = "extra == 'docs'" },
@@ -1996,7 +1902,8 @@ wheels = [
 
 [[package]]
 name = "hydroutils"
-source = { editable = "../hydroutils" }
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-retriever" },
     { name = "boto3" },
@@ -2020,114 +1927,9 @@ dependencies = [
     { name = "tzfpy" },
     { name = "xarray" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiohappyeyeballs", marker = "extra == 'all'", specifier = ">=2.6.1" },
-    { name = "aiohappyeyeballs", marker = "extra == 'docs'", specifier = ">=2.6.1" },
-    { name = "aiosignal", marker = "extra == 'all'", specifier = ">=1.4.0" },
-    { name = "aiosignal", marker = "extra == 'docs'", specifier = ">=1.4.0" },
-    { name = "async-retriever" },
-    { name = "black", extras = ["jupyter"], marker = "extra == 'all'" },
-    { name = "black", extras = ["jupyter"], marker = "extra == 'dev'" },
-    { name = "boto3", specifier = ">=1.34.34" },
-    { name = "build", marker = "extra == 'all'" },
-    { name = "build", marker = "extra == 'release'" },
-    { name = "bump2version", marker = "extra == 'all'" },
-    { name = "bump2version", marker = "extra == 'dev'" },
-    { name = "bump2version", marker = "extra == 'release'" },
-    { name = "cartopy" },
-    { name = "coverage", extras = ["toml"], marker = "extra == 'all'" },
-    { name = "coverage", extras = ["toml"], marker = "extra == 'dev'" },
-    { name = "coverage", extras = ["toml"], marker = "extra == 'test'" },
-    { name = "grip", marker = "extra == 'all'" },
-    { name = "grip", marker = "extra == 'dev'" },
-    { name = "hydroerr" },
-    { name = "ipykernel", marker = "extra == 'all'" },
-    { name = "ipykernel", marker = "extra == 'all'", specifier = ">=6.30.1" },
-    { name = "ipykernel", marker = "extra == 'docs'" },
-    { name = "ipykernel", marker = "extra == 'docs'", specifier = ">=6.30.1" },
-    { name = "matplotlib" },
-    { name = "minio" },
-    { name = "mkdocs-git-revision-date-localized-plugin", specifier = ">=1.4.7" },
-    { name = "mkdocs-git-revision-date-plugin", specifier = ">=0.3.2" },
-    { name = "mkdocs-git-revision-date-plugin", marker = "extra == 'all'", specifier = ">=0.3.2" },
-    { name = "mkdocs-git-revision-date-plugin", marker = "extra == 'docs'", specifier = ">=0.3.2" },
-    { name = "mkdocs-jupyter", marker = "extra == 'all'", specifier = ">=0.25.1" },
-    { name = "mkdocs-jupyter", marker = "extra == 'docs'", specifier = ">=0.25.1" },
-    { name = "mkdocs-material", marker = "extra == 'all'", specifier = ">=9.6.17" },
-    { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.6.17" },
-    { name = "mkdocstrings", marker = "extra == 'all'", specifier = ">=0.30.0" },
-    { name = "mkdocstrings", marker = "extra == 'docs'", specifier = ">=0.30.0" },
-    { name = "mkdocstrings-python", specifier = ">=1.17.0" },
-    { name = "mkdocstrings-python", marker = "extra == 'all'", specifier = ">=1.17.0" },
-    { name = "mkdocstrings-python", marker = "extra == 'docs'", specifier = ">=1.17.0" },
-    { name = "mkdocstrings-python-legacy", marker = "extra == 'all'", specifier = ">=0.2.7" },
-    { name = "mkdocstrings-python-legacy", marker = "extra == 'docs'", specifier = ">=0.2.7" },
-    { name = "mypy", marker = "extra == 'all'" },
-    { name = "mypy", marker = "extra == 'dev'" },
-    { name = "myst-parser", marker = "extra == 'all'" },
-    { name = "myst-parser", marker = "extra == 'docs'" },
-    { name = "numba" },
-    { name = "numpy" },
-    { name = "pandas" },
-    { name = "pint" },
-    { name = "pint-xarray" },
-    { name = "pre-commit", marker = "extra == 'all'" },
-    { name = "pre-commit", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'all'", specifier = ">=6.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=6.0" },
-    { name = "pytest", marker = "extra == 'test'", specifier = ">=6.0" },
-    { name = "pytest-cov", marker = "extra == 'all'" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "pytest-cov", marker = "extra == 'test'" },
-    { name = "pytest-mock", marker = "extra == 'all'" },
-    { name = "pytest-mock", marker = "extra == 'test'" },
-    { name = "pytest-runner", marker = "extra == 'all'" },
-    { name = "pytest-runner", marker = "extra == 'dev'" },
-    { name = "pytest-xdist", marker = "extra == 'all'" },
-    { name = "pytest-xdist", marker = "extra == 'test'" },
-    { name = "requests" },
-    { name = "rich" },
-    { name = "ruff", marker = "extra == 'all'" },
-    { name = "ruff", marker = "extra == 'dev'" },
-    { name = "s3fs", specifier = ">=2024.2" },
-    { name = "seaborn" },
-    { name = "sphinx", marker = "extra == 'all'", specifier = ">=4.0" },
-    { name = "sphinx", marker = "extra == 'dev'", specifier = ">=4.0" },
-    { name = "sphinx", marker = "extra == 'docs'", specifier = ">=4.0" },
-    { name = "sphinx-rtd-theme", marker = "extra == 'all'" },
-    { name = "sphinx-rtd-theme", marker = "extra == 'dev'" },
-    { name = "sphinx-rtd-theme", marker = "extra == 'docs'" },
-    { name = "tox", marker = "extra == 'all'" },
-    { name = "tox", marker = "extra == 'dev'" },
-    { name = "tqdm" },
-    { name = "twine", marker = "extra == 'all'" },
-    { name = "twine", marker = "extra == 'dev'" },
-    { name = "twine", marker = "extra == 'release'" },
-    { name = "types-requests", marker = "extra == 'all'" },
-    { name = "types-requests", marker = "extra == 'dev'" },
-    { name = "tzfpy" },
-    { name = "watchdog", marker = "extra == 'all'" },
-    { name = "watchdog", marker = "extra == 'dev'" },
-    { name = "wheel", marker = "extra == 'all'" },
-    { name = "wheel", marker = "extra == 'dev'" },
-    { name = "xarray" },
-    { name = "yarl", marker = "extra == 'all'", specifier = ">=1.20.1" },
-    { name = "yarl", marker = "extra == 'docs'", specifier = ">=1.20.1" },
-]
-provides-extras = ["all", "dev", "docs", "release", "test"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "black", extras = ["jupyter"] },
-    { name = "bump2version" },
-    { name = "coverage", extras = ["toml"] },
-    { name = "mypy" },
-    { name = "pre-commit" },
-    { name = "pytest", specifier = ">=6.0" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
+sdist = { url = "https://files.pythonhosted.org/packages/ce/ce/4ef3af2f2bd5afcd4ba35bccd761f7aa8a8f44e7acf6f173849955ac544e/hydroutils-0.1.0.tar.gz", hash = "sha256:17272415c5b6020846f0cf526a56eb26f74a8ac2d501cc97543f3832aeccefa5", size = 94104, upload-time = "2025-10-28T01:24:15.225Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c6/c7/b4ac0c61e452c263e10b495c8f7dfa812a878622bc58b15a7dc2606942b1/hydroutils-0.1.0-py3-none-any.whl", hash = "sha256:be160af5a85d96d9dea85ce0ccf7a019ad269c109228779e9aec0aa4295cf722", size = 65333, upload-time = "2025-10-28T01:24:13.525Z" },
 ]
 
 [[package]]

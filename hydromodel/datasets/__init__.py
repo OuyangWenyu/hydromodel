@@ -11,11 +11,21 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 try:
     from hydrodataset import CamelsUs
 except ImportError:
-    # CamelsUs may not be available if aqua_fetch is not installed
-    CamelsUs = None
+    try:
+        from hydrodataset import Camels as CamelsUs
+    except ImportError:
+        # CamelsUs may not be available if aqua_fetch is not installed
+        CamelsUs = None
 
-from hydrodatasource.reader.data_source import SelfMadeHydroDataset
-from hydrodatasource.reader.floodevent import FloodEventDatasource
+try:
+    from hydrodatasource.reader.data_source import SelfMadeHydroDataset
+except ImportError:
+    SelfMadeHydroDataset = None
+
+try:
+    from hydrodatasource.reader.floodevent import FloodEventDatasource
+except ImportError:
+    FloodEventDatasource = None
 
 # Import dataset mapping and utilities
 try:

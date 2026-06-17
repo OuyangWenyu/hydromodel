@@ -10,12 +10,16 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 
 from copy import deepcopy
 import os
+import warnings
 import yaml
 import json
 import argparse
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Union
+
+from hydromodel.models.model_config import resolve_model_param_config
+from hydromodel.models.model_dict import MODEL_DICT, resolve_loss_config
 
 
 def load_hydro_settings() -> Dict[str, Any]:
@@ -449,7 +453,11 @@ def load_simplified_config(
             "model_name": model_cfg["name"],
             **model_cfg.get("params", {}),
             # Add output_variable configuration if specified
-            **({"output_variable": model_cfg["output_variable"]} if "output_variable" in model_cfg else {}),
+            **(
+                {"output_variable": model_cfg["output_variable"]}
+                if "output_variable" in model_cfg
+                else {}
+            ),
         },
         "training_cfgs": {
             "algorithm_name": training_cfg["algorithm"],
@@ -465,7 +473,11 @@ def load_simplified_config(
             "random_seed": training_cfg.get("random_seed", 1234),
             "save_config": training_cfg.get("save_config", True),
             # Add output_variable configuration if specified in training (highest priority)
-            **({"output_variable": training_cfg["output_variable"]} if "output_variable" in training_cfg else {}),
+            **(
+                {"output_variable": training_cfg["output_variable"]}
+                if "output_variable" in training_cfg
+                else {}
+            ),
         },
         "evaluation_cfgs": {
             "metrics": eval_cfg["metrics"],
@@ -535,6 +547,90 @@ def load_config_from_calibration(calibration_dir: str) -> dict:
     return config
 
 
+def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate configuration and resolve agent-facing contracts."""
+    result = {
+        "valid": True,
+        "errors": [],
+        "warnings": [],
+        "resolved_loss_config": None,
+        "resolved_param_range": None,
+    }
+
+    if not isinstance(config, dict):
+        result["errors"].append("Config must be a dictionary")
+        result["valid"] = False
+        return result
+
+    required_sections = ["data_cfgs", "model_cfgs", "training_cfgs"]
+    for section in required_sections:
+        if section not in config:
+            result["errors"].append(
+                f"Missing required config section: {section}"
+            )
+
+    if result["errors"]:
+        result["valid"] = False
+        return result
+
+    data_cfgs = config["data_cfgs"]
+    model_cfgs = config["model_cfgs"]
+    training_cfgs = config["training_cfgs"]
+
+    model_name = model_cfgs.get("model_name") or model_cfgs.get("name")
+    if not model_name:
+        result["errors"].append("model_cfgs.model_name is required")
+    elif model_name not in MODEL_DICT:
+        result["errors"].append(f"Unsupported model: {model_name}")
+
+    loss_config = training_cfgs.get(
+        "loss_config", {"type": "time_series", "obj_func": "RMSE"}
+    )
+    try:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result["resolved_loss_config"] = resolve_loss_config(loss_config)
+        result["warnings"].extend(str(item.message) for item in caught)
+    except Exception as exc:
+        result["errors"].append(f"Invalid loss_config: {exc}")
+
+    algorithm_name = training_cfgs.get("algorithm_name", "SCE_UA")
+    supported_algorithms = {
+        "SCE_UA",
+        "sceua",
+        "GA",
+        "genetic_algorithm",
+        "scipy",
+        "Scipy",
+        "scipy_minimize",
+    }
+    if algorithm_name not in supported_algorithms:
+        result["errors"].append(f"Unsupported algorithm: {algorithm_name}")
+
+    train_period = data_cfgs.get("train_period")
+    if train_period is not None and (
+        not isinstance(train_period, list) or len(train_period) != 2
+    ):
+        result["errors"].append("data_cfgs.train_period must be [start, end]")
+
+    param_range_file = training_cfgs.get("param_range_file")
+    if model_name in MODEL_DICT:
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                result["resolved_param_range"] = resolve_model_param_config(
+                    model_name,
+                    param_range_file=param_range_file,
+                    strict=param_range_file is not None,
+                )
+            result["warnings"].extend(str(item.message) for item in caught)
+        except Exception as exc:
+            result["errors"].append(f"Invalid param_range_file: {exc}")
+
+    result["valid"] = not result["errors"]
+    return result
+
+
 def validate_and_show_config(
     config: Dict[str, Any], verbose: bool = True, model_type: str = "Model"
 ) -> bool:
@@ -555,11 +651,12 @@ def validate_and_show_config(
     bool
         True if validation passed
     """
-    # Basic validation - ensure required sections exist
-    required_sections = ["data_cfgs", "model_cfgs", "training_cfgs"]
-    for section in required_sections:
-        if section not in config:
-            print(f"Error: Missing required config section: {section}")
-            return False
+    validation = validate_config(config)
+    if validation["valid"]:
+        for warning in validation["warnings"]:
+            print(f"Warning: {warning}")
+        return True
 
-    return True
+    for error in validation["errors"]:
+        print(f"Error: {error}")
+    return False

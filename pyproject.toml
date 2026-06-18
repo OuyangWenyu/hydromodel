@@ -148,6 +148,10 @@ filename = "hydromodel/__init__.py"
 search = "__version__ = '{current_version}'"
 replace = "__version__ = '{new_version}'" 
 
+[tool.uv.sources]
+hydrodatasource = { path = "../hydrodatasource", editable = true }
+hydrodataset = { path = "../hydrodataset", editable = true }
+
 [tool.uv]
 # Override aqua-fetch's outdated dependency constraints
 override-dependencies = [

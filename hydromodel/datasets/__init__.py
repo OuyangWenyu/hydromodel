@@ -27,33 +27,9 @@ try:
 except ImportError:
     FloodEventDatasource = None
 
-# Import dataset mapping and utilities
-try:
-    from .dataset_dict import (
-        DATASET_MAPPING,
-        get_supported_datasets,
-        get_dataset_info,
-        is_dataset_supported,
-        get_dataset_category,
-    )
-
-    DATASET_DICT_AVAILABLE = True
-except ImportError:
-    DATASET_DICT_AVAILABLE = False
-    DATASET_MAPPING = {}
-
-    def get_supported_datasets(category=None):
-        raise ImportError("dataset_dict not available")
-
-    def get_dataset_info(dataset_name):
-        raise ImportError("dataset_dict not available")
-
-    def is_dataset_supported(dataset_name):
-        raise ImportError("dataset_dict not available")
-
-    def get_dataset_category(dataset_name):
-        raise ImportError("dataset_dict not available")
-
+# dataset_dict (DATASET_MAPPING) is deprecated in favor of READER_ALIASES
+# from hydromodel.configs.data_resolver, which merges aliases from both
+# hydrodataset and hydrodatasource packages.
 
 # Import new unified data loader
 try:

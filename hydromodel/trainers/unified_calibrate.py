@@ -399,21 +399,34 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
     data_config = run_config["data_cfgs"]
     # Extract model config
     model_cfgs = run_config["model_cfgs"]
+    model_params = model_cfgs.get("params", model_cfgs.get("model_params", {}))
     model_config = {
-        "name": model_cfgs.get("model_name"),
-        **model_cfgs.get("model_params", {}),
+        "name": model_cfgs.get("name", model_cfgs.get("model_name")),
+        **model_params,
     }
+    if "output_variable" in model_cfgs:
+        model_config["output_variable"] = model_cfgs["output_variable"]
     training_config = run_config["training_cfgs"]
 
     # Extract components from training_config
+    algorithm_name = training_config.get(
+        "algorithm", training_config.get("algorithm_name", "SCE_UA")
+    )
+    algorithm_params = training_config.get(
+        algorithm_name, training_config.get("algorithm_params", {})
+    )
     algorithm_config = {
-        "name": training_config.get("algorithm_name", "SCE_UA"),
-        **training_config.get("algorithm_params", {}),
+        "name": algorithm_name,
+        **algorithm_params,
     }
+    raw_loss_config = training_config.get("loss_config")
+    if raw_loss_config is None:
+        raw_loss_config = {
+            "type": "time_series",
+            "obj_func": training_config.get("loss", "RMSE"),
+        }
     loss_config = resolve_loss_config(
-        training_config.get(
-            "loss_config", {"type": "time_series", "obj_func": "RMSE"}
-        )
+        raw_loss_config
     )
     training_config["loss_config"] = loss_config
 

@@ -33,6 +33,7 @@ sys.path.append(repo_path)
 from hydromodel.datasets.unified_data_loader import UnifiedDataLoader  # noqa: E402
 from hydromodel.trainers.unified_simulate import UnifiedSimulator  # noqa: E402
 from hydromodel.models.model_config import read_model_param_dict  # noqa: E402
+from hydromodel.configs.data_resolver import resolve_config  # noqa: E402
 
 
 def load_parameters_from_csv(csv_file: str, param_names: list) -> OrderedDict:
@@ -279,21 +280,27 @@ def main():
     with open(args.config, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
+    if not (
+        config.get("data_cfgs", {}).get("reader")
+        and config.get("data_cfgs", {}).get("uri")
+    ):
+        config = resolve_config(config, project_root=repo_path)
+
     data_config = config["data_cfgs"]
     model_cfgs = config["model_cfgs"]
-    model_name = model_cfgs.get("model_name")
+    model_name = model_cfgs.get("name", model_cfgs.get("model_name"))
 
     basin_ids = data_config.get("basin_ids", [])
     basin_id = args.basin_id or basin_ids[0]
     basin_index = basin_ids.index(basin_id)
 
     # Determine warmup period and time unit
-    data_source_type = data_config.get("data_source_type", "")
+    reader = data_config.get("reader", "")
     time_unit_config = data_config.get("time_unit", ["1D"])
 
     # Check if this is hourly/sub-daily data (event data typically uses hourly)
     is_hourly_data = any(unit in ["1h", "3h", "6h", "12h"] for unit in time_unit_config)
-    is_event_data = data_source_type == "floodevent" or is_hourly_data
+    is_event_data = reader == "floodevent" or is_hourly_data
 
     if args.warmup is not None:
         # User specified warmup via command line (highest priority)
@@ -314,7 +321,9 @@ def main():
     print(f"  Model: {model_name}")
     print(f"  Basin: {basin_id} (index {basin_index})")
     print(f"  Period: {data_config.get('test_period')}")
-    print(f"  Data type: {data_source_type}")
+    print(f"  Dataset: {data_config.get('dataset')}")
+    print(f"  Reader: {reader}")
+    print(f"  URI: {data_config.get('uri')}")
     print(f"  Warmup: {warmup_length} {time_unit}")
 
     # ========================================================================
@@ -357,7 +366,7 @@ def main():
     # Create model configuration for UnifiedSimulator
     model_config = {
         "model_name": model_name,
-        "model_params": model_cfgs,
+        "model_params": model_cfgs.get("params", model_cfgs),
         "parameters": parameters,
     }
 

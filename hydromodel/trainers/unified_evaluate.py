@@ -747,10 +747,13 @@ def evaluate(
 
     data_config = config["data_cfgs"]
     model_cfgs = config["model_cfgs"]
+    model_params = model_cfgs.get("params", model_cfgs.get("model_params", {}))
     model_config = {
-        "name": model_cfgs.get("model_name"),
-        **model_cfgs.get("model_params", {}),
+        "name": model_cfgs.get("name", model_cfgs.get("model_name")),
+        **model_params,
     }
+    if "output_variable" in model_cfgs:
+        model_config["output_variable"] = model_cfgs["output_variable"]
     training_config = config["training_cfgs"]
 
     # Get evaluation period from config

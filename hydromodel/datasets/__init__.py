@@ -9,13 +9,10 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
 try:
-    from hydrodataset import CamelsUs
+    from hydrodataset.camels_us import CamelsUs
 except ImportError:
-    try:
-        from hydrodataset import Camels as CamelsUs
-    except ImportError:
-        # CamelsUs may not be available if aqua_fetch is not installed
-        CamelsUs = None
+    # CamelsUs may not be available if aqua_fetch is not installed
+    CamelsUs = None
 
 try:
     from hydrodatasource.reader.data_source import SelfMadeHydroDataset

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -1823,6 +1823,7 @@ requires-dist = [
     { name = "pymdown-extensions", marker = "extra == 'docs'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
+    { name = "pytest-dotenv", marker = "extra == 'dev'" },
     { name = "pytest-mock", marker = "extra == 'dev'" },
     { name = "pytest-runner", marker = "extra == 'dev'" },
     { name = "pywavelets" },
@@ -1839,6 +1840,9 @@ requires-dist = [
     { name = "xlrd" },
 ]
 provides-extras = ["dev", "docs"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest-dotenv", specifier = ">=0.5.2" }]
 
 [[package]]
 name = "hydroerr"

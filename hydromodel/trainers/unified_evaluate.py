@@ -745,13 +745,18 @@ def evaluate(
             "Config dictionary must contain 'data_cfgs', 'model_cfgs', and 'training_cfgs' keys"
         )
 
+    # Auto-resolve config if data_cfgs lacks resolved fields
+    from hydromodel.configs.data_resolver import resolve_config_if_needed
+
+    config = resolve_config_if_needed(config, **kwargs)
+
     data_config = config["data_cfgs"]
     model_cfgs = config["model_cfgs"]
-    model_params = model_cfgs.get("params", model_cfgs.get("model_params", {}))
-    model_config = {
-        "name": model_cfgs.get("name", model_cfgs.get("model_name")),
-        **model_params,
-    }
+    model_params = model_cfgs.get("params", {})
+    model_name = model_cfgs.get("name")
+    if not model_name:
+        raise ValueError("model_cfgs.name is required")
+    model_config = {"name": model_name, **model_params}
     if "output_variable" in model_cfgs:
         model_config["output_variable"] = model_cfgs["output_variable"]
     training_config = config["training_cfgs"]

@@ -1,11 +1,11 @@
-from hydrodataset import Camels
+from hydrodataset.camels_us import CamelsUs as Camels
 import numpy as np
 import pytest
 import os
 import pandas as pd
 import xarray as xr
 
-from hydromodel import SETTING
+from hydromodel.configs.data_resolver import resolve_data_cfgs
 from hydromodel.datasets import *
 from hydromodel.datasets.data_preprocess import (
     process_and_save_data_as_nc,
@@ -231,7 +231,9 @@ def test_process_and_save_data_as_nc_with_valid_data(all_data_dir, basin_attrs_f
     os.makedirs(folder_path)
 
     # Call the function to process and save the data as NetCDF files
-    result = process_and_save_data_as_nc(all_data_dir, folder_path)
+    result = process_and_save_data_as_nc(
+        all_data_dir, target_data_scale="D", save_folder=folder_path
+    )
 
     # Assert that the function returns True
     assert result
@@ -252,8 +254,8 @@ def test_process_and_save_data_as_nc_with_valid_data(all_data_dir, basin_attrs_f
 
 
 def test_load_dataset():
-    dataset_dir = SETTING["local_data_path"]["datasets-origin"]
-    camels = Camels(os.path.join(dataset_dir, "camels", "camels_us"))
+    resolved = resolve_data_cfgs({"dataset": "camels_us"})
+    camels = Camels(resolved["uri"])
     data = camels.read_ts_xrdataset(
         ["01013500"], ["2010-01-01", "2014-01-01"], ["streamflow"]
     )

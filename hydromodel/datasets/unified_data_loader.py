@@ -71,11 +71,13 @@ class UnifiedDataLoader:
         Parameters
         ----------
         data_config : Dict[str, Any]
-            Data configuration dictionary containing:
-            - data_type: Type of data source ('floodevent', 'camels', 'selfmade', etc.)
-            - data_path: Path to the data
+            Resolved data configuration dictionary containing:
+            - dataset: Dataset identifier (e.g. 'camels_us')
+            - reader: Reader alias (e.g. 'camels_us', 'selfmade')
+            - uri: Absolute path or URI to the data
+            - source: 'local' or 'cloud'
             - basin_ids: List of basin identifiers
-            - time_periods: Time period configuration
+            - train_period / valid_period / test_period: Time period config
             - variables: List of variables to load
             - warmup_length: Warmup period length
             - **kwargs: Additional datasource-specific parameters
@@ -161,7 +163,7 @@ class UnifiedDataLoader:
             return dataset_class(self.data_path)
         elif category == "hydrodatasource":
             init_kwargs = {
-                "data_path": self.data_path,
+                "uri": self.data_path,
                 "time_unit": self.config.get("time_unit", ["1D"]),
                 "dataset_name": self.config.get(
                     "dataset_name", self.dataset or self.reader

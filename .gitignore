@@ -182,6 +182,7 @@ hydromodel/example/example/*
 outputs/
 result_old/
 results/*
+test_results/
 CLAUDE.md
 .claude/*
 GEMINI.md

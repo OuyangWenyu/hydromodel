@@ -371,15 +371,20 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
     ----------
     config : Dict
         Configuration dictionary containing all settings.
-        Must contain 'data_cfgs', 'model_cfgs', 'training_cfgs' keys
-        Optional in training_cfgs: 'save_config' (bool, default: True)
+        Must contain 'data_cfgs', 'model_cfgs', 'training_cfgs' keys.
+        ``data_cfgs`` may be *unresolved* (only ``dataset`` + ``basin_ids``)
+        or *resolved* (with ``uri``, ``reader``, ``source``).  Unresolved
+        configs are auto-resolved via
+        :func:`~hydromodel.configs.data_resolver.resolve_config`.
     **kwargs
-        Additional arguments
+        Additional arguments.  Reserved keys consumed before forwarding:
+        ``project_root``, ``user_setting_path`` — passed to
+        ``resolve_config()`` during auto-resolution.
 
     Returns
     -------
     Dict[str, Any]
-        Dictionary containing calibration results
+        Dictionary containing calibration results keyed by basin id.
     """
 
     # Validate config structure
@@ -395,26 +400,27 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
             "Config dictionary must contain 'data_cfgs', 'model_cfgs', and 'training_cfgs' keys"
         )
 
+    # Auto-resolve config if data_cfgs lacks resolved fields
+    from hydromodel.configs.data_resolver import resolve_config_if_needed
+
+    config = resolve_config_if_needed(config, **kwargs)
+
     run_config = copy.deepcopy(config)
     data_config = run_config["data_cfgs"]
     # Extract model config
     model_cfgs = run_config["model_cfgs"]
-    model_params = model_cfgs.get("params", model_cfgs.get("model_params", {}))
-    model_config = {
-        "name": model_cfgs.get("name", model_cfgs.get("model_name")),
-        **model_params,
-    }
+    model_params = model_cfgs.get("params", {})
+    model_name = model_cfgs.get("name")
+    if not model_name:
+        raise ValueError("model_cfgs.name is required")
+    model_config = {"name": model_name, **model_params}
     if "output_variable" in model_cfgs:
         model_config["output_variable"] = model_cfgs["output_variable"]
     training_config = run_config["training_cfgs"]
 
     # Extract components from training_config
-    algorithm_name = training_config.get(
-        "algorithm", training_config.get("algorithm_name", "SCE_UA")
-    )
-    algorithm_params = training_config.get(
-        algorithm_name, training_config.get("algorithm_params", {})
-    )
+    algorithm_name = training_config.get("algorithm", "SCE_UA")
+    algorithm_params = training_config.get(algorithm_name, {})
     algorithm_config = {
         "name": algorithm_name,
         **algorithm_params,

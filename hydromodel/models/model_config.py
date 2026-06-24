@@ -227,6 +227,12 @@ def get_model_param_config(model_name, kwargs=None):
 
     legacy_config = kwargs.get(model_name)
     if isinstance(legacy_config, dict):
+        if "param_name" not in legacy_config:
+            default_config = MODEL_PARAM_DICT.get(model_name, {})
+            legacy_config = dict(
+                param_name=default_config.get("param_name", []),
+                **legacy_config,
+            )
         return validate_model_param_dict(
             {model_name: legacy_config}, model_name=model_name
         )[model_name]

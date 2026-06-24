@@ -138,17 +138,17 @@ def update_config_from_args(
         try:
             freq = pd.Timedelta(time_unit_str)
             time_interval_hours = freq.total_seconds() / 3600
-            # Put time_interval_hours in model_params where it belongs
-            if "model_params" not in config["model_cfgs"]:
-                config["model_cfgs"]["model_params"] = {}
-            config["model_cfgs"]["model_params"][
+            # Put time_interval_hours in params where it belongs
+            if "params" not in config["model_cfgs"]:
+                config["model_cfgs"]["params"] = {}
+            config["model_cfgs"]["params"][
                 "time_interval_hours"
             ] = time_interval_hours
         except Exception:
             # Fallback to default if parsing fails
-            if "model_params" not in config["model_cfgs"]:
-                config["model_cfgs"]["model_params"] = {}
-            config["model_cfgs"]["model_params"]["time_interval_hours"] = 24
+            if "params" not in config["model_cfgs"]:
+                config["model_cfgs"]["params"] = {}
+            config["model_cfgs"]["params"]["time_interval_hours"] = 24
 
     if hasattr(args, "is_event") and args.is_event is not None:
         config["data_cfgs"]["is_event_data"] = args.is_event
@@ -397,9 +397,9 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
     model_cfgs = config["model_cfgs"]
     training_cfgs = config["training_cfgs"]
 
-    model_name = model_cfgs.get("model_name") or model_cfgs.get("name")
+    model_name = model_cfgs.get("name")
     if not model_name:
-        result["errors"].append("model_cfgs.model_name is required")
+        result["errors"].append("model_cfgs.name is required")
     elif model_name not in MODEL_DICT:
         result["errors"].append(f"Unsupported model: {model_name}")
 
@@ -417,9 +417,7 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as exc:
         result["errors"].append(f"Invalid loss_config: {exc}")
 
-    algorithm_name = training_cfgs.get(
-        "algorithm", training_cfgs.get("algorithm_name", "SCE_UA")
-    )
+    algorithm_name = training_cfgs.get("algorithm", "SCE_UA")
     supported_algorithms = {
         "SCE_UA",
         "sceua",

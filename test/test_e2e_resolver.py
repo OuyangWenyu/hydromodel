@@ -7,8 +7,8 @@ Skipped automatically when the data is not available on the current machine.
 import pytest
 from pathlib import Path
 
-from hydromodel.configs.data_resolver import (
-    resolve_config,
+from hydrodatasource.configs.data_resolver import (
+    open_dataset,
     DatasetResolutionError,
 )
 from hydromodel.configs.config_manager import validate_config
@@ -65,11 +65,12 @@ def e2e_raw_config(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def e2e_config(e2e_raw_config):
-    """Resolved config; skips the whole module if CAMELS-US data is absent."""
+    """Skip module if CAMELS-US data is absent; config is used as-is."""
     try:
-        return resolve_config(e2e_raw_config)
+        open_dataset("camels_us")
     except DatasetResolutionError as exc:
         pytest.skip(f"CAMELS-US data not available on this machine: {exc}")
+    return e2e_raw_config
 
 
 # ---------------------------------------------------------------------------
@@ -81,14 +82,13 @@ def e2e_config(e2e_raw_config):
 class TestResolverE2E:
     """End-to-end tests for unified data resolution + calibration pipeline."""
 
-    def test_resolve_config_produces_existing_uri(self, e2e_config):
+    def test_open_dataset_resolves_camels_us(self, e2e_config):
         data_cfgs = e2e_config["data_cfgs"]
+        assert data_cfgs["dataset"] == "camels_us"
         assert data_cfgs["source"] == "local"
-        assert data_cfgs["reader"] == "camels_us"
-        uri = data_cfgs["uri"]
-        assert Path(
-            uri
-        ).exists(), f"Resolved URI does not exist on disk: {uri}"
+        # open_dataset handles path resolution internally
+        ds = open_dataset("camels_us")
+        assert ds is not None, "open_dataset should return a reader instance"
 
     def test_validate_config_passes(self, e2e_config):
         result = validate_config(e2e_config)

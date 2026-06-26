@@ -16,7 +16,6 @@ from hydromodel.configs.config_manager import (  # noqa: E402
     load_config_from_file,
     validate_and_show_config,
 )
-from hydromodel.configs.data_resolver import resolve_config  # noqa: E402
 from hydromodel.trainers.unified_calibrate import calibrate  # noqa: E402
 
 
@@ -71,8 +70,6 @@ def main():
         if args.experiment_name:
             training_cfgs["experiment_name"] = args.experiment_name
         training_cfgs["save_config"] = args.save_config
-
-        config = resolve_config(config, project_root=repo_path)
 
         if not validate_and_show_config(config, True, "XAJ Model"):
             return 1

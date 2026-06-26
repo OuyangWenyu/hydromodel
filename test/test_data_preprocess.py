@@ -5,7 +5,6 @@ import os
 import pandas as pd
 import xarray as xr
 
-from hydromodel.configs.data_resolver import resolve_data_cfgs
 from hydromodel.datasets import *
 from hydromodel.datasets.data_preprocess import (
     process_and_save_data_as_nc,
@@ -254,8 +253,9 @@ def test_process_and_save_data_as_nc_with_valid_data(all_data_dir, basin_attrs_f
 
 
 def test_load_dataset():
-    resolved = resolve_data_cfgs({"dataset": "camels_us"})
-    camels = Camels(resolved["uri"])
+    from hydrodatasource.configs.data_resolver import open_dataset
+
+    camels = open_dataset("camels_us")
     data = camels.read_ts_xrdataset(
         ["01013500"], ["2010-01-01", "2014-01-01"], ["streamflow"]
     )

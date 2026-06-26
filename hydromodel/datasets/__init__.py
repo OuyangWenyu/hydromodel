@@ -24,9 +24,8 @@ try:
 except ImportError:
     FloodEventDatasource = None
 
-# dataset_dict (DATASET_MAPPING) is deprecated in favor of READER_ALIASES
-# from hydromodel.configs.data_resolver, which merges aliases from both
-# hydrodataset and hydrodatasource packages.
+# Dataset instantiation is delegated to hydrodatasource.open_dataset().
+# hydromodel no longer maintains its own reader alias registry.
 
 # Import new unified data loader
 try:

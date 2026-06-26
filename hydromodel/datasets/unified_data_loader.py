@@ -17,8 +17,6 @@ import xarray as xr
 from typing import Dict, List, Optional, Tuple, Any
 from hydroutils.hydro_units import streamflow_unit_conv
 
-from hydromodel.configs.data_resolver import READER_ALIASES
-
 HYDRODATASET_AVAILABLE = importlib.util.find_spec("hydrodataset") is not None
 HYDRODATASOURCE_AVAILABLE = (
     importlib.util.find_spec("hydrodatasource") is not None
@@ -71,11 +69,9 @@ class UnifiedDataLoader:
         Parameters
         ----------
         data_config : Dict[str, Any]
-            Resolved data configuration dictionary containing:
+            Data configuration dictionary containing:
             - dataset: Dataset identifier (e.g. 'camels_us')
-            - reader: Reader alias (e.g. 'camels_us', 'selfmade')
-            - uri: Absolute path or URI to the data
-            - source: 'local' or 'cloud'
+            - source: 'local' or 'cloud' (default 'local')
             - basin_ids: List of basin identifiers
             - train_period / valid_period / test_period: Time period config
             - variables: List of variables to load
@@ -84,17 +80,52 @@ class UnifiedDataLoader:
         is_train_val_test : str
             "train", "valid", "test"
         """
+        from hydrodatasource.configs.data_resolver import open_dataset
+
         self.config = data_config
         self.dataset = data_config.get("dataset")
-        self.reader = data_config.get("reader")
-        self.data_path = data_config.get("uri")
+        if not self.dataset:
+            raise ValueError("data_cfgs.dataset is required")
+        source = data_config.get("source", "local")
 
-        if not self.reader or not self.data_path:
-            raise ValueError(
-                "UnifiedDataLoader requires resolved data_cfgs with "
-                "'reader' and 'uri'. Resolve configuration before loading data."
+        # Build reader_kwargs from config
+        reader_kwargs = {}
+        if "time_unit" in data_config:
+            reader_kwargs["time_unit"] = data_config["time_unit"]
+        if "dataset_name" in data_config:
+            reader_kwargs["dataset_name"] = data_config["dataset_name"]
+        if "datasource_kwargs" in data_config:
+            reader_kwargs.update(data_config["datasource_kwargs"])
+
+        # When uri is explicitly provided (self-made / test datasets),
+        # bypass registry lookup and delegate to open_dataset with a
+        # one-off ResolverContext that points to the explicit path.
+        explicit_uri = data_config.get("uri")
+        if explicit_uri:
+            from pathlib import Path as _Path
+            from hydrodataset.configs.data_resolver import ResolverContext
+
+            uri_path = _Path(explicit_uri)
+            reader_name = data_config.get("reader", self.dataset)
+            ctx = ResolverContext(
+                storage={
+                    "local": {"root": str(uri_path.parent)},
+                },
+                registry={
+                    self.dataset: {
+                        "reader": reader_name,
+                        "path": uri_path.name,
+                    }
+                },
             )
-        self.data_type = self.reader
+            self.datasource = open_dataset(
+                self.dataset, source=source, ctx=ctx, **reader_kwargs
+            )
+        else:
+            # Default path: open_dataset resolves via built-in registries
+            self.datasource = open_dataset(
+                self.dataset, source=source, **reader_kwargs
+            )
 
         self.basin_ids = data_config.get("basin_ids", [])
         self.warmup_length = data_config.get("warmup_length", 365)
@@ -114,76 +145,6 @@ class UnifiedDataLoader:
             ["precipitation", "potential_evapotranspiration", "streamflow"],
         )
 
-        # Initialize the appropriate datasource
-        self.datasource = self._create_datasource()
-
-    def _create_datasource(self) -> Any:
-        """
-        Create the datasource from the resolved reader alias.
-        """
-        if self.reader not in READER_ALIASES:
-            raise ValueError(
-                f"Unsupported reader: {self.reader}\n"
-                f"Supported readers: {list(READER_ALIASES.keys())}"
-            )
-
-        reader_spec = READER_ALIASES[self.reader]
-        module_name = reader_spec["module"]
-        class_name = reader_spec["class"]
-        category = reader_spec["category"]
-
-        # Check package availability
-        if category == "hydrodataset" and not HYDRODATASET_AVAILABLE:
-            raise ImportError(
-                f"hydrodataset package is required for '{self.data_type}' dataset. "
-                "Install with: pip install hydrodataset"
-            )
-        elif category == "hydrodatasource" and not HYDRODATASOURCE_AVAILABLE:
-            raise ImportError(
-                f"hydrodatasource package is required for '{self.data_type}' dataset. "
-                "Install with: pip install hydrodatasource"
-            )
-
-        # Dynamic import
-        try:
-            module = importlib.import_module(module_name)
-            dataset_class = getattr(module, class_name)
-        except ImportError as e:
-            raise ImportError(
-                f"Failed to import {class_name} from {module_name}: {e}\n"
-                f"Make sure the required package is installed."
-            )
-        except AttributeError as e:
-            raise AttributeError(
-                f"Class {class_name} not found in module {module_name}: {e}"
-            )
-
-        # Instantiate dataset based on category
-        if category == "hydrodataset":
-            return dataset_class(self.data_path)
-        elif category == "hydrodatasource":
-            init_kwargs = {
-                "uri": self.data_path,
-                "time_unit": self.config.get("time_unit", ["1D"]),
-                "dataset_name": self.config.get(
-                    "dataset_name", self.dataset or self.reader
-                ),
-            }
-
-            if self.reader.lower() == "floodevent":
-                init_kwargs["warmup_length"] = self.config.get(
-                    "warmup_length", 0
-                )
-
-            # Merge with additional datasource_kwargs
-            init_kwargs.update(self.config.get("datasource_kwargs", {}))
-
-            return dataset_class(**init_kwargs)
-        elif category == "zarr":
-            return dataset_class(self.data_path)
-        else:
-            raise ValueError(f"Unknown reader category: {category}")
-
     def load_data(self) -> Tuple[np.ndarray, np.ndarray]:
         """
         Load data using the unified interface and return in standard format.
@@ -200,10 +161,8 @@ class UnifiedDataLoader:
         - For continuous data: features=2 (precipitation, PET)
         - For flood event data: features=3 (precipitation, PET, flood_event_marker)
         """
-        # Check if this is flood event data
-        is_flood_event = self.data_type.lower() in ["floodevent"]
-
-        if is_flood_event:
+        # Detect flood event datasource by capability, not by name
+        if hasattr(self.datasource, "load_1basin_flood_events"):
             # Use specialized flood event loading
             return self._load_flood_event_data()
         else:

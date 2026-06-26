@@ -1,4 +1,0 @@
-datasets:
-  songliao_event:
-    reader: floodevent
-    path: projects/songliao/event

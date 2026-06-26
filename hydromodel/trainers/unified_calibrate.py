@@ -400,10 +400,8 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
             "Config dictionary must contain 'data_cfgs', 'model_cfgs', and 'training_cfgs' keys"
         )
 
-    # Auto-resolve config if data_cfgs lacks resolved fields
-    from hydromodel.configs.data_resolver import resolve_config_if_needed
-
-    config = resolve_config_if_needed(config, **kwargs)
+    # data_cfgs only needs dataset + basin_ids; UnifiedDataLoader handles
+    # reader instantiation via open_dataset() internally.
 
     run_config = copy.deepcopy(config)
     data_config = run_config["data_cfgs"]

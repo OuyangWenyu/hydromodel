@@ -42,7 +42,6 @@ from spotpy.examples.spot_setup_hymod_python import spot_setup  # noqa: E402
 
 from hydrodataset.camels_us import CamelsUs as _CamelsUs  # noqa: E402
 from hydrodataset.hydro_dataset import StandardVariable  # noqa: E402
-from hydromodel.configs.data_resolver import resolve_data_cfgs  # noqa: E402
 
 
 @pytest.fixture()
@@ -52,9 +51,10 @@ def warmup_length():
 
 @pytest.fixture()
 def camels():
-    """Provide a CamelsUs datasource using the unified data resolution."""
-    resolved = resolve_data_cfgs({"dataset": "camels_us"})
-    return _CamelsUs(resolved["uri"])
+    """Provide a CamelsUs datasource using open_dataset."""
+    from hydrodatasource.configs.data_resolver import open_dataset
+
+    return open_dataset("camels_us")
 
 
 @pytest.fixture()

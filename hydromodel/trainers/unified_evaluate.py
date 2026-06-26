@@ -689,7 +689,7 @@ class UnifiedEvaluator:
             self.is_event_data,
             self.data_config,
             basin_configs=self.basin_configs,
-            data_path=self.data_loader.data_path,
+            data_path=self.data_loader.config.get("uri"),
             time_array=time_array,
             all_et=all_et,  # Pass ET variable
         )
@@ -745,10 +745,8 @@ def evaluate(
             "Config dictionary must contain 'data_cfgs', 'model_cfgs', and 'training_cfgs' keys"
         )
 
-    # Auto-resolve config if data_cfgs lacks resolved fields
-    from hydromodel.configs.data_resolver import resolve_config_if_needed
-
-    config = resolve_config_if_needed(config, **kwargs)
+    # data_cfgs only needs dataset + basin_ids; UnifiedDataLoader handles
+    # reader instantiation via open_dataset() internally.
 
     data_config = config["data_cfgs"]
     model_cfgs = config["model_cfgs"]

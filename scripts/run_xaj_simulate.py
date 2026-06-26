@@ -33,7 +33,6 @@ sys.path.append(repo_path)
 from hydromodel.datasets.unified_data_loader import UnifiedDataLoader  # noqa: E402
 from hydromodel.trainers.unified_simulate import UnifiedSimulator  # noqa: E402
 from hydromodel.models.model_config import read_model_param_dict  # noqa: E402
-from hydromodel.configs.data_resolver import resolve_config  # noqa: E402
 
 
 def load_parameters_from_csv(csv_file: str, param_names: list) -> OrderedDict:
@@ -279,12 +278,6 @@ def main():
     print(f"\n[1/4] Loading configuration from: {args.config}")
     with open(args.config, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
-
-    if not (
-        config.get("data_cfgs", {}).get("reader")
-        and config.get("data_cfgs", {}).get("uri")
-    ):
-        config = resolve_config(config, project_root=repo_path)
 
     data_config = config["data_cfgs"]
     model_cfgs = config["model_cfgs"]

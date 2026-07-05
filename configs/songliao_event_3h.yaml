@@ -1,0 +1,47 @@
+# Songliao flood-event calibration (3h) — ready to run.
+#
+#   uv run --project E:/code/hydromodel python \
+#       scripts/run_event_calibration.py --config configs/songliao_event_3h.yaml
+#
+# Notes:
+# - `uri` points directly at the data dir, which bypasses hydro_setting.yml /
+#   registry resolution (robust against a stale project .hydro_setting.yml).
+# - 3h data starts at 02:00 UTC (start_hour_in_a_day=2), so NO offset_to_utc.
+# - Reader `floodevent` splits events from the flood_event column.
+
+data_cfgs:
+  dataset: songliao_event
+  reader: floodevent
+  uri: F:\data\songliaorrevent\songliaorrevent   # change to your local path
+  source: local
+  time_unit: ["3h"]
+  basin_ids: ["songliao_11000200"]
+  warmup_length: 0
+  is_event_data: true
+  variables: ["rain", "ES", "inflow", "flood_event"]
+  train_period: ["1960-01-01", "2024-12-31"]
+  test_period: ["1960-01-01", "2024-12-31"]
+
+model_cfgs:
+  name: xaj_mz
+  params:
+    source_type: sources
+    source_book: HF
+    kernel_size: 15
+
+training_cfgs:
+  algorithm: SCE_UA
+  SCE_UA:
+    rep: 5000
+    ngs: 10
+    kstop: 10
+    peps: 0.001
+    pcento: 0.01
+    random_seed: 1234
+  loss: RMSE
+  output_dir: results/songliao_event
+  experiment_name: songliao_event_3h
+  save_config: true
+
+evaluation_cfgs:
+  metrics: ["NSE", "RMSE", "KGE", "PBIAS"]

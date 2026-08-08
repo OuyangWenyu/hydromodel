@@ -113,7 +113,7 @@ from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
 
 # Configuration
 data_config = {
-    "data_source_type": "camels_us",  # or "selfmadehydrodataset"
+    "dataset": "camels_us",  # or "songliao_event"
     "basin_ids": ["01013500"],
     "test_period": ["2000-10-01", "2010-09-30"],
     "warmup_length": 365,
@@ -157,13 +157,13 @@ pet_t100 = p_and_e[100, :, 1]
 
 ### Supported Data Sources
 
-| Data Source | `data_source_type` | Package |
+| Data Source | `dataset` | Package |
 |-------------|-------------------|---------|
 | CAMELS-US | `camels_us` | hydrodataset |
 | CAMELS-GB | `camels_gb` | hydrodataset |
 | CAMELS-AUS | `camels_aus` | hydrodataset |
 | ... | ... | hydrodataset |
-| Custom Data | `selfmadehydrodataset` | hydrodatasource |
+| Custom Data | `songliao_event` / `uri` + `reader` | hydrodatasource |
 
 See [Data Guide](data_guide.md) for detailed data preparation instructions.
 
@@ -180,22 +180,22 @@ from hydromodel.trainers.unified_calibrate import calibrate
 
 config = {
     "data_cfgs": {
-        "data_source_type": "camels_us",
+        "dataset": "camels_us",
         "basin_ids": ["01013500"],
         "train_period": ["1990-10-01", "2000-09-30"],
         "test_period": ["2000-10-01", "2010-09-30"],
         "warmup_length": 365,
     },
     "model_cfgs": {
-        "model_name": "xaj_mz",
-        "model_params": {
+        "name": "xaj_mz",
+        "params": {
             "source_type": "sources",
             "source_book": "HF",
         },
     },
     "training_cfgs": {
-        "algorithm_name": "SCE_UA",
-        "algorithm_params": {
+        "algorithm": "SCE_UA",
+        "SCE_UA": {
             "rep": 10000,
             "ngs": 100,
             "random_seed": 1234,
@@ -250,8 +250,8 @@ Uses `spotpy` library:
 
 ```python
 training_cfgs = {
-    "algorithm_name": "SCE_UA",
-    "algorithm_params": {
+    "algorithm": "SCE_UA",
+    "SCE_UA": {
         "rep": 10000,         # Maximum iterations
         "ngs": 100,           # Number of complexes
         "kstop": 50,          # Stopping criteria
@@ -283,8 +283,8 @@ Uses `DEAP` library:
 
 ```python
 training_cfgs = {
-    "algorithm_name": "GA",
-    "algorithm_params": {
+    "algorithm": "GA",
+    "GA": {
         "run_counts": 2,      # Number of evolutionary runs
         "pop_num": 50,        # Population size
         "cross_prob": 0.5,    # Crossover probability
@@ -304,8 +304,8 @@ training_cfgs = {
 
 ```python
 training_cfgs = {
-    "algorithm_name": "scipy",
-    "algorithm_params": {
+    "algorithm": "scipy",
+    "scipy": {
         "method": "Nelder-Mead",  # or "Powell", "COBYLA"
         "options": {
             "maxiter": 1000,
@@ -885,11 +885,11 @@ hydromodel provides specialized support for **flood event datasets**, where data
 
 ### Data Format
 
-Flood event data uses the `floodevent` data source type from `hydrodatasource`:
+Flood event data uses the `floodevent` reader from `hydrodatasource` (registered example: `songliao_event`):
 
 ```python
 data_config = {
-    "data_source_type": "floodevent",  # or "selfmadehydrodataset"
+    "dataset": "songliao_event",  # registered flood-event dataset
     "dataset_name": "my_flood_data",   # Dataset folder name
     "basin_ids": ["basin_001"],
     # ... other parameters
@@ -938,7 +938,7 @@ time,prcp,PET,streamflow,marker,event_id
 ```yaml
 # configs/flood_event_config.yaml
 data_cfgs:
-  data_source_type: "floodevent"
+  dataset: songliao_event
   dataset_name: "songliao_flood_events"
   basin_ids: ["songliao_21401550", "songliao_21100150"]
   train_period: ["2019-01-01", "2020-12-31"]  # Filter events by date range
@@ -951,15 +951,15 @@ data_cfgs:
   event_ids: [25, 26, 27]  # Only use these events
 
 model_cfgs:
-  model_name: "xaj_mz"
-  model_params:
+  name: xaj_mz
+  params:
     source_type: "sources"
     source_book: "HF"
     kernel_size: 15
 
 training_cfgs:
-  algorithm_name: "SCE_UA"
-  algorithm_params:
+  algorithm: SCE_UA
+  SCE_UA:
     rep: 5000
     ngs: 1000
     random_seed: 1234
@@ -1031,7 +1031,7 @@ from hydromodel.trainers.unified_evaluate import evaluate
 # Configuration
 config = {
     "data_cfgs": {
-        "data_source_type": "floodevent",
+        "dataset": "songliao_event",
         "dataset_name": "songliao_flood_events",
         "basin_ids": ["songliao_21401550"],
         "train_period": ["2019-01-01", "2020-12-31"],
@@ -1041,11 +1041,11 @@ config = {
         "variables": ["prcp", "PET", "streamflow"],
     },
     "model_cfgs": {
-        "model_name": "xaj_mz",
+        "name": "xaj_mz",
     },
     "training_cfgs": {
-        "algorithm_name": "SCE_UA",
-        "algorithm_params": {"rep": 5000, "ngs": 1000},
+        "algorithm": "SCE_UA",
+        "SCE_UA": {"rep": 5000, "ngs": 1000},
         "loss_config": {"type": "time_series", "obj_func": "RMSE"},
         "output_dir": "results",
         "experiment_name": "flood_event_exp",
@@ -1181,7 +1181,7 @@ config["data_cfgs"]["basin_ids"] = ["songliao_21401550"]
 
 | Feature | Continuous Data | Flood Event Data |
 |---------|----------------|------------------|
-| Data source | CAMELS, selfmadehydrodataset | floodevent |
+| Data source | CAMELS datasets | songliao_event (flood events) |
 | Time structure | Continuous time series | Discrete events with gaps |
 | Warmup | Days (typically 365) | Hours (typically 15) |
 | marker column | Not used | Required (1=valid, 0=gap) |
@@ -1291,7 +1291,7 @@ from hydromodel.datasets.data_visualize import visualize_evaluation
 # 1. Configuration
 config = {
     "data_cfgs": {
-        "data_source_type": "floodevent",
+        "dataset": "songliao_event",
         "dataset_name": "songliao_flood_events",
         "basin_ids": ["songliao_21401550", "songliao_21100150"],
         "train_period": ["2019-01-01", "2020-12-31"],
@@ -1300,10 +1300,10 @@ config = {
         "time_unit": ["1h"],
         "variables": ["prcp", "PET", "streamflow"],
     },
-    "model_cfgs": {"model_name": "xaj_mz"},
+    "model_cfgs": {"name": "xaj_mz"},
     "training_cfgs": {
-        "algorithm_name": "SCE_UA",
-        "algorithm_params": {"rep": 5000, "ngs": 1000},
+        "algorithm": "SCE_UA",
+        "SCE_UA": {"rep": 5000, "ngs": 1000},
         "loss_config": {"type": "time_series", "obj_func": "RMSE"},
         "output_dir": "results",
         "experiment_name": "flood_2basin",
@@ -1353,8 +1353,9 @@ All APIs use a **consistent configuration format**:
 config = {
     "data_cfgs": {
         # Data source and loading
-        "data_source_type": str,
-        "data_source_path": str,  # Optional for CAMELS
+        "dataset": str,
+        "uri": str,  # explicit path for custom data (bypasses registry)
+        "reader": str,  # reader alias when using uri
         "basin_ids": list[str],
         "train_period": [str, str],
         "test_period": [str, str],
@@ -1363,13 +1364,13 @@ config = {
     },
     "model_cfgs": {
         # Model configuration
-        "model_name": str,
-        "model_params": dict,
+        "name": str,
+        "params": dict,
     },
     "training_cfgs": {
         # Calibration settings
-        "algorithm_name": str,
-        "algorithm_params": dict,
+        "algorithm": str,
+        "SCE_UA": dict,  # algorithm-specific sub-dict keyed by algorithm name
         "loss_config": dict,
         "output_dir": str,
         "experiment_name": str,
@@ -1388,7 +1389,7 @@ For reproducibility, use YAML files:
 ```yaml
 # config.yaml
 data_cfgs:
-  data_source_type: "camels_us"
+  dataset: camels_us
   basin_ids: ["01013500"]
   train_period: ["1990-10-01", "2000-09-30"]
   test_period: ["2000-10-01", "2010-09-30"]
@@ -1396,14 +1397,14 @@ data_cfgs:
   variables: ["precipitation", "potential_evapotranspiration", "streamflow"]
 
 model_cfgs:
-  model_name: "xaj_mz"
-  model_params:
+  name: xaj_mz
+  params:
     source_type: "sources"
     source_book: "HF"
 
 training_cfgs:
-  algorithm_name: "SCE_UA"
-  algorithm_params:
+  algorithm: SCE_UA
+  SCE_UA:
     rep: 10000
     ngs: 100
     random_seed: 1234
@@ -1502,7 +1503,7 @@ experiments = [
 
 for exp in experiments:
     config["data_cfgs"]["basin_ids"] = exp["basins"]
-    config["training_cfgs"]["algorithm_name"] = exp["algorithm"]
+    config["training_cfgs"]["algorithm"] = exp["algorithm"]
     config["training_cfgs"]["experiment_name"] = exp["name"]
 
     results = calibrate(config)

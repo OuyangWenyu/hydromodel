@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased (refactor/remove-data-resolver-use-opendataset) - 2026-08-08
+
+**Data layer refactor:**
+
+- **Data resolution delegated to hydrodataset/hydrodatasource**: `hydromodel` no longer
+  resolves dataset paths itself. `UnifiedDataLoader` now calls
+  `hydrodatasource.configs.data_resolver.open_dataset()` directly, and the old
+  `hydromodel/configs/data_resolver.py` was removed.
+- **Canonical configuration schema**: keys renamed to `data_cfgs.dataset`,
+  `model_cfgs.name`, `model_cfgs.params`, and `training_cfgs.algorithm` (algorithm
+  hyperparameters live in a sub-dict keyed by the algorithm name, e.g.
+  `training_cfgs["SCE_UA"]`). `training_cfgs.loss` (string) or a full `loss_config`
+  dict are both accepted.
+- **Parameter contracts**: explicit `param_range_file` is validated strictly (missing
+  files, unknown/missing parameters, invalid `[min, max]` ranges fail fast); built-in
+  `MODEL_PARAM_DICT` ranges are used when no file is provided.
+- **Loss resolution**: user-facing maximize metrics (`NSE`, `KGE`, `LOGNSE`) are mapped
+  to negated spotpy objectives; optimizers always minimize.
+- **Lazy top-level API**: `hydromodel/__init__.py` exposes introspection helpers
+  (`list_models`, `describe_model`, `list_losses`, `resolve_loss_config`,
+  `check_dependencies`) and lazy-loads heavy trainers.
+- **Local & cloud data**: `storage:` config in `~/hydro_setting.yml` /
+  `.hydro_setting.yml` (local root, cache, OSS/S3); `data_cfgs.source: local|cloud`.
+- **xaj_slw unit fix**: `UnifiedSimulator` converts `xaj_slw` qsim from m^3/s back to
+  mm so it is comparable with other models and observations.
+- **Songliao 3h flood-event calibration**: ready-to-run `configs/songliao_event_3h.yaml`.
+- **Tests & docs**: agent-contract tests, e2e resolver test, ADR 0001, and README/docs
+  updated to the canonical schema.
+
+
 ## v0.3.0 - 2025-11-07
 
 **Critical Bug Fixes for Multi-Basin Flood Event Data**:

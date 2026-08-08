@@ -4,7 +4,7 @@ This guide covers all methods to install hydromodel on different platforms.
 
 ## Requirements
 
-- **Python**: 3.9 or higher
+- **Python**: 3.11 or higher
 - **Operating System**: Windows, macOS, or Linux
 - **Disk Space**: ~500 MB for package + data storage for datasets
 
@@ -38,7 +38,7 @@ source hydromodel-env/bin/activate
 pip install hydromodel
 
 # Install hydrodataset for data access
-pip install hydrodataset
+pip install hydrodataset hydrodatasource
 ```
 
 ### Method 2: Using uv (Faster)
@@ -59,7 +59,7 @@ uv venv
 source .venv/bin/activate
 
 # Install packages
-uv pip install hydromodel hydrodataset
+uv pip install hydromodel hydrodataset hydrodatasource hydrodatasource
 ```
 
 Installation with uv is typically 10-100x faster than pip.
@@ -79,7 +79,7 @@ conda activate hydromodel
 conda install -c conda-forge hydromodel
 
 # Or use pip within conda
-pip install hydromodel hydrodataset
+pip install hydromodel hydrodataset hydrodatasource
 ```
 
 ## Installation from Source
@@ -129,7 +129,7 @@ source .venv/bin/activate
 
 ```bash
 # CAMELS and other public datasets
-pip install hydrodataset
+pip install hydrodataset hydrodatasource
 ```
 
 ### For Visualization
@@ -163,7 +163,7 @@ pip install "hydromodel[all]"
 
 2. **Install hydromodel**:
    ```cmd
-   pip install hydromodel hydrodataset
+   pip install hydromodel hydrodataset hydrodatasource
    ```
 
 3. **Verify installation**:
@@ -180,7 +180,7 @@ pip install "hydromodel[all]"
 
 2. **Install hydromodel**:
    ```bash
-   pip3 install hydromodel hydrodataset
+   pip3 install hydromodel hydrodataset hydrodatasource
    ```
 
 3. **Verify installation**:
@@ -198,7 +198,7 @@ pip install "hydromodel[all]"
 
 2. **Install hydromodel**:
    ```bash
-   pip3 install hydromodel hydrodataset
+   pip3 install hydromodel hydrodataset hydrodatasource
    ```
 
 3. **Verify installation**:
@@ -218,14 +218,15 @@ import hydrodataset
 # Check versions
 print(f"hydromodel version: {hydromodel.__version__}")
 
-# Test basic functionality
-from hydromodel.models.model_factory import model_factory
+# Test basic functionality: list registered models
+from hydromodel import list_models
+print(list_models())
+```
 
-# Create a model
-model = model_factory(model_name="xaj_mz")
-print(f"✓ Successfully created {model.__class__.__name__}")
-print(f"✓ Model has {model.param_limits.shape[0]} parameters")
-print("✓ Installation verified!")
+Expected output (version may differ):
+```
+hydromodel version: 0.3.2
+['categorized_unit_hydrograph', 'dhf', 'gr1a', 'gr2m', 'gr3j', 'gr4j', 'gr5j', 'gr6j', 'hymod', 'semi_xaj', 'unit_hydrograph', 'xaj', 'xaj_mz', 'xaj_slw']
 ```
 
 Expected output:
@@ -240,28 +241,30 @@ hydromodel version: 0.1.0
 
 After installation, configure data paths:
 
-### Step 1: Create Configuration File
+### Step 1: Configure Storage
 
-Create `hydro_setting.yml` in your home directory:
+Create `hydro_setting.yml` in your home directory (user-level):
 
 **Windows:** `C:\Users\YourUsername\hydro_setting.yml`
 **macOS/Linux:** `~/hydro_setting.yml`
 
 ```yaml
-local_data_path:
-  root: '/path/to/data'
-  datasets-origin: '/path/to/data/datasets'
-  cache: '/path/to/data/.cache'
+storage:
+  default_source: local
+  local:
+    root: 'F:/data'          # parent dir containing dataset folders (e.g. CAMELS_US/)
+  cache: 'D:/netcdf'         # NetCDF/zarr cache directory
 ```
+
+A project-level `.hydro_setting.yml` in the repository root overrides the user-level file key-by-key.
+Data loading is delegated to `hydrodatasource` / `hydrodataset`; the legacy `local_data_path` block is not read.
 
 ### Step 2: Verify Configuration
 
 ```python
-from hydromodel import SETTING
+from hydrodatasource.configs.data_resolver import resolve_data_path
 
-print("Configuration loaded:")
-print(f"Root: {SETTING.get('local_data_path', {}).get('root')}")
-print(f"Datasets: {SETTING.get('local_data_path', {}).get('datasets-origin')}")
+print(resolve_data_path("camels_us", source="local"))
 ```
 
 ## Troubleshooting
@@ -356,7 +359,7 @@ To remove everything including dependencies:
 pip list | grep hydro
 
 # Uninstall
-pip uninstall hydromodel hydrodataset
+pip uninstall hydromodel hydrodataset hydrodatasource
 ```
 
 To remove the virtual environment:
@@ -379,7 +382,7 @@ For reproducible environments:
 FROM python:3.11-slim
 
 # Install dependencies
-RUN pip install --no-cache-dir hydromodel hydrodataset
+RUN pip install --no-cache-dir hydromodel hydrodataset hydrodatasource
 
 # Set working directory
 WORKDIR /app

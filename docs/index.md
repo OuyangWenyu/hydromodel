@@ -57,7 +57,7 @@ from hydromodel.trainers.unified_evaluate import evaluate
 # Configuration for calibration
 config = {
     "data_cfgs": {
-        "data_source_type": "camels_us",
+        "dataset": "camels_us",
         "basin_ids": ["01013500"],
         "train_period": ["1985-10-01", "1995-09-30"],
         "test_period": ["2005-10-01", "2014-09-30"],
@@ -65,11 +65,11 @@ config = {
         "variables": ["precipitation", "potential_evapotranspiration", "streamflow"]
     },
     "model_cfgs": {
-        "model_name": "xaj_mz",
+        "name": "xaj_mz",
     },
     "training_cfgs": {
-        "algorithm_name": "SCE_UA",
-        "algorithm_params": {"rep": 5000, "ngs": 1000},
+        "algorithm": "SCE_UA",
+        "SCE_UA": {"rep": 5000, "ngs": 1000},
         "loss_config": {"type": "time_series", "obj_func": "RMSE"},
         "output_dir": "results",
         "experiment_name": "my_experiment",
@@ -110,13 +110,13 @@ python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
 ### Quick Installation
 
 ```bash
-pip install hydromodel hydrodataset
+pip install hydromodel hydrodataset hydrodatasource
 ```
 
 Or using `uv` (faster):
 
 ```bash
-uv pip install hydromodel hydrodataset
+uv pip install hydromodel hydrodataset hydrodatasource hydrodatasource
 ```
 
 ### From Source
@@ -140,7 +140,7 @@ For detailed installation instructions, see the [Installation Guide](installatio
 **For Practitioners:**
 - Simple YAML configuration, minimal coding required
 - Handles multi-basin calibration efficiently
-- Integration with global CAMELS datasets (11 variants)
+- Integration with global public datasets (27 registered datasets)
 - Clear documentation and examples
 
 **Compared to other packages:**
@@ -168,11 +168,11 @@ Calibrate hydrological models on CAMELS datasets or custom data with various alg
 
 ```python
 # Use SCE-UA for global optimization
-config["training_cfgs"]["algorithm_name"] = "SCE_UA"
+config["training_cfgs"]["algorithm"] = "SCE_UA"
 results = calibrate(config)
 
 # Or use GA for flexible optimization
-config["training_cfgs"]["algorithm_name"] = "GA"
+config["training_cfgs"]["algorithm"] = "GA"
 results = calibrate(config)
 ```
 
@@ -208,7 +208,7 @@ Extract and calibrate on flood events:
 ```python
 config = {
     "data_cfgs": {
-        "data_source_type": "floodevent",
+        "dataset": "songliao_event",  # registered flood-event dataset
         "time_unit": ["3h"],
         "variables": ["prcp", "PET", "streamflow"],
         ...
@@ -225,9 +225,13 @@ results = calibrate(config)
 | **xaj** | Standard XinAnJiang model | 15 | Linear reservoir |
 | **xaj_mz** | XAJ with Muskingum routing | 15 | Muskingum |
 | **xaj_slw** | XAJ with SLW routing | 26 | Storage-lag-weighted |
+| **gr1a / gr2m / gr3j** | GR rainfall-runoff models | 1 / 2 / 3 | Unit hydrograph |
 | **gr4j** | GR4J rainfall-runoff model | 4 | Unit hydrograph |
+| **gr5j / gr6j** | GR rainfall-runoff models | 5 / 6 | Unit hydrograph |
 | **hymod** | HYMOD model | 5 | Nash cascade |
 | **dhf** | Dahuofang model | 18 | Custom |
+| **semi_xaj** | Semi-distributed XAJ variant | - | Custom |
+| **unit_hydrograph / categorized_unit_hydrograph** | Unit hydrograph models | - | Unit hydrograph |
 
 For detailed model documentation, see [XAJ Model](models/xaj.md) and [DHF Model](models/dhf.md).
 
@@ -243,18 +247,11 @@ For detailed model documentation, see [XAJ Model](models/xaj.md) and [DHF Model]
 
 ### CAMELS Datasets
 
-Support for 11 CAMELS variants worldwide:
-
-- CAMELS-US (671 basins)
-- CAMELS-AUS (222 basins)
-- CAMELS-BR (897 basins)
-- CAMELS-CL (516 basins)
-- CAMELS-GB (671 basins)
-- And more...
+27 public datasets are registered in `hydrodataset`, including the CAMELS series (`camels_us`, `camels_aus`, `camels_br`, `camels_ch`, `camels_cl`, `camels_col`, `camels_de`, `camels_dk`, `camels_fi`, `camels_pe`, `camels_fr`, `camels_gb`, `camels_ind`, `camels_lux`, `camels_nz`, `camels_se`), CAMELSH, CARAVAN, LamaH, and others. See the [Data Guide](data_guide.md) for the full list and local/cloud configuration.
 
 ### Custom Data
 
-Use your own data with `selfmadehydrodataset` format:
+Use your own data with a `uri` + reader alias (e.g. `selfmade`), or a registered custom dataset id such as `songliao_event`:
 
 ```
 my_basin_data/

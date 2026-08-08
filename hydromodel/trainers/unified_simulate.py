@@ -275,6 +275,30 @@ class UnifiedSimulator:
                 **kwargs,
             )
 
+        # xaj_slw is the only model here that returns discharge (m^3/s); every
+        # other model — and the observations, loss, and evaluation — works in
+        # runoff depth (mm per time step). Convert its qsim back to mm so it is
+        # comparable, using the exact inverse of the conversion done inside the
+        # model: xaj_slw.py does `cp = basin_area / time_interval / 3.6` and
+        # `discharge = depth * cp`, so `depth = discharge * time_interval * 3.6
+        # / basin_area`.
+        if (
+            self.model_name == "xaj_slw"
+            and self.basin is not None
+            and isinstance(simulation_result, dict)
+            and "qsim" in simulation_result
+        ):
+            time_interval_hours = float(
+                self.model_params.get("time_interval_hours", 3.0)
+            )
+            basin_area_km2 = float(self.basin.basin_area)
+            simulation_result["qsim"] = (
+                simulation_result["qsim"]
+                * time_interval_hours
+                * 3.6
+                / basin_area_km2
+            )
+
         return simulation_result
 
     def _process_model_result(

@@ -20,6 +20,30 @@ from hydromodel.models.model_dict import (
     list_models,
     resolve_loss_config,
 )
+from hydromodel.configs.config_manager import validate_config
+
+
+def test_validate_config_requires_dataset():
+    """A config without data_cfgs.dataset must fail validation."""
+    config = {
+        "data_cfgs": {"basin_ids": ["b1"]},  # missing dataset
+        "model_cfgs": {"name": "xaj"},
+        "training_cfgs": {"algorithm": "SCE_UA", "loss": "RMSE"},
+    }
+    result = validate_config(config)
+    assert result["valid"] is False
+    assert any("dataset" in err for err in result["errors"])
+
+
+def test_validate_config_accepts_dataset():
+    """A config with data_cfgs.dataset passes the dataset requirement."""
+    config = {
+        "data_cfgs": {"dataset": "camels_us", "basin_ids": ["b1"]},
+        "model_cfgs": {"name": "xaj"},
+        "training_cfgs": {"algorithm": "SCE_UA", "loss": "RMSE"},
+    }
+    result = validate_config(config)
+    assert not any("dataset" in err for err in result["errors"])
 
 
 def test_resolve_loss_config_maps_user_objectives_to_minimized_keys():

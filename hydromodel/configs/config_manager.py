@@ -398,6 +398,9 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
     model_cfgs = config["model_cfgs"]
     training_cfgs = config["training_cfgs"]
 
+    if not data_cfgs.get("dataset"):
+        result["errors"].append("data_cfgs.dataset is required")
+
     model_name = model_cfgs.get("name")
     if not model_name:
         result["errors"].append("model_cfgs.name is required")

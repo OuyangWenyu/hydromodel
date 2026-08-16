@@ -9,7 +9,9 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
 import os
+import re
 import yaml
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -166,16 +168,35 @@ class Evaluator:
         # (m^3/s). Prefer a pint-safe depth unit (mm/d, mm/h) so the conversion
         # does not fail when pint_xarray is loaded (custom units such as mm/3h
         # are not parseable by pint).
+        # Model output (qsim/etsim) is in depth units (mm per timestep),
+        # matching precipitation. Prefer the observed-flow depth unit when it is
+        # already pint-safe. pint cannot parse custom interval units (e.g.
+        # mm/3h), so for other cadences we scale the data to a standard unit.
+        scale = 1.0
         obs_units = test_data[flow_name].attrs.get("units", "")
         if obs_units in ("mm/d", "mm/day", "mm/h"):
             depth_unit = obs_units
         elif len(times) >= 2:
             interval = detect_time_interval(times)
-            depth_unit = "mm/h" if interval == "1h" else "mm/day"
+            interval_match = re.match(r"(\d+)([hd])", interval)
+            if interval_match:
+                amount, kind = (
+                    int(interval_match.group(1)),
+                    interval_match.group(2),
+                )
+                if kind == "h":
+                    depth_unit = "mm/h"
+                else:
+                    depth_unit = "mm/day"
+                scale = 1.0 / amount
+            else:
+                depth_unit = "mm/day"
         else:
             # Single-timestep data cannot be interval-detected; default to
             # a safe depth unit.
             depth_unit = "mm/day"
+        qsim = qsim * scale
+        etsim = etsim * scale
         flow_dataarray.attrs["units"] = depth_unit
 
         et_dataarray = xr.DataArray(

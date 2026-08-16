@@ -69,26 +69,6 @@ longer available; use run_unified_simulation.py for DHF simulation instead.
     )
 
     parser.add_argument(
-        "--data-path",
-        type=str,
-        help="Data file path (for csv, parquet, json sources)",
-        default=r"E:\data\ClassC\songliaorrevent\timeseries\3h\songliao_21100150.csv",
-    )
-
-    parser.add_argument(
-        "--sql-connection",
-        type=str,
-        help="SQL connection string (for sql source)",
-    )
-
-    parser.add_argument(
-        "--sql-table",
-        type=str,
-        default="hydro_data",
-        help="SQL table name (default: hydro_data)",
-    )
-
-    parser.add_argument(
         "--basin-ids",
         nargs="+",
         default=["songliao_21100150"],
@@ -112,20 +92,6 @@ longer available; use run_unified_simulation.py for DHF simulation instead.
         nargs=2,
         default=["2020-01-01", "2020-12-31"],
         help="Time range for simulation: start_date end_date (default: 2020-01-01 2020-12-31)",
-    )
-
-    parser.add_argument(
-        "--time-column",
-        type=str,
-        default="time",
-        help="Name of time column in data (default: time)",
-    )
-
-    parser.add_argument(
-        "--basin-column",
-        type=str,
-        default="basin",
-        help="Name of basin column in data (default: basin)",
     )
 
     # Model parameters

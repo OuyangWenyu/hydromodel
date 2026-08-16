@@ -506,3 +506,57 @@ def test_basin_area_retrieval(fake_selfmade_dataset):
         print(
             f"   {basin_id}: {basin_configs[basin_id]['basin_area']:.1f} km²"
         )
+
+
+def test_simulate_selfmade_with_specific_parameters(fake_selfmade_dataset):
+    """End-to-end simulate(config) with concrete parameter values."""
+    from hydromodel import simulate
+
+    dataset_info = fake_selfmade_dataset
+    config = {
+        "data_cfgs": {
+            "dataset": "test_selfmade",
+            "source": "local",
+            "reader": "selfmade",
+            "uri": os.path.join(
+                dataset_info["dataset_path"], dataset_info["dataset_name"]
+            ),
+            "time_unit": ["1D"],
+            "basin_ids": [dataset_info["basin_ids"][0]],
+            "warmup_length": 30,
+            "variables": ["prcp", "PET", "streamflow"],
+            "train_period": ["2010-01-01", "2012-12-31"],
+            "test_period": ["2012-01-01", "2012-12-31"],
+        },
+        "model_cfgs": {
+            "name": "xaj",
+            "params": {"source_type": "sources", "source_book": "HF"},
+            "parameters": {
+                "K": 0.75,
+                "B": 0.25,
+                "IM": 0.06,
+                "UM": 18.0,
+                "LM": 80.0,
+                "DM": 95.0,
+                "C": 0.12,
+                "SM": 45.0,
+                "EX": 1.3,
+                "KI": 0.35,
+                "KG": 0.45,
+                "CS": 0.5,
+                "L": 5.5,
+                "CI": 0.65,
+                "CG": 0.985,
+            },
+        },
+    }
+
+    results = simulate(config)
+    assert "simulation" in results, "results must contain 'simulation'"
+    assert "qobs" in results, "results must contain 'qobs'"
+    assert results["model_name"] == "xaj"
+    assert results["parameters"]["K"] == 0.75
+    # simulation output has a qsim array
+    qsim = results["simulation"].get("qsim")
+    assert qsim is not None, "simulation must include qsim"
+    assert qsim.shape[0] > 0, "qsim must be non-empty"

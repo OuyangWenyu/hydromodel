@@ -46,6 +46,25 @@ def test_validate_config_accepts_dataset():
     assert not any("dataset" in err for err in result["errors"])
 
 
+def test_simulate_is_exported():
+    """The documented top-level simulate(config) interface must exist."""
+    import hydromodel
+
+    assert callable(hydromodel.simulate)
+
+
+def test_simulate_requires_specific_parameters():
+    """Simulation needs concrete parameter values under model_cfgs.parameters."""
+    import hydromodel
+
+    config = {
+        "data_cfgs": {"dataset": "camels_us", "basin_ids": ["01013500"]},
+        "model_cfgs": {"name": "xaj", "params": {"source_type": "sources"}},
+    }
+    with pytest.raises(ValueError, match="parameters"):
+        hydromodel.simulate(config)
+
+
 def test_resolve_loss_config_maps_user_objectives_to_minimized_keys():
     nse = resolve_loss_config({"type": "time_series", "obj_func": "NSE"})
     kge = resolve_loss_config({"type": "time_series", "obj_func": "KGE"})

@@ -48,6 +48,7 @@ except ImportError:
 
 _LAZY_EXPORTS = {
     "calibrate": ("hydromodel.trainers.unified_calibrate", "calibrate"),
+    "simulate": ("hydromodel.trainers.unified_simulate", "simulate"),
     "UnifiedSimulator": (
         "hydromodel.trainers.unified_simulate",
         "UnifiedSimulator",

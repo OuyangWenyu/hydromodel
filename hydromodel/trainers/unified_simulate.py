@@ -8,12 +8,15 @@ FilePath: /hydromodel/hydromodel/trainers/unified_simulate.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
+import copy
+
 import numpy as np
 import pandas as pd
 from typing import Dict, Any, Optional, Union
 from collections import OrderedDict
 
 from hydroutils.hydro_event import find_flood_event_segments_as_tuples
+from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
 from hydromodel.models.model_dict import MODEL_DICT
 from .basin import Basin
 
@@ -615,3 +618,99 @@ class UnifiedSimulator:
             final_output["warmup_states"] = event_warmup_states
 
         return final_output
+
+
+def simulate(config: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+    """
+    Unified simulation interface for all hydrological models.
+
+    This function is the simulation counterpart of ``calibrate()``: a single
+    entry point that runs a model with specific parameter values, configured
+    entirely through the ``config`` parameter.
+
+    Parameters
+    ----------
+    config : Dict[str, Any]
+        Configuration dictionary with 'data_cfgs' and 'model_cfgs' sections.
+        ``model_cfgs`` must contain concrete parameter values under
+        ``parameters`` (not ranges) for the model run.
+    **kwargs
+        Additional keyword arguments forwarded to ``UnifiedSimulator.simulate``.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary containing:
+        - ``simulation`` : the model output (dict of arrays)
+        - ``qobs`` : observed streamflow
+        - ``parameters`` : the parameter values used
+        - ``model_name`` : the model run
+        - ``basin_ids`` : the basins simulated
+
+    Examples
+    --------
+    >>> config = {
+    ...     "data_cfgs": {"dataset": "camels_us", "basin_ids": ["01013500"]},
+    ...     "model_cfgs": {
+    ...         "name": "xaj",
+    ...         "parameters": {"K": 0.5, "B": 0.3},
+    ...     },
+    ... }
+    >>> results = simulate(config)
+    >>> print(results["simulation"].keys())
+    """
+    run_config = copy.deepcopy(config)
+    data_config = run_config["data_cfgs"]
+    model_cfgs = run_config["model_cfgs"]
+    model_params = model_cfgs.get("params", {})
+    model_name = model_cfgs.get("name")
+    if not model_name:
+        raise ValueError("model_cfgs.name is required")
+    parameters = model_cfgs.get("parameters", {})
+    if not parameters:
+        raise ValueError(
+            "model_cfgs.parameters is required for simulation (concrete values)"
+        )
+
+    model_config = {
+        "model_name": model_name,
+        "model_params": model_params,
+        "parameters": parameters,
+    }
+    if "output_variable" in model_cfgs:
+        model_config["output_variable"] = model_cfgs["output_variable"]
+
+    # Load data and determine the (single) basin to simulate. Prefer the test
+    # period for evaluation-style simulation; fall back to train when absent.
+    is_train_val_test = "test"
+    if not data_config.get("test_period") and data_config.get("train_period"):
+        is_train_val_test = "train"
+    data_loader = UnifiedDataLoader(data_config, is_train_val_test=is_train_val_test)
+    p_and_e, qobs = data_loader.load_data()
+    basin_ids = list(data_config.get("basin_ids", data_loader.basin_ids))
+    if not basin_ids:
+        basin_ids = [f"basin_{i}" for i in range(p_and_e.shape[1])]
+    basin_id = basin_ids[0]
+
+    # Build an optional basin config for the simulator (area etc.)
+    basin_config = None
+    if hasattr(data_loader, "get_basin_configs"):
+        basin_config = data_loader.get_basin_configs().get(basin_id)
+
+    simulator = UnifiedSimulator(model_config, basin_config)
+    sim_results = simulator.simulate(
+        inputs=p_and_e,
+        qobs=qobs,
+        warmup_length=data_config.get("warmup_length", 365),
+        is_event_data=data_config.get("is_event_data", False),
+        return_intermediate=False,
+        **kwargs,
+    )
+
+    return {
+        "simulation": sim_results,
+        "qobs": qobs,
+        "parameters": parameters,
+        "model_name": model_name,
+        "basin_ids": basin_ids,
+    }

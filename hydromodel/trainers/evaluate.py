@@ -155,34 +155,24 @@ class Evaluator:
         # print("qsim shape:", qsim.shape)
         # print("etsim shape:", etsim.shape)
 
-        # 创建 DataArray，确保维度匹配
-        flow_dataarray = xr.DataArray(
-            qsim,
-            coords={"time": times, "basin": basins},
-            dims=["time", "basin"],
-            name=flow_name,
-        )
-        # Model output (qsim) is in depth units (mm per timestep), matching the
-        # precipitation input. Do NOT blindly inherit the observed-flow unit:
-        # since hydrodataset 0.3.0 observed streamflow may be volumetric
-        # (m^3/s). Prefer a pint-safe depth unit (mm/d, mm/h) so the conversion
-        # does not fail when pint_xarray is loaded (custom units such as mm/3h
-        # are not parseable by pint).
         # Model output (qsim/etsim) is in depth units (mm per timestep),
         # matching precipitation. Prefer the observed-flow depth unit when it is
-        # already pint-safe. pint cannot parse custom interval units (e.g.
-        # mm/3h), so for other cadences we scale the data to a standard unit.
+        # already pint-safe (mm/d, mm/h); do NOT blindly inherit it, since
+        # hydrodataset 0.3.0 observed streamflow may be volumetric (m^3/s).
+        # pint cannot parse custom interval units (e.g. mm/3h), so for other
+        # cadences we scale the data to a standard unit BEFORE building the
+        # DataArrays below.
         scale = 1.0
         obs_units = test_data[flow_name].attrs.get("units", "")
         if obs_units in ("mm/d", "mm/day", "mm/h"):
             depth_unit = obs_units
         elif len(times) >= 2:
             interval = detect_time_interval(times)
-            interval_match = re.match(r"(\d+)([hd])", interval)
+            interval_match = re.match(r"(\d+)([hHdD])", interval)
             if interval_match:
                 amount, kind = (
                     int(interval_match.group(1)),
-                    interval_match.group(2),
+                    interval_match.group(2).lower(),
                 )
                 if kind == "h":
                     depth_unit = "mm/h"
@@ -197,6 +187,14 @@ class Evaluator:
             depth_unit = "mm/day"
         qsim = qsim * scale
         etsim = etsim * scale
+
+        # 创建 DataArray，确保维度匹配
+        flow_dataarray = xr.DataArray(
+            qsim,
+            coords={"time": times, "basin": basins},
+            dims=["time", "basin"],
+            name=flow_name,
+        )
         flow_dataarray.attrs["units"] = depth_unit
 
         et_dataarray = xr.DataArray(

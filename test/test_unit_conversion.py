@@ -20,6 +20,12 @@ import xarray as xr
 import pint_xarray  # noqa: F401  (enable the .pint accessor, as conftest does)
 from hydroutils.hydro_units import streamflow_unit_conv
 
+
+def _fake_basin_area() -> xr.Dataset:
+    area = xr.Dataset({"area": (("basin",), [AREA])}, coords={"basin": ["basin_001"]})
+    area["area"].attrs["units"] = "km^2"
+    return area
+
 N_TIME = 6
 AREA = 1000.0  # km^2
 
@@ -91,3 +97,50 @@ class TestAreaHandling:
             _make_data("mm/day"), _broadcast_area(), target_unit="m^3/s"
         )
         assert r["qsim"].values[0] == pytest.approx(11.574, rel=1e-3)
+
+
+class TestEvaluatorConversion:
+    """Exercises Evaluator._convert_streamflow_units end-to-end."""
+
+    def _convert(self, times, obs_units, monkeypatch):
+        from hydromodel.trainers.evaluate import Evaluator
+
+        import hydromodel.trainers.evaluate as ev_module
+
+        ev = Evaluator.__new__(Evaluator)
+        ev.data_type = "test"
+        ev.data_dir = "test"
+        monkeypatch.setattr(
+            ev_module, "get_basin_area", lambda *a, **k: _fake_basin_area()
+        )
+
+        test_data = xr.Dataset(
+            {"flow": (("time", "basin"), np.ones((len(times), 1)))},
+            coords={"time": times, "basin": ["basin_001"]},
+        )
+        test_data["flow"].attrs["units"] = obs_units
+        qsim = np.ones((len(times), 1))
+        etsim = np.ones((len(times), 1))
+        ds_simflow, ds_obsflow, ds_et = ev._convert_streamflow_units(
+            test_data, qsim, etsim
+        )
+        return ds_simflow["flow"].values[0, 0]
+
+    def test_3h_data_scales_to_mm_h(self, monkeypatch):
+        times = np.array(
+            ["2010-01-01 00:00", "2010-01-01 03:00", "2010-01-01 06:00"],
+            dtype="datetime64[ns]",
+        )
+        # 1 mm/3h scaled to mm/h (1/3) over 1000 km^2 = 92.59 m^3/s
+        assert self._convert(times, "m^3/s", monkeypatch) == pytest.approx(
+            92.59, rel=1e-3
+        )
+
+    def test_daily_obs_unit_preserved(self, monkeypatch):
+        times = np.array(
+            ["2010-01-01", "2010-01-02", "2010-01-03"], dtype="datetime64[ns]"
+        )
+        # obs mm/d (CAMELS US) -> sim stays mm/d -> 11.57 m^3/s
+        assert self._convert(times, "mm/d", monkeypatch) == pytest.approx(
+            11.574, rel=1e-3
+        )

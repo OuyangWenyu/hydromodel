@@ -548,7 +548,8 @@ def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
         qobs_ = ts_data[p_pet_flow_vars[-1:]]
         target_unit = ts_data[p_pet_flow_vars[0]].attrs.get("units", "unknown")
         if (
-            qobs_[p_pet_flow_vars[-1]].attrs.get("units", "unknown")
+            target_unit != "unknown"
+            and qobs_[p_pet_flow_vars[-1]].attrs.get("units", "unknown")
             != target_unit
         ):
             r_mmd = streamflow_unit_conv(
@@ -568,7 +569,10 @@ def get_ts_from_diffsource(data_type, data_dir, periods, basin_ids):
         target_unit = ts_data[prcp_name].attrs.get("units", "unknown")
         qobs_ = ts_data[[flow_name]]
 
-        if qobs_[flow_name].attrs.get("units", "unknown") != target_unit:
+        if (
+            target_unit != "unknown"
+            and qobs_[flow_name].attrs.get("units", "unknown") != target_unit
+        ):
             r_mmd = streamflow_unit_conv(
                 qobs_, basin_area, target_unit=target_unit
             )  # 流量单位从 m³/s 转换为 mm/d

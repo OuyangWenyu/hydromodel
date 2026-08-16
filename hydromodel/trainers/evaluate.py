@@ -169,9 +169,13 @@ class Evaluator:
         obs_units = test_data[flow_name].attrs.get("units", "")
         if obs_units in ("mm/d", "mm/day", "mm/h"):
             depth_unit = obs_units
-        else:
+        elif len(times) >= 2:
             interval = detect_time_interval(times)
             depth_unit = "mm/h" if interval == "1h" else "mm/day"
+        else:
+            # Single-timestep data cannot be interval-detected; default to
+            # a safe depth unit.
+            depth_unit = "mm/day"
         flow_dataarray.attrs["units"] = depth_unit
 
         et_dataarray = xr.DataArray(

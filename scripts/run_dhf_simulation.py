@@ -349,30 +349,6 @@ def main():
             print(f"   Parameters: {len(parameters)}")
             return 0
 
-        # Prepare data source configuration
-        source_config = {}
-        if args.data_source in ["csv", "parquet", "json"]:
-            if not args.data_path:
-                print(
-                    f"❌ ERROR: --data-path required for {args.data_source} source"
-                )
-                return 1
-            source_config["file_path"] = args.data_path
-            source_config["time_column"] = args.time_column
-            source_config["basin_column"] = args.basin_column
-        elif args.data_source == "sql":
-            if not args.sql_connection:
-                print("❌ ERROR: --sql-connection required for sql source")
-                return 1
-            source_config.update(
-                {
-                    "connection_string": args.sql_connection,
-                    "table_name": args.sql_table,
-                    "time_column": args.time_column,
-                    "basin_column": args.basin_column,
-                }
-            )
-
         # The hydrodatasource.runtime module (which powered this script's data
         # loading) was removed in hydrodatasource 0.3.0. Runtime-driven DHF
         # simulation is no longer supported here.

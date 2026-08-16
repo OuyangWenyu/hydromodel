@@ -119,8 +119,9 @@ def update_config_from_args(
         config["data_cfgs"]["time_unit"] = [args.time_unit]
 
         # Convert time_unit to time_interval_hours for models that need it
+        # (argparse provides a scalar str; defensively support a list/tuple)
         time_unit = args.time_unit
-        if isinstance(time_unit, list) and len(time_unit) > 0:
+        if isinstance(time_unit, (list, tuple)) and time_unit:
             time_unit = time_unit[0]  # Take first element if it's a list
 
         # Convert time unit to hours using pandas functionality

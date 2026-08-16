@@ -65,6 +65,16 @@ def test_simulate_requires_specific_parameters():
         hydromodel.simulate(config)
 
 
+def test_simulate_requires_top_level_sections():
+    """simulate() must reject configs missing data_cfgs/model_cfgs, like calibrate."""
+    import hydromodel
+
+    with pytest.raises(ValueError, match="data_cfgs"):
+        hydromodel.simulate({"model_cfgs": {"name": "xaj", "parameters": {"K": 0.5}}})
+    with pytest.raises(ValueError, match="data_cfgs"):
+        hydromodel.simulate({"data_cfgs": {"dataset": "camels_us"}})
+
+
 def test_resolve_loss_config_maps_user_objectives_to_minimized_keys():
     nse = resolve_loss_config({"type": "time_series", "obj_func": "NSE"})
     kge = resolve_loss_config({"type": "time_series", "obj_func": "KGE"})

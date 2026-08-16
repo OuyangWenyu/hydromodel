@@ -659,6 +659,12 @@ def simulate(config: Dict[str, Any], **kwargs) -> Dict[str, Any]:
     >>> results = simulate(config)
     >>> print(results["simulation"].keys())
     """
+    if not isinstance(config, dict) or not all(
+        k in config for k in ("data_cfgs", "model_cfgs")
+    ):
+        raise ValueError(
+            "Config must contain 'data_cfgs' and 'model_cfgs' keys"
+        )
     run_config = copy.deepcopy(config)
     data_config = run_config["data_cfgs"]
     model_cfgs = run_config["model_cfgs"]
@@ -692,24 +698,29 @@ def simulate(config: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         basin_ids = [f"basin_{i}" for i in range(p_and_e.shape[1])]
     basin_id = basin_ids[0]
 
+    # Keep is_event_data consistent with the loader's auto-detection: event
+    # datasources expose load_1basin_flood_events and produce 3-feature arrays.
+    is_event_data = data_config.get("is_event_data", False)
+    if hasattr(data_loader.datasource, "load_1basin_flood_events"):
+        is_event_data = True
+
     # Build an optional basin config for the simulator (area etc.) and slice
     # the data to the single simulated basin (matching run_xaj_simulate.py) so
     # a multi-basin dataset does not use the wrong basin's area config.
     basin_config = None
     if hasattr(data_loader, "get_basin_configs"):
         basin_config = data_loader.get_basin_configs().get(basin_id)
-    basin_index = basin_ids.index(basin_id) if basin_id in basin_ids else 0
     if p_and_e.shape[1] > 1:
-        p_and_e = p_and_e[:, basin_index : basin_index + 1, :]
+        p_and_e = p_and_e[:, :1, :]
         if qobs is not None:
-            qobs = qobs[:, basin_index : basin_index + 1, :]
+            qobs = qobs[:, :1, :]
 
     simulator = UnifiedSimulator(model_config, basin_config)
     sim_results = simulator.simulate(
         inputs=p_and_e,
         qobs=qobs,
         warmup_length=data_config.get("warmup_length", 365),
-        is_event_data=data_config.get("is_event_data", False),
+        is_event_data=is_event_data,
         return_intermediate=False,
         **kwargs,
     )

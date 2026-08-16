@@ -692,10 +692,17 @@ def simulate(config: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         basin_ids = [f"basin_{i}" for i in range(p_and_e.shape[1])]
     basin_id = basin_ids[0]
 
-    # Build an optional basin config for the simulator (area etc.)
+    # Build an optional basin config for the simulator (area etc.) and slice
+    # the data to the single simulated basin (matching run_xaj_simulate.py) so
+    # a multi-basin dataset does not use the wrong basin's area config.
     basin_config = None
     if hasattr(data_loader, "get_basin_configs"):
         basin_config = data_loader.get_basin_configs().get(basin_id)
+    basin_index = basin_ids.index(basin_id) if basin_id in basin_ids else 0
+    if p_and_e.shape[1] > 1:
+        p_and_e = p_and_e[:, basin_index : basin_index + 1, :]
+        if qobs is not None:
+            qobs = qobs[:, basin_index : basin_index + 1, :]
 
     simulator = UnifiedSimulator(model_config, basin_config)
     sim_results = simulator.simulate(

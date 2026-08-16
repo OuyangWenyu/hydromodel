@@ -382,6 +382,7 @@ def main():
         qobs=basin_qobs,
         warmup_length=warmup_length,
         return_intermediate=False,
+        is_event_data=is_event_data,
     )
 
     # Extract results (UnifiedSimulator returns model-specific output names)

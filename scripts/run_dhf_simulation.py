@@ -46,7 +46,7 @@ DHF Model - 19-parameter Chinese watershed model with dual-layer runoff generati
 
 NOTE: Runtime data loading (hydrodatasource.runtime) was removed in
 hydrodatasource 0.3.0. This script's runtime-driven data loading path is no
-longer available; use run_unified_simulation.py for DHF simulation instead.
+longer available; use run_xaj_simulate.py for DHF simulation instead.
         """,
     )
 
@@ -321,7 +321,7 @@ def main():
         print(
             "ERROR: Runtime data loading is no longer available. The "
             "hydrodatasource.runtime module was removed in hydrodatasource "
-            "0.3.0; use run_unified_simulation.py for DHF simulation instead."
+            "0.3.0; use run_xaj_simulate.py for DHF simulation instead."
         )
         return 1
 

@@ -99,6 +99,48 @@ class TestAreaHandling:
         assert r["qsim"].values[0] == pytest.approx(11.574, rel=1e-3)
 
 
+class TestSimulateUnitConversion:
+    """Exercises UnifiedSimulator.trans_sim_results_unit."""
+
+    def _simulator(self, basin):
+        from hydromodel.trainers.unified_simulate import UnifiedSimulator
+
+        u = UnifiedSimulator.__new__(UnifiedSimulator)
+        u.basin = basin
+        return u
+
+    def test_no_conversion_when_basin_none(self):
+        u = self._simulator(None)
+        conv, meta = u.trans_sim_results_unit(
+            np.ones((3, 1, 1)), output_unit="mm", time_interval_hours=3
+        )
+        assert conv is None
+        assert meta["applied"] is False
+
+    def test_int_time_interval_hours_accepted(self):
+        class FakeBasin:
+            unit_areas = np.array([AREA])
+
+        u = self._simulator(FakeBasin())
+        conv, meta = u.trans_sim_results_unit(
+            np.ones((3, 1, 1)), output_unit="m^3/s", time_interval_hours=3
+        )
+        # 1 mm/3h over 1000 km^2 = 92.59 m^3/s
+        assert conv[0, 0, 0] == pytest.approx(92.59, rel=1e-3)
+        assert meta["applied"] is True
+
+    def test_sub_hourly_scales_to_mm_h(self):
+        class FakeBasin:
+            unit_areas = np.array([AREA])
+
+        u = self._simulator(FakeBasin())
+        conv, _ = u.trans_sim_results_unit(
+            np.ones((3, 1, 1)), output_unit="m^3/s", time_interval_hours=0.5
+        )
+        # 1 mm/30min scaled to mm/h (x2) over 1000 km^2 = 555.56 m^3/s
+        assert conv[0, 0, 0] == pytest.approx(555.56, rel=1e-3)
+
+
 class TestEvaluatorConversion:
     """Exercises Evaluator._convert_streamflow_units end-to-end."""
 

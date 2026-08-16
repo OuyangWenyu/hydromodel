@@ -382,23 +382,23 @@ class UnifiedSimulator:
         tuple
             tuple of (converted_simulation, unitconv_metadata)
         """
+        converted_simulation = None  # set in the conversion branch below
         if self.basin is not None and output_unit == "m^3/s":
             from hydroutils.hydro_units import streamflow_unit_conv
 
             # Get simulation results
             if simulation is not None:
-                # Detect time interval from time series or use provided time step
-                # Convert time_step_hours to integer format for time_interval
-                if time_interval_hours.is_integer():
+                # Detect time interval from time series or use provided time step.
+                # hydroutils supports mm/{N}h and mm/{N}d source units but NOT
+                # mm/{N}m (minutes), so sub-hourly / fractional-hour data is
+                # scaled to mm/h by dividing by the interval in hours.
+                time_interval_hours = float(time_interval_hours)
+                if time_interval_hours >= 1 and time_interval_hours.is_integer():
                     time_interval = f"{int(time_interval_hours)}h"
+                    unit_scale = 1.0
                 else:
-                    # Handle fractional hours by converting to minutes if < 1 hour
-                    if time_interval_hours < 1:
-                        time_interval_minutes = int(time_interval_hours * 60)
-                        time_interval = f"{time_interval_minutes}m"
-                    else:
-                        # Round to nearest hour for other cases
-                        time_interval = f"{round(time_interval_hours)}h"
+                    time_interval = "1h"
+                    unit_scale = 1.0 / time_interval_hours
 
                 # Convert simulation results from mm/time to m³/s
                 # simulation shape is [time, basin, 1]
@@ -406,9 +406,9 @@ class UnifiedSimulator:
 
                 for basin_idx in range(simulation.shape[1]):
                     # TODO: Only support 1 basin for now
-                    basin_simulation = simulation[
-                        :, basin_idx, 0
-                    ]  # Extract time series for this basin
+                    basin_simulation = (
+                        simulation[:, basin_idx, 0] * unit_scale
+                    )  # Extract time series for this basin
 
                     # Get basin area for this unit (supports semi-distributed)
                     basin_area_km2 = self.basin.unit_areas

@@ -283,8 +283,17 @@ def main():
     model_cfgs = config["model_cfgs"]
     model_name = model_cfgs.get("name", model_cfgs.get("model_name"))
 
-    basin_ids = data_config.get("basin_ids", [])
-    basin_id = args.basin_id or basin_ids[0]
+    basin_ids = list(data_config.get("basin_ids", []))
+    if args.basin_id:
+        basin_id = args.basin_id
+        if basin_id not in basin_ids:
+            basin_ids.append(basin_id)  # allow an explicit --basin-id
+    elif basin_ids:
+        basin_id = basin_ids[0]
+    else:
+        raise ValueError(
+            "No basin specified: provide --basin-id or set data_cfgs.basin_ids"
+        )
     basin_index = basin_ids.index(basin_id)
 
     # Determine warmup period and time unit
@@ -385,9 +394,11 @@ def main():
         is_event_data=is_event_data,
     )
 
-    # Extract results (UnifiedSimulator returns model-specific output names)
-    # For XAJ models, the main output is "qsim"
-    qsim = sim_results["qsim"]  # [time, 1, 1]
+    # Extract results using the configured output variable (default qsim)
+    output_var = model_cfgs.get("output_variable", "qsim")
+    if output_var not in sim_results:
+        output_var = "qsim"
+    qsim = sim_results[output_var]  # [time, 1, 1]
     qobs_out = basin_qobs  # Use original qobs
 
     # Remove warmup period

@@ -9,7 +9,19 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
 import importlib
+import sys
+
 from hydroutils import hydro_file
+
+# Windows consoles default to GBK/cp936, which cannot encode the emoji used in
+# progress messages (e.g. \U0001f680). Force UTF-8 output where supported so
+# calibration/evaluation logs do not crash with UnicodeEncodeError.
+for _stream in (sys.stdout, sys.stderr):
+    if _stream is not None and hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
 
 __all__ = ["CACHE_DIR"]
 
@@ -49,14 +61,6 @@ _LAZY_EXPORTS = {
     "get_time_interval_info": (
         "hydroutils.hydro_units",
         "get_time_interval_info",
-    ),
-    "m3_per_s_to_mm_per_time": (
-        "hydroutils.hydro_units",
-        "m3_per_s_to_mm_per_time",
-    ),
-    "mm_per_time_to_m3_per_s": (
-        "hydroutils.hydro_units",
-        "mm_per_time_to_m3_per_s",
     ),
     "validate_unit_compatibility": (
         "hydroutils.hydro_units",

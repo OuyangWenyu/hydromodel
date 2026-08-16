@@ -15,7 +15,7 @@ import pandas as pd
 import xarray as xr
 from sklearn.model_selection import KFold
 
-from hydrodatasource.utils.utils import streamflow_unit_conv
+from hydroutils.hydro_units import streamflow_unit_conv
 
 from hydromodel import CACHE_DIR
 from hydromodel.datasets import *

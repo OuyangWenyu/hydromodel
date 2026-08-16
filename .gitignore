@@ -191,3 +191,5 @@ AGENTS.md
 *.tmp
 .tmp-*/
 .codegraph/
+.specify/
+.firecrawl/

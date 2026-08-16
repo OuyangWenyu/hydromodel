@@ -10,6 +10,8 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 
 import os
 import json
+import re
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -17,6 +19,7 @@ from typing import Dict, List, Optional, Union, Any
 from collections import OrderedDict
 
 from hydroutils import hydro_stat
+from hydroutils.hydro_units import streamflow_unit_conv
 from hydromodel.models.model_config import (
     denormalize_parameter_dict,
     inject_model_param_config,
@@ -24,7 +27,6 @@ from hydromodel.models.model_config import (
 )
 from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
 from hydromodel.trainers.unified_simulate import UnifiedSimulator
-from hydrodatasource.utils.utils import streamflow_unit_conv
 
 
 class UnifiedEvaluator:
@@ -1118,13 +1120,25 @@ def _save_evaluation_results(
         # Convert to m³/s - process each basin separately to avoid broadcasting issues
         target_unit = "m^3/s"
 
-        # Determine source unit based on time_unit from data_config
-        # The data from UnifiedDataLoader is in mm/time_unit format
-        if "h" in time_unit.lower() or "H" in time_unit:
-            # Hourly data: source unit is mm/hour (e.g., mm/3h)
-            source_unit = f"mm/{time_unit}"
+        # Determine source unit based on time_unit from data_config.
+        # The data from UnifiedDataLoader is in mm/time_unit format. hydroutils'
+        # pint-xarray path cannot parse custom interval units (e.g. mm/3h), so
+        # normalize to a pint-safe unit by scaling the data.
+        interval_match = re.match(r"(\d+)([hHdD])", time_unit)
+        if interval_match:
+            amount = int(interval_match.group(1))
+            kind = interval_match.group(2).lower()
+            if kind == "h":
+                source_unit = "mm/h"
+                if amount != 1:
+                    qsim = qsim / amount
+                    qobs = qobs / amount
+            else:
+                source_unit = "mm/day"
+                if amount != 1:
+                    qsim = qsim / amount
+                    qobs = qobs / amount
         else:
-            # Daily or longer: source unit is mm/day
             source_unit = "mm/day"
 
         # Initialize arrays to store converted results
@@ -1147,6 +1161,13 @@ def _save_evaluation_results(
 
             # Get single basin area from basin_configs
             single_basin_area = basin_area.get(basin_id, None)
+            if single_basin_area is not None:
+                # hydroutils 0.2.0 streamflow_unit_conv requires area
+                # broadcast to the time dimension (scalar area breaks its
+                # pint-xarray conversion path).
+                single_basin_area = np.full(
+                    qsim.shape[0], float(single_basin_area)
+                )
             if single_basin_area is None:
                 print(
                     f"Warning: Basin area not found for {basin_id}, skipping unit conversion"
@@ -1160,13 +1181,11 @@ def _save_evaluation_results(
                 ds_single_basin[["qsim"]],
                 single_basin_area,
                 target_unit=target_unit,
-                inverse=True,
             )
             ds_qobs_single = streamflow_unit_conv(
                 ds_single_basin[["qobs"]],
                 single_basin_area,
                 target_unit=target_unit,
-                inverse=True,
             )
 
             # Store converted values

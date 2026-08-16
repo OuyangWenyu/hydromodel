@@ -23,7 +23,6 @@ def get_default_event_config():
         "data_cfgs": {
             "dataset": "songliao_event",
             "source": "local",
-            "dataset_name": "songliaorrevent",
             "time_unit": ["3h"],
             "basin_ids": ["songliao_21401550"],
             "warmup_length": 360,

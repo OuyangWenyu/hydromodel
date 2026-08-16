@@ -196,7 +196,6 @@ def test_selfmade_calibrate_xaj_mz(fake_selfmade_dataset, result_dir):
             "uri": os.path.join(
                 dataset_info["dataset_path"], dataset_info["dataset_name"]
             ),
-            "dataset_name": dataset_info["dataset_name"],
             "time_unit": ["1D"],
             "basin_ids": [dataset_info["basin_ids"][0]],  # Use first basin
             "train_period": ["2010-01-01", "2011-12-31"],
@@ -263,7 +262,6 @@ def test_selfmade_calibrate_xaj(fake_selfmade_dataset, result_dir):
             "uri": os.path.join(
                 dataset_info["dataset_path"], dataset_info["dataset_name"]
             ),
-            "dataset_name": dataset_info["dataset_name"],
             "time_unit": ["1D"],
             "basin_ids": [dataset_info["basin_ids"][0]],
             "train_period": ["2010-01-01", "2011-12-31"],
@@ -328,7 +326,6 @@ def test_selfmade_evaluate(fake_selfmade_dataset, result_dir):
         "uri": os.path.join(
             dataset_info["dataset_path"], dataset_info["dataset_name"]
         ),
-        "dataset_name": dataset_info["dataset_name"],
         "time_unit": ["1D"],
         "basin_ids": [dataset_info["basin_ids"][0]],
         "train_period": ["2010-01-01", "2011-12-31"],
@@ -406,7 +403,6 @@ def test_selfmade_multi_basin(fake_selfmade_dataset, result_dir):
                 "uri": os.path.join(
                     dataset_info["dataset_path"], dataset_info["dataset_name"]
                 ),
-                "dataset_name": dataset_info["dataset_name"],
                 "time_unit": ["1D"],
                 "basin_ids": [basin_id],  # Single basin at a time
                 "train_period": ["2010-01-01", "2011-12-31"],
@@ -477,7 +473,6 @@ def test_basin_area_retrieval(fake_selfmade_dataset):
         "uri": os.path.join(
             dataset_info["dataset_path"], dataset_info["dataset_name"]
         ),
-        "dataset_name": dataset_info["dataset_name"],
         "time_unit": ["1D"],
         "basin_ids": dataset_info["basin_ids"],
         "test_period": ["2010-01-01", "2010-12-31"],

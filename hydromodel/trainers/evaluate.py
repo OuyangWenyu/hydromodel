@@ -15,8 +15,8 @@ import pandas as pd
 import xarray as xr
 
 from hydroutils import hydro_stat
+from hydroutils.hydro_units import detect_time_interval, streamflow_unit_conv
 from hydromodel.models.xaj import xaj
-from hydrodatasource.utils.utils import streamflow_unit_conv
 from hydromodel.datasets import *
 from hydromodel.datasets.data_preprocess import (
     get_basin_area,
@@ -160,7 +160,19 @@ class Evaluator:
             dims=["time", "basin"],
             name=flow_name,
         )
-        flow_dataarray.attrs["units"] = test_data[flow_name].attrs["units"]
+        # Model output (qsim) is in depth units (mm per timestep), matching the
+        # precipitation input. Do NOT blindly inherit the observed-flow unit:
+        # since hydrodataset 0.3.0 observed streamflow may be volumetric
+        # (m^3/s). Prefer a pint-safe depth unit (mm/d, mm/h) so the conversion
+        # does not fail when pint_xarray is loaded (custom units such as mm/3h
+        # are not parseable by pint).
+        obs_units = test_data[flow_name].attrs.get("units", "")
+        if obs_units in ("mm/d", "mm/day", "mm/h"):
+            depth_unit = obs_units
+        else:
+            interval = detect_time_interval(times)
+            depth_unit = "mm/h" if interval == "1h" else "mm/day"
+        flow_dataarray.attrs["units"] = depth_unit
 
         et_dataarray = xr.DataArray(
             etsim,
@@ -168,7 +180,7 @@ class Evaluator:
             dims=["time", "basin"],
             name=et_name,
         )
-        et_dataarray.attrs["units"] = test_data[flow_name].attrs["units"]
+        et_dataarray.attrs["units"] = depth_unit
 
         # 创建数据集并进行单位转换
         ds_et = xr.Dataset({et_name: et_dataarray})
@@ -177,13 +189,10 @@ class Evaluator:
         target_unit = "m^3/s"
         basin_area = get_basin_area(basins, data_type, data_dir)
         ds_simflow = streamflow_unit_conv(
-            ds, basin_area, target_unit=target_unit, inverse=True
-        )  # TODO
+            ds, basin_area, target_unit=target_unit
+        )
         ds_obsflow = streamflow_unit_conv(
-            test_data[[flow_name]],
-            basin_area,
-            target_unit=target_unit,
-            inverse=True,
+            test_data[[flow_name]], basin_area, target_unit=target_unit
         )
 
         return ds_simflow, ds_obsflow, ds_et

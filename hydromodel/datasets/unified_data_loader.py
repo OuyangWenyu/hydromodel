@@ -92,8 +92,6 @@ class UnifiedDataLoader:
         reader_kwargs = {}
         if "time_unit" in data_config:
             reader_kwargs["time_unit"] = data_config["time_unit"]
-        if "dataset_name" in data_config:
-            reader_kwargs["dataset_name"] = data_config["dataset_name"]
         if "datasource_kwargs" in data_config:
             reader_kwargs.update(data_config["datasource_kwargs"])
 

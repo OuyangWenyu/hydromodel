@@ -380,7 +380,6 @@ This design ensures that:
 ```yaml
 data:
   dataset: "floodevent"
-  dataset_name: "my_flood_events"
   uri: "D:/flood_data"
   reader: floodevent
   is_event_data: true

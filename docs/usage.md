@@ -890,7 +890,6 @@ Flood event data uses the `floodevent` reader from `hydrodatasource` (registered
 ```python
 data_config = {
     "dataset": "songliao_event",  # registered flood-event dataset
-    "dataset_name": "my_flood_data",   # Dataset folder name
     "basin_ids": ["basin_001"],
     # ... other parameters
 }
@@ -939,7 +938,6 @@ time,prcp,PET,streamflow,marker,event_id
 # configs/flood_event_config.yaml
 data_cfgs:
   dataset: songliao_event
-  dataset_name: "songliao_flood_events"
   basin_ids: ["songliao_21401550", "songliao_21100150"]
   train_period: ["2019-01-01", "2020-12-31"]  # Filter events by date range
   test_period: ["2021-01-01", "2022-12-31"]
@@ -1032,7 +1030,6 @@ from hydromodel.trainers.unified_evaluate import evaluate
 config = {
     "data_cfgs": {
         "dataset": "songliao_event",
-        "dataset_name": "songliao_flood_events",
         "basin_ids": ["songliao_21401550"],
         "train_period": ["2019-01-01", "2020-12-31"],
         "test_period": ["2021-01-01", "2022-12-31"],
@@ -1217,8 +1214,8 @@ config["data_cfgs"]["event_ids"] = [25, 26, 27]  # Major floods only
 basin_ids = ["basin_A", "basin_B", "basin_C"]
 
 # Check event coverage before calibration
-from hydrodatasource import FloodEventDataSource
-ds = FloodEventDataSource(...)
+from hydrodatasource.configs.data_resolver import open_dataset
+ds = open_dataset("floodevent", uri=...)
 for basin in basin_ids:
     events = ds.get_events(basin)
     print(f"{basin}: {len(events)} events")
@@ -1261,8 +1258,8 @@ print(f"Time range: {config['data_cfgs']['train_period']}")
 print(f"Event IDs: {config['data_cfgs'].get('event_ids', 'All')}")
 
 # Check raw data
-from hydrodatasource import FloodEventDataSource
-ds = FloodEventDataSource(data_path=..., time_unit=["1h"])
+from hydrodatasource.configs.data_resolver import open_dataset
+ds = open_dataset("floodevent", uri=..., time_unit=["1h"])
 events = ds.get_events(basin_id)
 print(f"Available events: {len(events)}")
 ```
@@ -1292,7 +1289,6 @@ from hydromodel.datasets.data_visualize import visualize_evaluation
 config = {
     "data_cfgs": {
         "dataset": "songliao_event",
-        "dataset_name": "songliao_flood_events",
         "basin_ids": ["songliao_21401550", "songliao_21100150"],
         "train_period": ["2019-01-01", "2020-12-31"],
         "test_period": ["2021-01-01", "2022-12-31"],

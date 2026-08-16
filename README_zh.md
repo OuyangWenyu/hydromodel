@@ -149,7 +149,7 @@ config = {
 可用的 reader 别名：`floodevent`、`selfmade`、`longterm`、`forecast`、`station`、
 `tghydro`、`gages`、`grdc`、`rainfall`、`crd`、`rsvrinflow`。
 
-额外的 reader 参数（`dataset_name`、`time_unit`、`datasource_kwargs` 等）会透传给读取器构造函数。完整自定义数据示例见 `configs/example_config_selfmade.yaml`。
+额外的 reader 参数（`time_unit`、`datasource_kwargs` 等）会透传给读取器构造函数。自定义数据集通过 `data_cfgs.dataset`（注册表 id）加 `data_cfgs.uri`（显式路径）标识。完整自定义数据示例见 `configs/example_config_selfmade.yaml`。
 
 ### 2. 快速开始：率定、评估、模拟与可视化
 

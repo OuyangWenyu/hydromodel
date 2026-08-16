@@ -150,7 +150,7 @@ config = {
 Available reader aliases: `floodevent`, `selfmade`, `longterm`, `forecast`, `station`,
 `tghydro`, `gages`, `grdc`, `rainfall`, `crd`, `rsvrinflow`.
 
-Additional reader kwargs (`dataset_name`, `time_unit`, `datasource_kwargs`, ...) are forwarded to the reader constructor. See `configs/example_config_selfmade.yaml` for a complete custom-data example.
+Additional reader kwargs (`time_unit`, `datasource_kwargs`, ...) are forwarded to the reader constructor. Custom datasets are identified by `data_cfgs.dataset` (registry id) plus `data_cfgs.uri` for explicit paths. See `configs/example_config_selfmade.yaml` for a complete custom-data example.
 
 ### 2. Quick Start: Calibration, Evaluation, Simulation, and Visualization
 

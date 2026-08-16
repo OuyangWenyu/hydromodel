@@ -3,7 +3,6 @@
 data_cfgs:
   dataset: songliao_event
   source: local
-  dataset_name: songliaorrevent
   time_unit: ["1D"]
   datasource_kwargs:
     version: null

@@ -373,13 +373,11 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
         Configuration dictionary containing all settings.
         Must contain 'data_cfgs', 'model_cfgs', 'training_cfgs' keys.
         ``data_cfgs`` may be *unresolved* (only ``dataset`` + ``basin_ids``)
-        or *resolved* (with ``uri``, ``reader``, ``source``).  Unresolved
-        configs are auto-resolved via
-        :func:`~hydromodel.configs.data_resolver.resolve_config`.
+        or *resolved* (with ``uri``, ``reader``, ``source``).  Reader
+        instantiation and path resolution are handled internally by
+        ``UnifiedDataLoader`` via ``open_dataset()``.
     **kwargs
-        Additional arguments.  Reserved keys consumed before forwarding:
-        ``project_root``, ``user_setting_path`` — passed to
-        ``resolve_config()`` during auto-resolution.
+        Additional keyword arguments forwarded to the calibration algorithm.
 
     Returns
     -------

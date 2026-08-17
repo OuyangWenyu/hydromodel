@@ -408,7 +408,7 @@ After successful installation:
 1. **Quick Start**: Follow the [Quick Start Guide](quickstart.md)
 2. **Configuration**: Set up [data paths and settings](usage.md#configuration)
 3. **Tutorial**: Try the [usage examples](usage.md)
-4. **API Documentation**: Browse the [API reference](api.md)
+4. **API Documentation**: Browse the [API reference](hydromodel.md)
 
 ## Support
 

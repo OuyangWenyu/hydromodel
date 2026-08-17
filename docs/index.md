@@ -20,7 +20,7 @@
 ## Key Features
 
 ### 🏞️ Hydrological Models
-- **XAJ Model Variants**: Standard XAJ and optimized versions (xaj_mz with Muskingum routing, xaj_slw)
+- **XAJ Model Variants**: Standard XAJ, xaj_mz (mizuRoute routing), xaj_slw (Songliao basin variant)
 - **GR Models**: GR1A, GR2M, GR3J, GR4J, GR5J, GR6J
 - **Other Models**: HYMOD, DHF(Dahuofang model)
 - **Extensible Framework**: Easy to add custom models
@@ -226,8 +226,8 @@ results = calibrate(config)
 | Model | Description | Parameters | Routing |
 |-------|-------------|------------|---------|
 | **xaj** | Standard XinAnJiang model | 15 | Linear reservoir |
-| **xaj_mz** | XAJ with Muskingum routing | 15 | Muskingum |
-| **xaj_slw** | XAJ with SLW routing | 26 | Storage-lag-weighted |
+| **xaj_mz** | XAJ with mizuRoute routing | 15 | Gamma unit hydrograph (mizuRoute) |
+| **xaj_slw** | XAJ for Songliao basin (SLW) | 26 | SMS3 + LAG3 |
 | **gr1a / gr2m / gr3j** | GR rainfall-runoff models | 1 / 2 / 3 | Unit hydrograph |
 | **gr4j** | GR4J rainfall-runoff model | 4 | Unit hydrograph |
 | **gr5j / gr6j** | GR rainfall-runoff models | 5 / 6 | Unit hydrograph |

@@ -340,25 +340,37 @@ train_results = evaluate(config, param_dir="results/my_exp", eval_period="train"
 
 ### Simulation API
 
-Simulation does **not** require prior calibration. `UnifiedSimulator` runs a model with any parameter values:
+Simulation does **not** require prior calibration. Run a model with any parameter values:
 
 ```python
-from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
+from hydromodel import simulate
+
+config = {
+    "data_cfgs": {"dataset": "camels_us", "basin_ids": ["01013500"]},
+    "model_cfgs": {
+        "name": "xaj",
+        "params": {"source_type": "sources", "source_book": "HF"},
+        "parameters": {"K": 0.75, "B": 0.25, "IM": 0.06, "UM": 18.0, ...},
+    },
+}
+
+results = simulate(config)
+print(results["simulation"].keys())  # model output arrays (e.g. qsim)
+```
+
+**Return format:**
+- `results["simulation"]` — model output dict (keys depend on the model, usually `{"qsim": array}`)
+- `results["qobs"]` — observed streamflow (if available)
+- `results["parameters"]` — the parameter values used
+- `results["model_name"]` / `results["basin_ids"]` — metadata
+
+For advanced use (e.g. custom basin configs, multi-step simulation), use `UnifiedSimulator` directly:
+
+```python
 from hydromodel.trainers.unified_simulate import UnifiedSimulator
 
-# Load data
-data_loader = UnifiedDataLoader(config["data_cfgs"])
-p_and_e, qobs = data_loader.load_data()
-
-# Model config: model_name + model_params + concrete parameter values
-model_config = {
-    "model_name": "xaj",
-    "parameters": {"K": 0.75, "B": 0.25, "IM": 0.06, "UM": 18.0, ...},
-}
-simulator = UnifiedSimulator(model_config)   # basin_config optional
-
+simulator = UnifiedSimulator(model_config, basin_config)
 results = simulator.simulate(inputs=p_and_e, qobs=qobs, warmup_length=365)
-qsim = results["qsim"]   # simulated streamflow
 ```
 
 **Command-line usage:**

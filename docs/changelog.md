@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased (refactor/remove-data-resolver-use-opendataset) - 2026-08-08
+## Unreleased (refactor/remove-data-resolver-use-opendataset) - 2026-08-17
+
+**New features:**
+
+- **`simulate(config)` top-level API**: a single entry point for running simulations
+  with concrete parameter values, mirroring `calibrate(config)`. Usage:
+  ```python
+  from hydromodel import simulate
+  results = simulate(config)  # config needs data_cfgs + model_cfgs with parameters
+  ```
+  Supports event data detection, basin slicing, and unit conversion automatically.
+- **`validate_config` dataset check**: `data_cfgs.dataset` is now validated (previously
+  only the three top-level sections were checked); `--dry-run` correctly rejects configs
+  missing the dataset id.
 
 **Data layer refactor:**
 
@@ -13,21 +26,74 @@
   hyperparameters live in a sub-dict keyed by the algorithm name, e.g.
   `training_cfgs["SCE_UA"]`). `training_cfgs.loss` (string) or a full `loss_config`
   dict are both accepted.
-- **Parameter contracts**: explicit `param_range_file` is validated strictly (missing
-  files, unknown/missing parameters, invalid `[min, max]` ranges fail fast); built-in
-  `MODEL_PARAM_DICT` ranges are used when no file is provided.
-- **Loss resolution**: user-facing maximize metrics (`NSE`, `KGE`, `LOGNSE`) are mapped
-  to negated spotpy objectives; optimizers always minimize.
-- **Lazy top-level API**: `hydromodel/__init__.py` exposes introspection helpers
-  (`list_models`, `describe_model`, `list_losses`, `resolve_loss_config`,
-  `check_dependencies`) and lazy-loads heavy trainers.
-- **Local & cloud data**: `storage:` config in `~/hydro_setting.yml` /
-  `.hydro_setting.yml` (local root, cache, OSS/S3); `data_cfgs.source: local|cloud`.
-- **xaj_slw unit fix**: `UnifiedSimulator` converts `xaj_slw` qsim from m^3/s back to
-  mm so it is comparable with other models and observations.
-- **Songliao 3h flood-event calibration**: ready-to-run `configs/songliao_event_3h.yaml`.
-- **Tests & docs**: agent-contract tests, e2e resolver test, ADR 0001, and README/docs
-  updated to the canonical schema.
+- **Legacy reader args removed**: `dataset_name`, `data_path`, `data_folder` are no
+  longer forwarded to `SelfMadeHydroDataset`/`FloodEventDatasource` (rejected by
+  hydrodatasource 0.3.0). Use `data_cfgs.uri` instead.
+
+**Dependency upgrades:**
+
+- **hydroutils 0.1.0 → 0.2.0**: `mm_per_time_to_m3_per_s` / `m3_per_s_to_mm_per_time`
+  removed; `streamflow_unit_conv` now auto-detects direction from source/target units
+  (no more `inverse` parameter).
+- **hydrodataset → 0.3.0**: streamflow units corrected to m^3/s for many datasets;
+  aligned with aqua-fetch 1.1.0.
+- **hydrodatasource → 0.3.0**: unified URI-only interface; `runtime` module removed;
+  reader constructors reject legacy args.
+
+**Bug fixes & hardening:**
+
+- **Unit conversion overhaul** (multiple fixes):
+  - `evaluate.py`: model output (qsim/etsim) scaled to pint-safe depth units
+    (mm/d, mm/h, mm/day) before `streamflow_unit_conv` — fixes pint-xarray crash
+    with custom interval units like mm/3h.
+  - `unified_evaluate.py`: scalar basin area broadcast to the time dimension (breaks
+    pint-xarray path when scalar).
+  - `unified_simulate.py`: sub-hourly/fractional-hour data scaled to mm/h (hydroutils
+    cannot parse mm/30m); `UnboundLocalError` fixed in else-branch; int
+    `time_interval_hours` no longer crashes `.is_integer()`.
+  - `data_preprocess.py`: unit conversion skipped when target_unit is "unknown".
+- **Script fixes**: `run_dhf_simulation.py` runtime branch removed (module deleted in
+  hydrodatasource 0.3.0); dead CLI args cleaned up; error message now points to the
+  correct simulation script.
+- **`run_xaj_simulate.py`**: empty `basin_ids` no longer IndexError; `output_variable`
+  from config honored instead of hardcoded "qsim"; `is_event_data` passed to simulator.
+- **Config fixes**: dead `isinstance(time_unit, list)` check corrected in
+  `update_config_from_args`.
+
+**Public API cleanup:**
+
+- Removed `mm_per_time_to_m3_per_s` / `m3_per_s_to_mm_per_time` from lazy exports
+  (deleted in hydroutils 0.2.0).
+- Windows GBK emoji fix: `sys.stdout/stderr` reconfigured to UTF-8 on import.
+
+**Tests:**
+
+- **New**: `test_unit_conversion.py` (12 tests covering pint-safe units, custom
+  intervals, area handling, and real `Evaluator`/`UnifiedSimulator` conversion paths).
+- **Extended**: `test_agent_contracts.py` (+3 tests for validate_config and simulate
+  contract).
+- **Extended**: `test_selfmade_dataset.py` (+1 end-to-end simulate test).
+- Total: 131 tests passing (was 110 on main).
+
+**Lazy top-level API**: `hydromodel/__init__.py` exposes introspection helpers
+(`list_models`, `describe_model`, `list_losses`, `resolve_loss_config`,
+`check_dependencies`) and lazy-loads heavy trainers (`calibrate`, `simulate`,
+`evaluate`, `UnifiedSimulator`, `Basin`).
+
+**Local & cloud data**: `storage:` config in `~/hydro_setting.yml` /
+`.hydro_setting.yml` (local root, cache, OSS/S3); `data_cfgs.source: local|cloud`.
+
+**xaj_slw unit fix**: `UnifiedSimulator` converts `xaj_slw` qsim from m^3/s back to
+mm so it is comparable with other models and observations.
+
+**Songliao 3h flood-event calibration**: ready-to-run `configs/songliao_event_3h.yaml`.
+
+**Parameter contracts**: explicit `param_range_file` is validated strictly (missing
+files, unknown/missing parameters, invalid `[min, max]` ranges fail fast); built-in
+`MODEL_PARAM_DICT` ranges are used when no file is provided.
+
+**Loss resolution**: user-facing maximize metrics (`NSE`, `KGE`, `LOGNSE`) are mapped
+to negated spotpy objectives; optimizers always minimize.
 
 
 ## v0.3.0 - 2025-11-07

@@ -10,4 +10,3 @@ Both return `qsim` and are typically used with flood-event data.
 ## API Reference
 
 ::: hydromodel.models.unit_hydrograph
-::: hydromodel.models.categorized_unit_hydrograph

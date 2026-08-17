@@ -59,7 +59,7 @@ uv venv
 source .venv/bin/activate
 
 # Install packages
-uv pip install hydromodel hydrodataset hydrodatasource hydrodatasource
+uv pip install hydromodel hydrodataset hydrodatasource
 ```
 
 Installation with uv is typically 10-100x faster than pip.

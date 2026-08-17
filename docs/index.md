@@ -43,7 +43,7 @@
 - **Standardized Format**: Unified data interface across all data sources
 
 ### 🚀 Developer-Friendly
-- **Unified API**: Consistent interfaces for calibration, evaluation, and simulation
+- **Unified API**: `calibrate(config)` and `simulate(config)` — two functions for all models
 - **Configuration-Based**: YAML configuration for reproducibility
 - **Progress Tracking**: Real-time progress display and intermediate results saving
 - **Standardized Results**: All algorithms save results in unified JSON + CSV format
@@ -51,8 +51,7 @@
 ## Quick Start
 
 ```python
-from hydromodel.trainers.unified_calibrate import calibrate
-from hydromodel.trainers.unified_evaluate import evaluate
+from hydromodel import calibrate, simulate, evaluate
 
 # Configuration for calibration
 config = {
@@ -79,8 +78,12 @@ config = {
     },
 }
 
-# Run calibration
+# Calibrate (finds best parameters)
 results = calibrate(config)
+
+# Simulate with specific parameters (no calibration needed)
+config["model_cfgs"]["parameters"] = {"K": 0.75, "B": 0.25, ...}
+sim_results = simulate(config)
 
 # Evaluate on test period
 evaluate(config, param_dir="results/my_experiment", eval_period="test")

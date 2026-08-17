@@ -460,15 +460,59 @@ qobs = ds['qobs'].values  # [basin, time]
 
 ⚠️ **Simulation does NOT require prior calibration!**
 
-`UnifiedSimulator` is a **completely independent** simulation interface. You can:
-- Run simulations with any parameter values
-- Use parameters from literature
-- Use calibrated parameters
-- Perform sensitivity analysis
+`simulate(config)` is the top-level simulation interface, mirroring `calibrate(config)`.
+It loads data, builds the simulator, runs it, and returns results — all from one config dict.
 
-**Simulation and calibration are fully decoupled** - this is a core design principle.
+### Top-Level Simulation API (Recommended)
 
-### UnifiedSimulator API
+```python
+from hydromodel import simulate
+
+config = {
+    "data_cfgs": {
+        "dataset": "camels_us",
+        "source": "local",
+        "basin_ids": ["01013500"],
+        "warmup_length": 365,
+        "variables": ["precipitation", "potential_evapotranspiration", "streamflow"],
+        "test_period": ["2005-10-01", "2014-09-30"],
+    },
+    "model_cfgs": {
+        "name": "xaj",
+        "params": {"source_type": "sources", "source_book": "HF"},
+        "parameters": {
+            "K": 0.75, "B": 0.25, "IM": 0.06,
+            "UM": 18.0, "LM": 80.0, "DM": 95.0,
+            "C": 0.18, "SM": 120.0, "EX": 1.5,
+            "KI": 0.35, "KG": 0.45,
+            "CS": 0.5, "L": 5.5, "CI": 0.85, "CG": 0.95,
+        },
+    },
+}
+
+results = simulate(config)
+
+# Access results
+qsim = results["simulation"]["qsim"]  # simulated streamflow
+qobs = results["qobs"]                 # observed streamflow (if available)
+print(f"Parameters used: {results['parameters']['K']}")
+print(f"Basins: {results['basin_ids']}")
+```
+
+**Return format:**
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `simulation` | `dict` | Model output arrays (keys vary by model, usually `{"qsim": array}`) |
+| `qobs` | `ndarray` or `None` | Observed streamflow (if loaded) |
+| `parameters` | `dict` | The parameter values used |
+| `model_name` | `str` | Model name |
+| `basin_ids` | `list` | Basin IDs simulated |
+
+### UnifiedSimulator API (Advanced)
+
+For advanced use cases (custom basin configs, step-by-step control, multi-step simulation),
+use `UnifiedSimulator` directly:
 
 ```python
 from hydromodel.trainers.unified_simulate import UnifiedSimulator
@@ -484,8 +528,8 @@ parameters = {
     "K": 0.75, "B": 0.25, "IM": 0.06,
     "UM": 18.0, "LM": 80.0, "DM": 95.0,
     "C": 0.18, "SM": 120.0, "EX": 1.5,
-    "KI": 0.35, "KG": 0.45, "A": 0.85,
-    "THETA": 0.012, "CI": 0.85, "CG": 0.95
+    "KI": 0.35, "KG": 0.45,
+    "CS": 0.5, "L": 5.5, "CI": 0.85, "CG": 0.95,
 }
 
 # Step 3: Create simulator

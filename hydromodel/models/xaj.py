@@ -80,14 +80,14 @@ def calculate_prcp_runoff(b, im, wm, w0, pe) -> tuple[np.array, np.array]:
     # w0 must not exceed wm (initial storage cannot exceed capacity),
     # and b must be non-negative (curve exponent constraint).
     w0_arr = np.asarray(w0, dtype=float)
-    wm_val = float(wm)
-    b_val = float(b)
-    if (w0_arr > wm_val).any():
+    wm_arr = np.asarray(wm, dtype=float)
+    b_arr = np.asarray(b, dtype=float)
+    if (w0_arr > wm_arr).any():
         raise ArithmeticError("Please check if w0>wm or b is a negative value!")
-    if b_val < 0:
+    if (b_arr < 0).any():
         raise ArithmeticError("Please check if w0>wm or b is a negative value!")
-    wmm = wm_val * (1.0 + b_val)
-    a = wmm * (1.0 - (1.0 - w0_arr / wm_val) ** (1.0 / (1.0 + b_val)))
+    wmm = wm_arr * (1.0 + b_arr)
+    a = wmm * (1.0 - (1.0 - w0_arr / wm_arr) ** (1.0 / (1.0 + b_arr)))
     r_cal = np.where(
         pe > 0.0,
         np.where(

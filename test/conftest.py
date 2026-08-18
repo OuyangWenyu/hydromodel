@@ -51,10 +51,16 @@ def warmup_length():
 
 @pytest.fixture()
 def camels():
-    """Provide a CamelsUs datasource using open_dataset."""
+    """Provide a CamelsUs datasource using open_dataset.
+
+    Skips when the CAMELS-US data is not available (e.g. in CI).
+    """
     from hydrodatasource.configs.data_resolver import open_dataset
 
-    return open_dataset("camels_us")
+    try:
+        return open_dataset("camels_us")
+    except Exception as exc:  # noqa: BLE001 - any resolution/IO error -> skip
+        pytest.skip(f"CAMELS-US data not available: {exc}")
 
 
 @pytest.fixture()

@@ -11,6 +11,9 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 # 水文模型
 from .dhf import dhf  # 大伙房模型
 
+# Java 转换的模块（尚未注册到 MODEL_DICT，保留作为独立工具模块）
+from . import SMS_3, LAG_3, MSK, SMS3_LAG3_Pipeline  # noqa: F401
+
 
 __version__ = "0.1.0"
 __author__ = "Wenyu Ouyang"

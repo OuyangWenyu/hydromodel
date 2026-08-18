@@ -18,8 +18,8 @@ import numpy as np
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
-import SMS_3
-import LAG_3
+from .SMS_3 import *  # noqa: F401,F403
+from .LAG_3 import *  # noqa: F401,F403
 
 
 def extract_lag3_parameters(pipeline_input: Dict) -> Dict:

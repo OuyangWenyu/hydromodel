@@ -252,6 +252,7 @@ def test_process_and_save_data_as_nc_with_valid_data(all_data_dir, basin_attrs_f
     assert ds_ts is not None
 
 
+@pytest.mark.skip(reason="requires real CAMELS-US data on disk")
 def test_load_dataset():
     from hydrodatasource.configs.data_resolver import open_dataset
 

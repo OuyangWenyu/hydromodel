@@ -75,7 +75,7 @@ jobs:
                 
             - name: Install dependencies
               run: |
-                  uv sync --all-extras
+                  uv sync --all-extras --override uv-override.yaml
 
             - name: Create hydro_setting.yml (Ubuntu)
               if: matrix.os == 'ubuntu-latest'

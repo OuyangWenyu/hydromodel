@@ -26,7 +26,7 @@ jobs:
               run: uv python install 3.11
 
             - name: Install dependencies
-              run: uv sync --all-extras # Install all dependencies including dev
+              run: uv sync --all-extras --override uv-override.yaml # Install all dependencies including dev
 
             - name: Build package
               run: uv build

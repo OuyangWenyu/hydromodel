@@ -16,7 +16,9 @@ jobs:
             - name: Setup Python
               run: uv python install 3.11
             - name: Install dependencies
+              env:
+                  UV_OVERRIDE: uv-override.yaml
               run: 
-                uv sync --all-extras --override uv-override.yaml 
+                uv sync --all-extras 
             - name: Deploy documentation
               run: uv run mkdocs gh-deploy --force

@@ -62,7 +62,7 @@ jobs:
               run: |
                   # CI: install hydrodataset/hydrodatasource from PyPI
                   # instead of local editable paths (dev-only).
-                  sed -i 's|^hydrodatasource = { path = "../hydrodatasource"|# hydrodatasource = { path = "../hydrodatasource"|; s|^hydrodataset = { path = "../hydrodataset"|# hydrodataset = { path = "../hydrodataset"|' pyproject.toml
+                  python -c "import io,re; p='pyproject.toml'; s=io.open(p,encoding='utf-8').read(); s=re.sub(r'^hydrodatasource = .*$', '# hydrodatasource = <PyPI in CI>', s, flags=re.M); s=re.sub(r'^hydrodataset = .*$', '# hydrodataset = <PyPI in CI>', s, flags=re.M); io.open(p,'w',encoding='utf-8').write(s)"
                   uv sync --all-extras
 
             - name: Create hydro_setting.yml (Ubuntu)

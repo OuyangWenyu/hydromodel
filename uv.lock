@@ -1823,7 +1823,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/55/4f/b1e8912c765b6cbca
 
 [[package]]
 name = "hydromodel"
-version = "0.3.2"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "aqua-fetch", extra = ["all"] },

@@ -17,7 +17,7 @@ jobs:
               run: uv python install 3.11
             - name: Install dependencies
               env:
-                  UV_OVERRIDE: uv-override.yaml
+                  UV_OVERRIDE: uv-override.toml
               run: 
                 uv sync --all-extras 
             - name: Deploy documentation

@@ -27,7 +27,7 @@ jobs:
 
             - name: Install dependencies
               env:
-                  UV_OVERRIDE: uv-override.yaml
+                  UV_OVERRIDE: uv-override.toml
               run: uv sync --all-extras # Install all dependencies including dev
 
             - name: Build package

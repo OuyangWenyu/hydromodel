@@ -1,9 +1,0 @@
-# CI override: install hydrodataset/hydrodatasource from PyPI instead of
-# local editable paths (which only exist in local development).
-[[tool.uv.sources]]
-name = "hydrodataset"
-source = { registry = "https://pypi.org/simple" }
-
-[[tool.uv.sources]]
-name = "hydrodatasource"
-source = { registry = "https://pypi.org/simple" }

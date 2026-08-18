@@ -3,10 +3,10 @@ name: build
 on:
     push:
         branches:
-            - master
+            - main
     pull_request:
         branches:
-            - master
+            - main
 
 jobs:
     build:
@@ -53,7 +53,7 @@ jobs:
               if: runner.os == 'Windows'
               shell: pwsh
               run: |
-                Write-Host "🧹 Cleaning old uv cache and virtual environments (Windows)..."
+                Write-Host "Cleaning old uv cache and virtual environments (Windows)..."
                 try {
                   uv cache clean
                 } catch {
@@ -68,7 +68,7 @@ jobs:
               if: runner.os != 'Windows'
               shell: bash
               run: |
-                echo "🧹 Cleaning old uv cache and virtual environments (Unix)..."
+                echo "Cleaning old uv cache and virtual environments (Unix)..."
                 uv cache clean || true
                 rm -rf .venv || true
                 rm -f uv.lock || true
@@ -80,20 +80,33 @@ jobs:
             - name: Create hydro_setting.yml (Ubuntu)
               if: matrix.os == 'ubuntu-latest'
               run: |
-                  echo 'local_data_path:' > hydro_setting.yml
-                  echo '  datasets-origin: /home/runner/.cache/' >> hydro_setting.yml
+                  echo 'storage:' > hydro_setting.yml
+                  echo '  default_source: local' >> hydro_setting.yml
+                  echo '  local:' >> hydro_setting.yml
+                  echo '    root: /home/runner/.cache/' >> hydro_setting.yml
+                  echo '  cache: /home/runner/.cache/' >> hydro_setting.yml
                   sudo cp hydro_setting.yml /home/runner/hydro_setting.yml
 
             - name: Create hydro_setting.yml (macOS)
               if: matrix.os == 'macOS-latest'
               run: |
-                  echo 'local_data_path:' > hydro_setting.yml
-                  echo '  datasets-origin: /Users/runner/.cache/' >> hydro_setting.yml
+                  echo 'storage:' > hydro_setting.yml
+                  echo '  default_source: local' >> hydro_setting.yml
+                  echo '  local:' >> hydro_setting.yml
+                  echo '    root: /Users/runner/.cache/' >> hydro_setting.yml
+                  echo '  cache: /Users/runner/.cache/' >> hydro_setting.yml
                   sudo cp hydro_setting.yml /Users/runner/hydro_setting.yml
 
             - name: Create hydro_setting.yml (Windows)
               if: matrix.os == 'windows-latest'
               run: |
-                  echo 'local_data_path:' > hydro_setting.yml
-                  echo '  datasets-origin: C:\Users\runneradmin\.cache\' >> hydro_setting.yml
+                  echo 'storage:' > hydro_setting.yml
+                  echo '  default_source: local' >> hydro_setting.yml
+                  echo '  local:' >> hydro_setting.yml
+                  echo '    root: C:\Users\runneradmin\.cache\' >> hydro_setting.yml
+                  echo '  cache: C:\Users\runneradmin\.cache\' >> hydro_setting.yml
                   copy hydro_setting.yml C:\Users\runneradmin\hydro_setting.yml
+
+            - name: Run tests
+              run: |
+                  uv run pytest -q -p no:cacheprovider

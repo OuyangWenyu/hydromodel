@@ -1,4 +1,4 @@
-# This workflows will upload a Python Package using uv and twine when a release is created
+# This workflow will upload a Python Package using uv and twine when a release is created
 
 name: pypi
 
@@ -15,23 +15,19 @@ jobs:
         steps:
             - uses: actions/checkout@v4
               with:
-                fetch-depth: 0 # Required for hatch-vcs to get version from git tags
+                fetch-depth: 0
 
             - name: Install uv
               uses: astral-sh/setup-uv@v4
               with:
-                version: "latest"
+                  version: "latest"
 
             - name: Setup Python
               run: uv python install 3.11
 
-            - name: Install dependencies
-              env:
-                  UV_OVERRIDE: uv-override.toml
-              run: uv sync --all-extras # Install all dependencies including dev
-
             - name: Build package
-              run: uv build
+              run: |
+                  uv build
 
             - name: Publish to PyPI
               uses: pypa/gh-action-pypi-publish@release/v1

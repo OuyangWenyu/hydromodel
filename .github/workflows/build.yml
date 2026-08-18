@@ -50,20 +50,13 @@ jobs:
                   uv run python -c "from osgeo import gdal"
                   uv run gdalinfo --version
 
-            # 在 jobs.<job_id>.steps 中加入这两步之一（二者一起放且带 if 条件）
             - name: Clean old uv cache and env (Windows)
               if: runner.os == 'Windows'
               shell: pwsh
               run: |
                 Write-Host "Cleaning old uv cache and virtual environments (Windows)..."
-                try {
-                  uv cache clean
-                } catch {
-                  Write-Host "uv cache clean failed or not available - continuing..."
-                }
-                # remove .venv directory if exists
+                try { uv cache clean } catch { Write-Host "cache clean failed - continuing..." }
                 Remove-Item -LiteralPath .venv -Recurse -Force -ErrorAction SilentlyContinue
-                # remove uv.lock if exists
                 Remove-Item -LiteralPath uv.lock -Force -ErrorAction SilentlyContinue
 
             - name: Clean old uv cache and env (Linux/macOS)
@@ -74,11 +67,12 @@ jobs:
                 uv cache clean || true
                 rm -rf .venv || true
                 rm -f uv.lock || true
-                
+
             - name: Install dependencies
-              env:
-                  UV_OVERRIDE: uv-override.toml
               run: |
+                  # CI: install hydrodataset/hydrodatasource from PyPI
+                  # instead of local editable paths (dev-only).
+                  sed -i 's|^hydrodatasource = { path = "../hydrodatasource"|# hydrodatasource = { path = "../hydrodatasource"|; s|^hydrodataset = { path = "../hydrodataset"|# hydrodataset = { path = "../hydrodataset"|' pyproject.toml
                   uv sync --all-extras
 
             - name: Create hydro_setting.yml (Ubuntu)

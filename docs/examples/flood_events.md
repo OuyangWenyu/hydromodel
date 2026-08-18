@@ -69,7 +69,7 @@ time,prcp,PET,streamflow,marker,event_id
 **YAML Configuration Example:**
 
 ```yaml
-# configs/flood_event_config.yaml
+# configs/songliao_event_3h.yaml
 data_cfgs:
   dataset: songliao_event
   basin_ids: ["songliao_21401550", "songliao_21100150"]
@@ -137,10 +137,10 @@ python scripts/run_event_calibration.py --default \
 
 ```bash
 # Calibration
-python scripts/run_event_calibration.py --config configs/flood_event_config.yaml
+python scripts/run_event_calibration.py --config configs/songliao_event_3h.yaml
 
 # Or use standard calibration script (works identically)
-python scripts/run_xaj_calibration.py --config configs/flood_event_config.yaml
+python scripts/run_xaj_calibration.py --config configs/songliao_event_3h.yaml
 
 # Evaluation (same as continuous data)
 python scripts/run_xaj_evaluate.py \

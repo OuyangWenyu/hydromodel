@@ -181,7 +181,7 @@ for name in param_names:
 #### 2. From YAML
 
 ```yaml
-# configs/my_params.yaml
+# configs/example_xaj_params.yaml
 K: 0.75
 B: 0.25
 IM: 0.06
@@ -192,7 +192,7 @@ IM: 0.06
 import yaml
 from collections import OrderedDict
 
-with open("configs/my_params.yaml", "r") as f:
+with open("configs/example_xaj_params.yaml", "r") as f:
     parameters = OrderedDict(yaml.safe_load(f))
 ```
 
@@ -228,7 +228,7 @@ python scripts/run_xaj_simulate.py \
 
 # Specify basin and warmup
 python scripts/run_xaj_simulate.py \
-    --param-file configs/params.yaml \
+    --param-file configs/example_xaj_params.yaml \
     --basin-id 01013500 \
     --warmup 730
 ```

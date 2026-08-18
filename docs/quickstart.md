@@ -420,7 +420,7 @@ data_cfgs:
 Then run:
 
 ```bash
-python scripts/run_xaj_calibration.py --config configs/multi_basin_config.yaml
+python scripts/run_xaj_calibration.py --config configs/example_config.yaml
 ```
 
 ---
@@ -550,9 +550,9 @@ Try different algorithms to see which works best for your case:
 #   algorithm: "SCE_UA"  # to "GA" or "scipy"
 
 # Method 2: Run comparisons
-python scripts/run_xaj_calibration.py --config configs/example_config_sceua.yaml
-python scripts/run_xaj_calibration.py --config configs/example_config_ga.yaml
-python scripts/run_xaj_calibration.py --config configs/example_config_scipy.yaml
+python scripts/run_xaj_calibration.py --config configs/example_config.yaml
+python scripts/run_xaj_calibration.py --config configs/example_config.yaml
+python scripts/run_xaj_calibration.py --config configs/example_config.yaml
 ```
 
 **Algorithm comparison:**

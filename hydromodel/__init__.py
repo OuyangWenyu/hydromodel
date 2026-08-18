@@ -83,6 +83,6 @@ def __getattr__(name):
 
 __author__ = """Wenyu Ouyang"""
 __email__ = "wenyuouyang@outlook.com"
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 CACHE_DIR = hydro_file.get_cache_dir()

@@ -192,4 +192,4 @@ AGENTS.md
 .tmp-*/
 .codegraph/
 .specify/
-.firecrawl/
+.firecrawl/notebooks/

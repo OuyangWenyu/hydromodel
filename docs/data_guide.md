@@ -28,35 +28,29 @@ pip install hydrodataset
 
 ### Step 2: Configure Data Path (Optional)
 
-`hydromodel` automatically uses default paths, but you can customize:
-
-**Default paths:**
-- Windows: `C:\Users\YourUsername\hydromodel_data\`
-- macOS/Linux: `~/hydromodel_data/`
-
-**To customize, create `~/hydro_setting.yml`:**
+Data paths are configured via a `storage:` block in `~/hydro_setting.yml` (user-level) or `{project_root}/.hydro_setting.yml` (project-level override):
 
 ```yaml
-local_data_path:
-  root: 'D:/data'
-  datasets-origin: 'D:/data'  # CAMELS datasets location
+storage:
+  default_source: local
+  local:
+    root: 'D:/data'            # parent dir containing dataset folders
+  cache: 'D:/netcdf'           # NetCDF/zarr cache directory
 ```
 
-**Important**: Provide only the `datasets-origin` directory. The system automatically appends the dataset name (e.g., `CAMELS_US`, `CAMELS_GB`).
+**Important**: `storage.local.root` is the **parent** directory. The system automatically appends the dataset folder name (e.g., `CAMELS_US`, `CAMELS_GB`).
 
-Example: If your data is in `D:/data/CAMELS_US/`, set `datasets-origin: 'D:/data'`.
+Example: If your data is in `D:/data/CAMELS_US/`, set `local.root: 'D:/data'`. The legacy `local_data_path` block is not read by the new resolver.
 
 ### Step 3: Download Data
 
 The data downloads automatically on first use:
 
 ```python
-from hydrodataset.camels_us import CamelsUs
-from hydrodataset import SETTING
+from hydrodatasource.configs.data_resolver import open_dataset
 
-# Initialize dataset (auto-downloads if not present)
-data_path = SETTING["local_data_path"]["datasets-origin"]
-ds = CamelsUs(data_path, download=True)
+# Open the dataset (raw files are downloaded on first use if not present)
+ds = open_dataset("camels_us", source="local")   # or source="cloud"
 
 # Get available basins
 basin_ids = ds.read_object_ids()
@@ -72,7 +66,7 @@ from hydromodel.trainers.unified_calibrate import calibrate
 
 config = {
     "data_cfgs": {
-        "data_source_type": "camels_us",  # Dataset name
+        "dataset": "camels_us",  # Dataset id from the registry
         "basin_ids": ["01013500", "01022500"],
         "train_period": ["1990-10-01", "2000-09-30"],
         "test_period": ["2000-10-01", "2010-09-30"],
@@ -101,11 +95,13 @@ results = calibrate(config)
 | CAMELS-NZ | New Zealand | 70 | `camels_nz` |
 | CAMELS-SE | Sweden | 54 | `camels_se` |
 
+Additional registered CAMELS datasets include `camels_col`, `camels_fi`, `camels_pe`, `camels_ind`, and `camels_lux`. In total 27 public datasets are registered (see the README for the full list).
+
 **Usage example:**
 
 ```python
-# Use different datasets by changing data_source_type
-config["data_cfgs"]["data_source_type"] = "camels_gb"
+# Use different datasets by changing dataset
+config["data_cfgs"]["dataset"] = "camels_gb"
 config["data_cfgs"]["basin_ids"] = ["28015"]  # GB basin ID
 ```
 
@@ -214,26 +210,21 @@ Define physical units for all variables:
 ### Step 4: Verify Data Structure
 
 ```python
-from hydrodatasource.reader.data_source import SelfMadeHydroDataset
+from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
 
-# Initialize dataset
-dataset = SelfMadeHydroDataset(
-    data_path="D:/my_basin_data",
-    time_unit="1D"
-)
+# Open your self-made data via uri + reader alias (uri bypasses the registry)
+loader = UnifiedDataLoader({
+    "dataset": "my_basin",
+    "uri": "D:/my_basin_data",
+    "reader": "selfmade",
+    "time_unit": ["1D"],
+    "basin_ids": ["basin_001"],
+    "variables": ["prcp", "PET", "streamflow"],
+})
+p_and_e, qobs = loader.load_data()
 
-# Check basins
-basin_ids = dataset.read_object_ids()
-print(f"Found {len(basin_ids)} basins: {basin_ids}")
-
-# Check time series
-data = dataset.read_timeseries(
-    gage_id_lst=["basin_001"],
-    t_range=["1990-01-01", "2000-12-31"],
-    var_lst=["prcp", "PET", "streamflow"]
-)
-
-print(f"Data shape: {data['1D'].shape}")  # [n_basins, n_time, n_vars]
+print(f"p_and_e: {p_and_e.shape}")   # [time, basins, 2]
+print(f"qobs: {qobs.shape}")         # [time, basins, 1]
 ```
 
 ### Step 5: Use with hydromodel
@@ -243,19 +234,20 @@ from hydromodel.trainers.unified_calibrate import calibrate
 
 config = {
     "data_cfgs": {
-        "data_source_type": "selfmadehydrodataset",  # Use custom data
-        "data_source_path": "D:/my_basin_data",      # Your data path
+        "dataset": "my_basin",  # custom dataset id
+        "uri": "D:/my_basin_data",  # explicit path (bypasses registry)
+        "reader": "selfmade",  # reader alias
         "basin_ids": ["basin_001", "basin_002"],
         "train_period": ["1990-01-01", "2000-12-31"],
         "test_period": ["2001-01-01", "2010-12-31"],
         "warmup_length": 365,
     },
     "model_cfgs": {
-        "model_name": "xaj_mz",
+        "name": "xaj_mz",
     },
     "training_cfgs": {
         "algorithm": "SCE_UA",
-        "loss_func": "RMSE",
+        "loss": "RMSE",
         "output_dir": "results",
         "experiment_name": "my_basins",
         "rep": 10000,
@@ -388,8 +380,8 @@ This design ensures that:
 ```yaml
 data:
   dataset: "floodevent"
-  dataset_name: "my_flood_events"
-  data_source_path: "D:/flood_data"
+  uri: "D:/flood_data"
+  reader: floodevent
   is_event_data: true
   time_unit: ["1D"]
 
@@ -564,7 +556,7 @@ Convert CSV to NetCDF for 10x faster access:
 from hydrodatasource.reader.data_source import SelfMadeHydroDataset
 
 dataset = SelfMadeHydroDataset(
-    data_path="D:/my_basin_data",
+    uri="D:/my_basin_data",
     time_unit="1D"
 )
 
@@ -603,28 +595,30 @@ timeseries/
 Specify in config:
 ```python
 dataset = SelfMadeHydroDataset(
-    data_path="D:/my_basin_data",
+    uri="D:/my_basin_data",
     time_unit="1h"  # or "1D", "8D"
 )
 ```
 
-### Cloud Storage (MinIO/S3)
+### Cloud Storage (OSS/S3)
 
-For large datasets in the cloud:
+For large datasets in the cloud, configure `storage.s3` in `hydro_setting.yml` and set `data_cfgs.source: cloud`:
+
+```yaml
+storage:
+  s3:
+    bucket: hydrodataset
+    prefix: ''
+    access_key_id: your_access_key
+    secret_access_key: your_secret_key
+    endpoint_url: https://oss-cn-beijing.aliyuncs.com
+```
 
 ```python
-from hydrodatasource.reader.data_source import SelfMadeHydroDataset
-
-dataset = SelfMadeHydroDataset(
-    data_path="s3://my-bucket/basin-data",
-    time_unit="1D",
-    minio_paras={
-        "endpoint_url": "http://minio.example.com:9000",
-        "key_id": "access_key",
-        "secret_key": "secret_key"
-    }
-)
+config["data_cfgs"]["source"] = "cloud"   # read from OSS/S3 instead of local disk
 ```
+
+Cloud reads use zarr caches under `s3://<bucket>/zarr/`; missing caches are generated from raw files (requires write access). The `source` selection is hard: an unavailable backend raises an error instead of silently falling back.
 
 ---
 
@@ -663,7 +657,7 @@ with open("my_data/timeseries/1D_units_info.json", "w") as f:
 
 # Step 4: Verify data loads correctly
 dataset = SelfMadeHydroDataset(
-    data_path="my_data",
+    uri="my_data",
     time_unit="1D"
 )
 print(f"Basins: {dataset.read_object_ids()}")
@@ -678,19 +672,20 @@ dataset.cache_xrdataset(
 # Step 6: Run calibration with hydromodel
 config = {
     "data_cfgs": {
-        "data_source_type": "selfmadehydrodataset",
-        "data_source_path": "my_data",
+        "dataset": "my_basin",
+        "uri": "my_data",
+        "reader": "selfmade",
         "basin_ids": ["basin_001"],
         "train_period": ["1990-01-01", "2000-12-31"],
         "test_period": ["2001-01-01", "2010-12-31"],
         "warmup_length": 365,
     },
     "model_cfgs": {
-        "model_name": "xaj_mz",
+        "name": "xaj_mz",
     },
     "training_cfgs": {
         "algorithm": "SCE_UA",
-        "loss_func": "RMSE",
+        "loss": "RMSE",
         "output_dir": "results",
         "experiment_name": "my_basin_001",
         "rep": 5000,
@@ -793,6 +788,27 @@ df.to_csv("timeseries/1D/basin_001.csv", index=False)
 
 ---
 
+## Config Migration (Old Keys to New Keys)
+
+The data-layer refactor renamed the configuration keys. If you are upgrading from the
+old schema, use this mapping:
+
+| Old key | New key |
+|---------|---------|
+| `data_cfgs.data_source_type` | `data_cfgs.dataset` |
+| `model_cfgs.model_name` | `model_cfgs.name` |
+| `model_cfgs.model_params` | `model_cfgs.params` |
+| `training_cfgs.algorithm_name` | `training_cfgs.algorithm` |
+| `training_cfgs.algorithm_params` | `training_cfgs.<algorithm>` (e.g. `training_cfgs.SCE_UA`) |
+| `data_cfgs.data_source_path` | `data_cfgs.uri` (+ `data_cfgs.reader`) |
+| `data_cfgs.dataset: "selfmadehydrodataset"` | custom id + `uri` + `reader` (e.g. `songliao_event`) |
+| `~/hydro_setting.yml` `local_data_path` block | `storage:` block (`local.root`, `default_source`, `cache`, `s3`) |
+| `from hydrodataset import SETTING` | `open_dataset` / `resolve_data_path` from `hydrodatasource.configs.data_resolver` |
+
+`data_cfgs.dataset` is now required. Custom data can bypass the registry with
+`uri` + `reader` (reader aliases: `selfmade`, `floodevent`, `longterm`, `forecast`,
+`station`, `tghydro`, `gages`, `grdc`, `rainfall`, `crd`, `rsvrinflow`).
+
 ## Summary
 
 ### Quick Decision Guide
@@ -812,7 +828,7 @@ df.to_csv("timeseries/1D/basin_001.csv", index=False)
 ### Key Points
 
 1. **Public Data**: Use `hydrodataset` for CAMELS variants
-2. **Custom Data**: Use `hydrodatasource` with `selfmadehydrodataset` format
+2. **Custom Data**: Use `hydrodatasource` with a custom dataset id or `uri` + `reader` alias
 3. **Data Structure**: Follow standard directory layout
 4. **Required Files**: `attributes.csv`, time series CSVs, `units_info.json`
 5. **Data Quality**: Check completeness, consistency, and physical validity

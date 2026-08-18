@@ -18,7 +18,7 @@ Get started with hydromodel in 5 minutes! This guide walks you through a complet
 
 ## Prerequisites
 
-- Python 3.9 or higher
+- Python 3.11 or higher
 - Basic command-line knowledge
 - Understanding of hydrological modeling concepts
 
@@ -29,13 +29,13 @@ Get started with hydromodel in 5 minutes! This guide walks you through a complet
 Install hydromodel with data support:
 
 ```bash
-pip install hydromodel hydrodataset
+pip install hydromodel hydrodataset hydrodatasource
 ```
 
 Or using `uv` (faster):
 
 ```bash
-uv pip install hydromodel hydrodataset
+uv pip install hydromodel hydrodataset hydrodatasource hydrodatasource
 ```
 
 Verify installation:
@@ -75,15 +75,20 @@ hydromodel/
 
 ### Option A: Use CAMELS Public Data (Recommended for First Try)
 
-The data downloads automatically on first use:
+Configure the data root in `~/hydro_setting.yml` or `.hydro_setting.yml` (see [Data Guide](data_guide.md)):
+
+```yaml
+storage:
+  local:
+    root: F:/data          # parent dir containing dataset folders (e.g. CAMELS_US/)
+```
+
+Then check available basins:
 
 ```python
-# Check available basins
-from hydrodataset.camels_us import CamelsUs
-from hydrodataset import SETTING
+from hydrodatasource.configs.data_resolver import open_dataset
 
-data_path = SETTING["local_data_path"]["datasets-origin"]
-ds = CamelsUs(data_path, download=True)
+ds = open_dataset("camels_us", source="local")   # or source="cloud"
 basin_ids = ds.read_object_ids()
 
 print(f"Available basins: {len(basin_ids)}")
@@ -105,7 +110,7 @@ Edit `configs/example_config.yaml`:
 ```yaml
 # Configuration for model calibration and evaluation
 data_cfgs:
-  data_source_type: "camels_us"                 # Dataset type
+  dataset: camels_us                           # Dataset id (registered in hydrodataset/hydrodatasource)
   basin_ids: ["01013500"]                       # Basin(s) to calibrate
   train_period: ["1990-10-01", "2000-09-30"]   # Calibration period
   test_period: ["2000-10-01", "2010-09-30"]    # Evaluation period
@@ -113,8 +118,8 @@ data_cfgs:
   variables: ["precipitation", "potential_evapotranspiration", "streamflow"]
 
 model_cfgs:
-  model_name: "xaj_mz"                          # XAJ model with Muskingum routing
-  model_params:
+  name: xaj_mz                                  # Model name from MODEL_DICT
+  params:
     source_type: "sources"
     source_book: "HF"
 
@@ -143,7 +148,7 @@ training_cfgs:
     method: "SLSQP"                             # L-BFGS-B, SLSQP, TNC, etc.
     max_iterations: 500                         # Maximum iterations
 
-  loss: "RMSE"                                  # Loss function: RMSE, NSE, KGE
+  loss: "RMSE"                                  # User objective: RMSE, NSE, KGE, LOGNSE
   output_dir: "results"
   experiment_name: "quickstart_exp"
 
@@ -152,7 +157,7 @@ evaluation_cfgs:
 ```
 
 **Quick Tips:**
-- Start with **one basin** for first试验
+- Start with **one basin** for your first experiment
 - **Choose an algorithm**:
   - `SCE_UA`: Most robust, good for complex problems (slower)
   - `GA`: Flexible, good balance of speed and accuracy
@@ -415,7 +420,7 @@ data_cfgs:
 Then run:
 
 ```bash
-python scripts/run_xaj_calibration.py --config configs/multi_basin_config.yaml
+python scripts/run_xaj_calibration.py --config configs/example_config.yaml
 ```
 
 ---
@@ -454,7 +459,8 @@ For real research, use longer calibration:
 
 ```yaml
 training_cfgs:
-  algorithm_params:
+  algorithm: SCE_UA
+  SCE_UA:
     rep: 10000        # More iterations
     ngs: 100          # More complexes
     kstop: 50         # Stricter convergence
@@ -469,14 +475,13 @@ training_cfgs:
 **Solution**: Check data path and basin IDs
 
 ```python
-from hydrodataset import SETTING
-from hydrodataset.camels_us import CamelsUs
+from hydrodatasource.configs.data_resolver import resolve_data_path, open_dataset
 
-# Check data path
-print(SETTING["local_data_path"]["datasets-origin"])
+# Check the resolved data path
+print(resolve_data_path("camels_us", source="local"))
 
 # Check basin IDs
-ds = CamelsUs(SETTING["local_data_path"]["datasets-origin"])
+ds = open_dataset("camels_us", source="local")
 basin_ids = ds.read_object_ids()
 print(f"Available basins: {len(basin_ids)}")
 ```
@@ -513,14 +518,14 @@ print(f"Available basins: {len(basin_ids)}")
 - **Different Datasets**: Try CAMELS-GB, CAMELS-AUS, etc.
   ```yaml
   data_cfgs:
-    data_source_type: "camels_gb"
+    dataset: camels_gb
     basin_ids: ["28015"]
   ```
 
 - **Different Algorithms**: Try GA or scipy
   ```yaml
   training_cfgs:
-    algorithm_name: "GA"
+    algorithm: GA
   ```
 
 - **Custom Periods**: Evaluate on different periods
@@ -545,9 +550,9 @@ Try different algorithms to see which works best for your case:
 #   algorithm: "SCE_UA"  # to "GA" or "scipy"
 
 # Method 2: Run comparisons
-python scripts/run_xaj_calibration.py --config configs/example_config_sceua.yaml
-python scripts/run_xaj_calibration.py --config configs/example_config_ga.yaml
-python scripts/run_xaj_calibration.py --config configs/example_config_scipy.yaml
+python scripts/run_xaj_calibration.py --config configs/example_config.yaml
+python scripts/run_xaj_calibration.py --config configs/example_config.yaml
+python scripts/run_xaj_calibration.py --config configs/example_config.yaml
 ```
 
 **Algorithm comparison:**

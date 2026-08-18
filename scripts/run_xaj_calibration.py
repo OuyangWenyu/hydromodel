@@ -1,157 +1,92 @@
-r"""
-Author: Wenyu Ouyang
-Date: 2025-08-07
-LastEditTime: 2025-11-02 19:17:46
-LastEditors: Wenyu Ouyang
-Description: XAJ model calibration script using the latest unified architecture
-FilePath: \hydromodel\scripts\run_xaj_calibration_unified.py
-Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
+"""
+Run XAJ model calibration with unified data path resolution.
 """
 
 import argparse
-import sys
 import os
+import sys
 from pathlib import Path
-import yaml
 
-# Add hydromodel to path
+
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
 sys.path.append(repo_path)
 
-from hydromodel import SETTING
-from hydromodel.trainers.unified_calibrate import calibrate  # noqa: E402
 from hydromodel.configs.config_manager import (  # noqa: E402
-    setup_configuration_from_args,
+    get_default_calibration_config,
+    load_config_from_file,
     validate_and_show_config,
-    load_simplified_config,
 )
+from hydromodel.trainers.unified_calibrate import calibrate  # noqa: E402
 
 
 def parse_arguments():
-    """解析命令行参数 - 彻底简化，只保留必要参数"""
     parser = argparse.ArgumentParser(
-        description="简化的XAJ模型率定脚本 - 支持四要素配置",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-配置文件格式（四个要素）:
-  data:     # 数据配置
-    dataset: "camels"          # 数据集类型
-    path: "/path/to/data"      # 数据路径 
-    basin_ids: ["01013500"]    # 流域ID列表
-    warmup_length: 360         # 预热期
-    train_period: ["1990-10-01", "1995-09-30"]  # 训练期
-    test_period: ["1995-10-01", "2000-09-30"]   # 测试期
-    output_dir: "results"      # 结果目录
-  
-  model:    # 模型配置
-    name: "xaj_mz"             # 模型类型
-    params:                    # 模型参数
-      source_type: "sources"
-      source_book: "HF"
-      kernel_size: 15
-  
-  training: # 训练配置（每次只允许一个算法！）
-    algorithm: "SCE_UA"        # 算法类型（SCE_UA/GA/scipy）
-    SCE_UA:                    # 对应算法的参数
-      rep: 5000
-      ngs: 1000
-    loss: "RMSE"               # 损失函数
-  
-  evaluation: # 评估配置  
-    metrics: ["NSE", "KGE", "RMSE"]  # 评估指标
-
-使用示例:
-  # 使用简化配置文件（推荐）
-  python run_xaj_calibration.py --config example_config.yaml
-  
-  # 快速测试
-  python run_xaj_calibration.py --quick-test
-        """,
+        description="Run XAJ calibration with unified data configuration.",
     )
-
-    # 核心参数 - 只保留最必要的
     parser.add_argument(
         "--config",
         type=str,
-        help="简化配置文件路径（YAML格式，包含四要素配置）",
+        help="YAML or JSON config using *_cfgs schema.",
     )
-
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="只验证配置，不执行率定",
+        help="Resolve and validate configuration without calibration.",
     )
-
     parser.add_argument(
         "--output-dir",
         type=str,
-        help="覆盖配置中的输出目录",
+        help="Override training_cfgs.output_dir.",
     )
-
     parser.add_argument(
         "--experiment-name",
         type=str,
-        help="覆盖配置中的实验名称",
+        help="Override training_cfgs.experiment_name.",
     )
-
     parser.add_argument(
         "--no-save-config",
         dest="save_config",
         action="store_false",
         default=True,
-        help="禁用保存配置文件（默认会保存）",
+        help="Disable saving resolved calibration config.",
     )
-
     return parser.parse_args()
 
 
 def main():
-    """主执行函数 - 简化版"""
     args = parse_arguments()
     try:
-        # 只支持两种方式：配置文件 或 解析器默认值
         if args.config:
-            # 方式1：从简化配置文件加载
             if not os.path.exists(args.config):
-                print(f"❌ 配置文件不存在: {args.config}")
+                print(f"Configuration file not found: {args.config}")
                 return 1
-            print("Loading from simplified configuration file")
-            config = load_simplified_config(args.config)
-
+            config = load_config_from_file(args.config)
         else:
-            # 方式2：使用解析器默认值
-            print("Use default configuration")
-            config = setup_configuration_from_args(args)
+            config = get_default_calibration_config()
 
-        if config is None:
-            print("❌ 配置创建失败")
-            return 1
-
+        training_cfgs = config.setdefault("training_cfgs", {})
         if args.output_dir:
-            config["training_cfgs"]["output_dir"] = args.output_dir
+            training_cfgs["output_dir"] = args.output_dir
         if args.experiment_name:
-            config["training_cfgs"]["experiment_name"] = args.experiment_name
-        config["training_cfgs"]["save_config"] = args.save_config
+            training_cfgs["experiment_name"] = args.experiment_name
+        training_cfgs["save_config"] = args.save_config
 
-        # 验证配置
         if not validate_and_show_config(config, True, "XAJ Model"):
             return 1
 
         if args.dry_run:
-            print("配置验证完成")
+            print("Configuration resolved and validated")
             return 0
 
-        # 执行率定
-        results = calibrate(config)
-
-        print("XAJ率定完成")
+        calibrate(config)
+        print("XAJ calibration completed")
         return 0
 
     except KeyboardInterrupt:
-        print("率定被用户中断")
+        print("Calibration interrupted")
         return 1
-    except Exception as e:
-        print(f"错误: {e}")
+    except Exception as exc:
+        print(f"Error: {exc}")
         import traceback
 
         traceback.print_exc()
@@ -159,5 +94,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit_code = main()
-    sys.exit(exit_code)
+    sys.exit(main())

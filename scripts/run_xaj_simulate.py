@@ -281,19 +281,28 @@ def main():
 
     data_config = config["data_cfgs"]
     model_cfgs = config["model_cfgs"]
-    model_name = model_cfgs.get("model_name")
+    model_name = model_cfgs.get("name", model_cfgs.get("model_name"))
 
-    basin_ids = data_config.get("basin_ids", [])
-    basin_id = args.basin_id or basin_ids[0]
+    basin_ids = list(data_config.get("basin_ids", []))
+    if args.basin_id:
+        basin_id = args.basin_id
+        if basin_id not in basin_ids:
+            basin_ids.append(basin_id)  # allow an explicit --basin-id
+    elif basin_ids:
+        basin_id = basin_ids[0]
+    else:
+        raise ValueError(
+            "No basin specified: provide --basin-id or set data_cfgs.basin_ids"
+        )
     basin_index = basin_ids.index(basin_id)
 
     # Determine warmup period and time unit
-    data_source_type = data_config.get("data_source_type", "")
+    reader = data_config.get("reader", "")
     time_unit_config = data_config.get("time_unit", ["1D"])
 
     # Check if this is hourly/sub-daily data (event data typically uses hourly)
     is_hourly_data = any(unit in ["1h", "3h", "6h", "12h"] for unit in time_unit_config)
-    is_event_data = data_source_type == "floodevent" or is_hourly_data
+    is_event_data = reader == "floodevent" or is_hourly_data
 
     if args.warmup is not None:
         # User specified warmup via command line (highest priority)
@@ -314,7 +323,9 @@ def main():
     print(f"  Model: {model_name}")
     print(f"  Basin: {basin_id} (index {basin_index})")
     print(f"  Period: {data_config.get('test_period')}")
-    print(f"  Data type: {data_source_type}")
+    print(f"  Dataset: {data_config.get('dataset')}")
+    print(f"  Reader: {reader}")
+    print(f"  URI: {data_config.get('uri')}")
     print(f"  Warmup: {warmup_length} {time_unit}")
 
     # ========================================================================
@@ -357,7 +368,7 @@ def main():
     # Create model configuration for UnifiedSimulator
     model_config = {
         "model_name": model_name,
-        "model_params": model_cfgs,
+        "model_params": model_cfgs.get("params", model_cfgs),
         "parameters": parameters,
     }
 
@@ -380,11 +391,14 @@ def main():
         qobs=basin_qobs,
         warmup_length=warmup_length,
         return_intermediate=False,
+        is_event_data=is_event_data,
     )
 
-    # Extract results (UnifiedSimulator returns model-specific output names)
-    # For XAJ models, the main output is "qsim"
-    qsim = sim_results["qsim"]  # [time, 1, 1]
+    # Extract results using the configured output variable (default qsim)
+    output_var = model_cfgs.get("output_variable", "qsim")
+    if output_var not in sim_results:
+        output_var = "qsim"
+    qsim = sim_results[output_var]  # [time, 1, 1]
     qobs_out = basin_qobs  # Use original qobs
 
     # Remove warmup period

@@ -8,6 +8,7 @@ FilePath: /hydromodel/hydromodel/trainers/unified_calibrate.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
+import copy
 import os
 import sys
 import io
@@ -33,8 +34,16 @@ except ImportError:
     DEAP_AVAILABLE = False
     print("Warning: DEAP not available. Genetic Algorithm will not work.")
 
-from hydromodel.models.model_config import read_model_param_dict
-from hydromodel.models.model_dict import LOSS_DICT, MODEL_DICT
+from hydromodel.models.model_config import (
+    attach_parameter_contract,
+    denormalize_parameter_dict,
+    inject_model_param_config,
+    resolve_model_param_config,
+)
+from hydromodel.models.model_dict import (
+    LOSS_DICT,
+    resolve_loss_config,
+)
 from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
 from hydromodel.trainers.unified_simulate import UnifiedSimulator
 from hydromodel.trainers.calibrate_sceua import SpotSetup
@@ -100,8 +109,9 @@ class UnifiedCalibrator(ModelSetupBase):
         # Get warmup length from data config
         warmup_length = data_config.get("warmup_length", 365)
 
+        resolved_loss_config = resolve_loss_config(loss_config)
         super().__init__(
-            None, model_config, loss_config, warmup_length, **kwargs
+            None, model_config, resolved_loss_config, warmup_length, **kwargs
         )
 
         self.model_name = model_config["name"]
@@ -112,15 +122,17 @@ class UnifiedCalibrator(ModelSetupBase):
         # Get output variable configuration (default: qsim for streamflow)
         # Priority: training_config > model_config > default
         self.output_variable = (
-            self.training_config.get("output_variable") or
-            model_config.get("output_variable") or
-            "qsim"
+            self.training_config.get("output_variable")
+            or model_config.get("output_variable")
+            or "qsim"
         )
 
         # Validate output variable
         valid_outputs = ["qsim", "es", "et", "ets"]
         if self.output_variable not in valid_outputs:
-            print(f"Warning: output_variable '{self.output_variable}' not recognized. Using 'qsim'.")
+            print(
+                f"Warning: output_variable '{self.output_variable}' not recognized. Using 'qsim'."
+            )
             self.output_variable = "qsim"
 
         # Load data using unified data loader
@@ -172,9 +184,9 @@ class UnifiedCalibrator(ModelSetupBase):
         # so they reach the model function via kwargs[model_name] and are used for
         # denormalization. Without this, models fall back to the built-in default ranges
         # in MODEL_PARAM_DICT and the custom param_range_file is silently ignored.
-        model_params = model_config.copy()
-        if self.param_range and self.model_name in self.param_range:
-            model_params[self.model_name] = self.param_range[self.model_name]
+        model_params = inject_model_param_config(
+            model_config.copy(), self.model_name, self.model_param_config
+        )
         self.base_model_config = {
             "type": "lumped",
             "model_name": self.model_name,
@@ -215,9 +227,16 @@ class UnifiedCalibrator(ModelSetupBase):
 
     def _setup_model_params(self, param_file):
         """Setup parameters for models."""
-        # Load parameter configuration
-        self.param_range = read_model_param_dict(param_file)
-        self.parameter_names = self.param_range[self.model_name]["param_name"]
+        resolved = resolve_model_param_config(
+            self.model_name,
+            param_range_file=param_file,
+            strict=param_file is not None,
+        )
+        self.param_range = resolved["param_dict"]
+        self.model_param_config = resolved["model_param_config"]
+        self.param_range_source = resolved["source"]
+        self.param_range_source_path = resolved["source_path"]
+        self.parameter_names = self.model_param_config["param_name"]
         self.parameter_bounds = [(0.0, 1.0) for _ in self.parameter_names]
 
     def get_parameter_names(self) -> List[str]:
@@ -305,7 +324,9 @@ class UnifiedCalibrator(ModelSetupBase):
             # Fallback to qsim if configured variable not available
             elif "qsim" in results:
                 if self.output_variable != "qsim":
-                    print(f"Warning: '{self.output_variable}' not in results, using 'qsim' instead")
+                    print(
+                        f"Warning: '{self.output_variable}' not in results, using 'qsim' instead"
+                    )
                 return results["qsim"]
             # Last resort: return first available result
             else:
@@ -330,10 +351,11 @@ class UnifiedCalibrator(ModelSetupBase):
         self, simulation: np.ndarray, observation: np.ndarray
     ) -> float:
         """Calculate objective function for all models."""
+        obj_func = self.loss_config["obj_func"]
+        if callable(obj_func):
+            return obj_func(observation, simulation)
         if self.loss_config["type"] == "time_series":
-            return LOSS_DICT[self.loss_config["obj_func"]](
-                observation, simulation
-            )
+            return LOSS_DICT[obj_func](observation, simulation)
         else:
             # TODO: Implement event-based objective function
             raise NotImplementedError(
@@ -349,15 +371,18 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
     ----------
     config : Dict
         Configuration dictionary containing all settings.
-        Must contain 'data_cfgs', 'model_cfgs', 'training_cfgs' keys
-        Optional in training_cfgs: 'save_config' (bool, default: True)
+        Must contain 'data_cfgs', 'model_cfgs', 'training_cfgs' keys.
+        ``data_cfgs`` may be *unresolved* (only ``dataset`` + ``basin_ids``)
+        or *resolved* (with ``uri``, ``reader``, ``source``).  Reader
+        instantiation and path resolution are handled internally by
+        ``UnifiedDataLoader`` via ``open_dataset()``.
     **kwargs
-        Additional arguments
+        Additional keyword arguments forwarded to the calibration algorithm.
 
     Returns
     -------
     Dict[str, Any]
-        Dictionary containing calibration results
+        Dictionary containing calibration results keyed by basin id.
     """
 
     # Validate config structure
@@ -373,23 +398,39 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
             "Config dictionary must contain 'data_cfgs', 'model_cfgs', and 'training_cfgs' keys"
         )
 
-    data_config = config["data_cfgs"]
+    # data_cfgs only needs dataset + basin_ids; UnifiedDataLoader handles
+    # reader instantiation via open_dataset() internally.
+
+    run_config = copy.deepcopy(config)
+    data_config = run_config["data_cfgs"]
     # Extract model config
-    model_cfgs = config["model_cfgs"]
-    model_config = {
-        "name": model_cfgs.get("model_name"),
-        **model_cfgs.get("model_params", {}),
-    }
-    training_config = config["training_cfgs"]
+    model_cfgs = run_config["model_cfgs"]
+    model_params = model_cfgs.get("params", {})
+    model_name = model_cfgs.get("name")
+    if not model_name:
+        raise ValueError("model_cfgs.name is required")
+    model_config = {"name": model_name, **model_params}
+    if "output_variable" in model_cfgs:
+        model_config["output_variable"] = model_cfgs["output_variable"]
+    training_config = run_config["training_cfgs"]
 
     # Extract components from training_config
+    algorithm_name = training_config.get("algorithm", "SCE_UA")
+    algorithm_params = training_config.get(algorithm_name, {})
     algorithm_config = {
-        "name": training_config.get("algorithm_name", "SCE_UA"),
-        **training_config.get("algorithm_params", {}),
+        "name": algorithm_name,
+        **algorithm_params,
     }
-    loss_config = training_config.get(
-        "loss_config", {"type": "time_series", "obj_func": "RMSE"}
+    raw_loss_config = training_config.get("loss_config")
+    if raw_loss_config is None:
+        raw_loss_config = {
+            "type": "time_series",
+            "obj_func": training_config.get("loss", "RMSE"),
+        }
+    loss_config = resolve_loss_config(
+        raw_loss_config
     )
+    training_config["loss_config"] = loss_config
 
     # Create output directory
     output_dir = os.path.join(
@@ -464,7 +505,10 @@ def calibrate(config, **kwargs) -> Dict[str, Any]:
     save_config = training_config.get("save_config", True)
     if save_config:
         _save_calibration_config(
-            config, output_dir, model_setup.model_name, model_setup.param_range
+            run_config,
+            output_dir,
+            model_setup.model_name,
+            model_setup.param_range,
         )
 
     print(f"\n {'='*60}")
@@ -549,11 +593,11 @@ def _calibrate_model(
     algorithm_name = algorithm_config["name"]
 
     if algorithm_name in ["scipy_minimize", "scipy", "Scipy"]:
-        return _calibrate_with_scipy(
+        result = _calibrate_with_scipy(
             model_setup, algorithm_config, output_dir, basin_id
         )
     elif algorithm_name in ["SCE_UA", "sceua"]:
-        return _calibrate_with_sceua(
+        result = _calibrate_with_sceua(
             model_setup, algorithm_config, output_dir, basin_id
         )
     elif algorithm_name in ["genetic_algorithm", "GA"]:
@@ -561,11 +605,13 @@ def _calibrate_model(
             raise ImportError(
                 "DEAP is required for genetic algorithm. Install with: pip install deap"
             )
-        return _calibrate_with_ga(
+        result = _calibrate_with_ga(
             model_setup, algorithm_config, output_dir, basin_id
         )
     else:
         raise ValueError(f"Unsupported algorithm: {algorithm_name}")
+
+    return attach_parameter_contract(result, model_setup)
 
 
 def _calibrate_with_scipy(model_setup, algorithm_config, output_dir, basin_id):
@@ -720,13 +766,10 @@ def _calibrate_with_scipy(model_setup, algorithm_config, output_dir, basin_id):
         print(f"   📊 Function evaluations: {result.nfev}")
         print(f"   📊 Best objective value: {result.fun:.6f}")
         print(f"   📊 Best parameters (actual ranges):")
-        # Denormalize using the same formula as process_parameters in param_utils.py
-        param_ranges = model_setup.param_range[model_setup.model_name][
-            "param_range"
-        ]
-        for name, norm_value in best_params.items():
-            min_val, max_val = param_ranges[name]
-            denorm_value = min_val + norm_value * (max_val - min_val)
+        denorm_params = denormalize_parameter_dict(
+            best_params, model_setup.model_param_config
+        )
+        for name, denorm_value in denorm_params.items():
             print(f"      • {name}: {denorm_value:.6f}")
         print(f"✅ {'='*60}\n")
 
@@ -757,13 +800,10 @@ def _calibrate_with_scipy(model_setup, algorithm_config, output_dir, basin_id):
         if best_params:
             print(f"Best objective value found: {best_obj:.6f}")
             print(f"Best parameters found (actual ranges):")
-            # Denormalize using the same formula as process_parameters in param_utils.py
-            param_ranges = model_setup.param_range[model_setup.model_name][
-                "param_range"
-            ]
-            for name, norm_value in best_params.items():
-                min_val, max_val = param_ranges[name]
-                denorm_value = min_val + norm_value * (max_val - min_val)
+            denorm_params = denormalize_parameter_dict(
+                best_params, model_setup.model_param_config
+            )
+            for name, denorm_value in denorm_params.items():
                 print(f"  {name}: {denorm_value:.6f}")
 
         print(f"{'='*60}\n")
@@ -960,13 +1000,10 @@ def _calibrate_with_sceua(model_setup, algorithm_config, output_dir, basin_id):
     )
     print(f"   📊 Best objective value: {best_like:.6f}")
     print(f"   📊 Best parameters (actual ranges):")
-    # Denormalize using the same formula as process_parameters in param_utils.py
-    param_ranges = model_setup.param_range[model_setup.model_name][
-        "param_range"
-    ]
-    for name, norm_value in best_params.items():
-        min_val, max_val = param_ranges[name]
-        denorm_value = min_val + norm_value * (max_val - min_val)
+    denorm_params = denormalize_parameter_dict(
+        best_params, model_setup.model_param_config
+    )
+    for name, denorm_value in denorm_params.items():
         print(f"      • {name}: {denorm_value:.6f}")
     print(f"✅ {'='*60}\n")
 
@@ -1195,13 +1232,10 @@ def _calibrate_with_ga(model_setup, algorithm_config, output_dir, basin_id):
     print(f"✅ GA Calibration completed for basin: {basin_id}")
     print(f"   📊 Best objective value: {best_ind.fitness.values[0]:.6f}")
     print(f"   📊 Best parameters (actual ranges):")
-    # Denormalize using the same formula as process_parameters in param_utils.py
-    param_ranges = model_setup.param_range[model_setup.model_name][
-        "param_range"
-    ]
-    for name, norm_value in best_params.items():
-        min_val, max_val = param_ranges[name]
-        denorm_value = min_val + norm_value * (max_val - min_val)
+    denorm_params = denormalize_parameter_dict(
+        best_params, model_setup.model_param_config
+    )
+    for name, denorm_value in denorm_params.items():
         print(f"      • {name}: {denorm_value:.6f}")
     print(f"✅ {'='*60}\n")
 

@@ -41,9 +41,9 @@ dependencies = [
     "numpy>=2.2.6",
     "netcdf4",
     "aqua-fetch[all]",
-    "hydroutils>=0.1.0",
-    "hydrodataset>=0.2.3",
-    "hydrodatasource>=0.2.0",
+    "hydroutils>=0.2.0",
+    "hydrodataset>=0.3.0",
+    "hydrodatasource>=0.3.0",
 ]
 
 [project.optional-dependencies]
@@ -147,6 +147,10 @@ replace = 'version = "{new_version}"'
 filename = "hydromodel/__init__.py"
 search = "__version__ = '{current_version}'"
 replace = "__version__ = '{new_version}'" 
+
+[tool.uv.sources]
+hydrodatasource = { path = "../hydrodatasource", editable = true }
+hydrodataset = { path = "../hydrodataset", editable = true }
 
 [tool.uv]
 # Override aqua-fetch's outdated dependency constraints

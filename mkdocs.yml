@@ -87,9 +87,20 @@ nav:
     - Report Issues: https://github.com/OuyangWenyu/hydromodel/issues
     - Examples:
         - examples/intro.ipynb
+        - Calibration: examples/calibration.md
+        - Simulation: examples/simulation.md
+        - Flood Events: examples/flood_events.md
+        - Visualization: examples/visualization.md
+        - Advanced Topics: examples/advanced_topics.md
     - API Reference:
           - hydromodel module: hydromodel.md
           - Common Utilities: common.md
           - Models:
               - XinAnJiang (XAJ): models/xaj.md
+              - XAJ-SLW (Songliao): models/xaj_slw.md
+              - Semi-distributed XAJ: models/semi_xaj.md
+              - GR4J: models/gr4j.md
+              - GR Family: models/gr_family.md
+              - HYMOD: models/hymod.md
+              - Unit Hydrograph: models/unit_hydrograph.md
               - Dahuofang (DHF): models/dhf.md

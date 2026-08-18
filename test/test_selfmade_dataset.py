@@ -7,9 +7,6 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
 import os
-import sys
-import tempfile
-import shutil
 import gc
 import pytest
 import numpy as np
@@ -21,13 +18,9 @@ from hydromodel.trainers.unified_evaluate import evaluate
 
 
 @pytest.fixture()
-def temp_dataset_dir():
-    """Create a temporary directory for test dataset."""
-    temp_dir = tempfile.mkdtemp(prefix="test_selfmade_")
-    yield temp_dir
-    # Cleanup after test
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
+def temp_dataset_dir(tmp_path):
+    """Provide a temporary directory for test dataset."""
+    return str(tmp_path)
 
 
 @pytest.fixture()
@@ -52,7 +45,9 @@ def fake_selfmade_dataset(temp_dataset_dir):
 
     # Create directory structure
     os.makedirs(os.path.join(dataset_path, "attributes"), exist_ok=True)
-    os.makedirs(os.path.join(dataset_path, "shapes"), exist_ok=True)  # Required by SelfMadeHydroDataset
+    os.makedirs(
+        os.path.join(dataset_path, "shapes"), exist_ok=True
+    )  # Required by SelfMadeHydroDataset
     os.makedirs(os.path.join(dataset_path, "timeseries", "1D"), exist_ok=True)
 
     # 1. Create attributes.csv with basin_area
@@ -60,14 +55,15 @@ def fake_selfmade_dataset(temp_dataset_dir):
     basin_areas = [1234.5, 2345.6]  # km²
     elevations = [850.0, 920.0]
 
-    attributes_df = pd.DataFrame({
-        "basin_id": basin_ids,
-        "area": basin_areas,  # This will be mapped to basin_area
-        "elevation": elevations,
-    })
+    attributes_df = pd.DataFrame(
+        {
+            "basin_id": basin_ids,
+            "area": basin_areas,  # This will be mapped to basin_area
+            "elevation": elevations,
+        }
+    )
     attributes_df.to_csv(
-        os.path.join(dataset_path, "attributes", "attributes.csv"),
-        index=False
+        os.path.join(dataset_path, "attributes", "attributes.csv"), index=False
     )
 
     # 2. Create time series data (3 years of daily data)
@@ -81,15 +77,17 @@ def fake_selfmade_dataset(temp_dataset_dir):
         # Precipitation: 0-50 mm/day with seasonal pattern
         prcp = np.maximum(
             0,
-            10 + 15 * np.sin(2 * np.pi * np.arange(n_days) / 365)
-            + 5 * np.random.randn(n_days)
+            10
+            + 15 * np.sin(2 * np.pi * np.arange(n_days) / 365)
+            + 5 * np.random.randn(n_days),
         )
 
         # PET: 1-8 mm/day with seasonal pattern
         pet = np.maximum(
             1,
-            4 + 2 * np.sin(2 * np.pi * np.arange(n_days) / 365 + np.pi)
-            + 0.5 * np.random.randn(n_days)
+            4
+            + 2 * np.sin(2 * np.pi * np.arange(n_days) / 365 + np.pi)
+            + 0.5 * np.random.randn(n_days),
         )
 
         # Streamflow: Generated from simple water balance
@@ -98,33 +96,30 @@ def fake_selfmade_dataset(temp_dataset_dir):
         streamflow = np.maximum(
             0.1,
             0.1 * cumsum_water / np.arange(1, n_days + 1)
-            + 2 * np.random.randn(n_days)
+            + 2 * np.random.randn(n_days),
         )
         streamflow = np.maximum(0.1, streamflow)  # Ensure positive
 
         # Create basin time series DataFrame
-        basin_df = pd.DataFrame({
-            "time": dates,
-            "prcp": prcp,
-            "PET": pet,
-            "streamflow": streamflow,
-        })
+        basin_df = pd.DataFrame(
+            {
+                "time": dates,
+                "prcp": prcp,
+                "PET": pet,
+                "streamflow": streamflow,
+            }
+        )
 
         basin_df.to_csv(
             os.path.join(dataset_path, "timeseries", "1D", f"{basin_id}.csv"),
-            index=False
+            index=False,
         )
 
     # 3. Create units_info.json
-    units_info = {
-        "prcp": "mm/day",
-        "PET": "mm/day",
-        "streamflow": "mm/day"
-    }
+    units_info = {"prcp": "mm/day", "PET": "mm/day", "streamflow": "mm/day"}
 
     with open(
-        os.path.join(dataset_path, "timeseries", "1D_units_info.json"),
-        "w"
+        os.path.join(dataset_path, "timeseries", "1D_units_info.json"), "w"
     ) as f:
         json.dump(units_info, f, indent=2)
 
@@ -138,21 +133,22 @@ def fake_selfmade_dataset(temp_dataset_dir):
         for i, basin_id in enumerate(basin_ids):
             # Create a simple square polygon for each basin
             lon_offset = i * 0.5
-            polygon = Polygon([
-                (120.0 + lon_offset, 30.0),
-                (120.5 + lon_offset, 30.0),
-                (120.5 + lon_offset, 30.5),
-                (120.0 + lon_offset, 30.5),
-                (120.0 + lon_offset, 30.0)
-            ])
+            polygon = Polygon(
+                [
+                    (120.0 + lon_offset, 30.0),
+                    (120.5 + lon_offset, 30.0),
+                    (120.5 + lon_offset, 30.5),
+                    (120.0 + lon_offset, 30.5),
+                    (120.0 + lon_offset, 30.0),
+                ]
+            )
             geometries.append(polygon)
 
         # Create GeoDataFrame
         # Note: Use uppercase BASIN_ID to match hydrodatasource requirements
-        gdf = gpd.GeoDataFrame({
-            'BASIN_ID': basin_ids,
-            'geometry': geometries
-        }, crs='EPSG:4326')
+        gdf = gpd.GeoDataFrame(
+            {"BASIN_ID": basin_ids, "geometry": geometries}, crs="EPSG:4326"
+        )
 
         # Save as shapefile
         shapes_path = os.path.join(dataset_path, "shapes", "basins.shp")
@@ -162,10 +158,12 @@ def fake_selfmade_dataset(temp_dataset_dir):
         # If geopandas is not available, create dummy shp files
         # This is a workaround - just create empty files with correct extensions
         shapes_dir = os.path.join(dataset_path, "shapes")
-        for ext in ['.shp', '.shx', '.dbf', '.prj']:
-            dummy_file = os.path.join(shapes_dir, f'basins{ext}')
-            with open(dummy_file, 'wb') as f:
-                f.write(b'')  # Empty file - may cause issues but better than nothing
+        for ext in [".shp", ".shx", ".dbf", ".prj"]:
+            dummy_file = os.path.join(shapes_dir, f"basins{ext}")
+            with open(dummy_file, "wb") as f:
+                f.write(
+                    b""
+                )  # Empty file - may cause issues but better than nothing
 
     return {
         "dataset_path": temp_dataset_dir,
@@ -173,7 +171,7 @@ def fake_selfmade_dataset(temp_dataset_dir):
         "basin_ids": basin_ids,
         "basin_areas": basin_areas,
         "start_date": "2010-01-01",
-        "end_date": "2012-12-31"
+        "end_date": "2012-12-31",
     }
 
 
@@ -189,12 +187,15 @@ def test_selfmade_calibrate_xaj_mz(fake_selfmade_dataset, result_dir):
     """Test calibration with selfmadehydrodataset using xaj_mz model."""
     dataset_info = fake_selfmade_dataset
 
-    # Configuration for calibration
+    # Configuration for calibration (new resolved format)
     config = {
         "data_cfgs": {
-            "data_source_type": "selfmadehydrodataset",
-            "data_source_path": dataset_info["dataset_path"],
-            "dataset_name": dataset_info["dataset_name"],
+            "dataset": "test_selfmade",
+            "source": "local",
+            "reader": "selfmade",
+            "uri": os.path.join(
+                dataset_info["dataset_path"], dataset_info["dataset_name"]
+            ),
             "time_unit": ["1D"],
             "basin_ids": [dataset_info["basin_ids"][0]],  # Use first basin
             "train_period": ["2010-01-01", "2011-12-31"],
@@ -203,8 +204,8 @@ def test_selfmade_calibrate_xaj_mz(fake_selfmade_dataset, result_dir):
             "variables": ["prcp", "PET", "streamflow"],
         },
         "model_cfgs": {
-            "model_name": "xaj_mz",
-            "model_params": {
+            "name": "xaj_mz",
+            "params": {
                 "source_type": "sources",
                 "source_book": "HF",
                 "kernel_size": 15,
@@ -212,8 +213,8 @@ def test_selfmade_calibrate_xaj_mz(fake_selfmade_dataset, result_dir):
             },
         },
         "training_cfgs": {
-            "algorithm_name": "SCE_UA",
-            "algorithm_params": {
+            "algorithm": "SCE_UA",
+            "SCE_UA": {
                 "rep": 5,  # Very small for testing
                 "ngs": 2,
                 "kstop": 3,
@@ -221,10 +222,7 @@ def test_selfmade_calibrate_xaj_mz(fake_selfmade_dataset, result_dir):
                 "pcento": 0.1,
                 "random_seed": 1234,
             },
-            "loss_config": {
-                "type": "time_series",
-                "obj_func": "RMSE",
-            },
+            "loss": "RMSE",
             "output_dir": result_dir,
             "experiment_name": "test_xaj_mz_selfmade",
             "save_config": True,
@@ -255,12 +253,15 @@ def test_selfmade_calibrate_xaj(fake_selfmade_dataset, result_dir):
     """Test calibration with selfmadehydrodataset using xaj model (requires basin_area)."""
     dataset_info = fake_selfmade_dataset
 
-    # Configuration for calibration with xaj
+    # Configuration for calibration with xaj (new resolved format)
     config = {
         "data_cfgs": {
-            "data_source_type": "selfmadehydrodataset",
-            "data_source_path": dataset_info["dataset_path"],
-            "dataset_name": dataset_info["dataset_name"],
+            "dataset": "test_selfmade",
+            "source": "local",
+            "reader": "selfmade",
+            "uri": os.path.join(
+                dataset_info["dataset_path"], dataset_info["dataset_name"]
+            ),
             "time_unit": ["1D"],
             "basin_ids": [dataset_info["basin_ids"][0]],
             "train_period": ["2010-01-01", "2011-12-31"],
@@ -269,14 +270,14 @@ def test_selfmade_calibrate_xaj(fake_selfmade_dataset, result_dir):
             "variables": ["prcp", "PET", "streamflow"],
         },
         "model_cfgs": {
-            "model_name": "xaj",
-            "model_params": {
+            "name": "xaj",
+            "params": {
                 "time_interval_hours": 24,
             },
         },
         "training_cfgs": {
-            "algorithm_name": "SCE_UA",
-            "algorithm_params": {
+            "algorithm": "SCE_UA",
+            "SCE_UA": {
                 "rep": 5,  # Very small for testing
                 "ngs": 2,
                 "kstop": 3,
@@ -284,10 +285,7 @@ def test_selfmade_calibrate_xaj(fake_selfmade_dataset, result_dir):
                 "pcento": 0.1,
                 "random_seed": 1234,
             },
-            "loss_config": {
-                "type": "time_series",
-                "obj_func": "RMSE",
-            },
+            "loss": "RMSE",
             "output_dir": result_dir,
             "experiment_name": "test_xaj_selfmade",
             "save_config": True,
@@ -320,22 +318,26 @@ def test_selfmade_evaluate(fake_selfmade_dataset, result_dir):
     """Test evaluation with selfmadehydrodataset after calibration."""
     dataset_info = fake_selfmade_dataset
 
-    # First run calibration
+    # Configuration (new resolved format)
+    data_cfgs = {
+        "dataset": "test_selfmade",
+        "source": "local",
+        "reader": "selfmade",
+        "uri": os.path.join(
+            dataset_info["dataset_path"], dataset_info["dataset_name"]
+        ),
+        "time_unit": ["1D"],
+        "basin_ids": [dataset_info["basin_ids"][0]],
+        "train_period": ["2010-01-01", "2011-12-31"],
+        "test_period": ["2012-01-01", "2012-12-31"],
+        "warmup_length": 30,
+        "variables": ["prcp", "PET", "streamflow"],
+    }
     config = {
-        "data_cfgs": {
-            "data_source_type": "selfmadehydrodataset",
-            "data_source_path": dataset_info["dataset_path"],
-            "dataset_name": dataset_info["dataset_name"],
-            "time_unit": ["1D"],
-            "basin_ids": [dataset_info["basin_ids"][0]],
-            "train_period": ["2010-01-01", "2011-12-31"],
-            "test_period": ["2012-01-01", "2012-12-31"],
-            "warmup_length": 30,
-            "variables": ["prcp", "PET", "streamflow"],
-        },
+        "data_cfgs": data_cfgs,
         "model_cfgs": {
-            "model_name": "xaj_mz",
-            "model_params": {
+            "name": "xaj_mz",
+            "params": {
                 "source_type": "sources",
                 "source_book": "HF",
                 "kernel_size": 15,
@@ -343,16 +345,13 @@ def test_selfmade_evaluate(fake_selfmade_dataset, result_dir):
             },
         },
         "training_cfgs": {
-            "algorithm_name": "SCE_UA",
-            "algorithm_params": {
+            "algorithm": "SCE_UA",
+            "SCE_UA": {
                 "rep": 5,
                 "ngs": 2,
                 "random_seed": 1234,
             },
-            "loss_config": {
-                "type": "time_series",
-                "obj_func": "RMSE",
-            },
+            "loss": "RMSE",
             "output_dir": result_dir,
             "experiment_name": "test_evaluate_selfmade",
         },
@@ -366,23 +365,26 @@ def test_selfmade_evaluate(fake_selfmade_dataset, result_dir):
 
     # Run evaluation on test period
     param_dir = os.path.join(result_dir, "test_evaluate_selfmade")
-    eval_results = evaluate(config, param_dir=param_dir, eval_period="test")
+    eval_results = evaluate(
+        config,
+        param_dir=param_dir,
+        eval_period=data_cfgs["test_period"],
+    )
 
-    # Check that evaluation results exist
-    eval_dir = os.path.join(param_dir, "evaluation_test")
-    assert os.path.exists(eval_dir), "Evaluation directory not created"
+    # Check that evaluation results exist (saved directly in param_dir)
+    assert os.path.exists(param_dir), "Parameter directory not found"
     assert os.path.exists(
-        os.path.join(eval_dir, "basins_metrics.csv")
+        os.path.join(param_dir, "basins_metrics.csv")
     ), "Metrics file not saved"
     assert os.path.exists(
-        os.path.join(eval_dir, "basins_denorm_params.csv")
+        os.path.join(param_dir, "basins_denorm_params.csv")
     ), "Parameters file not saved"
 
     # Check that metrics are returned
     assert eval_results is not None, "Evaluation should return results"
 
     print(f"✅ Evaluation completed successfully")
-    print(f"   Evaluation results saved to: {eval_dir}")
+    print(f"   Evaluation results saved to: {param_dir}")
 
 
 def test_selfmade_multi_basin(fake_selfmade_dataset, result_dir):
@@ -392,12 +394,15 @@ def test_selfmade_multi_basin(fake_selfmade_dataset, result_dir):
     # Run calibration for each basin separately to avoid memory/concurrency issues
     # This is safer on Windows and prevents access violations
     for basin_id in dataset_info["basin_ids"]:
-        # Configuration for single-basin calibration
+        # Configuration for single-basin calibration (new resolved format)
         config = {
             "data_cfgs": {
-                "data_source_type": "selfmadehydrodataset",
-                "data_source_path": dataset_info["dataset_path"],
-                "dataset_name": dataset_info["dataset_name"],
+                "dataset": "test_selfmade",
+                "source": "local",
+                "reader": "selfmade",
+                "uri": os.path.join(
+                    dataset_info["dataset_path"], dataset_info["dataset_name"]
+                ),
                 "time_unit": ["1D"],
                 "basin_ids": [basin_id],  # Single basin at a time
                 "train_period": ["2010-01-01", "2011-12-31"],
@@ -406,8 +411,8 @@ def test_selfmade_multi_basin(fake_selfmade_dataset, result_dir):
                 "variables": ["prcp", "PET", "streamflow"],
             },
             "model_cfgs": {
-                "model_name": "xaj_mz",
-                "model_params": {
+                "name": "xaj_mz",
+                "params": {
                     "source_type": "sources",
                     "source_book": "HF",
                     "kernel_size": 15,
@@ -415,8 +420,8 @@ def test_selfmade_multi_basin(fake_selfmade_dataset, result_dir):
                 },
             },
             "training_cfgs": {
-                "algorithm_name": "SCE_UA",
-                "algorithm_params": {
+                "algorithm": "SCE_UA",
+                "SCE_UA": {
                     "rep": 2,  # Reduced for faster testing
                     "ngs": 2,
                     "kstop": 2,
@@ -424,10 +429,7 @@ def test_selfmade_multi_basin(fake_selfmade_dataset, result_dir):
                     "pcento": 0.1,
                     "random_seed": 1234,
                 },
-                "loss_config": {
-                    "type": "time_series",
-                    "obj_func": "RMSE",
-                },
+                "loss": "RMSE",
                 "output_dir": result_dir,
                 "experiment_name": f"test_multi_basin_{basin_id}",
             },
@@ -444,13 +446,17 @@ def test_selfmade_multi_basin(fake_selfmade_dataset, result_dir):
 
         # Verify results were saved
         exp_dir = os.path.join(result_dir, f"test_multi_basin_{basin_id}")
-        assert os.path.exists(exp_dir), f"Experiment directory not created for {basin_id}"
+        assert os.path.exists(
+            exp_dir
+        ), f"Experiment directory not created for {basin_id}"
         assert os.path.exists(
             os.path.join(exp_dir, "calibration_results.json")
         ), f"Calibration results not saved for {basin_id}"
 
     print(f"✅ Multi-basin calibration completed successfully")
-    print(f"   Calibrated {len(dataset_info['basin_ids'])} basins sequentially")
+    print(
+        f"   Calibrated {len(dataset_info['basin_ids'])} basins sequentially"
+    )
     print(f"   Results saved to separate directories")
 
 
@@ -461,9 +467,12 @@ def test_basin_area_retrieval(fake_selfmade_dataset):
     dataset_info = fake_selfmade_dataset
 
     data_config = {
-        "data_source_type": "selfmadehydrodataset",
-        "data_source_path": dataset_info["dataset_path"],
-        "dataset_name": dataset_info["dataset_name"],
+        "dataset": "test_selfmade",
+        "source": "local",
+        "reader": "selfmade",
+        "uri": os.path.join(
+            dataset_info["dataset_path"], dataset_info["dataset_name"]
+        ),
         "time_unit": ["1D"],
         "basin_ids": dataset_info["basin_ids"],
         "test_period": ["2010-01-01", "2010-12-31"],
@@ -480,21 +489,74 @@ def test_basin_area_retrieval(fake_selfmade_dataset):
     # Check that basin_area was correctly read for all basins
     for i, basin_id in enumerate(dataset_info["basin_ids"]):
         assert basin_id in basin_configs, f"Basin {basin_id} not in configs"
-        assert "basin_area" in basin_configs[basin_id], f"basin_area missing for {basin_id}"
+        assert (
+            "basin_area" in basin_configs[basin_id]
+        ), f"basin_area missing for {basin_id}"
 
         # Check that the value matches what we created
         expected_area = dataset_info["basin_areas"][i]
         actual_area = basin_configs[basin_id]["basin_area"]
-        assert abs(actual_area - expected_area) < 0.1, \
-            f"Basin area mismatch for {basin_id}: expected {expected_area}, got {actual_area}"
+        assert (
+            abs(actual_area - expected_area) < 0.1
+        ), f"Basin area mismatch for {basin_id}: expected {expected_area}, got {actual_area}"
 
     print(f"✅ Basin area retrieval test passed")
     print(f"   Correctly retrieved basin_area from attributes.csv")
     for i, basin_id in enumerate(dataset_info["basin_ids"]):
-        print(f"   {basin_id}: {basin_configs[basin_id]['basin_area']:.1f} km²")
+        print(
+            f"   {basin_id}: {basin_configs[basin_id]['basin_area']:.1f} km²"
+        )
 
 
-if __name__ == "__main__":
-    """Allow running tests directly with python."""
-    import sys
-    sys.exit(pytest.main([__file__, "-v", "-s"]))
+def test_simulate_selfmade_with_specific_parameters(fake_selfmade_dataset):
+    """End-to-end simulate(config) with concrete parameter values."""
+    from hydromodel import simulate
+
+    dataset_info = fake_selfmade_dataset
+    config = {
+        "data_cfgs": {
+            "dataset": "test_selfmade",
+            "source": "local",
+            "reader": "selfmade",
+            "uri": os.path.join(
+                dataset_info["dataset_path"], dataset_info["dataset_name"]
+            ),
+            "time_unit": ["1D"],
+            "basin_ids": [dataset_info["basin_ids"][0]],
+            "warmup_length": 30,
+            "variables": ["prcp", "PET", "streamflow"],
+            "train_period": ["2010-01-01", "2012-12-31"],
+            "test_period": ["2012-01-01", "2012-12-31"],
+        },
+        "model_cfgs": {
+            "name": "xaj",
+            "params": {"source_type": "sources", "source_book": "HF"},
+            "parameters": {
+                "K": 0.75,
+                "B": 0.25,
+                "IM": 0.06,
+                "UM": 18.0,
+                "LM": 80.0,
+                "DM": 95.0,
+                "C": 0.12,
+                "SM": 45.0,
+                "EX": 1.3,
+                "KI": 0.35,
+                "KG": 0.45,
+                "CS": 0.5,
+                "L": 5.5,
+                "CI": 0.65,
+                "CG": 0.985,
+            },
+        },
+    }
+
+    results = simulate(config)
+    assert "simulation" in results, "results must contain 'simulation'"
+    assert "qobs" in results, "results must contain 'qobs'"
+    assert results["model_name"] == "xaj"
+    assert results["parameters"]["K"] == 0.75
+    # simulation output has a qsim array
+    qsim = results["simulation"].get("qsim")
+    assert qsim is not None, "simulation must include qsim"
+    assert qsim.shape[0] > 0, "qsim must be non-empty"

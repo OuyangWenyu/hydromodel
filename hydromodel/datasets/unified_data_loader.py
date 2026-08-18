@@ -9,33 +9,18 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
 import re
+import importlib
+import importlib.util
 import numpy as np
 import pandas as pd
 import xarray as xr
 from typing import Dict, List, Optional, Tuple, Any
-import os
-import yaml
-import importlib
-from pathlib import Path
 from hydroutils.hydro_units import streamflow_unit_conv
 
-# Import dataset mapping from dataset_dict
-from .dataset_dict import DATASET_MAPPING, get_dataset_category
-
-# Check availability
-try:
-    import hydrodataset
-
-    HYDRODATASET_AVAILABLE = True
-except ImportError:
-    HYDRODATASET_AVAILABLE = False
-
-try:
-    import hydrodatasource
-
-    HYDRODATASOURCE_AVAILABLE = True
-except ImportError:
-    HYDRODATASOURCE_AVAILABLE = False
+HYDRODATASET_AVAILABLE = importlib.util.find_spec("hydrodataset") is not None
+HYDRODATASOURCE_AVAILABLE = (
+    importlib.util.find_spec("hydrodatasource") is not None
+)
 
 
 class UnifiedDataLoader:
@@ -85,24 +70,60 @@ class UnifiedDataLoader:
         ----------
         data_config : Dict[str, Any]
             Data configuration dictionary containing:
-            - data_type: Type of data source ('floodevent', 'camels', 'selfmade', etc.)
-            - data_path: Path to the data
+            - dataset: Dataset identifier (e.g. 'camels_us')
+            - source: 'local' or 'cloud' (default 'local')
             - basin_ids: List of basin identifiers
-            - time_periods: Time period configuration
+            - train_period / valid_period / test_period: Time period config
             - variables: List of variables to load
             - warmup_length: Warmup period length
             - **kwargs: Additional datasource-specific parameters
         is_train_val_test : str
             "train", "valid", "test"
         """
-        self.config = data_config
-        # Support both naming conventions for backward compatibility
-        self.data_type = data_config.get("data_source_type")
-        self.data_path = data_config.get("data_source_path")
+        from hydrodatasource.configs.data_resolver import open_dataset
 
-        # Handle None data_path: try hydro_setting.yml first, then use default
-        if self.data_path is None:
-            self.data_path = self._get_default_data_path()
+        self.config = data_config
+        self.dataset = data_config.get("dataset")
+        if not self.dataset:
+            raise ValueError("data_cfgs.dataset is required")
+        source = data_config.get("source", "local")
+
+        # Build reader_kwargs from config
+        reader_kwargs = {}
+        if "time_unit" in data_config:
+            reader_kwargs["time_unit"] = data_config["time_unit"]
+        if "datasource_kwargs" in data_config:
+            reader_kwargs.update(data_config["datasource_kwargs"])
+
+        # When uri is explicitly provided (self-made / test datasets),
+        # bypass registry lookup and delegate to open_dataset with a
+        # one-off ResolverContext that points to the explicit path.
+        explicit_uri = data_config.get("uri")
+        if explicit_uri:
+            from pathlib import Path as _Path
+            from hydrodataset.configs.data_resolver import ResolverContext
+
+            uri_path = _Path(explicit_uri)
+            reader_name = data_config.get("reader", self.dataset)
+            ctx = ResolverContext(
+                storage={
+                    "local": {"root": str(uri_path.parent)},
+                },
+                registry={
+                    self.dataset: {
+                        "reader": reader_name,
+                        "path": uri_path.name,
+                    }
+                },
+            )
+            self.datasource = open_dataset(
+                self.dataset, source=source, ctx=ctx, **reader_kwargs
+            )
+        else:
+            # Default path: open_dataset resolves via built-in registries
+            self.datasource = open_dataset(
+                self.dataset, source=source, **reader_kwargs
+            )
 
         self.basin_ids = data_config.get("basin_ids", [])
         self.warmup_length = data_config.get("warmup_length", 365)
@@ -122,154 +143,6 @@ class UnifiedDataLoader:
             ["precipitation", "potential_evapotranspiration", "streamflow"],
         )
 
-        # Initialize the appropriate datasource
-        self.datasource = self._create_datasource()
-
-    def _get_default_data_path(self) -> str:
-        """
-        Get default data path based on data_source_type.
-        Tries to load from hydro_setting.yml first, then uses default ~/hydromodel_data/.
-
-        Returns
-        -------
-        str
-            Data path
-        """
-        data_path = None
-
-        # Get dataset category from DATASET_MAPPING
-        dataset_category = self._get_dataset_category()
-
-        # Try to load from hydro_setting.yml
-        try:
-            setting_file = os.path.join(Path.home(), "hydro_setting.yml")
-            if os.path.exists(setting_file):
-                with open(setting_file, "r", encoding="utf-8") as f:
-                    settings = yaml.safe_load(f)
-
-                if settings and "local_data_path" in settings:
-                    datasets_origin = settings["local_data_path"].get(
-                        "datasets-origin"
-                    )
-                    basins_origin = settings["local_data_path"].get(
-                        "basins-origin"
-                    )
-
-                    # Determine path based on dataset category
-                    if dataset_category == "hydrodatasource":
-                        # For custom data from hydrodatasource
-                        if basins_origin:
-                            data_path = basins_origin
-                    elif dataset_category == "hydrodataset":
-                        # For public datasets from hydrodataset
-                        if datasets_origin:
-                            data_path = datasets_origin
-
-                    if data_path:
-                        print(
-                            f"Using data paths in hydro_setting.yml : {data_path}"
-                        )
-        except Exception as e:
-            print(f"Warning: unable to load path from hydro_setting.yml: {e}")
-
-        # If still None, use default path
-        if data_path is None:
-            default_root = os.path.join(Path.home(), "hydromodel_data")
-
-            if dataset_category == "hydrodatasource":
-                # For custom data
-                data_path = os.path.join(default_root, "basins-interim")
-            else:
-                # For public datasets: use datasets-origin directly
-                # aqua_fetch will automatically append the dataset directory name (e.g., CAMELS_US)
-                data_path = os.path.join(default_root, "datasets-origin")
-
-            print(f"Using default data paths: {data_path}")
-
-        return data_path
-
-    def _get_dataset_category(self) -> str:
-        """
-        Get dataset category from DATASET_MAPPING.
-
-        Returns
-        -------
-        str
-            Dataset category: "hydrodataset" or "hydrodatasource"
-        """
-        category = get_dataset_category(self.data_type)
-        # Default to hydrodataset for backward compatibility if not found
-        return category if category is not None else "hydrodataset"
-
-    def _create_datasource(self) -> Any:
-        """
-        Create the appropriate datasource based on data_type using dynamic imports.
-
-        This method uses DATASET_MAPPING to dynamically import and instantiate the
-        correct dataset class, supporting all datasets from hydrodataset and hydrodatasource.
-        """
-        # Check if data_type is in DATASET_MAPPING
-        if self.data_type not in DATASET_MAPPING:
-            raise ValueError(
-                f"Unsupported data_type: {self.data_type}\n"
-                f"Supported datasets: {list(DATASET_MAPPING.keys())}"
-            )
-
-        module_name, class_name, category = DATASET_MAPPING[self.data_type]
-
-        # Check package availability
-        if category == "hydrodataset" and not HYDRODATASET_AVAILABLE:
-            raise ImportError(
-                f"hydrodataset package is required for '{self.data_type}' dataset. "
-                "Install with: pip install hydrodataset"
-            )
-        elif category == "hydrodatasource" and not HYDRODATASOURCE_AVAILABLE:
-            raise ImportError(
-                f"hydrodatasource package is required for '{self.data_type}' dataset. "
-                "Install with: pip install hydrodatasource"
-            )
-
-        # Dynamic import
-        try:
-            module = importlib.import_module(module_name)
-            dataset_class = getattr(module, class_name)
-        except ImportError as e:
-            raise ImportError(
-                f"Failed to import {class_name} from {module_name}: {e}\n"
-                f"Make sure the required package is installed."
-            )
-        except AttributeError as e:
-            raise AttributeError(
-                f"Class {class_name} not found in module {module_name}: {e}"
-            )
-
-        # Instantiate dataset based on category
-        if category == "hydrodataset":
-            # Public datasets from hydrodataset - simple initialization
-            return dataset_class(self.data_path)
-        elif category == "hydrodatasource":
-            # Custom datasets from hydrodatasource - requires additional config
-            init_kwargs = {
-                "data_path": self.data_path,
-                "time_unit": self.config.get("time_unit", ["1D"]),
-                "dataset_name": self.config.get(
-                    "dataset_name", "selfmadehydrodataset"
-                ),
-            }
-
-            # Add warmup_length for FloodEventDatasource
-            if self.data_type.lower() == "floodevent":
-                init_kwargs["warmup_length"] = self.config.get(
-                    "warmup_length", 0
-                )
-
-            # Merge with additional datasource_kwargs
-            init_kwargs.update(self.config.get("datasource_kwargs", {}))
-
-            return dataset_class(**init_kwargs)
-        else:
-            raise ValueError(f"Unknown dataset category: {category}")
-
     def load_data(self) -> Tuple[np.ndarray, np.ndarray]:
         """
         Load data using the unified interface and return in standard format.
@@ -286,10 +159,8 @@ class UnifiedDataLoader:
         - For continuous data: features=2 (precipitation, PET)
         - For flood event data: features=3 (precipitation, PET, flood_event_marker)
         """
-        # Check if this is flood event data
-        is_flood_event = self.data_type.lower() in ["floodevent"]
-
-        if is_flood_event:
+        # Detect flood event datasource by capability, not by name
+        if hasattr(self.datasource, "load_1basin_flood_events"):
             # Use specialized flood event loading
             return self._load_flood_event_data()
         else:

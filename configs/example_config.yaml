@@ -1,91 +1,56 @@
-# Example Configuration for XAJ Model Calibration and Evaluation
-# This configuration follows the format defined in hydromodel.configs.config_manager
+# Example configuration for XAJ calibration with unified data resolution.
 
-data:
-  # Data source configuration
-  dataset: "camels"              # Dataset type: camels_us, selfmadehydrodataset, etc.
-  path: null                        # Data path (null = auto-detect from hydro_setting.yml or use ~/hydromodel_data/)
-                                    # If specified, provide the datasets-origin directory only
-                                    # Example: "D:/project/data" (NOT "D:/project/data/CAMELS_US")
-                                    # aqua_fetch will automatically append "CAMELS_US" directory name
-  basin_ids: ["12025000"]           # List of basin IDs to calibrate
-  warmup_length: 365                # Warmup period in days
-  variables: ["prcp", "PET", "dayl", "srad", "tmax", "tmin", "vp", "streamflow"]  # Input variables
+data_cfgs:
+  dataset: camels_us
+  source: cloud
+  basin_ids: ["12025000"]
+  warmup_length: 365
+  variables:
+    - precipitation
+    - potential_evapotranspiration
+    - daylight_duration
+    - solar_radiation
+    - temperature_max
+    - temperature_min
+    - vapor_pressure
+    - streamflow
+  train_period: ["1981-01-01", "2004-12-31"]
+  valid_period: ["2005-01-01", "2009-12-31"]
+  test_period: ["2010-01-01", "2014-12-31"]
 
-  # Time periods
-  train_period: ["1981-01-01", "2004-12-31"]   # Training period
-  valid_period: ["2005-01-01", "2009-12-31"]   # Validation period
-  test_period: ["2010-01-01", "2014-12-31"]    # Testing period
+model_cfgs:
+  name: xaj
+  params:
+    source_type: sources
+    source_book: HF
+    kernel_size: 15
+  output_variable: qsim
 
-  # Output configuration
-  output_dir: "results/12025000"             # Output directory for results
-
-model:
-  # Model configuration
-  name: "xaj"                    # Model type: xaj, xaj_mz, gr4j, gr5j, gr6j, etc.
-  params:                           # Model parameters
-    source_type: "sources"          # XAJ source type
-    source_book: "HF"               # HF (Hydrological Forecast) computation method
-    kernel_size: 15                 # Kernel size for Muskingum routing
-
-  # Output variable: "qsim" (streamflow), "es" (ET for XAJ), "et" (ET for GR)
-  output_variable: "qsim"    
-
-training:
-  # Training configuration
-  algorithm: "SCE_UA"                  # Calibration algorithm: SCE_UA (or sceua), GA (or genetic_algorithm), scipy (or scipy_minimize)
-  # Algorithm-specific parameters (uncomment the section for your chosen algorithm)
-
-  # SCE-UA (Shuffled Complex Evolution) parameters
+training_cfgs:
+  algorithm: SCE_UA
   SCE_UA:
-    rep: 1000                       # Number of iterations/repetitions (default: 1000, recommended: 5000+ for production)
-    ngs: 1000                       # Number of complexes (default: 1000)
-    kstop: 500                      # Number of iterations to stop if no improvement (default: 500)
-    peps: 0.1                       # Convergence criterion for parameter space (default: 0.1)
-    pcento: 0.1                     # Percentage change allowed in optimization (default: 0.1)
-    random_seed: 1234               # Random seed for reproducibility (default: 1234)
-
-  # Genetic Algorithm (GA) parameters
+    rep: 1000
+    ngs: 1000
+    kstop: 500
+    peps: 0.1
+    pcento: 0.1
+    random_seed: 1234
   GA:
-    pop_size: 40                    # Population size (default: 80)
-    n_generations: 20               # Number of generations (default: 50, recommended: 100+ for production)
-    cx_prob: 0.7                    # Crossover probability (default: 0.7)
-    mut_prob: 0.2                   # Mutation probability (default: 0.2)
-    random_seed: 1234               # Random seed for reproducibility (default: 1234)
-
-  # Scipy optimizer parameters
+    pop_size: 40
+    n_generations: 20
+    cx_prob: 0.7
+    mut_prob: 0.2
+    random_seed: 1234
   scipy:
-    method: "SLSQP"                 # Optimization method (default: SLSQP, options: L-BFGS-B, SLSQP, TNC, etc.)
-    max_iterations: 500             # Maximum number of iterations (default: 500)
+    method: SLSQP
+    max_iterations: 500
+  loss: RMSE
+  output_dir: results/12025000
+  save_config: true
 
-  loss: "RMSE"                      # Loss function: RMSE, NSE, KGE
-
-  # Configuration file saving
-  save_config: true                 # Save calibration config and param_range to output directory (default: true)
-
-evaluation:
-  # Evaluation configuration
-  metrics: ["NSE", "RMSE", "KGE", "PBIAS"]   # Evaluation metrics
-  save_results: true                # Save detailed results
-  plot_results: true                # Generate visualization plots
-  validation_split: 0.2             # Hold-out validation fraction (if needed)
-  bootstrap_samples: null           # Bootstrap confidence intervals (null = disabled)
-
-
-# Path Configuration Notes:
-# 1. If path is null: automatically uses hydro_setting.yml or ~/hydromodel_data/
-# 2. If path is specified: provide datasets-origin directory only
-#    - Correct: "D:/project/data" (if your data is in D:/project/data/CAMELS_US/)
-#    - Wrong: "D:/project/data/CAMELS_US" (don't manually append directory name)
-# 3. aqua_fetch automatically appends uppercase directory name (CAMELS_US, CAMELS_AUS, etc.)
-#
-# Available Options:
-# - Datasets: camels_us, camels_aus, camels_br, camels_ch, selfmadehydrodataset, etc.
-# - Algorithms: SCE_UA (recommended), GA, scipy
-# - Loss functions: RMSE, NSE, KGE
-# - Metrics: NSE, KGE, RMSE, PBIAS, FHV, FLV, FMS
-#
-# Usage:
-#   python scripts/run_xaj_calibration.py --config configs/example_config.yaml
-#   python scripts/run_xaj_evaluate.py --calibration-dir results/xaj_mz_SCE_UA --eval-period test
-#   python scripts/visualize.py --eval-dir results/xaj_mz_SCE_UA/evaluation_test
+evaluation_cfgs:
+  metrics: ["NSE", "RMSE", "KGE", "PBIAS"]
+  save_results: true
+  plot_results: true
+  validation_split: 0.2
+  bootstrap_samples: null

@@ -9,41 +9,23 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
 try:
-    from hydrodataset import CamelsUs
+    from hydrodataset.camels_us import CamelsUs
 except ImportError:
     # CamelsUs may not be available if aqua_fetch is not installed
     CamelsUs = None
 
-from hydrodatasource.reader.data_source import SelfMadeHydroDataset
-from hydrodatasource.reader.floodevent import FloodEventDatasource
-
-# Import dataset mapping and utilities
 try:
-    from .dataset_dict import (
-        DATASET_MAPPING,
-        get_supported_datasets,
-        get_dataset_info,
-        is_dataset_supported,
-        get_dataset_category,
-    )
-
-    DATASET_DICT_AVAILABLE = True
+    from hydrodatasource.reader.data_source import SelfMadeHydroDataset
 except ImportError:
-    DATASET_DICT_AVAILABLE = False
-    DATASET_MAPPING = {}
+    SelfMadeHydroDataset = None
 
-    def get_supported_datasets(category=None):
-        raise ImportError("dataset_dict not available")
+try:
+    from hydrodatasource.reader.floodevent import FloodEventDatasource
+except ImportError:
+    FloodEventDatasource = None
 
-    def get_dataset_info(dataset_name):
-        raise ImportError("dataset_dict not available")
-
-    def is_dataset_supported(dataset_name):
-        raise ImportError("dataset_dict not available")
-
-    def get_dataset_category(dataset_name):
-        raise ImportError("dataset_dict not available")
-
+# Dataset instantiation is delegated to hydrodatasource.open_dataset().
+# hydromodel no longer maintains its own reader alias registry.
 
 # Import new unified data loader
 try:

@@ -8,30 +8,36 @@ FilePath: /hydromodel/hydromodel/trainers/__init__.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
-# Import traditional calibration functions for backward compatibility
-from .calibrate_sceua import SpotSetup
-from .calibrate_sceua import calibrate_by_sceua as calibrate_by_sceua_old
+__all__ = []
 
-# Import unified calibration interface
-from .unified_calibrate import (
-    calibrate,
-    ModelSetupBase,
-    UnifiedCalibrator,
-    DEAP_AVAILABLE,
-)
+try:
+    # Import traditional calibration functions for backward compatibility.
+    from .calibrate_sceua import SpotSetup
+    from .calibrate_sceua import calibrate_by_sceua as calibrate_by_sceua_old
 
-# Import unified evaluation interface
-from .unified_evaluate import evaluate, UnifiedEvaluator
+    __all__.extend(["SpotSetup", "calibrate_by_sceua_old"])
+except ImportError:
+    pass
 
-__all__ = [
-    # Traditional interfaces
-    "SpotSetup",
-    "calibrate_by_sceua_old",
-    # Unified interfaces
-    "calibrate",
-    "evaluate",
-    "ModelSetupBase",
-    "UnifiedCalibrator",
-    "UnifiedEvaluator",
-    "DEAP_AVAILABLE",
-]
+try:
+    # Import unified calibration interface when optional data deps are present.
+    from .unified_calibrate import (
+        DEAP_AVAILABLE,
+        ModelSetupBase,
+        UnifiedCalibrator,
+        calibrate,
+    )
+
+    __all__.extend(
+        ["DEAP_AVAILABLE", "ModelSetupBase", "UnifiedCalibrator", "calibrate"]
+    )
+except ImportError:
+    DEAP_AVAILABLE = False
+
+try:
+    # Import unified evaluation interface when optional data deps are present.
+    from .unified_evaluate import UnifiedEvaluator, evaluate
+
+    __all__.extend(["UnifiedEvaluator", "evaluate"])
+except ImportError:
+    pass

@@ -12,7 +12,7 @@ import math
 from typing import Optional, Tuple
 import numpy as np
 from numba import jit
-from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.model_config import get_model_param_config
 from hydromodel.models.param_utils import process_parameters
 
 
@@ -56,10 +56,7 @@ def gr1a(
     Union[np.array, tuple]
         streamflow or (streamflow, states)
     """
-    model_param_dict = kwargs.get("gr1a", None)
-    if model_param_dict is None:
-        model_param_dict = MODEL_PARAM_DICT["gr1a"]
-
+    model_param_dict = get_model_param_config("gr1a", kwargs)
     param_ranges = model_param_dict["param_range"]
 
     # Process parameters using unified parameter handling

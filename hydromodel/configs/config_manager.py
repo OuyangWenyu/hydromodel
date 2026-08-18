@@ -1,4 +1,4 @@
-"""
+r"""
 Author: Wenyu Ouyang
 Date: 2025-08-07
 LastEditTime: 2025-08-31 10:21:28
@@ -10,64 +10,15 @@ Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 
 from copy import deepcopy
 import os
+import warnings
 import yaml
 import json
 import argparse
-from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, Any
 
-
-def load_hydro_settings() -> Dict[str, Any]:
-    """Load hydro_setting.yml from user's home directory"""
-    try:
-        setting_path = os.path.join(
-            os.path.expanduser("~"), "hydro_setting.yml"
-        )
-        if os.path.exists(setting_path):
-            with open(setting_path, "r", encoding="utf-8") as f:
-                settings = yaml.safe_load(f)
-            return settings or {}
-        else:
-            return {}
-    except Exception as e:
-        print(f"Warning: Could not load hydro_setting.yml: {e}")
-        return {}
-
-
-def get_default_data_path(
-    data_source_type: str, hydro_settings: Dict[str, Any]
-) -> str:
-    """
-    Get default data path based on data source type and hydro settings.
-
-    Parameters
-    ----------
-    data_source_type : str
-        Type of data source (camels, selfmadehydrodataset, floodevent, etc.)
-    hydro_settings : Dict[str, Any]
-        Hydro settings from hydro_setting.yml
-
-    Returns
-    -------
-    str
-        Default data path
-    """
-    local_data_path = hydro_settings.get("local_data_path", {})
-    datasets_origin = local_data_path.get("datasets-origin")
-    datasets_interim = local_data_path.get("datasets-interim")
-    basins_origin = local_data_path.get("basins-origin")
-
-    if data_source_type == "camels" and datasets_origin:
-        return os.path.join(datasets_origin, "camels", "camels_us")
-    elif data_source_type == "selfmadehydrodataset" and datasets_interim:
-        return os.path.join(datasets_interim, "songliaorrevent")
-    elif data_source_type == "floodevent" and datasets_interim:
-        return os.path.join(datasets_interim, "songliaorrevent")
-    elif basins_origin:
-        return basins_origin
-    else:
-        return os.path.join(os.path.expanduser("~"), "hydro_data")
+from hydromodel.models.model_config import resolve_model_param_config
+from hydromodel.models.model_dict import MODEL_DICT, resolve_loss_config
 
 
 def get_default_calibration_config() -> Dict[str, Any]:
@@ -81,8 +32,7 @@ def get_default_calibration_config() -> Dict[str, Any]:
     """
     return {
         "data_cfgs": {
-            "data_source_type": "camels_us",
-            "data_source_path": None,  # Will be filled from hydro_setting.yml
+            "dataset": "camels_us",
             "basin_ids": ["01013500"],
             "warmup_length": 365,
             "variables": [
@@ -95,28 +45,26 @@ def get_default_calibration_config() -> Dict[str, Any]:
             "test_period": ["2005-10-01", "2014-09-30"],
         },
         "model_cfgs": {
-            "model_name": "xaj_mz",
-            "model_params": {
+            "name": "xaj_mz",
+            "params": {
                 "source_type": "sources",
                 "source_book": "HF",
                 "kernel_size": 15,
             },
         },
         "training_cfgs": {
-            "algorithm_name": "SCE_UA",
-            "algorithm_params": {
+            "algorithm": "SCE_UA",
+            "SCE_UA": {
                 "rep": 5000,
                 "ngs": 1000,
             },
-            "loss_config": {
-                "type": "time_series",
-                "obj_func": "RMSE",
-            },
+            "loss": "RMSE",
             "param_range_file": None,
             "output_dir": "results",
             "experiment_name": None,  # Will be auto-generated
             "random_seed": 1234,
-            "save_config": True,  # Save calibration config and param_range to output directory
+            # Save calibration config and param_range to output directory
+            "save_config": True,
         },
         "evaluation_cfgs": {
             "metrics": ["NSE", "RMSE", "KGE", "PBIAS"],
@@ -148,23 +96,12 @@ def update_config_from_args(
     """
     config = deepcopy(base_config)
 
-    # Load hydro settings for default paths
-    hydro_settings = load_hydro_settings()
-
     # Update data configuration
-    if hasattr(args, "data_source_type") and args.data_source_type is not None:
-        config["data_cfgs"]["data_source_type"] = args.data_source_type
+    if hasattr(args, "dataset") and args.dataset is not None:
+        config["data_cfgs"]["dataset"] = args.dataset
 
-    if hasattr(args, "data_source_path") and args.data_source_path is not None:
-        config["data_cfgs"]["data_source_path"] = args.data_source_path
-    elif hasattr(args, "data_path") and args.data_path is not None:
-        config["data_cfgs"]["data_source_path"] = args.data_path
-    elif config["data_cfgs"]["data_source_path"] is None:
-        # Use default path from hydro settings
-        data_type = config["data_cfgs"]["data_source_type"]
-        config["data_cfgs"]["data_source_path"] = get_default_data_path(
-            data_type, hydro_settings
-        )
+    if hasattr(args, "source") and args.source is not None:
+        config["data_cfgs"]["source"] = args.source
 
     if hasattr(args, "basin_ids") and args.basin_ids is not None:
         config["data_cfgs"]["basin_ids"] = args.basin_ids
@@ -182,8 +119,9 @@ def update_config_from_args(
         config["data_cfgs"]["time_unit"] = [args.time_unit]
 
         # Convert time_unit to time_interval_hours for models that need it
+        # (argparse provides a scalar str; defensively support a list/tuple)
         time_unit = args.time_unit
-        if isinstance(time_unit, list) and len(time_unit) > 0:
+        if isinstance(time_unit, (list, tuple)) and time_unit:
             time_unit = time_unit[0]  # Take first element if it's a list
 
         # Convert time unit to hours using pandas functionality
@@ -201,44 +139,44 @@ def update_config_from_args(
         try:
             freq = pd.Timedelta(time_unit_str)
             time_interval_hours = freq.total_seconds() / 3600
-            # Put time_interval_hours in model_params where it belongs
-            if "model_params" not in config["model_cfgs"]:
-                config["model_cfgs"]["model_params"] = {}
-            config["model_cfgs"]["model_params"][
+            # Put time_interval_hours in params where it belongs
+            if "params" not in config["model_cfgs"]:
+                config["model_cfgs"]["params"] = {}
+            config["model_cfgs"]["params"][
                 "time_interval_hours"
             ] = time_interval_hours
         except Exception:
             # Fallback to default if parsing fails
-            if "model_params" not in config["model_cfgs"]:
-                config["model_cfgs"]["model_params"] = {}
-            config["model_cfgs"]["model_params"]["time_interval_hours"] = 24
+            if "params" not in config["model_cfgs"]:
+                config["model_cfgs"]["params"] = {}
+            config["model_cfgs"]["params"]["time_interval_hours"] = 24
 
     if hasattr(args, "is_event") and args.is_event is not None:
         config["data_cfgs"]["is_event_data"] = args.is_event
 
     # Update model configuration
     if hasattr(args, "model_type") and args.model_type is not None:
-        config["model_cfgs"]["model_name"] = args.model_type
+        config["model_cfgs"]["name"] = args.model_type
     elif hasattr(args, "model") and args.model is not None:
-        config["model_cfgs"]["model_name"] = args.model
+        config["model_cfgs"]["name"] = args.model
 
     # Update model parameters
     if hasattr(args, "source_type") and args.source_type is not None:
-        config["model_cfgs"]["model_params"]["source_type"] = args.source_type
+        config["model_cfgs"]["params"]["source_type"] = args.source_type
 
     if hasattr(args, "source_book") and args.source_book is not None:
-        config["model_cfgs"]["model_params"]["source_book"] = args.source_book
+        config["model_cfgs"]["params"]["source_book"] = args.source_book
 
     if hasattr(args, "kernel_size") and args.kernel_size is not None:
-        config["model_cfgs"]["model_params"]["kernel_size"] = args.kernel_size
+        config["model_cfgs"]["params"]["kernel_size"] = args.kernel_size
 
     # Update training configuration (if exists)
     if "training_cfgs" in config:
         if hasattr(args, "algorithm") and args.algorithm is not None:
-            config["training_cfgs"]["algorithm_name"] = args.algorithm
+            config["training_cfgs"]["algorithm"] = args.algorithm
 
         if hasattr(args, "obj_func") and args.obj_func is not None:
-            config["training_cfgs"]["loss_config"]["obj_func"] = args.obj_func
+            config["training_cfgs"]["loss"] = args.obj_func
 
         if hasattr(args, "output_dir") and args.output_dir is not None:
             config["training_cfgs"]["output_dir"] = args.output_dir
@@ -257,10 +195,12 @@ def update_config_from_args(
 
         # Algorithm-specific parameters
         if hasattr(args, "rep") and args.rep is not None:
-            config["training_cfgs"]["algorithm_params"]["rep"] = args.rep
+            algorithm = config["training_cfgs"]["algorithm"]
+            config["training_cfgs"].setdefault(algorithm, {})["rep"] = args.rep
 
         if hasattr(args, "ngs") and args.ngs is not None:
-            config["training_cfgs"]["algorithm_params"]["ngs"] = args.ngs
+            algorithm = config["training_cfgs"]["algorithm"]
+            config["training_cfgs"].setdefault(algorithm, {})["ngs"] = args.ngs
 
     # Handle model parameters
     if hasattr(args, "model_parameters") and args.model_parameters is not None:
@@ -272,8 +212,8 @@ def update_config_from_args(
         and config["training_cfgs"]["experiment_name"] is None
     ):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        model_name = config["model_cfgs"]["model_name"]
-        algorithm = config["training_cfgs"]["algorithm_name"]
+        model_name = config["model_cfgs"]["name"]
+        algorithm = config["training_cfgs"]["algorithm"]
         config["training_cfgs"][
             "experiment_name"
         ] = f"{model_name}_{algorithm}_{timestamp}"
@@ -366,132 +306,24 @@ def setup_configuration_from_args(args) -> Dict[str, Any]:
 def load_simplified_config(
     config_path: str = None, simple_config: dict = None
 ) -> dict:
-    """
-    Load simplified configuration file and convert to unified format.
-
-    This function handles configuration files with simplified structure (data, model,
-    training, evaluation sections) and converts them to the unified configuration
-    format used throughout hydromodel.
-
-    Supports all dataset types including:
-    - Public datasets from hydrodataset (camels_us, camels_aus, etc.)
-    - Custom datasets from hydrodatasource (selfmadehydrodataset, floodevent)
-
-    Parameters
-    ----------
-    config_path : str, optional
-        Path to simplified YAML configuration file
-    simple_config : dict, optional
-        Pre-loaded simplified configuration dictionary
-
-    Returns
-    -------
-    dict
-        Unified configuration dictionary with data_cfgs, model_cfgs, training_cfgs,
-        and evaluation_cfgs sections
-
-    Raises
-    ------
-    ValueError
-        If neither config_path nor simple_config is provided, or if required
-        configuration sections are missing
-
-    Examples
-    --------
-    >>> # Load from file
-    >>> config = load_simplified_config("configs/example_config.yaml")
-
-    >>> # Load from dictionary
-    >>> simple = {"data": {...}, "model": {...}, "training": {...}, "evaluation": {...}}
-    >>> config = load_simplified_config(simple_config=simple)
-    """
+    """Load a config file that already uses the canonical *_cfgs schema."""
     if config_path:
         with open(config_path, "r", encoding="utf-8") as f:
             simple_config = yaml.safe_load(f)
     elif simple_config is None:
         raise ValueError(
-            " Must provide config.path or simplic_config parameter "
+            " Must provide config.path or simple_config parameter "
         )
 
-    # Validate required sections
-    required_sections = ["data", "model", "training", "evaluation"]
+    required_sections = ["data_cfgs", "model_cfgs", "training_cfgs"]
     for section in required_sections:
         if section not in simple_config:
             raise ValueError(
-                f"Configuration file is missing necessary parts: {section}"
+                "Configuration must use canonical *_cfgs schema; "
+                f"missing section: {section}"
             )
 
-    data_cfg = simple_config["data"]
-    model_cfg = simple_config["model"]
-    training_cfg = simple_config["training"]
-    eval_cfg = simple_config["evaluation"]
-
-    # Convert to unified configuration format
-    unified_config = {
-        "data_cfgs": {
-            "data_source_type": data_cfg["dataset"],
-            "data_source_path": data_cfg.get("path"),
-            "basin_ids": data_cfg["basin_ids"],
-            "variables": data_cfg.get(
-                "variables",
-                [
-                    "precipitation",
-                    "potential_evapotranspiration",
-                    "streamflow",
-                ],
-            ),
-            "train_period": data_cfg["train_period"],
-            "test_period": data_cfg["test_period"],
-            "warmup_length": data_cfg.get("warmup_length", 365),
-            "is_event_data": data_cfg.get("is_event_data", False),
-        },
-        "model_cfgs": {
-            "model_name": model_cfg["name"],
-            **model_cfg.get("params", {}),
-            # Add output_variable configuration if specified
-            **({"output_variable": model_cfg["output_variable"]} if "output_variable" in model_cfg else {}),
-        },
-        "training_cfgs": {
-            "algorithm_name": training_cfg["algorithm"],
-            "algorithm_params": training_cfg.get(
-                training_cfg["algorithm"], {}
-            ),
-            "loss_config": {
-                "type": "time_series",
-                "obj_func": training_cfg["loss"],
-            },
-            "output_dir": data_cfg.get("output_dir", "results"),
-            "experiment_name": f"{model_cfg['name']}_{training_cfg['algorithm']}",
-            "random_seed": training_cfg.get("random_seed", 1234),
-            "save_config": training_cfg.get("save_config", True),
-            # Add output_variable configuration if specified in training (highest priority)
-            **({"output_variable": training_cfg["output_variable"]} if "output_variable" in training_cfg else {}),
-        },
-        "evaluation_cfgs": {
-            "metrics": eval_cfg["metrics"],
-            "save_results": eval_cfg.get("save_results", True),
-            "plot_results": eval_cfg.get("plot_results", True),
-        },
-    }
-
-    # Add optional validation period
-    if "valid_period" in data_cfg:
-        unified_config["data_cfgs"]["valid_period"] = data_cfg["valid_period"]
-
-    # Add dataset-specific parameters for custom datasets
-    # These are critical for selfmadehydrodataset and floodevent
-    if "dataset_name" in data_cfg:
-        unified_config["data_cfgs"]["dataset_name"] = data_cfg["dataset_name"]
-
-    if "time_unit" in data_cfg:
-        unified_config["data_cfgs"]["time_unit"] = data_cfg["time_unit"]
-
-    if "datasource_kwargs" in data_cfg:
-        unified_config["data_cfgs"]["datasource_kwargs"] = data_cfg[
-            "datasource_kwargs"
-        ]
-
-    return unified_config
+    return simple_config
 
 
 def load_config_from_calibration(calibration_dir: str) -> dict:
@@ -510,7 +342,8 @@ def load_config_from_calibration(calibration_dir: str) -> dict:
     Returns
     -------
     dict
-        Configuration dictionary with data_cfgs, model_cfgs, training_cfgs sections
+        Configuration dictionary with data_cfgs, model_cfgs, training_cfgs
+        sections
 
     Raises
     ------
@@ -535,6 +368,96 @@ def load_config_from_calibration(calibration_dir: str) -> dict:
     return config
 
 
+def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate configuration and resolve agent-facing contracts."""
+    result = {
+        "valid": True,
+        "errors": [],
+        "warnings": [],
+        "resolved_loss_config": None,
+        "resolved_param_range": None,
+    }
+
+    if not isinstance(config, dict):
+        result["errors"].append("Config must be a dictionary")
+        result["valid"] = False
+        return result
+
+    required_sections = ["data_cfgs", "model_cfgs", "training_cfgs"]
+    for section in required_sections:
+        if section not in config:
+            result["errors"].append(
+                f"Missing required config section: {section}"
+            )
+
+    if result["errors"]:
+        result["valid"] = False
+        return result
+
+    data_cfgs = config["data_cfgs"]
+    model_cfgs = config["model_cfgs"]
+    training_cfgs = config["training_cfgs"]
+
+    if not data_cfgs.get("dataset"):
+        result["errors"].append("data_cfgs.dataset is required")
+
+    model_name = model_cfgs.get("name")
+    if not model_name:
+        result["errors"].append("model_cfgs.name is required")
+    elif model_name not in MODEL_DICT:
+        result["errors"].append(f"Unsupported model: {model_name}")
+
+    loss_config = training_cfgs.get("loss_config")
+    if loss_config is None:
+        loss_config = {
+            "type": "time_series",
+            "obj_func": training_cfgs.get("loss", "RMSE"),
+        }
+    try:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result["resolved_loss_config"] = resolve_loss_config(loss_config)
+        result["warnings"].extend(str(item.message) for item in caught)
+    except Exception as exc:
+        result["errors"].append(f"Invalid loss_config: {exc}")
+
+    algorithm_name = training_cfgs.get("algorithm", "SCE_UA")
+    supported_algorithms = {
+        "SCE_UA",
+        "sceua",
+        "GA",
+        "genetic_algorithm",
+        "scipy",
+        "Scipy",
+        "scipy_minimize",
+    }
+    if algorithm_name not in supported_algorithms:
+        result["errors"].append(f"Unsupported algorithm: {algorithm_name}")
+
+    train_period = data_cfgs.get("train_period")
+    if train_period is not None and (
+        not isinstance(train_period, list) or len(train_period) != 2
+    ):
+        result["errors"].append("data_cfgs.train_period must be [start, end]")
+
+    param_range_file = training_cfgs.get("param_range_file")
+    if model_name in MODEL_DICT:
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                result["resolved_param_range"] = resolve_model_param_config(
+                    model_name,
+                    param_range_file=param_range_file,
+                    strict=param_range_file is not None,
+                )
+            result["warnings"].extend(str(item.message) for item in caught)
+        except Exception as exc:
+            result["errors"].append(f"Invalid param_range_file: {exc}")
+
+    result["valid"] = not result["errors"]
+    return result
+
+
 def validate_and_show_config(
     config: Dict[str, Any], verbose: bool = True, model_type: str = "Model"
 ) -> bool:
@@ -555,11 +478,12 @@ def validate_and_show_config(
     bool
         True if validation passed
     """
-    # Basic validation - ensure required sections exist
-    required_sections = ["data_cfgs", "model_cfgs", "training_cfgs"]
-    for section in required_sections:
-        if section not in config:
-            print(f"Error: Missing required config section: {section}")
-            return False
+    validation = validate_config(config)
+    if validation["valid"]:
+        for warning in validation["warnings"]:
+            print(f"Warning: {warning}")
+        return True
 
-    return True
+    for error in validation["errors"]:
+        print(f"Error: {error}")
+    return False

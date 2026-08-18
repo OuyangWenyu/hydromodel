@@ -13,7 +13,7 @@ import numpy as np
 from numba import jit
 from scipy.special import gamma
 
-from hydromodel.models.model_config import MODEL_PARAM_DICT
+from hydromodel.models.model_config import get_model_param_config
 from hydromodel.models.unit_hydrograph import uh_conv
 from hydromodel.models.param_utils import process_parameters
 
@@ -76,12 +76,18 @@ def calculate_prcp_runoff(b, im, wm, w0, pe) -> tuple[np.array, np.array]:
     Returns:
         tuple[np.array, np.array]: r -- runoff; r_im -- runoff of impervious part
     """
-    wmm = wm * (1.0 + b)
-    a = wmm * (1.0 - (1.0 - w0 / wm) ** (1.0 / (1.0 + b)))
-    if np.isnan(a).any():
-        raise ArithmeticError(
-            "Please check if w0>wm or b is a negative value!"
-        )
+    # Validate parameters before calculation to avoid NaN/complex results.
+    # w0 must not exceed wm (initial storage cannot exceed capacity),
+    # and b must be non-negative (curve exponent constraint).
+    w0_arr = np.asarray(w0, dtype=float)
+    wm_val = float(wm)
+    b_val = float(b)
+    if (w0_arr > wm_val).any():
+        raise ArithmeticError("Please check if w0>wm or b is a negative value!")
+    if b_val < 0:
+        raise ArithmeticError("Please check if w0>wm or b is a negative value!")
+    wmm = wm_val * (1.0 + b_val)
+    a = wmm * (1.0 - (1.0 - w0_arr / wm_val) ** (1.0 / (1.0 + b_val)))
     r_cal = np.where(
         pe > 0.0,
         np.where(
@@ -677,9 +683,7 @@ def xaj(
     source_book = kwargs.get("source_book", "HF")
     kernel_size = kwargs.get("kernel_size", 15)
     time_interval_hours = kwargs.get("time_interval_hours", 24)
-    model_param_dict = kwargs.get(f"{model_name}", None)
-    if model_param_dict is None:
-        model_param_dict = MODEL_PARAM_DICT[f"{model_name}"]
+    model_param_dict = get_model_param_config(model_name, kwargs)
     # params
     param_ranges = model_param_dict["param_range"]
     if model_name == "xaj":

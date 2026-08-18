@@ -1,0 +1,4 @@
+storage:
+  default_source: local
+  local:
+    root: E:\data\ClassA\1st_origin\hydrodatasets

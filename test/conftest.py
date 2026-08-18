@@ -8,14 +8,40 @@ FilePath: \hydromodel\test\conftest.py
 Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Test isolation: redirect CACHE_DIR to a temp directory BEFORE any
+# hydrodatasource / hydrodataset lazy init fires.  This prevents tests from
+# reading or writing production cache files in E:\data\.cache.
+# ═══════════════════════════════════════════════════════════════════════════
+import atexit
 import os
-import numpy as np
-import pytest
-import spotpy
-from spotpy.examples.spot_setup_hymod_python import spot_setup
+import shutil
+import tempfile
 
-from hydrodataset import CamelsUs
-from hydromodel import SETTING
+_TEST_CACHE_DIR = tempfile.mkdtemp(prefix="hydromodel_test_cache_")
+
+
+def _cleanup_test_cache() -> None:
+    shutil.rmtree(_TEST_CACHE_DIR, ignore_errors=True)
+
+
+atexit.register(_cleanup_test_cache)
+
+import hydrodatasource.configs.config as _ds_config  # noqa: E402
+
+# Run the full lazy init (LOCAL_ROOT, FS, MINIO_PARAM, SETTING), then
+# override only CACHE_DIR so tests never touch the production cache.
+_ds_config._init_settings()
+_ds_config._lazy["CACHE_DIR"] = _TEST_CACHE_DIR
+
+# ── normal imports (after cache isolation) ────────────────────────────────
+import numpy as np  # noqa: E402
+import pytest  # noqa: E402
+import spotpy  # noqa: E402
+from spotpy.examples.spot_setup_hymod_python import spot_setup  # noqa: E402
+
+from hydrodataset.camels_us import CamelsUs as _CamelsUs  # noqa: E402
+from hydrodataset.hydro_dataset import StandardVariable  # noqa: E402
 
 
 @pytest.fixture()
@@ -24,10 +50,16 @@ def warmup_length():
 
 
 @pytest.fixture()
-def CamelsUs():
-    # for methods testing, we simply use the CAMELS dataset
-    root_dir = SETTING["local_data_path"]["datasets-origin"]
-    return CamelsUs(os.path.join(root_dir, "Camels_Us"))
+def camels():
+    """Provide a CamelsUs datasource using open_dataset."""
+    from hydrodatasource.configs.data_resolver import open_dataset
+
+    return open_dataset("camels_us")
+
+
+@pytest.fixture()
+def CamelsUs(camels):
+    return camels
 
 
 @pytest.fixture()
@@ -43,7 +75,8 @@ def basin_area(camels, basins):
 @pytest.fixture()
 def p_and_e(camels, basins):
     p_and_e = camels.read_ts_xrdataset(
-        basins, ["2010-01-01", "2014-01-01"], ["prcp", "PET"]
+        basins, ["2010-01-01", "2014-01-01"],
+        [StandardVariable.PRECIPITATION, StandardVariable.POTENTIAL_EVAPOTRANSPIRATION],
     )
     # three dims: sequence (time), batch (basin), feature (variable)
     return p_and_e.to_array().to_numpy().transpose(2, 1, 0)
@@ -61,7 +94,7 @@ def qobs(basin_area, camels, basins):
     basin_area = basin_area.pint.quantify()
     qobs = qobs_.pint.quantify()
     target_unit = "mm/d"
-    r = qobs["streamflow"] / basin_area["area_gages2"]
+    r = qobs["streamflow"] / basin_area["area"]
     r_mmd = r.pint.to(target_unit)
     return np.expand_dims(r_mmd.to_numpy().transpose(1, 0), axis=2)
 

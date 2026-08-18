@@ -18,7 +18,7 @@ from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 # Add hydromodel to path
 repo_path = os.path.dirname(Path(os.path.abspath(__file__)).parent)
@@ -33,15 +33,6 @@ for local_pkg in ["hydroutils", "hydrodatasource", "hydrodataset"]:
 
 # Import the new runtime simulation utilities
 from hydromodel.trainers.unified_simulate import UnifiedSimulator
-
-# Import RuntimeDataLoader directly
-try:
-    from hydrodatasource.runtime import load_runtime_data
-
-    RUNTIME_DATA_AVAILABLE = True
-except ImportError:
-    RUNTIME_DATA_AVAILABLE = False
-    load_runtime_data = None
 from hydromodel.configs.config_manager import *
 
 
@@ -53,19 +44,9 @@ def parse_arguments():
         epilog="""
 DHF Model - 19-parameter Chinese watershed model with dual-layer runoff generation
 
-Data Source Types (RuntimeDataLoader):
-  - csv: CSV files with time series data (recommended for DHF)
-  - parquet: Parquet files for large datasets
-  - memory: In-memory data (DataFrame, Dict, Arrays)
-  - sql: SQL databases (PostgreSQL, MySQL, SQLite)
-  - stream: Real-time data streams (for operational scenarios)
-
-Usage Examples:
-  # Basic DHF simulation with CSV data
-  python run_dhf_simulation.py --data-path /path/to/data.csv --basin-ids basin_001
-
-  # Database-driven simulation
-  python run_dhf_simulation.py --data-source sql --sql-connection "postgresql://user:pass@host/db" --sql-table hydro_data
+NOTE: Runtime data loading (hydrodatasource.runtime) was removed in
+hydrodatasource 0.3.0. This script's runtime-driven data loading path is no
+longer available; use run_xaj_simulate.py for DHF simulation instead.
         """,
     )
 
@@ -84,27 +65,7 @@ Usage Examples:
         type=str,
         default="csv",
         choices=["csv", "parquet", "json", "memory", "sql", "stream"],
-        help="Data source type for RuntimeDataLoader (default: csv)",
-    )
-
-    parser.add_argument(
-        "--data-path",
-        type=str,
-        help="Data file path (for csv, parquet, json sources)",
-        default=r"E:\data\ClassC\songliaorrevent\timeseries\3h\songliao_21100150.csv",
-    )
-
-    parser.add_argument(
-        "--sql-connection",
-        type=str,
-        help="SQL connection string (for sql source)",
-    )
-
-    parser.add_argument(
-        "--sql-table",
-        type=str,
-        default="hydro_data",
-        help="SQL table name (default: hydro_data)",
+        help="Data source type (no longer supported; runtime loading removed in hydrodatasource 0.3.0)",
     )
 
     parser.add_argument(
@@ -131,20 +92,6 @@ Usage Examples:
         nargs=2,
         default=["2020-01-01", "2020-12-31"],
         help="Time range for simulation: start_date end_date (default: 2020-01-01 2020-12-31)",
-    )
-
-    parser.add_argument(
-        "--time-column",
-        type=str,
-        default="time",
-        help="Name of time column in data (default: time)",
-    )
-
-    parser.add_argument(
-        "--basin-column",
-        type=str,
-        default="basin",
-        help="Name of basin column in data (default: basin)",
     )
 
     # Model parameters
@@ -368,75 +315,15 @@ def main():
             print(f"   Parameters: {len(parameters)}")
             return 0
 
-        # Prepare data source configuration
-        source_config = {}
-        if args.data_source in ["csv", "parquet", "json"]:
-            if not args.data_path:
-                print(
-                    f"❌ ERROR: --data-path required for {args.data_source} source"
-                )
-                return 1
-            source_config["file_path"] = args.data_path
-            source_config["time_column"] = args.time_column
-            source_config["basin_column"] = args.basin_column
-        elif args.data_source == "sql":
-            if not args.sql_connection:
-                print("❌ ERROR: --sql-connection required for sql source")
-                return 1
-            source_config.update(
-                {
-                    "connection_string": args.sql_connection,
-                    "table_name": args.sql_table,
-                    "time_column": args.time_column,
-                    "basin_column": args.basin_column,
-                }
-            )
-
-        # Check if RuntimeDataLoader is available
-        if not RUNTIME_DATA_AVAILABLE:
-            print(
-                "❌ ERROR: RuntimeDataLoader not available. Please ensure hydrodatasource with runtime module is installed."
-            )
-            return 1
-
-        # DHF simulation using direct approach (recommended)
-        if verbose:
-            print(f"\n🚀 Starting DHF simulation...")
-            print(f"   Source: {args.data_source}")
-            print(f"   Basins: {args.basin_ids}")
-            print(f"   Variables: {args.variables}")
-            print(
-                f"   Time range: {args.time_range[0]} to {args.time_range[1]}"
-            )
-
-        # Load data directly using RuntimeDataLoader
-        try:
-            data = load_runtime_data(
-                variables=args.variables,
-                basin_ids=args.basin_ids,
-                time_range=tuple(args.time_range),
-                source_type=args.data_source,
-                source_config=source_config,
-                return_format="arrays",  # Return in (p_and_e, qobs) format
-            )
-
-            if isinstance(data, tuple):
-                inputs, qobs = data
-                # For pure simulation, set qobs to None
-                qobs = None
-                if verbose:
-                    print(f"✅ Data loaded successfully:")
-                    print(
-                        f"   Input shape: {inputs.shape} [time, basin, features]"
-                    )
-                    print("   Observations: None (simulation mode)")
-            else:
-                print("❌ ERROR: Expected array format from RuntimeDataLoader")
-                return 1
-
-        except Exception as e:
-            print(f"❌ ERROR: Failed to load data: {e}")
-            return 1
+        # The hydrodatasource.runtime module (which powered this script's data
+        # loading) was removed in hydrodatasource 0.3.0. Runtime-driven DHF
+        # simulation is no longer supported here.
+        print(
+            "ERROR: Runtime data loading is no longer available. The "
+            "hydrodatasource.runtime module was removed in hydrodatasource "
+            "0.3.0; use run_xaj_simulate.py for DHF simulation instead."
+        )
+        return 1
 
         # Validate inputs if requested
         if args.validate_inputs:

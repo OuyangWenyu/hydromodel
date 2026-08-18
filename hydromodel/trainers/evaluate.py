@@ -9,14 +9,16 @@ Copyright (c) 2023-2024 Wenyu Ouyang. All rights reserved.
 """
 
 import os
+import re
 import yaml
+
 import numpy as np
 import pandas as pd
 import xarray as xr
 
 from hydroutils import hydro_stat
+from hydroutils.hydro_units import detect_time_interval, streamflow_unit_conv
 from hydromodel.models.xaj import xaj
-from hydrodatasource.utils.utils import streamflow_unit_conv
 from hydromodel.datasets import *
 from hydromodel.datasets.data_preprocess import (
     get_basin_area,
@@ -81,7 +83,11 @@ class Evaluator:
             **model_info,
             **{"param_range_file": self.param_range_file},
         )
-        qsim, qobs, etsim = self._convert_streamflow_units(ds, qsim, etsim)
+        converted = self._convert_streamflow_units(ds, qsim, etsim)
+        if len(converted) == 2:
+            qsim, qobs = converted
+        else:
+            qsim, qobs, etsim = converted
         return qsim, qobs, etsim
 
     def save_results(self, ds, qsim, qobs, etsim):
@@ -149,6 +155,39 @@ class Evaluator:
         # print("qsim shape:", qsim.shape)
         # print("etsim shape:", etsim.shape)
 
+        # Model output (qsim/etsim) is in depth units (mm per timestep),
+        # matching precipitation. Prefer the observed-flow depth unit when it is
+        # already pint-safe (mm/d, mm/h); do NOT blindly inherit it, since
+        # hydrodataset 0.3.0 observed streamflow may be volumetric (m^3/s).
+        # pint cannot parse custom interval units (e.g. mm/3h), so for other
+        # cadences we scale the data to a standard unit BEFORE building the
+        # DataArrays below.
+        scale = 1.0
+        obs_units = test_data[flow_name].attrs.get("units", "")
+        if obs_units in ("mm/d", "mm/day", "mm/h"):
+            depth_unit = obs_units
+        elif len(times) >= 2:
+            interval = detect_time_interval(times)
+            interval_match = re.match(r"(\d+)([hHdD])", interval)
+            if interval_match:
+                amount, kind = (
+                    int(interval_match.group(1)),
+                    interval_match.group(2).lower(),
+                )
+                if kind == "h":
+                    depth_unit = "mm/h"
+                else:
+                    depth_unit = "mm/day"
+                scale = 1.0 / amount
+            else:
+                depth_unit = "mm/day"
+        else:
+            # Single-timestep data cannot be interval-detected; default to
+            # a safe depth unit.
+            depth_unit = "mm/day"
+        qsim = qsim * scale
+        etsim = etsim * scale
+
         # 创建 DataArray，确保维度匹配
         flow_dataarray = xr.DataArray(
             qsim,
@@ -156,7 +195,7 @@ class Evaluator:
             dims=["time", "basin"],
             name=flow_name,
         )
-        flow_dataarray.attrs["units"] = test_data[flow_name].attrs["units"]
+        flow_dataarray.attrs["units"] = depth_unit
 
         et_dataarray = xr.DataArray(
             etsim,
@@ -164,7 +203,7 @@ class Evaluator:
             dims=["time", "basin"],
             name=et_name,
         )
-        et_dataarray.attrs["units"] = test_data[flow_name].attrs["units"]
+        et_dataarray.attrs["units"] = depth_unit
 
         # 创建数据集并进行单位转换
         ds_et = xr.Dataset({et_name: et_dataarray})
@@ -173,13 +212,10 @@ class Evaluator:
         target_unit = "m^3/s"
         basin_area = get_basin_area(basins, data_type, data_dir)
         ds_simflow = streamflow_unit_conv(
-            ds, basin_area, target_unit=target_unit, inverse=True
-        )  # TODO
+            ds, basin_area, target_unit=target_unit
+        )
         ds_obsflow = streamflow_unit_conv(
-            test_data[[flow_name]],
-            basin_area,
-            target_unit=target_unit,
-            inverse=True,
+            test_data[[flow_name]], basin_area, target_unit=target_unit
         )
 
         return ds_simflow, ds_obsflow, ds_et

@@ -8,12 +8,15 @@ FilePath: /hydromodel/hydromodel/trainers/unified_simulate.py
 Copyright (c) 2023-2026 Wenyu Ouyang. All rights reserved.
 """
 
+import copy
+
 import numpy as np
 import pandas as pd
 from typing import Dict, Any, Optional, Union
 from collections import OrderedDict
 
 from hydroutils.hydro_event import find_flood_event_segments_as_tuples
+from hydromodel.datasets.unified_data_loader import UnifiedDataLoader
 from hydromodel.models.model_dict import MODEL_DICT
 from .basin import Basin
 
@@ -275,6 +278,30 @@ class UnifiedSimulator:
                 **kwargs,
             )
 
+        # xaj_slw is the only model here that returns discharge (m^3/s); every
+        # other model — and the observations, loss, and evaluation — works in
+        # runoff depth (mm per time step). Convert its qsim back to mm so it is
+        # comparable, using the exact inverse of the conversion done inside the
+        # model: xaj_slw.py does `cp = basin_area / time_interval / 3.6` and
+        # `discharge = depth * cp`, so `depth = discharge * time_interval * 3.6
+        # / basin_area`.
+        if (
+            self.model_name == "xaj_slw"
+            and self.basin is not None
+            and isinstance(simulation_result, dict)
+            and "qsim" in simulation_result
+        ):
+            time_interval_hours = float(
+                self.model_params.get("time_interval_hours", 3.0)
+            )
+            basin_area_km2 = float(self.basin.basin_area)
+            simulation_result["qsim"] = (
+                simulation_result["qsim"]
+                * time_interval_hours
+                * 3.6
+                / basin_area_km2
+            )
+
         return simulation_result
 
     def _process_model_result(
@@ -358,23 +385,23 @@ class UnifiedSimulator:
         tuple
             tuple of (converted_simulation, unitconv_metadata)
         """
+        converted_simulation = None  # set in the conversion branch below
         if self.basin is not None and output_unit == "m^3/s":
             from hydroutils.hydro_units import streamflow_unit_conv
 
             # Get simulation results
             if simulation is not None:
-                # Detect time interval from time series or use provided time step
-                # Convert time_step_hours to integer format for time_interval
-                if time_interval_hours.is_integer():
+                # Detect time interval from time series or use provided time step.
+                # hydroutils supports mm/{N}h and mm/{N}d source units but NOT
+                # mm/{N}m (minutes), so sub-hourly / fractional-hour data is
+                # scaled to mm/h by dividing by the interval in hours.
+                time_interval_hours = float(time_interval_hours)
+                if time_interval_hours >= 1 and time_interval_hours.is_integer():
                     time_interval = f"{int(time_interval_hours)}h"
+                    unit_scale = 1.0
                 else:
-                    # Handle fractional hours by converting to minutes if < 1 hour
-                    if time_interval_hours < 1:
-                        time_interval_minutes = int(time_interval_hours * 60)
-                        time_interval = f"{time_interval_minutes}m"
-                    else:
-                        # Round to nearest hour for other cases
-                        time_interval = f"{round(time_interval_hours)}h"
+                    time_interval = "1h"
+                    unit_scale = 1.0 / time_interval_hours
 
                 # Convert simulation results from mm/time to m³/s
                 # simulation shape is [time, basin, 1]
@@ -382,9 +409,9 @@ class UnifiedSimulator:
 
                 for basin_idx in range(simulation.shape[1]):
                     # TODO: Only support 1 basin for now
-                    basin_simulation = simulation[
-                        :, basin_idx, 0
-                    ]  # Extract time series for this basin
+                    basin_simulation = (
+                        simulation[:, basin_idx, 0] * unit_scale
+                    )  # Extract time series for this basin
 
                     # Get basin area for this unit (supports semi-distributed)
                     basin_area_km2 = self.basin.unit_areas
@@ -591,3 +618,117 @@ class UnifiedSimulator:
             final_output["warmup_states"] = event_warmup_states
 
         return final_output
+
+
+def simulate(config: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+    """
+    Unified simulation interface for all hydrological models.
+
+    This function is the simulation counterpart of ``calibrate()``: a single
+    entry point that runs a model with specific parameter values, configured
+    entirely through the ``config`` parameter.
+
+    Parameters
+    ----------
+    config : Dict[str, Any]
+        Configuration dictionary with 'data_cfgs' and 'model_cfgs' sections.
+        ``model_cfgs`` must contain concrete parameter values under
+        ``parameters`` (not ranges) for the model run.
+    **kwargs
+        Additional keyword arguments forwarded to ``UnifiedSimulator.simulate``.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary containing:
+        - ``simulation`` : the model output (dict of arrays)
+        - ``qobs`` : observed streamflow
+        - ``parameters`` : the parameter values used
+        - ``model_name`` : the model run
+        - ``basin_ids`` : the basins simulated
+
+    Examples
+    --------
+    >>> config = {
+    ...     "data_cfgs": {"dataset": "camels_us", "basin_ids": ["01013500"]},
+    ...     "model_cfgs": {
+    ...         "name": "xaj",
+    ...         "parameters": {"K": 0.5, "B": 0.3},
+    ...     },
+    ... }
+    >>> results = simulate(config)
+    >>> print(results["simulation"].keys())
+    """
+    if not isinstance(config, dict) or not all(
+        k in config for k in ("data_cfgs", "model_cfgs")
+    ):
+        raise ValueError(
+            "Config must contain 'data_cfgs' and 'model_cfgs' keys"
+        )
+    run_config = copy.deepcopy(config)
+    data_config = run_config["data_cfgs"]
+    model_cfgs = run_config["model_cfgs"]
+    model_params = model_cfgs.get("params", {})
+    model_name = model_cfgs.get("name")
+    if not model_name:
+        raise ValueError("model_cfgs.name is required")
+    parameters = model_cfgs.get("parameters", {})
+    if not parameters:
+        raise ValueError(
+            "model_cfgs.parameters is required for simulation (concrete values)"
+        )
+
+    model_config = {
+        "model_name": model_name,
+        "model_params": model_params,
+        "parameters": parameters,
+    }
+    if "output_variable" in model_cfgs:
+        model_config["output_variable"] = model_cfgs["output_variable"]
+
+    # Load data and determine the (single) basin to simulate. Prefer the test
+    # period for evaluation-style simulation; fall back to train when absent.
+    is_train_val_test = "test"
+    if not data_config.get("test_period") and data_config.get("train_period"):
+        is_train_val_test = "train"
+    data_loader = UnifiedDataLoader(data_config, is_train_val_test=is_train_val_test)
+    p_and_e, qobs = data_loader.load_data()
+    basin_ids = list(data_config.get("basin_ids", data_loader.basin_ids))
+    if not basin_ids:
+        basin_ids = [f"basin_{i}" for i in range(p_and_e.shape[1])]
+    basin_id = basin_ids[0]
+
+    # Keep is_event_data consistent with the loader's auto-detection: event
+    # datasources expose load_1basin_flood_events and produce 3-feature arrays.
+    is_event_data = data_config.get("is_event_data", False)
+    if hasattr(data_loader.datasource, "load_1basin_flood_events"):
+        is_event_data = True
+
+    # Build an optional basin config for the simulator (area etc.) and slice
+    # the data to the single simulated basin (matching run_xaj_simulate.py) so
+    # a multi-basin dataset does not use the wrong basin's area config.
+    basin_config = None
+    if hasattr(data_loader, "get_basin_configs"):
+        basin_config = data_loader.get_basin_configs().get(basin_id)
+    if p_and_e.shape[1] > 1:
+        p_and_e = p_and_e[:, :1, :]
+        if qobs is not None:
+            qobs = qobs[:, :1, :]
+
+    simulator = UnifiedSimulator(model_config, basin_config)
+    sim_results = simulator.simulate(
+        inputs=p_and_e,
+        qobs=qobs,
+        warmup_length=data_config.get("warmup_length", 365),
+        is_event_data=is_event_data,
+        return_intermediate=False,
+        **kwargs,
+    )
+
+    return {
+        "simulation": sim_results,
+        "qobs": qobs,
+        "parameters": parameters,
+        "model_name": model_name,
+        "basin_ids": basin_ids,
+    }

@@ -67,3 +67,31 @@ class TestCalibrateGR:
         )
         assert result.returncode == 0, f"Failed: {result.stderr}"
         assert "validated" in result.stdout.lower()
+
+
+class TestEvaluateGR:
+    """Tests for evaluate_gr.py."""
+
+    def test_help(self):
+        """Script should show help without error."""
+        result = subprocess.run(
+            [sys.executable, "scripts/evaluate_gr.py", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        assert "usage" in result.stdout.lower()
+
+    def test_dry_run(self, example_gr_config, tmp_path):
+        """Script should pass validation with a valid config (dry-run mode)."""
+        result = subprocess.run(
+            [sys.executable, "scripts/evaluate_gr.py",
+             "--config", str(example_gr_config),
+             "--dry-run"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, f"Failed: {result.stderr}"
+        assert "validated" in result.stdout.lower()

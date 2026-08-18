@@ -87,6 +87,11 @@ nav:
     - Report Issues: https://github.com/OuyangWenyu/hydromodel/issues
     - Examples:
         - examples/intro.ipynb
+        - Calibration: examples/calibration.md
+        - Simulation: examples/simulation.md
+        - Flood Events: examples/flood_events.md
+        - Visualization: examples/visualization.md
+        - Advanced Topics: examples/advanced_topics.md
     - API Reference:
           - hydromodel module: hydromodel.md
           - Common Utilities: common.md

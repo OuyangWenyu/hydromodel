@@ -11,6 +11,10 @@
   results = simulate(config)  # config needs data_cfgs + model_cfgs with parameters
   ```
   Supports event data detection, basin slicing, and unit conversion automatically.
+- **GR model scripts rewritten**: `calibrate_gr.py` and `evaluate_gr.py` rewritten to use
+  the unified config API (`--config` + `--dry-run` + `validate_config` + `calibrate()`/
+  `evaluate()`). The old argparse interface with `calibrate_by_sceua` and
+  `cross_val_split_tsdata` has been removed.
 - **`validate_config` dataset check**: `data_cfgs.dataset` is now validated (previously
   only the three top-level sections were checked); `--dry-run` correctly rejects configs
   missing the dataset id.

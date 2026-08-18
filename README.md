@@ -189,8 +189,7 @@ uv run python scripts/visualize.py \
 **Option 2: Use Python API (For Advanced Users)**
 
 ```python
-from hydromodel.trainers.unified_calibrate import calibrate
-from hydromodel.trainers.unified_evaluate import evaluate
+from hydromodel import calibrate, simulate, evaluate
 
 config = {
     "data_cfgs": {
@@ -224,6 +223,7 @@ config = {
 
 results = calibrate(config)                          # Calibrate
 evaluate(config, param_dir="results/my_exp", eval_period="test")  # Evaluate
+simulate(config)                                     # Simulate with any parameters
 ```
 
 Results are saved under `{training_cfgs.output_dir}/{training_cfgs.experiment_name}/`.
@@ -299,7 +299,7 @@ config = {
 ### Calibration API
 
 ```python
-from hydromodel.trainers.unified_calibrate import calibrate
+from hydromodel import calibrate
 
 results = calibrate(config)
 ```
@@ -322,7 +322,7 @@ param_range.yaml                  # Resolved parameter ranges (if save_config=Tr
 ### Evaluation API
 
 ```python
-from hydromodel.trainers.unified_evaluate import evaluate
+from hydromodel import evaluate
 
 test_results = evaluate(config, param_dir="results/my_exp", eval_period="test")
 train_results = evaluate(config, param_dir="results/my_exp", eval_period="train")

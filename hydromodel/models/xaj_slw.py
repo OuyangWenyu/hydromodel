@@ -659,8 +659,9 @@ def xaj_slw(
         warmup_s_final = np.zeros(num_basins)
         warmup_fr_final = np.zeros(num_basins)
         for basin_idx in range(num_basins):
-            warmup_s_final[basin_idx] = s_final[-1, basin_idx]
-            warmup_fr_final[basin_idx] = fr_final[-1, basin_idx]
+            # Handle both [time, basin] and [time, basin, feature] shapes.
+            warmup_s_final[basin_idx] = np.asarray(s_final[-1, basin_idx]).item()
+            warmup_fr_final[basin_idx] = np.asarray(fr_final[-1, basin_idx]).item()
 
         # 使用预热期结果作为初始条件
         wu0 = wu_final[-1, :, 0]  # [basin]
